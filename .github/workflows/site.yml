@@ -1,0 +1,79 @@
+# DentSimco — Dashboard yayını (Firebase Hosting)
+# public/, test/ ya da araclar/ klasörü veya firebase.json değişince kendiliğinden çalışır, 2-4 dakika sürer.
+# Sıra: testler → kodu gizle (yalnız yayın kopyası; depodaki dosyalar okunur kalır) → gizlenmiş kodla testler → yayın.
+# Herhangi bir adım hata verirse yayın yapılmaz, canlı site eski hâliyle kalır.
+# Elle çalıştırmak için: Actions > DentSimco Site > Run workflow
+# Adres: https://dentsimco-e1c85.web.app
+name: DentSimco Site
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'public/**'
+      - 'test/**'
+      - 'araclar/**'
+      - 'firebase.json'
+      - '.github/workflows/site.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dentsimco-site
+  cancel-in-progress: true
+
+jobs:
+  yayinla:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: |
+            public
+            test
+            araclar
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Hazırlık
+        run: |
+          [ -f package.json ] || echo '{"type":"module"}' > package.json
+          npm install --no-save --no-package-lock javascript-obfuscator@4
+
+      - name: Testler (okunur kod)
+        run: |
+          n=0
+          for f in test/*.mjs; do
+            [ -e "$f" ] || continue
+            case "$f" in *veri-ornek*) continue ;; esac
+            if ! node "$f" > /tmp/test.txt 2>&1; then cat /tmp/test.txt; echo "::error::Test başarısız: $f"; exit 1; fi
+            echo "$f: $(tail -1 /tmp/test.txt)"; n=$((n+1))
+          done
+          [ "$n" -gt 0 ] || echo "::warning::test/ klasöründe test bulunamadı; yalnız gizleme denetimi çalışacak."
+
+      - name: Kodu gizle
+        run: node araclar/gizle.mjs
+
+      - name: Testler (gizlenmiş kod; hesaplar aynı mı)
+        run: |
+          n=0
+          for f in test/*.mjs; do
+            [ -e "$f" ] || continue
+            case "$f" in *veri-ornek*) continue ;; esac
+            if ! node "$f" > /tmp/test.txt 2>&1; then cat /tmp/test.txt; echo "::error::Test başarısız: $f"; exit 1; fi
+            echo "$f: $(tail -1 /tmp/test.txt)"; n=$((n+1))
+          done
+          [ "$n" -gt 0 ] || echo "::warning::test/ klasöründe test bulunamadı; yalnız gizleme denetimi çalışacak."
+
+
+      - name: Firebase Hosting'e yayınla
+        uses: FirebaseExtended/action-hosting-deploy@v0
+        with:
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          projectId: dentsimco-e1c85
+          channelId: live
