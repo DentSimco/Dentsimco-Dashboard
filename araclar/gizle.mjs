@@ -17,7 +17,7 @@ const DIR = path.resolve('public');
 const FORMUL = new Set(['hesap.js', 'hesap-perakende.js', 'perakende-veri.js', 'yonetici.js']);
 
 const ORTAK = {
-  target: 'browser', compact: true, sourceMap: false,
+  target: 'browser', sourceType: 'module', compact: true, sourceMap: false, // dosyalar ES modülü (import/export)
   identifierNamesGenerator: 'hexadecimal',
   renameGlobals: false, // dışa aktarılan adlar korunur (modüller birbirini bu adlarla çağırır)
   stringArray: true, stringArrayEncoding: ['base64'], stringArrayRotate: true, stringArrayShuffle: true,
