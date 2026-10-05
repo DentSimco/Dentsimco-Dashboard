@@ -75,14 +75,15 @@
   @media (max-width: 600px) { main { padding: 2px 12px 40px; } }
 
   /* Borsa düzeni */
-  .borsa { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); grid-template-areas: "bar" "alert" "hero" "plot" "quality"; }
+  .borsa { display: grid; gap: 16px; grid-template-columns: minmax(0, 1fr); grid-template-areas: "bar" "alert" "hero" "sinyal" "plot" "quality"; }
   .bar { grid-area: bar; }
   .alert { grid-area: alert; }
   .hero { grid-area: hero; }
   .plot { grid-area: plot; }
   .quality { grid-area: quality; }
+  .sg-wrap { grid-area: sinyal; min-width: 0; }
   @media (min-width: 1180px) {
-    .borsa { grid-template-columns: minmax(0, 1fr) 500px; grid-template-areas: "bar bar" "alert alert" "hero quality" "plot quality"; align-items: start; }
+    .borsa { grid-template-columns: minmax(0, 1fr) 500px; grid-template-areas: "bar bar" "alert alert" "hero quality" "sinyal quality" "plot quality"; align-items: start; }
     .quality { position: sticky; top: 16px; }
   }
 
@@ -225,6 +226,100 @@
   .sbar i { display: block; height: 100%; border-radius: 3px; background: #4a86ff; }
   .qt tfoot th, .qt tfoot td { color: var(--muted); font-weight: 600; }
 
+  /* Sinyal kartı (Borsa) — hesap özel sunucuda; burada yalnız sonuç gösterilir */
+  .up { color: var(--up); }
+  .down { color: var(--down); }
+  .sg { padding: 14px 14px 12px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+  .sg[aria-busy="true"] { opacity: 0.7; }
+  .sg-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; }
+  .sg-title { margin: 0; font-size: 16px; font-weight: 600; }
+  .sg-when { font-size: 13px; color: var(--muted); }
+  .sg-when.stale { color: var(--late); }
+  .sg-empty { margin: 10px 0 2px; color: var(--muted); max-width: 70ch; }
+  .sg-roles { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-top: 12px; }
+  .sg-role { padding: 10px 12px 11px; border: 1px solid var(--line); border-radius: 12px; background: var(--bg); }
+  .sg-role[data-yon="up"] { border-color: rgba(70, 240, 160, 0.38); }
+  .sg-role[data-yon="down"] { border-color: rgba(255, 95, 126, 0.4); }
+  .sg-who { display: block; font-size: 13px; color: var(--muted); }
+  .sg-verdict { display: flex; align-items: center; gap: 8px; margin-top: 2px; color: var(--text); }
+  .sg-role[data-yon="up"] .sg-verdict { color: var(--up); }
+  .sg-role[data-yon="down"] .sg-verdict { color: var(--down); }
+  .sg-act { font: 600 30px/1.1 var(--font-c); letter-spacing: 0.01em; white-space: nowrap; }
+  .sg-pow { font-size: 13px; color: var(--muted); }
+  .sg-meter { display: inline-flex; gap: 3px; }
+  .sg-meter i { width: 6px; height: 13px; border-radius: 2px; background: var(--raise-2); }
+  .sg-meter i.on { background: currentColor; }
+  .sg-text { margin: 6px 0 0; font-size: 14px; line-height: 1.45; }
+  .sg-exp { display: flex; flex-direction: column; gap: 3px; margin: 12px 2px 0; font-size: 15px; }
+  .sg-exp b { font: 600 19px var(--font-c); font-variant-numeric: tabular-nums; }
+  .sg-band { color: var(--muted); font-size: 13px; }
+  .sg-hist { font-size: 13px; color: var(--muted); }
+  .sg-why { margin: 10px 0 0; padding-left: 18px; font-size: 14px; line-height: 1.45; }
+  .sg-why li { margin: 3px 0; }
+  .sg-why li::marker { color: var(--faint); }
+  .sg-foot { margin: 10px 2px 0; font-size: 12.5px; line-height: 1.5; color: var(--faint); }
+  .sg-foot a { color: var(--accent); }
+
+  /* Sinyaller sayfası */
+  .sy { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; max-width: 980px; }
+  .sy-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+  .sy-title { margin: 0; font-size: 26px; font-weight: 600; line-height: 1.2; }
+  .sy-when { margin: 3px 0 0; font-size: 14px; color: var(--muted); }
+  .sy-when.stale { color: var(--late); }
+  .sy-wind { padding: 14px 16px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+  .sy-wind:empty { display: none; }
+  .sy-big { margin: 0 0 6px; font: 600 clamp(23px, 4.6vw, 32px)/1.15 var(--font-c); }
+  .sy-big[data-yon="up"] { color: var(--up); }
+  .sy-big[data-yon="down"] { color: var(--down); }
+  .sy-line { margin: 4px 0 0; font-size: 14px; color: var(--muted); max-width: 76ch; }
+  .sy-tabs { display: flex; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 11px; background: var(--bg); overflow-x: auto; scrollbar-width: none; }
+  .sy-tabs::-webkit-scrollbar, .sy-quals::-webkit-scrollbar { display: none; }
+  .sy-tabs button { flex: 1 0 auto; height: 38px; padding: 0 12px; border-radius: 8px; color: var(--muted); font: 600 15px/1 var(--font-c); white-space: nowrap; }
+  .sy-tabs button:hover { color: var(--text); }
+  .sy-tabs button[aria-selected="true"] { background: var(--raise-2); color: var(--accent); }
+  .sy-quals { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 2px; }
+  .sy-quals button { flex: none; min-width: 44px; height: 36px; padding: 0 10px; border: 1px solid var(--line); border-radius: 10px; font: 600 14px/1 var(--font-c); }
+  .sy-quals button[aria-checked="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .sy-block { padding: 14px 6px 8px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
+  .sy-h2 { margin: 0 8px; font-size: 17px; font-weight: 600; }
+  .sy-count { margin-left: 4px; color: var(--faint); font: 500 15px var(--font-c); }
+  .sy-hint { margin: 4px 8px 10px; font-size: 13.5px; color: var(--muted); max-width: 76ch; }
+  .sy-list { display: grid; }
+  .sy-row {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto auto; grid-template-areas: "name act val" "why why why";
+    gap: 2px 14px; align-items: center; width: 100%; padding: 9px 8px; border-top: 1px solid rgba(20, 34, 58, 0.7); text-align: left;
+  }
+  .sy-row:hover { background: rgba(143, 211, 255, 0.04); }
+  .sy-name { grid-area: name; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .sy-act { grid-area: act; display: inline-flex; align-items: center; gap: 6px; font: 600 15px var(--font-c); white-space: nowrap; }
+  .sy-act[data-yon="up"] { color: var(--up); }
+  .sy-act[data-yon="down"] { color: var(--down); }
+  .sy-val { grid-area: val; min-width: 62px; text-align: right; font: 600 15px var(--font-c); font-variant-numeric: tabular-nums; }
+  .sy-why { grid-area: why; font-size: 13px; color: var(--muted); }
+  .sy-why:empty { display: none; }
+  .sy-dim { color: var(--faint); font-weight: 500; }
+  .sy-more { margin: 8px 8px 2px; height: 34px; padding: 0 12px; border: 1px solid var(--line-2); border-radius: 9px; color: var(--accent); font-weight: 600; }
+  .sy-empty { margin: 6px 8px 8px; color: var(--muted); }
+  .sy-opt { display: flex; align-items: center; gap: 8px; font-size: 14px; color: var(--muted); }
+  .sy-opt input { width: 18px; height: 18px; accent-color: var(--accent); }
+  .sy-note { margin: 0; font-size: 12.5px; line-height: 1.5; color: var(--faint); max-width: 76ch; }
+  .sy-karne { min-width: 0; }
+  .sy-karne tbody tr { cursor: default; }
+  .sy-karne th, .sy-karne td { height: auto; padding-top: 8px; padding-bottom: 8px; text-align: left; vertical-align: top; }
+  .sy-karne tbody th { white-space: nowrap; }
+  .sy-karne td b { display: block; white-space: nowrap; }
+  .sy-sub { display: block; font: 400 13px var(--font); color: var(--muted); white-space: normal; }
+  @media (max-width: 600px) {
+    .sy-row { gap: 2px 10px; }
+    .sg-roles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    .sg-role { padding: 9px 10px 10px; }
+    .sg-role:nth-child(n+3) { grid-column: 1 / -1; }
+    .sg-verdict { flex-wrap: wrap; gap: 4px 7px; }
+    .sg-act { font-size: 22px; }
+    .sg-text { font-size: 13.5px; }
+    .sy-tabs button { padding: 0 10px; font-size: 14px; }
+  }
+
   /* Sıradaki modüller */
   .soon { max-width: 640px; padding: 40px 4px; }
   .soon h1 { margin: 0 0 10px; font-size: 26px; }
@@ -251,6 +346,7 @@
   </a>
   <nav class="modules" aria-label="Modüller">
     <a href="#borsa" data-nav="borsa">Borsa</a>
+    <a href="#sinyal" data-nav="sinyal">Sinyaller</a>
     <a href="#uretim" data-nav="kar">Kâr Hesaplayıcı</a>
   </nav>
   <div class="realm" role="group" aria-label="Realm">
@@ -315,6 +411,7 @@
 
   const MODULES = {
     borsa: () => import('./borsa.js').then((m) => m.mountBorsa),
+    sinyal: () => import('./sinyal.js').then((m) => m.mountSinyal),
     uretim: () => import('./uretim.js').then((m) => m.mountUretim),
     yonetim: () => import('./yonetim.js').then((m) => m.mountYonetim),
     perakende: () => import('./perakende.js').then((m) => m.mountPerakende),

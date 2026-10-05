@@ -1,5 +1,5 @@
 // DentSimco — Modül 1: Canlı borsa
-// Ürün ve kalite seç, zaman aralığı seç: grafik, bugünkü özet ve kalite tablosu burada.
+// Ürün ve kalite seç, zaman aralığı seç: grafik, bugünkü özet, sinyal kartı ve kalite tablosu burada.
 
 import {
   QUALITIES, START_YEAR, MIN, HOUR, DAY, utcDay, addDays, dayStart,
@@ -7,6 +7,7 @@ import {
   fmtPrice, fmtNum, fmtCompact, fmtPct, fmtShare, fmtTime, fmtDate, fmtDateTime, fmtMonth, fmtMonthYear, fmtAgo,
 } from './veri.js';
 import { createChart } from './grafik.js';
+import { loadSignals, signalCard } from './sinyal.js';
 
 // ---- Ayarlar (renkleri buradan değiştirebilirsin) ----
 
@@ -291,6 +292,8 @@ const TEMPLATE = `
     </dl>
   </div>
 
+  <div class="sg-wrap" data-el="sinyal"></div>
+
   <div class="plot" data-el="plot" aria-busy="true">
     <div class="ranges" data-el="ranges" role="radiogroup" aria-label="Zaman aralığı">
       ${RANGES.map((r) => `<button type="button" role="radio" data-range="${r.key}" aria-checked="false" aria-label="${r.name}" tabindex="-1">${r.label || r.key}</button>`).join('')}
@@ -347,6 +350,10 @@ export function mountBorsa(root, { realm = 0 } = {}) {
   let token = 0;
   let lastAuto = 0;
   let destroyed = false;
+  let signals; // meta/sinyal_r{r}: undefined = henüz okunmadı, null = belge yok
+  let signalsRealm = null;
+  let signalsFresh = false;
+  let signalToken = 0;
 
   const pick = () => prefs.picks[r] || { id: null, q: 0 };
   const range = () => RANGES.find((x) => x.key === prefs.range) || RANGES[3];
@@ -442,6 +449,7 @@ export function mountBorsa(root, { realm = 0 } = {}) {
     renderWhen();
     renderFoot(now);
     renderTable();
+    paintSignal();
     document.title = `${nameOf(id)} Q${q} | DentSimco`;
   }
 
@@ -581,6 +589,28 @@ export function mountBorsa(root, { realm = 0 } = {}) {
       + `<td>${tracked && totS > 0 ? fmtShare(1) : '—'}</td></tr>`;
   }
 
+  // Sinyal kartı: hesap özel sunucuda her gece yapılır, burada yalnız sonuç okunur
+  async function paintSignal() {
+    const my = ++signalToken;
+    const { id, q } = pick();
+    const ctx = { id, q, products: basics?.products, realm: r };
+    if (signalsRealm !== r || signals === undefined || signalsFresh) {
+      el.sinyal.innerHTML = signalCard(signalsRealm === r ? signals : undefined, ctx);
+      const fresh = signalsFresh;
+      signalsFresh = false;
+      let got = null;
+      try {
+        got = await loadSignals(r, fresh ? { refresh: (p) => p.startsWith('meta/sinyal_') } : undefined);
+      } catch {
+        got = null; // bağlantı hatası üstteki uyarıda zaten görünür
+      }
+      if (my !== signalToken || destroyed) return;
+      signals = got;
+      signalsRealm = r;
+    }
+    el.sinyal.innerHTML = signalCard(signals, ctx);
+  }
+
   // ---- Ürün seçici ----
 
   function openPicker() {
@@ -716,7 +746,7 @@ export function mountBorsa(root, { realm = 0 } = {}) {
     const row = e.target.closest('[data-q]');
     if (row) selectQuality(Number(row.dataset.q));
   });
-  el.reload.addEventListener('click', () => refresh({ transition: 'update', fresh: true }));
+  el.reload.addEventListener('click', () => { signalsFresh = true; refresh({ transition: 'update', fresh: true }); });
   el.retry.addEventListener('click', () => refresh({ transition: product ? 'update' : 'sweep', fresh: true }));
 
   // Bot 15 dakikada bir yazar. Veri 25 dakikadan eskiyse 3 dakikada bir yeniden bakılır.
@@ -745,12 +775,15 @@ export function mountBorsa(root, { realm = 0 } = {}) {
       product = null;
       snap = null;
       hoverIndex = null;
+      signals = undefined;
+      signalsRealm = null;
       el.productName.textContent = 'Yükleniyor';
       el.productId.textContent = '';
       refresh({ transition: 'sweep' });
     },
     destroy() {
       destroyed = true;
+      signalToken++;
       clearInterval(clock);
       document.removeEventListener('visibilitychange', onVisible);
       document.removeEventListener('pointerdown', outsidePicker, true);
