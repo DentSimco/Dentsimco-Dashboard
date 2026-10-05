@@ -358,6 +358,9 @@ export function mountSinyal(root, { realm = 0 } = {}) {
       ${all ? `<div class="sy-list">${shown.map(toRow).join('')}</div>${more}` : '<p class="sy-empty">Şu an bu grupta sinyal yok.</p>'}</section>`;
   }
 
+  // Geniş ekranda iki blok yan yana (yeşil solda, kırmızı sağda); dar ekranda alt alta (stil: .sy-pair)
+  const pair = (left, right) => `<div class="sy-pair">${left}${right}</div>`;
+
   const ilkNeden = (e) => (e.r || []).map(gerekce).find(Boolean) || '';
   const eTxt = (e) => (e.e == null ? '<span class="sy-dim">mevsim</span>' : `<b class="${e.e > 0 ? 'up' : e.e < 0 ? 'down' : ''}">${fmtPct(e.e / 200)}</b>`);
   const byE = (dir) => (a, b) => (b.e.s?.[1] ?? 0) - (a.e.s?.[1] ?? 0) || dir * ((b.e.e ?? 0) - (a.e.e ?? 0));
@@ -372,21 +375,27 @@ export function mountSinyal(root, { realm = 0 } = {}) {
     if (t === 'satici') {
       const tut = entries((e) => e.s?.[0] === 'TUT' && e.s[1] > 0).sort(byE(1));
       const hs = entries((e) => e.s?.[0] === 'HSAT').sort(byE(-1));
-      html = block('tut', 'Satışı ertele (TUT)', 'Elindeki malı bekletmek daha iyi görünüyor.', tut, (x) => row(x, 'TUT', 'up', x.e.s[1], eTxt(x.e), ilkNeden(x.e)))
-        + block('hsat', 'Hemen sat', 'Bekletirsen fiyatın düşmesi bekleniyor.', hs, (x) => row(x, 'HEMEN SAT', 'down', x.e.s[1], eTxt(x.e), ilkNeden(x.e)));
+      html = pair(
+        block('tut', 'Satışı ertele (TUT)', 'Elindeki malı bekletmek daha iyi görünüyor.', tut, (x) => row(x, 'TUT', 'up', x.e.s[1], eTxt(x.e), ilkNeden(x.e))),
+        block('hsat', 'Hemen sat', 'Bekletirsen fiyatın düşmesi bekleniyor.', hs, (x) => row(x, 'HEMEN SAT', 'down', x.e.s[1], eTxt(x.e), ilkNeden(x.e))),
+      );
     } else if (t === 'alici') {
       const bek = entries((e) => e.a?.[0] === 'BEKLE').sort((a, b) => b.e.a[1] - a.e.a[1] || (a.e.e ?? 0) - (b.e.e ?? 0));
       const sto = entries((e) => e.a?.[0] === 'STOKLA').sort((a, b) => b.e.a[1] - a.e.a[1] || (b.e.e ?? 0) - (a.e.e ?? 0));
-      html = block('bekle', 'Alımı ertele (BEKLE)', 'Geçmiş sınamada en isabetli sinyal grubu buydu.', bek, (x) => row(x, 'BEKLE', 'down', x.e.a[1], eTxt(x.e), ilkNeden(x.e)))
-        + block('stokla', 'Şimdiden al (STOKLA)', 'Fiyatın yükselmesi bekleniyor; ihtiyacını öne çek.', sto, (x) => row(x, 'STOKLA', 'up', x.e.a[1], eTxt(x.e), ilkNeden(x.e)));
+      html = pair(
+        block('stokla', 'Şimdiden al (STOKLA)', 'Fiyatın yükselmesi bekleniyor; ihtiyacını öne çek.', sto, (x) => row(x, 'STOKLA', 'up', x.e.a[1], eTxt(x.e), ilkNeden(x.e))),
+        block('bekle', 'Alımı ertele (BEKLE)', 'Geçmiş sınamada en isabetli sinyal grubu buydu.', bek, (x) => row(x, 'BEKLE', 'down', x.e.a[1], eTxt(x.e), ilkNeden(x.e))),
+      );
     } else if (t === 'uretim') {
       const kar = entries((e) => e.m != null && e.m >= 3).sort((a, b) => b.e.m - a.e.m);
       const zarar = entries((e) => e.m != null && e.m <= -10).sort((a, b) => a.e.m - b.e.m);
       const kal = Object.entries(doc.kalite || {}).map(([id, k]) => ({ id: Number(id), q: k[0], k }))
         .filter((x) => x.k[0] !== 0 && x.k[2] != null && x.k[1] - x.k[2] >= 5).sort((a, b) => (b.k[1] - b.k[2]) - (a.k[1] - a.k[2]));
       const mrow = (x) => row(x, x.e.m >= 3 ? 'KÂRDA' : 'ZARARDA', x.e.m >= 3 ? 'up' : 'down', 0, `<b class="${x.e.m >= 0 ? 'up' : 'down'}">${pctInt(x.e.m)}</b>`, 'Tipik üretici maliyetiyle net marj');
-      html = block('kar', 'Tipik üretici kârda (+%3 ve üstü)', 'Yönetim gideri dahil tipik maliyetle, komisyon ve taşıma sonrası. Kendi maliyetin farklıdır.', kar, mrow)
-        + block('zarar', 'Tipik üretici belirgin zararda (−%10 ve altı)', 'Fiyatı daha verimli üreticiler belirliyor. Yönetim giderin yüksekse bu ürünleri üretmek yerine almak daha ucuz olabilir.', zarar, mrow)
+      html = pair(
+        block('kar', 'Tipik üretici kârda (+%3 ve üstü)', 'Yönetim gideri dahil tipik maliyetle, komisyon ve taşıma sonrası. Kendi maliyetin farklıdır.', kar, mrow),
+        block('zarar', 'Tipik üretici belirgin zararda (−%10 ve altı)', 'Fiyatı daha verimli üreticiler belirliyor. Yönetim giderin yüksekse bu ürünleri üretmek yerine almak daha ucuz olabilir.', zarar, mrow),
+      )
         + block('kalite', 'Kalite önerisi', 'Son 90 günde Q0\'a göre belirgin daha kârlı kalite (girdiler en az bir alt kaliteden).', kal,
           (x) => row({ id: x.id, q: x.k[0] }, `Q${x.k[0]}`, x.k[1] > 0 ? 'up' : '', 0, `<b class="${x.k[1] > 0 ? 'up' : 'down'}">${pctInt(x.k[1])}</b>`, `Q0'da ${pctInt(x.k[2])}`));
     } else if (t === 'tuccar') {
