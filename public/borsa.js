@@ -24,10 +24,10 @@ const SERIES_BY_KEY = Object.fromEntries(SERIES.map((s) => [s.key, s]));
 
 function seriesLabel(key, { q, daily }) {
   switch (key) {
-    case 'anlik': return daily ? 'Kapanış' : 'Anlık en düşük';
+    case 'anlik': return daily ? 'Kapanış' : 'Son işlem fiyatı';
     case 'dusuk': return 'Gün en düşük';
     case 'yuksek': return 'Gün en yüksek';
-    case 'vwap': return 'Ort. İşlem Fiyatı';
+    case 'vwap': return 'VWAP';
     case 'hacim': return `Q${q} Satılan Birim`;
     default: return 'Toplam Satılan Birim';
   }
@@ -210,12 +210,18 @@ function change24h(product, q, snap) {
   return best ? now / best.p - 1 : null;
 }
 
+// Tablo için kısa süre: 3 dk, 5 sa, 2 g
+function agoShort(ms, now) {
+  const m = Math.max(0, Math.round((now - ms) / MIN));
+  return m < 1 ? 'şimdi' : m < 60 ? `${m} dk` : m < 1440 ? `${Math.floor(m / 60)} sa` : `${Math.floor(m / 1440)} g`;
+}
+
 function freshness(t, now) {
   if (!t) return { level: 'stale', text: 'Henüz ölçüm yok' };
   const age = now - t;
   const when = `${age < DAY ? fmtTime(t) : fmtDateTime(t)} (${fmtAgo(t, now)})`;
-  if (age <= 40 * MIN) return { level: 'live', text: `Güncel, son ölçüm ${when}` };
-  if (age <= 2 * HOUR) return { level: 'late', text: `Gecikmeli, son ölçüm ${when}` };
+  if (age <= 20 * MIN) return { level: 'live', text: `Güncel, son ölçüm ${when}` }; // bot 5 dakikada bir; GitHub zamanlayıcısı gecikebilir
+  if (age <= HOUR) return { level: 'late', text: `Gecikmeli, son ölçüm ${when}` };
   return { level: 'stale', text: `Eski veri, son ölçüm ${when}` };
 }
 
@@ -241,7 +247,7 @@ const ICON_CHEVRON = '<svg class="chev" viewBox="0 0 20 20" width="18" height="1
 const ICON_RELOAD = '<svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M16.2 10a6.2 6.2 0 1 1-1.9-4.5M16.4 3.4v3.4H13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 
 const FIGS = [
-  ['vwap', 'Ort. İşlem Fiyatı (bugün)'],
+  ['vwap', 'VWAP (bugün)'],
   ['hacim', 'Satılan Birim'],
   ['toplam', 'İşlem Değeri ($)'],
   ['arz', 'Satış Arzı'],
@@ -280,7 +286,7 @@ const TEMPLATE = `
         <button type="button" class="icon-btn" data-el="reload" aria-label="Verileri yenile" title="Yenile">${ICON_RELOAD}</button>
       </div>
     </div>
-    <p class="hero-price"><span class="price" data-el="price">—</span><span class="chg" data-el="chg"></span></p>
+    <p class="hero-price"><span class="price" data-el="price">—</span><span class="chg" data-el="chg"></span><span class="lt" data-el="lastTrade"></span></p>
     <div class="dayrange">
       <span class="dr-cap">Gün en düşük</span><span></span><span class="dr-cap dr-end">Gün en yüksek</span>
       <span class="dr-lo" data-el="lo">—</span>
@@ -312,7 +318,7 @@ const TEMPLATE = `
     <h2 class="quality-title">Kaliteler, bugün</h2>
     <div class="table-wrap">
       <table class="qt">
-        <thead><tr><th scope="col">Kalite</th><th scope="col">Anlık</th><th scope="col">Satış Arzı</th><th scope="col">Satılan Birim</th><th scope="col">Ort. İşlem Fiyatı</th><th scope="col">Pay</th></tr></thead>
+        <thead><tr><th scope="col">Kalite</th><th scope="col">Anlık</th><th scope="col">Satış Arzı</th><th scope="col">Satılan Birim</th><th scope="col">VWAP</th><th scope="col">Pay</th></tr></thead>
         <tbody data-el="rows"></tbody>
         <tfoot data-el="total"></tfoot>
       </table>
@@ -456,7 +462,7 @@ export function mountBorsa(root, { realm = 0 } = {}) {
   function emptyMessage() {
     return range().kind === 'daily'
       ? 'Bu aralık için günlük özet henüz yok. Bot her gece bir önceki günü ekler.'
-      : 'Bu aralıkta ölçüm yok. Bot yaklaşık 15 dakikada bir ölçer.';
+      : 'Bu aralıkta ölçüm yok. Bot 5 dakikada bir ölçer.';
   }
 
   function chartLabel() {
@@ -502,7 +508,9 @@ export function mountBorsa(root, { realm = 0 } = {}) {
     el.heroQ.textContent = `Q${q}`;
     const cur = snap?.qs?.[q];
     const p = cur?.[0] ?? null;
-    el.price.textContent = p != null ? fmtPrice(p) : snap ? 'İlan yok' : '—';
+    el.price.textContent = p != null ? fmtPrice(p) : snap ? 'İşlem yok' : '—';
+    const lt = cur?.[4];
+    el.lastTrade.textContent = Number.isFinite(lt) ? `son işlem: ${fmtAgo(lt, now)}` : '';
     el.price.classList.toggle('none', p == null);
     const ch = change24h(product, q, snap);
     el.chg.textContent = ch == null ? '' : `${fmtPct(ch)} 24 saatte`;
@@ -521,7 +529,7 @@ export function mountBorsa(root, { realm = 0 } = {}) {
     figs.vwap.textContent = fmtPrice(sold > 0 ? d[6] / sold : null);
     figs.hacim.textContent = fmtNum(sold);
     figs.toplam.textContent = fmtNum(d?.[6] ?? null); // seçili kalitenin bugünkü satış tutarı ($)
-    figs.arz.textContent = snap ? fmtNum(cur?.[1] ?? 0) : '—';
+    figs.arz.textContent = cur?.[1] != null ? fmtNum(cur[1]) : '—'; // Simcotools ilan derinliği vermez: veri yoksa 0 değil —
     setFresh(freshness(snap?.t, now));
   }
 
@@ -555,36 +563,37 @@ export function mountBorsa(root, { realm = 0 } = {}) {
   function renderFoot(now) {
     const rg = range();
     const bars = rg.kind === 'daily' ? 'Her sütun bir günün satışı.'
-      : rg.bucket ? 'Her sütun 2 saatlik satış.' : 'Her sütun iki ölçüm arası (yaklaşık 15 dk) satış.';
+      : rg.bucket ? 'Her sütun 2 saatlik satış.' : 'Her sütun iki nokta arası (yaklaşık 10 dk) satış.';
     const few = rg.kind === 'daily' && shown.xs.length <= 3 ? ' Günlük geçmiş, bot her gece bir gün ekledikçe uzar.' : '';
-    el.foot.textContent = `${bars} Satılan birim, işlem değeri ve ort. işlem fiyatı, ilanlardaki azalmadan tahmin edilir. Gün sınırı UTC gece yarısı (senin saatinle ${fmtTime(dayStart(utcDay(now)))}).${few}`;
+    el.foot.textContent = `${bars} Fiyat, kalitedeki son işlemin fiyatıdır. Satılan birim, işlem değeri ve VWAP gün içinde 5 dakikalık mumlardan tahmin edilir; tamamlanan günlerin değerleri kesindir. Gün sınırı UTC gece yarısı (senin saatinle ${fmtTime(dayStart(utcDay(now)))}).${few}`;
   }
 
   function renderTable() {
     const { q: sel } = pick();
     const liveQs = snap?.qs || {};
-    let totS = 0, totV = 0, totA = 0, tracked = false;
+    let totS = 0, totV = 0, totA = 0, tracked = false, arzSeen = false;
     const rows = QUALITIES.map((q) => {
       const p = liveQs[q]?.[0] ?? null;
       const a = liveQs[q]?.[1] ?? null;
       const s = todaySum[q]?.[5] ?? null;
       const v = todaySum[q]?.[6] ?? null;
       if (s != null) { tracked = true; totS += s; totV += v || 0; }
-      if (a != null) totA += a;
-      return { q, p, a, s, v };
+      if (a != null) { totA += a; arzSeen = true; }
+      return { q, p, a, s, v, lt: liveQs[q]?.[4] ?? null };
     });
     const maxS = Math.max(0, ...rows.map((x) => x.s || 0));
-    el.rows.innerHTML = rows.map(({ q, p, a, s, v }) => {
+    const nowT = Date.now();
+    el.rows.innerHTML = rows.map(({ q, p, a, s, v, lt }) => {
       const share = tracked && totS > 0 && s != null ? s / totS : null;
       const bar = share == null || !(maxS > 0) ? '' // çubuk en büyük paya göre ölçeklenir
         : `<span class="sbar" aria-hidden="true"><i style="width:${((s / maxS) * 100).toFixed(1)}%"></i></span>`;
       const none = p == null && !(a > 0) && !(s > 0);
       return `<tr data-q="${q}" class="${q === sel ? 'sel' : ''}${none ? ' none' : ''}">`
         + `<th scope="row"><button type="button" data-q="${q}" aria-pressed="${q === sel}">Q${q}</button></th>`
-        + `<td>${fmtPrice(p)}</td><td>${fmtNum(a)}</td><td>${fmtNum(s)}</td><td>${fmtPrice(s > 0 ? v / s : null)}</td>`
+        + `<td>${fmtPrice(p)}${p != null && Number.isFinite(lt) ? `<small class="ago" title="Son işlem">${agoShort(lt, nowT)}</small>` : ''}</td><td>${fmtNum(a)}</td><td>${fmtNum(s)}</td><td>${fmtPrice(s > 0 ? v / s : null)}</td>`
         + `<td class="share">${bar}${fmtShare(share)}</td></tr>`;
     }).join('');
-    el.total.innerHTML = `<tr><th scope="row">Tümü</th><td></td><td>${snap ? fmtNum(totA) : '—'}</td>`
+    el.total.innerHTML = `<tr><th scope="row">Tümü</th><td></td><td>${arzSeen ? fmtNum(totA) : '—'}</td>`
       + `<td>${tracked ? fmtNum(totS) : '—'}</td><td title="Farklı kaliteler karışacağı için ortalama fiyat gösterilmez">—</td>`
       + `<td>${tracked && totS > 0 ? fmtShare(1) : '—'}</td></tr>`;
   }
@@ -749,12 +758,12 @@ export function mountBorsa(root, { realm = 0 } = {}) {
   el.reload.addEventListener('click', () => { signalsFresh = true; refresh({ transition: 'update', fresh: true }); });
   el.retry.addEventListener('click', () => refresh({ transition: product ? 'update' : 'sweep', fresh: true }));
 
-  // Bot 15 dakikada bir yazar. Veri 25 dakikadan eskiyse 3 dakikada bir yeniden bakılır.
+  // Bot 5 dakikada bir yazar. Veri 7 dakikadan eskiyse 3 dakikada bir yeniden bakılır.
   function tick() {
     if (destroyed || document.visibilityState !== 'visible' || !basics) return;
     const now = Date.now();
     if (snap) setFresh(freshness(snap.t, now));
-    if (now - (basics.live?.t || 0) < 25 * MIN || now - lastAuto < 3 * MIN) return;
+    if (now - (basics.live?.t || 0) < 7 * MIN || now - lastAuto < 3 * MIN) return;
     lastAuto = now;
     refresh({ transition: 'update', fresh: true });
   }

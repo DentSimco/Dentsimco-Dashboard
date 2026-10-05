@@ -1,6 +1,6 @@
 // DentSimco — Üretim hesaplayıcı (arayüz)
 // Hesapların hepsi hesap.js'te; burada yalnız ekranlar, veri yükleme ve tarayıcıda kayıt var.
-// Kurulum, Binalar, Alım-Satım ve Özet (ön muhasebe). Fiyatlar botun 15 dakikada bir yazdığı live/r{realm} belgesinden.
+// Kurulum, Binalar, Alım-Satım ve Özet (ön muhasebe). Fiyatlar botun 5 dakikada bir yazdığı live/r{realm} belgesinden.
 // Yöneticiler, nakit, bono ve banka seviyesi şirket kaydında (Yönetim sekmesi); buradaki hesaplar onu okur.
 
 import { readDocs, PATHS, dataField, loadGamePhase } from './veri.js';
@@ -46,29 +46,32 @@ const whenFmt = new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'short
 // Tek belirsiz durum: tek nokta + tam 3 hane ("2.345": 2,345 mi, 2345 mi?). Kural:
 //   • tamsayı kısmı 0 ile başlıyorsa ("0.123") ondalıktır;
 //   • ref verilmişse (fiyat kutularında borsa fiyatı) ona yakın olan okunur;
-//   • ref yoksa Türkçe binlik ayracı sayılır ("2.323" maaş → 2323).
+//   • ref yoksa binlik ayracı sayılır ("2.323" ya da "225,000" maaş → 2323 ve 225000).
 export function parseNum(input, { ref = null } = {}) {
-  let t = String(input ?? '').trim().replace(/[\s$%₺]/g, '');
+  let t = String(input ?? '').trim().replace(/[\s$%₺]/g, '').replace(/\u2212/g, '-'); // ekrandaki "−" işareti de eksi sayılır
   if (!t) return null;
   const commas = (t.match(/,/g) || []).length;
   const dots = (t.match(/\./g) || []).length;
+  // Tek ayraç ve ardından tam 3 hane ("2.345", "225,000"): ondalık mı, binlik ayracı mı? Okunan sayı metin olarak döner; belirsiz değilse null.
+  const single = (sep) => {
+    const m = new RegExp(`^(-?)(\\d{1,3})\\${sep}(\\d{3})$`).exec(t);
+    if (!m || m[2].startsWith('0')) return null;
+    const decimal = Number(`${m[1]}${m[2]}.${m[3]}`);
+    const grouped = Number(`${m[1]}${m[2]}${m[3]}`);
+    const target = Number(ref);
+    return String(target > 0 && Math.abs(Math.log(decimal / target)) < Math.abs(Math.log(grouped / target)) ? decimal : grouped);
+  };
   if (commas && dots) {
     // ikisi birden: sonra gelen ondalık ayracıdır ("1.234,56" Türkçe, "1,234.56" İngilizce)
     t = t.lastIndexOf(',') > t.lastIndexOf('.') ? t.replace(/\./g, '').replace(',', '.') : t.replace(/,/g, '');
   } else if (commas > 1) {
     t = t.replace(/,/g, ''); // "4,490,000" (oyunun İngilizce ekranından kopyalanan)
   } else if (commas === 1) {
-    t = t.replace(',', '.'); // "0,3582"
+    t = single(',') ?? t.replace(',', '.'); // "0,3582" ondalık; "225,000" binlik (ref yoksa)
   } else if (dots > 1) {
     if (/^-?\d{1,3}(\.\d{3})+$/.test(t)) t = t.replace(/\./g, ''); // "1.921.272"
   } else if (dots === 1) {
-    const m = /^(-?)(\d{1,3})\.(\d{3})$/.exec(t);
-    if (m && !m[2].startsWith('0')) {
-      const decimal = Number(`${m[1]}${m[2]}.${m[3]}`);
-      const grouped = Number(`${m[1]}${m[2]}${m[3]}`);
-      const target = Number(ref);
-      t = String(target > 0 && Math.abs(Math.log(decimal / target)) < Math.abs(Math.log(grouped / target)) ? decimal : grouped);
-    }
+    t = single('.') ?? t;
   }
   const n = Number(t);
   return Number.isFinite(n) ? n : null;
@@ -226,9 +229,9 @@ export const CSS = `
   border: 1px solid var(--line-2); border-radius: 12px; padding: 12px 16px; font-size: 15px; max-width: calc(100vw - 32px); box-shadow: 0 8px 30px rgba(0,0,0,.5); }
 .ur-sheet { position: fixed; inset: 0; z-index: 50; background: rgba(1, 3, 8, 0.72); display: flex; align-items: flex-end; justify-content: center; }
 .ur-panel { background: var(--surface); border: 1px solid var(--line-2); border-bottom: 0; border-radius: 20px 20px 0 0; width: 100%; max-width: 640px;
-  max-height: calc(100dvh - 24px); overflow: auto; overscroll-behavior: contain; padding: 16px 16px calc(20px + env(safe-area-inset-bottom, 0px));
+  max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); overflow: auto; overscroll-behavior: contain; padding: 16px 16px calc(20px + env(safe-area-inset-bottom, 0px));
   display: flex; flex-direction: column; gap: 12px; box-sizing: border-box; }
-@media (min-width: 740px) { .ur-sheet { align-items: center; } .ur-panel { border-radius: 20px; border-bottom: 1px solid var(--line-2); max-height: calc(100dvh - 48px); } }
+@media (min-width: 740px) { .ur-sheet { align-items: center; } .ur-panel { border-radius: 20px; border-bottom: 1px solid var(--line-2); max-height: calc(100vh - 48px); max-height: calc(100dvh - 48px); } }
 .ur-panel-head { display: flex; align-items: center; gap: 10px; }
 .ur-panel-foot { display: flex; gap: 8px; position: sticky; bottom: calc(-20px - env(safe-area-inset-bottom, 0px)); background: var(--surface); padding: 8px 0 0; margin-top: 2px; }
 `;
@@ -314,7 +317,8 @@ export function mountUretim(root, { realm = 0 } = {}) {
   let pendingRender = false;
   let settleTimer = null;
   const flush = () => { clearTimeout(settleTimer); pointerActive = false; if (pendingRender) render(); };
-  const onPointerDown = () => { pointerActive = true; clearTimeout(settleTimer); };
+  let downOnBackdrop = false; // basış panelin dışında başladıysa bırakınca kapanır; panelde başlayıp dışarıda bırakmak kapatmaz
+  const onPointerDown = (ev) => { pointerActive = true; downOnBackdrop = ev?.target?.dataset?.act === 'sheetBackdrop'; clearTimeout(settleTimer); };
   const onPointerUp = () => { clearTimeout(settleTimer); settleTimer = setTimeout(flush, 450); }; // "click" hiç gelmezse
   const onAnyClick = () => setTimeout(flush, 0); // dokunma işlendikten hemen sonra
   function softRender() { if (pointerActive) pendingRender = true; else render(); }
@@ -363,7 +367,11 @@ export function mountUretim(root, { realm = 0 } = {}) {
     if (refreshing) return;
     refreshing = true;
     render();
-    try { live = await loadLive(r, { refresh: true }); liveError = null; toast('Fiyatlar yenilendi.'); } catch (e) { liveError = e?.message || String(e); }
+    const rr = r; // yenilenirken realm değişirse eski realm'in fiyatı yeni realm'e yazılmasın
+    try {
+      const fresh = await loadLive(rr, { refresh: true });
+      if (rr === r && !destroyed) { live = fresh; liveError = null; toast('Fiyatlar yenilendi.'); }
+    } catch (e) { if (rr === r) liveError = e?.message || String(e); }
     refreshing = false;
     render();
   }
@@ -906,7 +914,7 @@ export function mountUretim(root, { realm = 0 } = {}) {
     if (!btn || !root.contains(btn)) return;
     const act = btn.dataset.act;
     const v = btn.dataset.v;
-    if (act === 'sheetBackdrop') { if (ev.target === btn) closeSheet(); return; }
+    if (act === 'sheetBackdrop') { if (ev.target === btn && downOnBackdrop) closeSheet(); return; }
     if (act === 'retry') return load();
     if (!data) return;
     const set = (patch) => commit({ ...setup, ...patch });
@@ -997,7 +1005,7 @@ export function mountUretim(root, { realm = 0 } = {}) {
     if (act === 'dLevel') { d.level = Math.max(1, (Number(d.level) || 1) + Number(v)); return renderSheet(); }
     if (act === 'dRobot') { d.robots = v === '1'; return renderSheet(); }
     if (act === 'gotoEvents') {
-      parkSheet({ realm: r, draft: structuredClone(sheet.draft), index: sheet.index ?? null, scroll: sheetHost.querySelector('.ur-panel')?.scrollTop || 0 });
+      parkSheet({ realm: r, draft: JSON.parse(JSON.stringify(sheet.draft)), index: sheet.index ?? null, scroll: sheetHost.querySelector('.ur-panel')?.scrollTop || 0 });
       closeSheet(); location.hash = '#uretim/kurulum'; setTimeout(() => document.getElementById('h-ev')?.scrollIntoView({ block: 'start' }), 50); return;
     }
     if (act === 'bSave') {
@@ -1155,6 +1163,7 @@ export function mountUretim(root, { realm = 0 } = {}) {
   return {
     setRealm(next) {
       if (next === r) return;
+      flushTyping(); // yazılmakta olan değer eski realm'e kaydedilir
       clearParked();
       closeSheet();
       r = next;

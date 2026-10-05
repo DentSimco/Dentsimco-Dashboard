@@ -132,12 +132,14 @@ export function companyBases(company) {
   const savingsNow = Math.min(100, team.adminSavingsPct) / 100;
   // girilen maaş = taban × (1 + brüt × (1 − tasarruf))
   const wageBaseDay = c.admin.wagesDay / (1 + gross * (1 - savingsNow));
-  // satış/üretim hızı: adet ∝ (100 + diğer + ekip)
-  const retailPerPct = c.retail.marginDay / (100 + c.retail.otherSpeedPct + team.salesSpeedPct);
+  // satış hızı: adet ∝ 1 ÷ (1 − b/100), b = ekip dışı hız + ekibin satış hızı (Perakende motoruyla aynı, oyunda doğrulandı).
+  // Girilen marj şimdiki ekiple olduğundan sabit katsayı K = marj × (1 − b/100); ekip değişince marj K ÷ (1 − b'/100) olur.
+  const speedNow = c.retail.otherSpeedPct + team.salesSpeedPct;
+  const retailK = speedNow < 100 ? c.retail.marginDay * (1 - speedNow / 100) : 0;
   const price = num(c.research.price, 0);
   // araştırma hızı çarpandır: şimdiki üretim = ekipsiz üretim × (1 + hız); girilen üretim ekiple birlikte
   const researchPerPct = (c.research.outputDay * price) / (100 + team.researchSpeedPct);
-  return { team, gross, wageBaseDay, retailPerPct, researchPerPct, assets: H.assessableAssets(c.finance) };
+  return { team, gross, wageBaseDay, retailK, retailOtherPct: c.retail.otherSpeedPct, researchPerPct, assets: H.assessableAssets(c.finance) };
 }
 
 // Bir ekibin günlük getirisi ve kalite planı maliyeti (tabanlar sabit tutulur)
@@ -147,7 +149,10 @@ export function teamValue(executives, company, bases = companyBases(company)) {
   const taxNone = H.accountingOverheadDay(bases.assets, H.TAX_BASE_THRESHOLD);
   const tax = H.accountingOverheadDay(bases.assets, H.TAX_BASE_THRESHOLD + team.thresholdLift);
   const cfo = Math.max(0, taxNone - tax);
-  const cmo = bases.retailPerPct * team.salesSpeedPct;
+  // İletişim: ekip satış hızı olmasaydı marj ne olurdu? Fark = ekibin günlük katkısı (%100 ve üstü hız hesaplanamaz → 0)
+  const withTeam = bases.retailOtherPct + team.salesSpeedPct;
+  const cmo = bases.retailK && bases.retailOtherPct < 100 && withTeam < 100
+    ? bases.retailK * (1 / (1 - withTeam / 100) - 1 / (1 - bases.retailOtherPct / 100)) : 0;
   const cto = bases.researchPerPct * team.researchSpeedPct;
   const plan = upgradePlan(company.research.upgrades, team);
   return { team, coo, cfo, cmo, cto, day: coo + cfo + cmo + cto, tax, taxNone, plan };

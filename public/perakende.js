@@ -273,7 +273,8 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   let pendingRender = false;
   let settleTimer = null;
   const flush = () => { clearTimeout(settleTimer); pointerActive = false; if (pendingRender) render(); };
-  const onPointerDown = () => { pointerActive = true; clearTimeout(settleTimer); };
+  let downOnBackdrop = false; // basış panelin dışında başladıysa bırakınca kapanır
+  const onPointerDown = (ev) => { pointerActive = true; downOnBackdrop = ev?.target?.dataset?.act === 'sheetBackdrop'; clearTimeout(settleTimer); };
   const onPointerUp = () => { clearTimeout(settleTimer); settleTimer = setTimeout(flush, 450); };
   const onAnyClick = () => setTimeout(flush, 0);
   const softRender = () => { if (pointerActive) pendingRender = true; else render(); };
@@ -376,7 +377,18 @@ export function mountPerakende(root, { realm = 0 } = {}) {
 
   // Yönetim › Satış alanları buradan beslenir (ekip dışı satış hızı ve günlük perakende marjı)
   function syncCompany() {
-    if (!data || !setup.buildings.length) return;
+    if (!data) return;
+    if (!setup.buildings.length) { // tüm mağazalar silindi ya da kurulum sıfırlandı: Yönetim'deki eski marj kalmasın
+      try {
+        const fresh = Y.loadCompanyRecord(r).company;
+        if (fresh.retail?.marginDay) {
+          fresh.retail = { ...fresh.retail, marginDay: 0 };
+          Y.saveCompanyRecord(r, fresh);
+          company = Y.loadCompanyRecord(r).company;
+        }
+      } catch (e) { console.error(e); }
+      return;
+    }
     try {
       const c = context();
       const ev = R.evaluateRetail(engineSetup(c), c.ctx);
@@ -387,9 +399,10 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     } catch (e) { console.error(e); }
   }
   function commit(next, { sync = true } = {}) {
+    const had = setup.buildings.length > 0;
     setup = sanitize(next);
     if (!saveSetup(r, setup)) toast('Tarayıcı kaydı açık değil; değişiklikler sayfa kapanınca kaybolur.');
-    if (sync) syncCompany();
+    if (sync || (had && !setup.buildings.length)) syncCompany();
     softRender();
   }
   const clone = () => JSON.parse(JSON.stringify(setup));
@@ -560,7 +573,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     const adminDay = Math.max(0, t.wagesDay - baseDay);
     const sim = Y.executiveSimulation({ executives: company.executives, finance: company.finance,
       admin: { totalLevels: c.adm.totalLevels, wagesDay: t.wagesDay }, retail: { marginDay: t.marginDay, otherSpeedPct: c.baseSpeed } });
-    // Satış hızının değeri: adet 1/(1 − b/100) ile arttığı için motorun kendi formülüyle (Yönetim'deki doğrusal tahminden daha doğru)
+    // Satış hızının değeri: adet 1/(1 − b/100) ile arttığı için motorun kendi formülüyle (Yönetim sekmesi de aynı formülü kullanır)
     const cmo = R.cmoValueDay(engineSetup(c), c.ctx, { otherSpeedPct: c.baseSpeed, teamSalesSpeedPct: c.teamPct });
     return { t, baseDay, adminDay, sim, coo: sim.sectors.coo, cfo: sim.sectors.cfo, cmo, salaries: sim.salariesDay,
       profit: t.profitDay, cash: t.profitDay - sim.salariesDay };
@@ -731,7 +744,9 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   function renderSheet(first = false) {
     if (!sheet || !data) return;
     const keep = sheetHost.querySelector('.ur-panel')?.scrollTop || 0;
-    const focusKey = document.activeElement?.dataset?.d;
+    const ae = document.activeElement;
+    const focusKey = ae?.dataset?.d ? `[data-d="${ae.dataset.d}"]`
+      : ae?.dataset?.act && ae.closest?.('.ur-panel') ? `[data-act="${ae.dataset.act}"]${ae.dataset.v != null ? `[data-v="${ae.dataset.v}"]` : ''}` : null; // +/− düğmesi de odakta kalır
     const c = context();
     const d = sheet.draft;
     const editing = d.index != null;
@@ -795,7 +810,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       target?.focus({ preventScroll: true });
     } else {
       if (panel) panel.scrollTop = keep;
-      if (focusKey) sheetHost.querySelector(`[data-d="${focusKey}"]`)?.focus({ preventScroll: true });
+      if (focusKey) sheetHost.querySelector(focusKey)?.focus({ preventScroll: true });
     }
   }
   function saveSheet() {
@@ -815,7 +830,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     const btn = ev.target.closest('[data-act]');
     if (!btn || !root.contains(btn)) return;
     const act = btn.dataset.act;
-    if (act === 'sheetBackdrop' && ev.target !== btn) return;
+    if (act === 'sheetBackdrop' && (ev.target !== btn || !downOnBackdrop)) return;
     if (act === 'retry') return load();
     if (!data) return;
     if (act === 'sheetBackdrop' || act === 'sheetClose') return closeSheet();

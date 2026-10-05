@@ -2,7 +2,7 @@
 // Firestore'u anahtarsız REST ile okur. Kurallar herkese okuma izni verir, yazma kapalıdır.
 // Botun yazdığı biçim (bot/common.mjs başındaki "VERİ HARİTASI"):
 //   live/r{realm}                  data = {t, items: {id: [t, {q: [p,a,s,v]}]}}   son ölçüm
-//   intraday/r{realm}_{gün}_s{NN}  t{SSDD} = {id: {q: [p,a,s,v]}}               15 dk'lık noktalar
+//   intraday/r{realm}_{gün}_s{NN}  t{SSDD} = {id: {q: [p,a,s,v]}}               10 dk'lık noktalar
 //   daily/r{realm}_{id}_{yıl}      d{AAGG} = {q: [açılış,yüksek,düşük,kapanış,ortArz,satış,tutar]}
 //   p = en düşük fiyat, a = arz, s = tahmini satış adedi, v = tahmini satış tutarı. Saatler UTC.
 
@@ -112,6 +112,7 @@ function isFresh(path, at, now) {
   }
   if (path.startsWith('daily/')) return now - at < 20 * MIN;
   if (path.startsWith('live/')) return now - at < 2 * MIN;
+  if (path.startsWith('system/')) return now - at < 5 * MIN; // ekonomi evresi cuma günü değişir: açık sekme eski evrede kalmasın
   return now - at < 6 * HOUR; // ürün listesi ve diğer sabitler
 }
 

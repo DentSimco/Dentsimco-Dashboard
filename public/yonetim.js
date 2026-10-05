@@ -331,7 +331,7 @@ export function mountYonetim(root, { realm = 0 } = {}) {
       return commit({ ...company, executives: company.executives.map((e, j) => (j === i ? { ...e, active: v === '1' } : e)) });
     }
     if (act === 'execNew') { draft = { index: null, e: newExec() }; api = null; return render(); }
-    if (act === 'execEdit') { const i = Number(v); draft = { index: i, e: structuredClone(company.executives[i]) }; return render(); }
+    if (act === 'execEdit') { const i = Number(v); draft = { index: i, e: JSON.parse(JSON.stringify(company.executives[i])) }; return render(); }
     if (act === 'formClose') { draft = null; return render(); }
     if (act === 'dPos') { draft.e.position = v; return render(); }
     if (act === 'dActive') { draft.e.active = v === '1'; return render(); }
@@ -459,6 +459,7 @@ export function mountYonetim(root, { realm = 0 } = {}) {
   return {
     setRealm(next) {
       if (next === r) return;
+      flushTyping(); // yazılmakta olan değer eski realm'e kaydedilir
       r = next;
       ({ company } = loadCompany(r));
       draft = null; api = null;

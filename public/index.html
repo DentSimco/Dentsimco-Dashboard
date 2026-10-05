@@ -66,10 +66,16 @@
   .realm { margin-left: auto; display: flex; padding: 3px; border: 1px solid var(--line); border-radius: 11px; }
   .realm button { min-width: 44px; height: 32px; padding: 0 10px; border-radius: 8px; color: var(--muted); font: 600 15px/1 var(--font-c); }
   .realm button[aria-pressed="true"] { background: var(--raise-2); color: var(--accent); }
+  .about { padding: 6px 9px; border-radius: 9px; color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 500; white-space: nowrap; }
+  .about:hover { color: var(--text); }
+  .about[aria-current="page"] { color: var(--text); background: var(--raise); }
   @media (max-width: 600px) {
-    .top { padding: 12px 14px 8px; }
+    .top { padding: 12px 14px 8px; column-gap: 8px; }
+    .about { padding: 6px 4px; font-size: 13px; }
     .modules { order: 3; width: 100%; overflow-x: auto; scrollbar-width: none; }
   }
+
+  @media (max-width: 380px) { .realm button { min-width: 38px; padding: 0 6px; } .brand { font-size: 18px; gap: 7px; } .about { font-size: 12px; padding: 6px 2px; } }
 
   main { max-width: 1240px; margin: 0 auto; padding: 4px 20px 48px; }
   @media (max-width: 600px) { main { padding: 2px 12px 40px; } }
@@ -157,6 +163,7 @@
   .chg { color: var(--muted); font: 600 18px/1 var(--font-c); }
   .chg.up { color: var(--up); }
   .chg.down { color: var(--down); }
+  .lt { color: var(--muted); font: 500 15px/1 var(--font-c); }
 
   .dayrange {
     display: grid; grid-template-columns: auto minmax(60px, 1fr) auto; align-items: center; gap: 3px 14px;
@@ -219,6 +226,7 @@
   .qt th:first-child { text-align: left; }
   .qt tbody th button { min-width: 44px; height: 32px; text-align: left; font: 600 15px var(--font-c); }
   .qt tr.none { color: var(--faint); }
+  .qt .ago { display: block; color: var(--faint); font: 400 11px/1.1 var(--font-c); }
   .qt tr.sel { background: rgba(143, 211, 255, 0.09); }
   .qt tr.sel th { box-shadow: inset 3px 0 0 var(--accent); }
   .qt tr.sel th button { color: var(--accent); }
@@ -359,6 +367,7 @@
     <button type="button" data-realm="0" aria-pressed="true" title="Realm 1">R1</button>
     <button type="button" data-realm="1" aria-pressed="false" title="Realm 2">R2</button>
   </div>
+  <a class="about" href="#hakkinda" data-nav="hakkinda">Hakkımızda</a>
 </header>
 <nav class="subnav" id="subnav" aria-label="Kâr Hesaplayıcı bölümleri">
   <a href="#uretim" data-sub="uretim">Üretim</a>
@@ -421,6 +430,7 @@
     uretim: () => import('./uretim.js').then((m) => m.mountUretim),
     yonetim: () => import('./yonetim.js').then((m) => m.mountYonetim),
     perakende: () => import('./perakende.js').then((m) => m.mountPerakende),
+    hakkinda: () => import('./hakkinda.js').then((m) => m.mountHakkinda),
   };
 
   let realm = 0;
