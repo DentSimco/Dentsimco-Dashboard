@@ -280,6 +280,12 @@
   .sy-quals { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 2px; }
   .sy-quals button { flex: none; min-width: 44px; height: 36px; padding: 0 10px; border: 1px solid var(--line); border-radius: 10px; font: 600 14px/1 var(--font-c); }
   .sy-quals button[aria-checked="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .sy-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; }
+  .sy-pair { display: grid; grid-template-columns: minmax(0, 1fr); gap: 14px; align-items: start; }
+  @media (min-width: 900px) {
+    .sy { max-width: 1240px; }
+    .sy-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  }
   .sy-block { padding: 14px 6px 8px; border: 1px solid var(--line); border-radius: 16px; background: var(--surface); }
   .sy-h2 { margin: 0 8px; font-size: 17px; font-weight: 600; }
   .sy-count { margin-left: 4px; color: var(--faint); font: 500 15px var(--font-c); }
