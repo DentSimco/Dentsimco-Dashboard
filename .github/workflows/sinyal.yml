@@ -1,0 +1,39 @@
+# DentSimco — Sinyal motoru (ÖZEL depo: formüller burada kalır, siteye gitmez)
+# Her gece 01:20 UTC'de (04:20 TR) botun gece özetinden sonra çalışır, 1 dakikadan kısa sürer.
+# Sıra: sınamalar → sinyalleri hesapla → Firestore'a yalnız sonuçları yaz. Sınama geçmezse hiçbir şey yazılmaz.
+# Elle çalıştırmak için: Actions > DentSimco Sinyal > Run workflow
+# Secret: FIREBASE_BOT_JSON varsa o, yoksa FIREBASE_SERVICE_ACCOUNT_JSON kullanılır (Firestore yazma izni gerekir).
+name: DentSimco Sinyal
+
+on:
+  schedule:
+    - cron: '20 1 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dentsimco-sinyal
+  cancel-in-progress: false
+
+jobs:
+  sinyal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: sinyal
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Sınamalar
+        run: node sinyal/motor.test.mjs
+
+      - name: Sinyalleri hesapla ve yaz
+        run: node sinyal/motor.mjs
+        env:
+          FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_BOT_JSON || secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
