@@ -370,8 +370,9 @@
   .sg-meter i.on { background: currentColor; }
   /* En güçlü (üç çubuklu) sinyal: zemin flaş gibi ANINDA yanar, 1 sn içinde yavaşça söner, 2 sn sönük bekler; döngü 3 sn
      (saniyede 0,33 kez, yani titreşim sınırının çok altında). Süreleri değiştirmek için: döngü = sönme + bekleme;
-     %33,33 = sönme ÷ döngü (1 ÷ 3). Çerçeve rengi hiç değişmez. Hareket azaltma ayarı açıksa animasyon çalışmaz. */
-  @keyframes sg-nabiz { 0% { background-color: color-mix(in srgb, var(--nabiz) 24%, var(--bg)); animation-timing-function: ease-out; } 33.33%, 100% { background-color: var(--bg); } }
+     %33,33 = sönme ÷ döngü (1 ÷ 3). Sönme doğrusaldır: tam 1 sn'de biter. Çerçeve rengi hiç değişmez. Kart yeniden çizilince ritim bozulmasın diye
+     başlangıç anı borsa.js'te saate göre ayarlanır (nabizSenkron). Hareket azaltma ayarı açıksa animasyon çalışmaz. */
+  @keyframes sg-nabiz { 0% { background-color: color-mix(in srgb, var(--nabiz) 24%, var(--bg)); animation-timing-function: linear; } 33.33%, 100% { background-color: var(--bg); } }
   .sg-role[data-guc="3"][data-yon="up"] { --nabiz: var(--up); animation: sg-nabiz 3s infinite; }
   .sg-role[data-guc="3"][data-yon="down"] { --nabiz: var(--down); animation: sg-nabiz 3s infinite; }
   @media (prefers-reduced-motion: reduce) { .sg-role[data-guc="3"] { animation: none; } }

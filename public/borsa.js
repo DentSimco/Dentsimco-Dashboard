@@ -612,12 +612,19 @@ export function mountBorsa(root, { realm = 0 } = {}) {
   }
 
   // Sinyal kartı: hesap özel sunucuda her gece yapılır, burada yalnız sonuç okunur
+  // Güçlü sinyalin yanıp sönmesi 3 sn'lik ortak saate bağlanır: kart yeniden çizilse de animasyon baştan başlamaz,
+  // yani fiyat yenilenince fazladan ya da sıra dışı yanma olmaz.
+  function nabizSenkron(root) {
+    const faz = Math.round(performance.now() % 3000);
+    root.querySelectorAll('.sg-role[data-guc="3"]').forEach((n) => { n.style.animationDelay = `-${faz}ms`; });
+  }
   async function paintSignal() {
     const my = ++signalToken;
     const { id, q } = pick();
     const ctx = { id, q, products: basics?.products, realm: r, noQuality: noQuality(id) };
     if (signalsRealm !== r || signals === undefined || signalsFresh) {
       el.sinyal.innerHTML = signalCard(signalsRealm === r ? signals : undefined, ctx);
+      nabizSenkron(el.sinyal);
       const fresh = signalsFresh;
       signalsFresh = false;
       let got = null;
@@ -631,6 +638,7 @@ export function mountBorsa(root, { realm = 0 } = {}) {
       signalsRealm = r;
     }
     el.sinyal.innerHTML = signalCard(signals, ctx);
+    nabizSenkron(el.sinyal);
   }
 
   // ---- Ürün seçici ----
