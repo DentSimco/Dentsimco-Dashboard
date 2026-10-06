@@ -186,6 +186,49 @@ test('Üretim kurulumundan taşıma: yöneticiler ve nakit gelir; boşsa null', 
   eq(Y.companyFromUretim({ executives: [], finance: {} }), null);
 });
 
+section('Yönetim gideri: Üretim ve Perakende payları tek toplamda birleşir');
+test('Toplam = Üretim seviyeleri + Perakende seviyeleri + akademi (bir kez, büyük olan); maaşlar toplanır', () => {
+  const a = Y.adminFromParts({ uretim: { levels: 120, academy: 10, wagesDay: 80000 }, perakende: { levels: 60, academy: 15, wagesDay: 20000 } });
+  eq(a.totalLevels, 120 + 60 + 15);
+  eq(a.wagesDay, 100000);
+});
+test('Paylar kayıtta tutulur, yönetim gideri onlardan türetilir (elle girişin yerine geçer)', () => {
+  const c = Y.sanitizeCompany({ admin: { totalLevels: 5, wagesDay: 5 }, parts: { uretim: { levels: 100, academy: 0, wagesDay: 50000 }, perakende: { levels: 50, academy: 0, wagesDay: 10000 } } });
+  eq(c.admin.totalLevels, 150);
+  eq(c.admin.wagesDay, 60000);
+  eq(c.parts.uretim.levels, 100);
+});
+test('Pay yoksa eski elle girilen değer yedek olarak kalır', () => {
+  const c = Y.sanitizeCompany({ admin: { totalLevels: 80, wagesDay: 40000 } });
+  eq(c.admin.totalLevels, 80);
+  eq(c.admin.wagesDay, 40000);
+});
+test('Diğer bölümün seviyeleri ve akademisi ayrı okunur', () => {
+  const c = Y.sanitizeCompany({ parts: { uretim: { levels: 100, academy: 12, wagesDay: 1 }, perakende: { levels: 40, academy: 0, wagesDay: 1 } } });
+  eq(Y.otherAdminLevels(c, 'uretim').levels, 40);
+  eq(Y.otherAdminLevels(c, 'perakende').levels, 100);
+  eq(Y.otherAdminLevels(c, 'perakende').academy, 12);
+});
+test('Üretim ve Perakende sırayla yazar; değişmeyen pay kayda dokunmaz', () => {
+  withStorage({}, (store) => {
+    Y.setCompanyPart(0, 'uretim', { levels: 100, academy: 0, wagesDay: 50000.4 });
+    const after = Y.setCompanyPart(0, 'perakende', { levels: 50, academy: 0, wagesDay: 10000 });
+    eq(after.admin.totalLevels, 150);
+    eq(after.admin.wagesDay, 60000);
+    const raw1 = store['dentsimco.sirket.r0'];
+    Y.setCompanyPart(0, 'perakende', { levels: 50, academy: 0, wagesDay: 10000.3 }); // yuvarlayınca aynı
+    eq(store['dentsimco.sirket.r0'], raw1);
+    Y.setCompanyPart(0, 'perakende', { levels: 0, academy: 0, wagesDay: 0 }); // mağazalar silindi
+    eq(Y.loadCompanyRecord(0).company.admin.totalLevels, 100);
+  });
+});
+test('Yönetim gideri birleşince COO değeri yükselir: aynı yönetici, daha çok bina → daha çok tasarruf', () => {
+  const coo = ex('C', 'o', 1000, 60, 0, 0, 0);
+  const small = Y.executiveSimulation({ executives: [coo], parts: { uretim: { levels: 100, academy: 0, wagesDay: 60000 } } });
+  const big = Y.executiveSimulation({ executives: [coo], parts: { uretim: { levels: 100, academy: 0, wagesDay: 60000 }, perakende: { levels: 100, academy: 0, wagesDay: 60000 } } });
+  ok(big.sectors.coo > small.sectors.coo, `önce ${small.sectors.coo}, sonra ${big.sectors.coo}`);
+});
+
 section('Ortak şirket kaydı (Üretim ve Yönetim aynı kaydı okur)');
 function withStorage(initial, fn) {
   const store = { ...initial };
