@@ -112,12 +112,12 @@ test('CMO: Perakende motorunun kendi hesabıyla aynı değeri verir (iki sekme a
   near(s.sectors.cmo, exact, 2);
 });
 test('CTO 60 (+%120): çarpan mantığı, 40.614 araştırma × $100 → katkı = üretim × 120 ÷ 220', () => {
-  const s = Y.executiveSimulation({ executives: [ex('B', 't', 1000, 0, 0, 0, 60)], research: { outputDay: 40614, price: 100 } });
+  const s = Y.executiveSimulation({ executives: [ex('B', 't', 1000, 0, 0, 0, 60)], parts: { uretim: { researchDay: (40614 / 2.2) * 100 } } });
   eq(s.team.researchSpeedPct, 120);
   near(s.sectors.cto, 40614 * 100 * 120 / 220, 2); // ekipsiz üretim 18.461 → ekip günde 22.153 adet ekliyor
 });
 test('CTO 30 (+%60 araştırma hızı): günde 160 araştırma × $100 → katkı $6.000/gün', () => {
-  const s = Y.executiveSimulation({ executives: [ex('B', 't', 1000, 0, 0, 0, 30)], research: { outputDay: 160, price: 100 } });
+  const s = Y.executiveSimulation({ executives: [ex('B', 't', 1000, 0, 0, 0, 30)], parts: { uretim: { researchDay: 10000 } } });
   eq(s.team.researchSpeedPct, 60);
   near(s.sectors.cto, 6000, 4);
 });
@@ -141,7 +141,7 @@ section('Para karşılığı · ekip');
 test('Dentium: dört alan birden; günlük toplam = alanların toplamı, net = toplam − maaşlar', () => {
   const s = Y.executiveSimulation({
     executives: DENTIUM, finance: { cash: 14e6 }, admin: { totalLevels: 340, wagesDay: 200000 },
-    retail: { marginDay: 50000 }, research: { outputDay: 100, price: 90 },
+    retail: { marginDay: 50000 }, parts: { uretim: { researchDay: 9000 } },
   });
   near(s.day, s.sectors.coo + s.sectors.cfo + s.sectors.cmo + s.sectors.cto, 6);
   near(s.netDay, s.day - 300318, 6);
@@ -161,7 +161,7 @@ test('Eğitimdeki CFO stajyeri (Sota Hara) başlayınca vergi kazancı hesaplan�
   ok(sota.ifActive.by.cfo > 0, 'stajyer başlayınca eşik yükselir');
 });
 test('Bilimci (Nicholas Cook) ayrılırsa araştırma hızı ve patent olasılığı düşer', () => {
-  const s = Y.executiveSimulation({ executives: DENTIUM, research: { outputDay: 100, price: 90, upgrades: [{ from: 0, to: 5, price: 90 }] } });
+  const s = Y.executiveSimulation({ executives: DENTIUM, parts: { uretim: { researchDay: 9000 } }, research: { upgrades: [{ from: 0, to: 5, price: 90 }] } });
   const n = s.members.find((m) => m.name === 'Nicholas Cook');
   ok(n.effects.researchSpeedPct >= 36, `araştırma hızı kaybı: ${n.effects.researchSpeedPct}`);
   ok(n.by.cto > 0 && n.upgradeSaving > 0, 'araştırmada katkı olmalı');
@@ -262,6 +262,29 @@ test('Realmler ayrı kayıt tutar', () => {
     eq(Y.loadCompanyRecord(0).company.finance.cash, 0);
     eq(Y.loadCompanyRecord(1).company.finance.cash, 7);
   });
+});
+
+section('Bilim (CTO): değer Üretim bölümündeki araştırma binalarından gelir');
+import { products, buildings, core, modifiers, NOW } from './veri-ornek.mjs';
+const VERI = H.normalizeData({ products, buildings, core, modifiers, realm: 0 });
+test('CTO değeri = araştırma binasının ekiple fazladan ürettiği günlük değer (bitkiler araştırması, bilim 60 → +%120)', () => {
+  const team = [ex('B', 't', 1000, 0, 0, 0, 60)];
+  const setup = { buildings: [{ id: 'a', product: 29, level: 10, quality: 0 }], executives: team, admin: { mode: 'executives' } };
+  const plan = H.evaluatePlan(setup, VERI, { '29:0': 100 }, { now: NOW });
+  const row = plan.rows[0];
+  near(row.teamFactor, 2.2, 6);
+  const noTeamDay = row.daily / row.teamFactor;
+  const researchDay = noTeamDay * 100; // Üretim bölümünün şirket kaydına yazdığı değer
+  const sim = Y.executiveSimulation({ executives: team, parts: { uretim: { researchDay } } });
+  near(sim.sectors.cto, (row.daily - noTeamDay) * 100, 2); // ekibin eklediği üretim × fiyat
+});
+test('Araştırma binası yoksa CTO değeri 0 (Simülasyondaki elle giriş artık etkisiz)', () => {
+  const sim = Y.executiveSimulation({ executives: [ex('B', 't', 1000, 0, 0, 0, 60)], research: { outputDay: 5000, price: 100 } });
+  eq(sim.sectors.cto, 0);
+});
+test('Üretim payındaki araştırma değeri kayıtta korunur ve temizlenir', () => {
+  const c = Y.sanitizeCompany({ parts: { uretim: { levels: 3, researchDay: 1234.6 }, perakende: { researchDay: -5 } } });
+  eq(c.parts.uretim.researchDay, 1234.6); eq(c.parts.perakende.researchDay, 0);
 });
 
 // ---- rapor ----

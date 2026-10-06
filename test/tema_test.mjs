@@ -77,17 +77,21 @@ test('Gece teması eskisinden daha az parlak: fiyat, yükseliş ve düşüş ren
 
 test('Gündüz temasında grafik parlaması yok', () => eq(parseFloat(ACIK['--chart-glow']), 0));
 
-test('Tercih çözümleme: otomatik cihaz ayarını izler, açık seçim her zaman kazanır', () => {
-  eq(cozumle('auto', true), 'light');
-  eq(cozumle('auto', false), 'dark');
+test('Tercih çözümleme: açık seçim her zaman kazanır, seçim yoksa cihaz ayarı izlenir', () => {
+  eq(cozumle(null, true), 'light');
+  eq(cozumle(null, false), 'dark');
+  eq(cozumle('auto', true), 'light'); // eski "otomatik" kaydı seçim sayılmaz, cihaz ayarı geçerli
   eq(cozumle('light', false), 'light');
   eq(cozumle('dark', true), 'dark');
   eq(cozumle('bozuk', false), 'dark');
 });
 
-test('Düğme sırası: Otomatik → Gündüz → Gece → Otomatik', () => {
-  eq(SIRA, ['auto', 'light', 'dark']);
-  eq(['auto', 'light', 'dark'].map(sonraki), ['light', 'dark', 'auto']);
+test('Yalnız iki tema var: Gündüz ve Gece; düğme ikisi arasında geçer', () => {
+  eq(SIRA, ['light', 'dark']);
+  eq(sonraki('light'), 'dark');
+  eq(sonraki('dark'), 'light');
+  eq(sonraki(null, true), 'dark');  // cihaz gündüzse düğme geceye geçer
+  eq(sonraki(null, false), 'light');
 });
 
 const failed = results.filter((r) => !r.ok);
