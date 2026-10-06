@@ -8,6 +8,12 @@ export const UPDATES = [
   {
     date: '6 Ekim 2026',
     items: [
+      'Yönetim ayrı bir bölüm oldu (Kâr Hesaplayıcı altında en solda): Ekip ve Simülasyon. Simülasyon altında Araştırma, İnşaat ve Muhasebe var; Satış ve Şirket kaldırıldı.',
+      'İnşaat simülatörü eklendi: yeni bina, bina yükseltme, hurda ve seviye düşürme için malzeme, maliyet, süre, bitiş tarihi ve nakit karşılaştırması.',
+      'Yönetim gideri artık Üretim ve Perakende binalarının toplamından hesaplanıyor; yönetici değerleri bu bölümlerden otomatik alınıyor. İki bölümü birlikte kullanırken sonuçlar değişebilir.',
+      'Gündüz teması eklendi. Sağ üstteki düğme Otomatik, Gündüz ve Gece arasında geçiş yapar. Gece temasında neon hafifletildi.',
+      'Sinyal kartı sadeleştirildi: fiyat yönü ve üretim marjı ayrı başlıklarda; KÂR, ZARAR, AL, SAT adları; belirsiz cümleler düzeltildi.',
+      'Perakende: mevsimlik pazarlar ve diğer binalar Türkçe adlarıyla görünüyor.',
       'Hakkımızda bölümü eklendi.',
       'Canlı borsa verisi 5 dakikada bir güncelleniyor (Realm 1 ve Realm 2).',
       'Borsa: fiyat, kalitedeki son işlemin fiyatıdır. Her kalitede son işlemin ne kadar önce olduğu gösteriliyor.',
@@ -30,8 +36,8 @@ const CSS = `
 .hk h2 { font: 600 19px/1.2 var(--font-c); margin: 0; }
 .hk p { margin: 0; line-height: 1.55; font-size: 16px; }
 .hk-card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 8px; }
-.hk-card.warn { border-color: #5a4720; }
-.hk-chip { align-self: flex-start; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--late); border: 1px solid #5a4720; border-radius: 999px; padding: 2px 9px; }
+.hk-card.warn { border-color: var(--late-line); }
+.hk-chip { align-self: flex-start; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; color: var(--late); border: 1px solid var(--late-line); border-radius: 999px; padding: 2px 9px; }
 .hk-note { color: var(--muted); font-size: 14px; }
 .hk-date { color: var(--accent); font: 600 15px var(--font-c); letter-spacing: .02em; }
 .hk ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; line-height: 1.5; }

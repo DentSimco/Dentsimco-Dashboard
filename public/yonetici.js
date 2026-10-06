@@ -66,6 +66,8 @@ export function defaultCompany() {
     executives: [],
     finance: { cash: 0, bondsBought: 0, bondsIssued: 0, bankLevel: 0 },
     admin: { totalLevels: 0, wagesDay: 0 },
+    // Üretim ve Perakende kendi payını buraya yazar (bina seviyesi, akademi, günlük maaş). Yönetim gideri ikisinin toplamıdır.
+    parts: { uretim: { levels: 0, academy: 0, wagesDay: 0 }, perakende: { levels: 0, academy: 0, wagesDay: 0 } },
     retail: { marginDay: 0, otherSpeedPct: 0 },
     research: { outputDay: 0, price: null, researchId: null, otherSpeedPct: 0, upgrades: [] },
   };
@@ -85,7 +87,11 @@ export function sanitizeCompany(raw) {
   const f = raw.finance || {};
   c.finance = { cash: pos(f.cash), bondsBought: pos(f.bondsBought), bondsIssued: pos(f.bondsIssued), bankLevel: H.clampBankLevel(f.bankLevel) };
   const a = raw.admin || {};
-  c.admin = { totalLevels: Math.floor(pos(a.totalLevels)), wagesDay: pos(a.wagesDay) };
+  c.admin = { totalLevels: Math.floor(pos(a.totalLevels)), wagesDay: pos(a.wagesDay) }; // eski kayıtlardaki elle giriş (yedek)
+  const part = (x) => ({ levels: Math.floor(pos(x?.levels)), academy: Math.floor(pos(x?.academy)), wagesDay: pos(x?.wagesDay) });
+  c.parts = { uretim: part(raw.parts?.uretim), perakende: part(raw.parts?.perakende) };
+  const fromParts = adminFromParts(c.parts);
+  if (fromParts.totalLevels > 0 || fromParts.wagesDay > 0) c.admin = fromParts; // Üretim/Perakende verisi varsa elle girişin yerine geçer
   const r = raw.retail || {};
   c.retail = { marginDay: num(r.marginDay, 0), otherSpeedPct: pos(r.otherSpeedPct) };
   const s = raw.research || {};
@@ -108,7 +114,22 @@ export function sanitizeCompany(raw) {
   return c;
 }
 
-// Tarayıcı kaydı: Üretim, Yönetim ve ileride Perakende aynı şirket kaydını okur ve yazar.
+// Yönetim gideri: Üretim ve Perakende binalarının seviyeleri tek toplamda birleşir; akademi bir kez sayılır (büyük olan).
+export function adminFromParts(parts) {
+  const u = parts?.uretim || {};
+  const p = parts?.perakende || {};
+  return {
+    totalLevels: Math.floor(pos(u.levels)) + Math.floor(pos(p.levels)) + Math.max(Math.floor(pos(u.academy)), Math.floor(pos(p.academy))),
+    wagesDay: pos(u.wagesDay) + pos(p.wagesDay),
+  };
+}
+// Bir bölümün (uretim | perakende) yönetim gideri hesabına diğerinden gelen seviyeler ve akademi
+export function otherAdminLevels(company, name) {
+  const other = name === 'uretim' ? company?.parts?.perakende : company?.parts?.uretim;
+  return { levels: Math.floor(pos(other?.levels)), academy: Math.floor(pos(other?.academy)) };
+}
+
+// Tarayıcı kaydı: Üretim, Yönetim ve Perakende aynı şirket kaydını okur ve yazar.
 export const COMPANY_KEY = (r) => `dentsimco.sirket.r${r}`;
 const URETIM_KEY = (r) => `dentsimco.uretim.r${r}`;
 
@@ -222,4 +243,15 @@ export function loadCompanyRecord(r) {
 }
 export function saveCompanyRecord(r, company) {
   try { localStorage.setItem(COMPANY_KEY(r), JSON.stringify(company)); return true; } catch { return false; }
+}
+
+// Üretim ya da Perakende kendi payını yazar. Değişmediyse kayda dokunmaz. Güncel şirket kaydını döndürür.
+export function setCompanyPart(r, name, part) {
+  const { company } = loadCompanyRecord(r);
+  const next = { levels: Math.floor(pos(part?.levels)), academy: Math.floor(pos(part?.academy)), wagesDay: Math.round(pos(part?.wagesDay)) };
+  const cur = company.parts?.[name] || {};
+  if (cur.levels === next.levels && cur.academy === next.academy && Math.abs((cur.wagesDay || 0) - next.wagesDay) < 1) return company;
+  const saved = sanitizeCompany({ ...company, parts: { ...company.parts, [name]: next } });
+  saveCompanyRecord(r, saved);
+  return saved;
 }

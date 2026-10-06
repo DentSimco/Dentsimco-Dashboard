@@ -1,20 +1,43 @@
-// DentSimco — Yönetim (yönetici simülasyonu, arayüz)
+// DentSimco — Yönetim (yöneticiler ve simülasyonlar, arayüz)
 // Hesapların hepsi yonetici.js ve hesap.js'te; burada ekranlar, fiyat okuma ve tarayıcıda kayıt var.
-// Bölümler: Yöneticiler, Muhasebe/Vergi, Satış, Araştırma, Şirket (girdiler).
+// Yönetim: Ekip | Simülasyon. Simülasyon: Araştırma · İnşaat · Muhasebe (alfabetik).
+// Yönetim gideri ve perakende marjı elle girilmez: Üretim ve Perakende kendi payını şirket kaydına yazar.
 // Şirket kaydı (dentsimco.sirket.r{realm}) Üretim ve Perakende tarafından da okunur; yöneticiler yalnız burada girilir.
 
 import { readDocs, PATHS, dataField, loadProduct, summarizeDay, utcDay, addDays } from './veri.js';
 import * as H from './hesap.js';
 import * as Y from './yonetici.js';
 import { CSS, parseNum } from './uretim.js';
+import { mountInsaat } from './insaat.js';
 
 const TAB_KEY = 'dentsimco.yonetim.tab';
-const TABS = [['ekip', 'Ekip'], ['muhasebe', 'Muhasebe'], ['satis', 'Satış'], ['arastirma', 'Araştırma'], ['sirket', 'Şirket']];
+const SIM_KEY = 'dentsimco.yonetim.sim';
+const TABS = [['ekip', 'Ekip'], ['simulasyon', 'Simülasyon']];
+const SIM_TABS = [['arastirma', 'Araştırma'], ['insaat', 'İnşaat'], ['muhasebe', 'Muhasebe']]; // Türkçe alfabe sırası
+// Eski adresler: #yonetim/muhasebe, /arastirma Simülasyon altına taşındı; /satis ve /sirket kaldırıldı
+export function yonetimRota(parcalar, kayitli = {}) {
+  const [, a, b] = parcalar;
+  const simOk = (k) => SIM_TABS.some(([x]) => x === k);
+  const sim = simOk(kayitli.sim) ? kayitli.sim : 'arastirma';
+  if (a === 'ekip') return { tab: 'ekip', sim, yonlendir: false };
+  if (a === 'simulasyon') return { tab: 'simulasyon', sim: simOk(b) ? b : sim, yonlendir: !simOk(b) };
+  if (simOk(a)) return { tab: 'simulasyon', sim: a, yonlendir: true };
+  if (a === 'satis' || a === 'sirket') return { tab: 'ekip', sim, yonlendir: true };
+  return { tab: kayitli.tab === 'simulasyon' ? 'simulasyon' : 'ekip', sim, yonlendir: false };
+}
+const rotaAdresi = (x) => (x.tab === 'ekip' ? '#yonetim/ekip' : `#yonetim/simulasyon/${x.sim}`);
 const POSITIONS = [['o', 'COO'], ['f', 'CFO'], ['m', 'CMO'], ['t', 'CTO'], ['v', 'COO stajyeri'], ['x', 'CFO stajyeri'],
   ['y', 'CMO stajyeri'], ['z', 'CTO stajyeri'], ['1', 'Personel']];
 const positionName = (p) => (/^\d+$/.test(String(p)) ? 'Personel' : POSITIONS.find(([k]) => k === p)?.[1] || String(p || '?'));
 const SKILL_LABELS = [['coo', 'Yönetim'], ['cfo', 'Muhasebe'], ['cmo', 'İletişim'], ['cto', 'Bilim']];
 const SECTOR_LABELS = [['coo', 'Yönetim', 'maaş tasarrufu'], ['cfo', 'Muhasebe', 'ödenmeyen vergi'], ['cmo', 'İletişim', 'perakende satış'], ['cto', 'Bilim', 'araştırma üretimi']];
+// Her katkının hangi veriden geldiği ve eksikse nereye gidileceği
+const SECTOR_VERI = {
+  coo: ['Binalarınızı Üretim ya da Perakende bölümüne girince hesaplanır.', '#uretim', 'Üretim\'e git'],
+  cfo: ['Nakdinizi Simülasyon › Muhasebe\'ye girince hesaplanır.', '#yonetim/simulasyon/muhasebe', 'Muhasebe\'ye git'],
+  cmo: ['Mağazalarınızı Perakende bölümüne girince hesaplanır.', '#perakende', 'Perakende\'ye git'],
+  cto: ['Günlük araştırma üretiminizi Simülasyon › Araştırma\'ya girince hesaplanır.', '#yonetim/simulasyon/arastirma', 'Araştırma\'ya git'],
+};
 
 const NF = [0, 1, 2, 3, 4].map((d) => new Intl.NumberFormat('tr-TR', { minimumFractionDigits: d, maximumFractionDigits: d }));
 const fin = (x) => x != null && Number.isFinite(x);
@@ -52,6 +75,9 @@ const EXTRA_CSS = `
 .yo-res > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .yo-res > div > span:first-child { font-size: 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
 .yo-res > div > span:last-child { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.yo-sub { display: flex; gap: 6px; }
+.yo-subtab { flex: 1 1 0; display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--line-2); color: var(--muted); font: 600 15px var(--font-c); text-decoration: none; white-space: nowrap; }
+.yo-subtab[aria-current="page"] { color: var(--accent); border-color: var(--accent); background: var(--raise); }
 `;
 
 const loadCompany = (r) => Y.loadCompanyRecord(r);
@@ -79,11 +105,13 @@ export function mountYonetim(root, { realm = 0 } = {}) {
   let vwapLoading = new Set();
   let destroyed = false;
   let loadToken = 0;
-  let tab = 'ekip';
-  try { tab = localStorage.getItem(TAB_KEY) || 'ekip'; } catch { /* yok */ }
-  const fromHash = location.hash.split('/')[1];
-  if (TABS.some(([k]) => k === fromHash)) tab = fromHash;
-  if (!TABS.some(([k]) => k === tab)) tab = 'ekip';
+  const saved = {};
+  try { saved.tab = localStorage.getItem(TAB_KEY); saved.sim = localStorage.getItem(SIM_KEY); } catch { /* yok */ }
+  const first = yonetimRota(location.hash.slice(1).split('/'), saved);
+  let tab = first.tab;
+  let sim = first.sim;
+  let insaat = null; // İnşaat simülatörü (kendi modülü)
+  try { history.replaceState(null, '', rotaAdresi(first)); } catch { /* yok */ }
   let draft = null; // yönetici formu: { index, e }
   let api = null; // { text, parsed, error }
   let toastTimer = null;
@@ -92,8 +120,10 @@ export function mountYonetim(root, { realm = 0 } = {}) {
   style.dataset.module = 'yonetim';
   style.textContent = CSS + EXTRA_CSS;
   document.head.append(style);
-  root.innerHTML = '<div class="ur"></div><div data-toast></div>';
+  root.innerHTML = '<div class="ur"><div data-nav style="display:contents"></div><div data-body style="display:contents"></div></div><div data-toast></div>';
   const view = root.querySelector('.ur');
+  const navHost = root.querySelector('[data-nav]');
+  const bodyHost = root.querySelector('[data-body]');
   const toastHost = root.querySelector('[data-toast]');
 
   // Kutuya yazıp hemen bir düğmeye dokununca "change" dokunmanın ortasında gelir; o anda çizim yapılırsa dokunma kaybolur.
@@ -135,12 +165,12 @@ export function mountYonetim(root, { realm = 0 } = {}) {
   const qualityList = () => Object.values(products || {}).filter((p) => H.hasQuality(p)).sort((a, b) => a.name.localeCompare(b.name, 'tr'));
   const nameOf = (id) => products?.[id]?.name || (id != null ? `#${id}` : '');
   const livePrice = (id) => live?.items?.[id]?.[1]?.[0]?.[0] ?? null;
-  // Borsa fiyatı: bugünün VWAP'ı, yoksa dünün, yoksa anlık en düşük ilan
+  // Borsa fiyatı: bugünün VWAP'ı, yoksa dünün, yoksa son işlem fiyatı
   const marketOf = (id) => {
     if (id == null) return null;
     if (vwap[id]?.price != null) return vwap[id];
     const p = livePrice(id);
-    return p != null ? { price: p, source: 'anlık' } : null;
+    return p != null ? { price: p, source: 'son işlem' } : null;
   };
   async function ensureVwap() {
     const ids = new Set([company.research.researchId, ...company.research.upgrades.map((u) => u.researchId)].filter((x) => x != null));
@@ -181,18 +211,26 @@ export function mountYonetim(root, { realm = 0 } = {}) {
   function render() {
     if (destroyed) return;
     pendingRender = false;
-    const tabs = `<nav class="ur-tabs" aria-label="Yönetim bölümleri">${TABS.map(([k, t]) =>
-      `<a href="#yonetim/${k}" ${k === tab ? 'aria-current="page"' : ''}>${t}</a>`).join('')}</nav>`;
+    const tabsHtml = `<nav class="ur-tabs" aria-label="Yönetim bölümleri">${TABS.map(([k, t]) =>
+      `<a href="#yonetim/${k === 'ekip' ? 'ekip' : `simulasyon/${sim}`}" ${k === tab ? 'aria-current="page"' : ''}>${t}</a>`).join('')}</nav>`;
+    const subHtml = tab === 'simulasyon' ? `<nav class="yo-sub" aria-label="Simülasyon bölümleri">${SIM_TABS.map(([k, t]) =>
+      `<a href="#yonetim/simulasyon/${k}" class="yo-subtab" ${k === sim ? 'aria-current="page"' : ''}>${t}</a>`).join('')}</nav>` : '';
+    navHost.innerHTML = tabsHtml + subHtml;
+    if (tab === 'simulasyon' && sim === 'insaat') {
+      if (!insaat) { bodyHost.innerHTML = ''; insaat = mountInsaat(bodyHost, { realm: r }); }
+      return;
+    }
+    if (insaat) { insaat.destroy(); insaat = null; }
     let body;
     try {
       const s = simulate();
-      body = tab === 'ekip' ? viewEkip(s) : tab === 'muhasebe' ? viewMuhasebe(s) : tab === 'satis' ? viewSatis(s) : tab === 'arastirma' ? viewArastirma(s) : viewSirket(s);
+      body = tab === 'ekip' ? viewEkip(s) : sim === 'muhasebe' ? viewMuhasebe(s) : viewArastirma(s);
     } catch (e) {
       console.error(e);
       body = `<div class="ur-msg err" role="alert">Bu ekran gösterilemedi: ${esc(e?.message || e)}</div>`;
     }
     const scroll = window.scrollY;
-    view.innerHTML = tabs + body;
+    bodyHost.innerHTML = body;
     window.scrollTo(0, scroll);
   }
 
@@ -233,6 +271,17 @@ export function mountYonetim(root, { realm = 0 } = {}) {
       <div class="ur-row"><button type="button" class="ur-btn grow" data-act="apiClose">Vazgeç</button>
         ${p ? '<button type="button" class="ur-btn primary grow" data-act="apiApply">Listeyi değiştir</button>' : '<button type="button" class="ur-btn primary grow" data-act="apiRead">Oku</button>'}</div></section>`;
   }
+  // Ekibin günlük katkısı: eksik veri varsa sıfır yerine nereden girileceği yazılır
+  function sectorCard(s) {
+    const c = company;
+    const has = { coo: c.admin.totalLevels > 0, cfo: c.finance.cash > 0, cmo: c.retail.marginDay > 0, cto: c.research.outputDay > 0 || c.research.upgrades.length > 0 };
+    const rows = SECTOR_LABELS.map(([k, name, what]) => (has[k]
+      ? `<div class="ur-kv"><span>${name} <span class="c-muted">· ${what}</span></span><span class="c-up">${money(s.sectors[k], 0, true)}/gün</span></div>`
+      : `<div class="ur-kv" style="align-items:flex-start"><span>${name}</span><span class="c-muted" style="text-align:right;font-size:13px;max-width:70%">${SECTOR_VERI[k][0]} <a href="${SECTOR_VERI[k][1]}" style="color:var(--accent)">${SECTOR_VERI[k][2]}</a></span></div>`)).join('');
+    return `<section class="ur-card" aria-labelledby="h-kat"><h2 id="h-kat">Ekibin günlük katkısı</h2>
+      <p class="ur-sub">Her yöneticinin alanı kendi verisinden hesaplanır. Yönetim gideri ve perakende marjı Üretim ve Perakende bölümlerinden otomatik gelir.</p>
+      <div class="ur-box">${rows}</div></section>`;
+  }
   function viewEkip(s) {
     if (draft) return formCard();
     if (api) return apiCard();
@@ -252,7 +301,7 @@ export function mountYonetim(root, { realm = 0 } = {}) {
       <p class="ur-sub">Ekibiniz yalnız burada girilir; Üretim ve Perakende hesapları da buradan okur.</p>
       <div class="ur-row"><button type="button" class="ur-btn tint grow" data-act="apiOpen">${icon('plus')}API'den yapıştır</button><button type="button" class="ur-btn grow" data-act="execNew">${icon('plus')}Elle ekle</button></div>
       ${ex.length ? `<div>${rows}</div>` : '<p class="ur-note">Henüz yönetici yok.</p>'}
-      ${ex.length ? `<div class="ur-box"><span class="ur-note" style="font-weight:600">Ekip puanı (yalnız aktifler)</span><div class="ur-grid4" style="margin-top:6px">${SKILL_LABELS.map(([k, n]) => `<div class="ur-stat"><span>${n}</span><span>${num(scores[k], scores[k] % 1 ? 2 : 0)}</span></div>`).join('')}</div></div>` : ''}</section>`;
+      ${ex.length ? `<div class="ur-box"><span class="ur-note" style="font-weight:600">Ekip puanı (yalnız aktifler)</span><div class="ur-grid4" style="margin-top:6px">${SKILL_LABELS.map(([k, n]) => `<div class="ur-stat"><span>${n}</span><span>${num(scores[k], scores[k] % 1 ? 2 : 0)}</span></div>`).join('')}</div></div>` : ''}</section>${ex.length ? sectorCard(s) : ''}`;
   }
 
   // ---- ARAŞTIRMA ----
@@ -294,29 +343,6 @@ export function mountYonetim(root, { realm = 0 } = {}) {
         ${field('Birim fiyat', 'research.price', c.research.price != null ? dec(c.research.price) : '', { unit: '$', placeholder: resMarket?.price != null ? NF[2].format(resMarket.price) : '', hint: 'Boş bırakırsanız borsadan alınır.' })}
         <div class="ur-chips">${priceTag(c.research.price, resMarket)}</div>
         <div class="ur-box">${kv('Günlük üretim değeri', money(c.research.outputDay * (resPrice || 0)))}${kv('Bilimin günlük katkısı', money(s.sectors.cto), 'c-up', true)}</div></section>`;
-  }
-
-  // ---- SATIŞ ----
-  function viewSatis(s) {
-    const c = company;
-    return `<section class="ur-card" aria-labelledby="h-ret"><h2 id="h-ret">Perakende</h2>
-        <p class="ur-sub">İletişimin (CMO) satış hızı katkısı için. Satış hızı arttıkça aynı sürede daha çok ürün satılır.</p>
-        ${field('Günlük perakende marjı', 'retail.marginDay', inVal(c.retail.marginDay), { unit: '$', hint: 'Mağaza ve restoranlarınızda günlük satış geliri − satılan malın maliyeti (maaşlar hariç), şu anki ekiple.' })}
-        ${field('Ekip dışı satış hızı bonusu', 'retail.otherSpeedPct', inVal(c.retail.otherSpeedPct), { unit: '%', hint: 'Oyundaki toplam satış hızından ekibin payı çıkınca kalan. Bilmiyorsanız 0.' })}
-        <div class="ur-box">${kv('Ekibin satış hızı', `+%${num(s.team.salesSpeedPct)}`)}${kv('Restoran derecesi', `+${NF[3].format(s.team.restaurantRating)}`)}
-          ${kv('İletişimin günlük katkısı', money(s.sectors.cmo), 'c-up', true)}
-          <p class="ur-note">Satacak mal yeterliyse geçerli. Restoran derecesinin fiyata etkisi paraya çevrilmedi.</p></div></section>`;
-  }
-
-  // ---- ŞİRKET ----
-  function viewSirket(s) {
-    const c = company;
-    return `<section class="ur-card" aria-labelledby="h-adm"><h2 id="h-adm">Yönetim gideri</h2>
-        <p class="ur-sub">Yönetimin (COO) maaş tasarrufu için.</p>
-        ${field('Toplam bina seviyesi', 'admin.totalLevels', inVal(c.admin.totalLevels), { mode: 'numeric', hint: 'Rekreasyon binaları hariç bütün binaların seviyeleri toplamı.' })}
-        ${field('Günlük toplam maaş', 'admin.wagesDay', inVal(c.admin.wagesDay), { unit: '$', mode: 'numeric', hint: 'Bütün binaların günlük maaşı, yönetim gideri dahil (oyunda ödediğiniz).' })}
-        <div class="ur-box">${kv('Brüt yönetim gideri', `%${NF[2].format(s.bases.gross * 100)}`)}${kv('Ekibin tasarrufu', `%${num(s.team.adminSavingsPct)}`)}
-          ${kv('Yönetim gidersiz maaş', money(s.bases.wageBaseDay))}${kv('Yönetimin günlük katkısı', money(s.sectors.coo), 'c-up', true)}</div></section>`;
   }
 
   // ---- olaylar ----
@@ -435,14 +461,15 @@ export function mountYonetim(root, { realm = 0 } = {}) {
     else if (k.startsWith('skill.')) draft.e.skills[k.slice(6)] = Math.max(0, parseNum(t.value) ?? 0);
   }
   function onHash() {
-    const [head, sub] = location.hash.slice(1).split('/');
-    if (head !== 'yonetim') return;
+    const parts = location.hash.slice(1).split('/');
+    if (parts[0] !== 'yonetim') return;
     flushTyping();
-    const next = TABS.some(([k]) => k === sub) ? sub : 'ekip';
-    if (next === tab) return;
-    tab = next;
+    const x = yonetimRota(parts, { tab, sim });
+    if (x.yonlendir) { try { history.replaceState(null, '', rotaAdresi(x)); } catch { /* yok */ } }
+    if (x.tab === tab && x.sim === sim) return;
+    tab = x.tab; sim = x.sim;
     draft = null; api = null;
-    try { localStorage.setItem(TAB_KEY, tab); } catch { /* yok */ }
+    try { localStorage.setItem(TAB_KEY, tab); localStorage.setItem(SIM_KEY, sim); } catch { /* yok */ }
     render();
     window.scrollTo(0, 0);
   }
@@ -463,11 +490,13 @@ export function mountYonetim(root, { realm = 0 } = {}) {
       r = next;
       ({ company } = loadCompany(r));
       draft = null; api = null;
+      insaat?.setRealm(next);
       load();
     },
     destroy() {
       flushTyping();
       destroyed = true;
+      insaat?.destroy(); insaat = null;
       clearTimeout(toastTimer); clearTimeout(settleTimer);
       root.removeEventListener('click', onClick);
       root.removeEventListener('click', onAnyClick, true);

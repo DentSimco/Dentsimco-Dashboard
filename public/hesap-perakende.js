@@ -270,7 +270,7 @@ export function evaluateRetail(setup, ctx) {
       revenueDay: T.revenueHour * HOURS_PER_DAY,
       costDay: T.costHour * HOURS_PER_DAY,
       wagesDay: T.wagesHour * HOURS_PER_DAY,
-      marginDay: T.marginHour * HOURS_PER_DAY, // Yönetim › Perakende "günlük perakende marjı" alanı için
+      marginDay: T.marginHour * HOURS_PER_DAY, // Yönetim ekibinin (CMO) değeri için şirket kaydına yazılır
       profitDay: T.profitHour * HOURS_PER_DAY,
     },
   };

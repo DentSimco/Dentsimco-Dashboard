@@ -13,12 +13,12 @@ import { loadSignals, signalCard } from './sinyal.js';
 
 // Açıklama satırındaki sırayla. z: çizim sırası, büyük olan üstte.
 export const SERIES = [
-  { key: 'anlik', kind: 'line', z: 9, color: '#3cefff', width: 2.2, glow: 9 },
-  { key: 'dusuk', kind: 'line', z: 6, color: '#72ff8f', width: 1.5, dash: [4, 4], step: true, resets: true },
-  { key: 'yuksek', kind: 'line', z: 7, color: '#ffbe4a', width: 1.5, dash: [4, 4], step: true, resets: true },
-  { key: 'vwap', kind: 'line', z: 8, color: '#ff5ad8', width: 1.8, resets: true },
-  { key: 'hacim', kind: 'bar', z: 2, color: '#4a86ff', opacity: 0.95, inner: true },
-  { key: 'toplam', kind: 'bar', z: 1, color: '#93a9ff', opacity: 0.26 },
+  { key: 'anlik', kind: 'line', z: 9, color: 'var(--s-price)', width: 2.2, glow: 9 },
+  { key: 'dusuk', kind: 'line', z: 6, color: 'var(--s-low)', width: 1.5, dash: [4, 4], step: true, resets: true },
+  { key: 'yuksek', kind: 'line', z: 7, color: 'var(--s-high)', width: 1.5, dash: [4, 4], step: true, resets: true },
+  { key: 'vwap', kind: 'line', z: 8, color: 'var(--s-vwap)', width: 1.8, resets: true },
+  { key: 'hacim', kind: 'bar', z: 2, color: 'var(--s-vol)', opacity: 0.95, inner: true },
+  { key: 'toplam', kind: 'bar', z: 1, color: 'var(--s-total)', opacity: 0.26 },
 ];
 const SERIES_BY_KEY = Object.fromEntries(SERIES.map((s) => [s.key, s]));
 
@@ -318,7 +318,7 @@ const TEMPLATE = `
     <h2 class="quality-title">Kaliteler, bugün</h2>
     <div class="table-wrap">
       <table class="qt">
-        <thead><tr><th scope="col">Kalite</th><th scope="col">Anlık</th><th scope="col">Satış Arzı</th><th scope="col">Satılan Birim</th><th scope="col">VWAP</th><th scope="col">Pay</th></tr></thead>
+        <thead><tr><th scope="col">Kalite</th><th scope="col">Son işlem</th><th scope="col">Satış Arzı</th><th scope="col">Satılan Birim</th><th scope="col">VWAP</th><th scope="col">Satış payı</th></tr></thead>
         <tbody data-el="rows"></tbody>
         <tfoot data-el="total"></tfoot>
       </table>
@@ -530,6 +530,8 @@ export function mountBorsa(root, { realm = 0 } = {}) {
     figs.hacim.textContent = fmtNum(sold);
     figs.toplam.textContent = fmtNum(d?.[6] ?? null); // seçili kalitenin bugünkü satış tutarı ($)
     figs.arz.textContent = cur?.[1] != null ? fmtNum(cur[1]) : '—'; // Simcotools ilan derinliği vermez: veri yoksa 0 değil —
+    const arzEtiket = figs.arz.previousElementSibling;
+    if (arzEtiket) arzEtiket.textContent = cur?.[1] != null ? 'Satış Arzı' : 'Satış Arzı · veri yok';
     setFresh(freshness(snap?.t, now));
   }
 

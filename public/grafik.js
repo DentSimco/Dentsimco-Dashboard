@@ -11,17 +11,33 @@ const DAY = 24 * HOUR;
 const EASE = (t) => (t < 0.5 ? 4 * t * t * t : 1 - (-2 * t + 2) ** 3 / 2);
 const lerp = (a, b, t) => a + (b - a) * t;
 const FONT = '500 12px "Barlow Semi Condensed", "Barlow", system-ui, sans-serif';
+// Renkler sitenin tema değişkenlerinden (index.html) okunur; gündüz ve gece temaları birlikte çalışır.
+// Aşağıdakiler değişken okunamazsa (ör. test ortamı) kullanılan gece yedekleridir.
 const THEME = {
-  grid: 'rgba(120, 165, 230, 0.08)',
-  base: 'rgba(120, 165, 230, 0.22)',
-  dayLine: 'rgba(143, 211, 255, 0.14)',
-  label: '#7489a8',
-  cross: 'rgba(143, 211, 255, 0.5)',
-  pill: '#132540',
-  pillText: '#e3eefa',
-  ring: '#060c17',
-  tagText: '#02131b',
+  grid: 'rgba(132, 170, 225, 0.09)',
+  base: 'rgba(132, 170, 225, 0.24)',
+  dayLine: 'rgba(132, 196, 236, 0.14)',
+  label: '#7f93ae',
+  cross: 'rgba(132, 196, 236, 0.5)',
+  pill: '#172540',
+  pillText: '#e1eaf6',
+  ring: '#0d1420',
+  tagText: '#04141b',
 };
+const THEME_VARS = {
+  grid: '--chart-grid', base: '--chart-base', dayLine: '--chart-day', label: '--chart-label', cross: '--chart-cross',
+  pill: '--chart-pill', pillText: '--chart-pill-text', ring: '--chart-ring', tagText: '--chart-tag-text',
+};
+function cssVar(name) {
+  try { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); } catch { return ''; }
+}
+function refreshTheme() {
+  for (const [k, v] of Object.entries(THEME_VARS)) { const c = cssVar(v); if (c) THEME[k] = c; }
+}
+// 'var(--s-price)' gibi değişken adı verilen seri rengini gerçek renge çevirir
+const resolveColor = (c) => (typeof c === 'string' && c.startsWith('var(') ? cssVar(c.slice(4, -1).trim()) || '#8899aa' : c);
+// Çizgi parlaması: gecede kısık (0,55), gündüzde yok (0)
+const glowFactor = () => { const g = parseFloat(cssVar('--chart-glow')); return Number.isFinite(g) ? g : 0.55; };
 
 export function niceTicks(min, max, count) {
   const span = max - min;
@@ -59,9 +75,16 @@ export function timeTicks(min, max, maxCount) {
   return { step, values };
 }
 
-function hexA(hex, a) {
-  const n = parseInt(hex.slice(1), 16);
-  return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+function hexA(color, a) {
+  const c = String(color).trim();
+  if (c[0] === '#') {
+    let h = c.slice(1);
+    if (h.length === 3) h = [...h].map((x) => x + x).join('');
+    const n = parseInt(h, 16);
+    return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${a})`;
+  }
+  const m = c.match(/\d+(\.\d+)?/g) || [0, 0, 0]; // rgb(...) ya da rgba(...)
+  return `rgba(${m[0]}, ${m[1]}, ${m[2]}, ${a})`;
 }
 
 function medianStep(xs) {
@@ -240,6 +263,7 @@ export function createChart(host, { series, formatPrice, formatVolume, formatTic
   function draw() {
     if (failed || destroyed) return;
     try {
+      refreshTheme();
       paint();
     } catch (e) {
       failed = true;
@@ -331,7 +355,7 @@ export function createChart(host, { series, formatPrice, formatVolume, formatTic
       if (a < 0.01) continue;
       const bw = s.inner && barW >= 5 ? barW * 0.56 : barW;
       const r = bw >= 6 ? 2 : 0;
-      ctx.fillStyle = hexA(s.color, a);
+      ctx.fillStyle = hexA(resolveColor(s.color), a);
       ctx.beginPath();
       for (let i = 0; i < n; i++) {
         const v = valueAt(s.key, i);
@@ -352,14 +376,16 @@ export function createChart(host, { series, formatPrice, formatVolume, formatTic
       const stepped = s.step && !data.daily; // gün içi en düşük/yüksek basamak gibi çizilir
       ctx.save();
       ctx.globalAlpha = a;
-      ctx.strokeStyle = s.color;
-      ctx.fillStyle = s.color;
+      const lineColor = resolveColor(s.color);
+      ctx.strokeStyle = lineColor;
+      ctx.fillStyle = lineColor;
       ctx.lineWidth = s.width ?? 1.6;
       ctx.lineJoin = 'round';
       ctx.lineCap = 'round';
       ctx.setLineDash(s.dash || []);
-      ctx.shadowColor = hexA(s.color, 0.85);
-      ctx.shadowBlur = (s.glow ?? 7) * dpr;
+      const gf = glowFactor();
+      ctx.shadowColor = gf > 0 ? hexA(lineColor, 0.8) : 'transparent';
+      ctx.shadowBlur = (s.glow ?? 7) * dpr * gf;
       ctx.beginPath();
       const dots = [];
       let pen = false, prevY = 0, runStart = 0;
@@ -420,7 +446,7 @@ export function createChart(host, { series, formatPrice, formatVolume, formatTic
       ctx.globalAlpha = 1;
     }
     if (tagA > 0.01) {
-      const color = series.find((s) => s.key === 'anlik')?.color || '#3cefff';
+      const color = resolveColor(series.find((s) => s.key === 'anlik')?.color) || '#55d3e4';
       ctx.globalAlpha = tagA * 0.4;
       ctx.strokeStyle = color;
       ctx.setLineDash([2, 4]);
@@ -463,7 +489,7 @@ export function createChart(host, { series, formatPrice, formatVolume, formatTic
         if (v == null) continue;
         ctx.beginPath();
         ctx.arc(x, py(v), 3.6, 0, Math.PI * 2);
-        ctx.fillStyle = s.color;
+        ctx.fillStyle = resolveColor(s.color);
         ctx.fill();
         ctx.lineWidth = 2;
         ctx.strokeStyle = THEME.ring;
@@ -518,6 +544,7 @@ export function createChart(host, { series, formatPrice, formatVolume, formatTic
     on(window, 'resize', resize);
     on(window, 'orientationchange', resize);
   }
+  on(window, 'dentsimco-tema', () => draw()); // gündüz/gece değişince yeniden çiz
   requestAnimationFrame(resize); // ilk ölçüm: gözlemci ilk bildirimi kaçırsa bile grafik boş kalmasın
   document.fonts?.ready?.then(() => draw());
 

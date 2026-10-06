@@ -2,7 +2,7 @@
 // Hesapların hepsi hesap-perakende.js'te; burada yalnız ekranlar, veri yükleme ve tarayıcıda kayıt var.
 // Sekmeler Üretim'deki gibi: Kurulum, Binalar, PPHPL Max ve Özet (ön muhasebe). Bina eklemek alttan açılan panelle.
 // Doygunluk botun yazdığı meta/retail_r{realm}, maliyet varsayılanı live/r{realm} borsa fiyatı, ekip şirket kaydından.
-// Tarayıcı kaydı: dentsimco.perakende.r{realm}. Kaydedince Yönetim › Satış'ın "ekip dışı satış hızı" ve
+// Tarayıcı kaydı: dentsimco.perakende.r{realm}. Kaydedince şirket kaydındaki "ekip dışı satış hızı" ve
 // "günlük perakende marjı" alanları da buradan güncellenir.
 
 import { readDocs, PATHS, dataField, loadProduct, summarizeDay, utcDay, addDays, START_YEAR, loadGamePhase } from './veri.js';
@@ -11,6 +11,7 @@ import * as Y from './yonetici.js';
 import { CSS, parseNum } from './uretim.js';
 import * as R from './hesap-perakende.js';
 import { guideCard } from './rehber.js';
+import { binaAdi } from './adlar.js';
 
 const STORE_KEY = (r) => `dentsimco.perakende.r${r}`;
 const TAB_KEY = 'dentsimco.perakende.tab';
@@ -24,8 +25,7 @@ const PHASE_FMT = new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'sho
 const EXCLUDED = new Set(['r', 'B']);
 
 // Bina adları veride yok; emin olmadığımız harflerde "Mağaza X" yazar
-const RETAIL_NAMES = { G: 'Bakkal', A: 'Benzin istasyonu', C: 'Elektronik mağazası', 2: 'Araba galerisi', H: 'Giyim mağazası', d: 'Yapı market' };
-const buildingName = (letter) => RETAIL_NAMES[letter] || `Mağaza ${letter}`;
+const buildingName = (letter) => binaAdi(letter, 'Mağaza'); // adlar adlar.js dosyasından
 
 // Talep (d = 2 − doygunluk, 0–2): aşırı yüksekten çok düşüğe, yeşil → sarı → kırmızı
 const DEMAND = [
@@ -75,14 +75,14 @@ const EXTRA_CSS = `
 .pk-star.first { color: var(--price); }
 .pk-star svg { width: 20px; height: 20px; }
 .pk-badge { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 13px; font-size: 13px; font-weight: 600; white-space: nowrap; border: 1px solid; }
-.pk-badge.d5 { background: #062a1c; color: #34d399; border-color: #0f5a3c; }
-.pk-badge.d4 { background: #1a2b0b; color: #a3e635; border-color: #35561a; }
-.pk-badge.d3 { background: #2b2406; color: #facc15; border-color: #5c4b0c; }
-.pk-badge.d2 { background: #331a09; color: #fb923c; border-color: #6b3410; }
-.pk-badge.d1 { background: #2d0f1a; color: #fb7185; border-color: #5e2032; }
+.pk-badge.d5 { background: var(--d5-bg); color: var(--d5-fg); border-color: var(--d5-line); }
+.pk-badge.d4 { background: var(--d4-bg); color: var(--d4-fg); border-color: var(--d4-line); }
+.pk-badge.d3 { background: var(--d3-bg); color: var(--d3-fg); border-color: var(--d3-line); }
+.pk-badge.d2 { background: var(--d2-bg); color: var(--d2-fg); border-color: var(--d2-line); }
+.pk-badge.d1 { background: var(--d1-bg); color: var(--d1-fg); border-color: var(--d1-line); }
 .pk-pick { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 56px; padding: 6px 8px; border: 0; border-top: 1px solid var(--line);
   background: transparent; color: var(--text); text-align: left; font: inherit; border-radius: 0; }
-.pk-pick[aria-pressed="true"] { background: #0d2a44; }
+.pk-pick[aria-pressed="true"] { background: var(--tint-bg); }
 .pk-pick .grow { flex: 1 1 auto; min-width: 0; }
 .pk-pick .name { font-weight: 600; font-size: 16px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .pk-pick .vals { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -295,6 +295,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       const d = await loadData(r);
       if (destroyed || my !== loadToken) return;
       data = d;
+      syncCompany(); // Yönetim ekibinin değeri için şirket kaydı güncel kalsın (Üretim binaları değişmiş olabilir)
     } catch (e) {
       if (destroyed || my !== loadToken) return;
       loadError = e?.message || String(e);
@@ -334,12 +335,13 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     const retailLevels = setup.buildings.reduce((t, b) => t + b.level, 0);
     let adm = { totalLevels: retailLevels + setup.academyLevel, gross: 0, net: 0 };
     try {
-      adm = H.adminInfo({ buildings: [], academyLevel: setup.academyLevel, otherLevels: retailLevels,
+      const o = Y.otherAdminLevels(company, 'perakende'); // Üretim binaları da yönetim giderine girer
+      adm = H.adminInfo({ buildings: [], academyLevel: Math.max(setup.academyLevel, o.academy), otherLevels: retailLevels + o.levels,
         executives: company.executives, finance: company.finance, admin: { mode: 'executives' } }, data.norm);
     } catch { /* yönetim gideri hesaplanamadı: 0 */ }
     const ctx = { saturation: data.saturation, weather: R.noWeather, bonusPct, adminNet: adm.net || 0, qualityWeight: data.qualityWeight,
       buildings: data.norm.buildings, averageSalary: data.norm.averageSalary };
-    return { econ, phase, recPct, baseSpeed, teamPct, bonusPct, retailLevels, adm, ctx };
+    return { econ, phase, recPct, baseSpeed, teamPct, bonusPct, retailLevels, prodLevels: Y.otherAdminLevels(company, 'perakende').levels, adm, ctx };
   }
   const baseWage = (c, letter, product, quality) => R.storeWage({ modelW: R.getModel(c.econ, product, quality)?.W,
     salaryModifier: c.ctx.buildings?.[letter]?.salaryModifier, averageSalary: c.ctx.averageSalary, adminNet: 0 });
@@ -375,7 +377,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     return good.slice(0, top);
   }
 
-  // Yönetim › Satış alanları buradan beslenir (ekip dışı satış hızı ve günlük perakende marjı)
+  // Yönetim ekibinin değeri için şirket kaydı buradan beslenir (ekip dışı satış hızı, günlük perakende marjı, yönetim gideri payı)
   function syncCompany() {
     if (!data) return;
     if (!setup.buildings.length) { // tüm mağazalar silindi ya da kurulum sıfırlandı: Yönetim'deki eski marj kalmasın
@@ -384,8 +386,8 @@ export function mountPerakende(root, { realm = 0 } = {}) {
         if (fresh.retail?.marginDay) {
           fresh.retail = { ...fresh.retail, marginDay: 0 };
           Y.saveCompanyRecord(r, fresh);
-          company = Y.loadCompanyRecord(r).company;
         }
+        company = Y.setCompanyPart(r, 'perakende', { levels: 0, academy: setup.academyLevel, wagesDay: 0 });
       } catch (e) { console.error(e); }
       return;
     }
@@ -395,7 +397,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       const fresh = Y.loadCompanyRecord(r).company;
       fresh.retail = { ...(fresh.retail || {}), otherSpeedPct: Math.round(c.baseSpeed * 100) / 100, marginDay: Math.round(ev.totals.marginDay) };
       Y.saveCompanyRecord(r, fresh);
-      company = Y.loadCompanyRecord(r).company;
+      company = Y.setCompanyPart(r, 'perakende', { levels: c.retailLevels, academy: setup.academyLevel, wagesDay: ev.totals.wagesDay });
     } catch (e) { console.error(e); }
   }
   function commit(next, { sync = true } = {}) {
@@ -472,9 +474,9 @@ export function mountPerakende(root, { realm = 0 } = {}) {
         ${field('Akademi seviyesi', 'academyLevel', setup.academyLevel || '', { mode: 'numeric', placeholder: '0' })}
         ${field('Banka seviyesi', 'bankLevel', company.finance.bankLevel || '', { mode: 'numeric', placeholder: '0', hint: 'Bankanız yoksa 0. Seviye başı, muhasebe puanı başı +$50k vergi eşiği (en çok 40). Üretim ve Yönetim ile ortaktır.' })}
         <div class="ur-hr"></div>
-        ${kv('Perakende binaları', num(c.retailLevels))}${kv('Akademi', num(setup.academyLevel))}
+        ${kv('Perakende binaları', num(c.retailLevels))}${kv('Üretim binaları', num(c.prodLevels))}${kv('Akademi', num(Math.max(setup.academyLevel, Y.otherAdminLevels(company, 'perakende').academy)))}
         ${kv('Toplam bina seviyesi', num(c.adm.totalLevels), '', true)}${kv('Yönetim gideri (ekiple)', pctText(c.ctx.adminNet * 100))}
-        <p class="ur-note">Yönetim gideri bu toplamdan ve Yönetim sekmesindeki ekipten hesaplanır. Üretim planınızdaki binalar bu toplama dahil değil; gerçek yönetim gideriniz bundan yüksek olabilir.</p></section>
+        <p class="ur-note">Yönetim gideri bu toplamdan ve Yönetim sekmesindeki ekipten hesaplanır. Üretim planınızdaki binalar da toplama girer (Üretim bölümünü kaydettiyseniz).</p></section>
 
       ${cardEvents()}
 
@@ -608,8 +610,8 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       ${tri('Yönetici tasarrufu', ms(A.coo), '', { muted: true, ca: 'c-up' })}
       <p class="ur-note">Brüt kâr: satış gelirinden mal maliyeti, bina maaşı ve yönetim gideri düşülmüş hâli. Net nakit: yönetici maaşları da düşülünce günün sonunda kasaya giren. Yönetici tasarrufu bilgi satırıdır, toplama girmez.</p></section>`;
 
-    const parts = [['Mal maliyeti', t.costDay, 'var(--accent)'], ['Bina maaşları', A.baseDay, '#3e78b2'], ['Yönetim gideri', A.adminDay, 'var(--price)'],
-      ['Yönetici maaşları', A.salaries, '#6f86a3']].filter((x) => x[1] > 0);
+    const parts = [['Mal maliyeti', t.costDay, 'var(--accent)'], ['Bina maaşları', A.baseDay, 'var(--s-vol)'], ['Yönetim gideri', A.adminDay, 'var(--price)'],
+      ['Yönetici maaşları', A.salaries, 'var(--faint)']].filter((x) => x[1] > 0);
     const total = parts.reduce((a, x) => a + x[1], 0);
     const costs = total > 0 ? `<section class="ur-card" aria-labelledby="h-cost"><h2 id="h-cost">Maliyet dağılımı (${periodName})</h2>
       <div class="ur-bar" role="img" aria-label="${parts.map(([n, v]) => `${n} ${pctText((v / total) * 100)}`).join(', ')}">${parts.map(([, v, col]) => `<span style="width:${((v / total) * 100).toFixed(2)}%;background:${col}"></span>`).join('')}</div>
@@ -658,7 +660,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
           ${kv('Yöneticilerin kazandırdığı', m(worth), '', true)}${kv('Yönetici maaşları', m(A.salaries))}
           ${kv('Net getiri', ms(gain), cls(gain), true)}</div>
         ${hasTeam ? `<p class="ur-note">İletişim: satış hızı +%${NF[0].format(c.teamPct)}. Bilim: araştırma hızı +%${NF[0].format(sim.team.researchSpeedPct)} (araştırma binalarına uygulanır, mağazalarda değil).</p>` : ''}
-        ${!sim.tax.assets ? '<p class="ur-note">Muhasebenin vergi değeri için Yönetim › Muhasebe altında nakit ve bonoyu girin.</p>' : ''}
+        ${!sim.tax.assets ? '<p class="ur-note">Muhasebenin vergi değeri için Yönetim › Simülasyon › Muhasebe altında nakit ve bonoyu girin.</p>' : ''}
         <a class="ur-btn" href="#yonetim/ekip" style="text-decoration:none">Yönetim'de düzenle</a></section>`;
 
     const manualCost = setup.buildings.filter((b) => b.cost != null).length;

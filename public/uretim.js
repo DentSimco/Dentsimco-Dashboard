@@ -7,6 +7,7 @@ import { readDocs, PATHS, dataField, loadGamePhase } from './veri.js';
 import * as H from './hesap.js';
 import * as Y from './yonetici.js';
 import { guideCard } from './rehber.js';
+import { binaAdi } from './adlar.js';
 
 const STORE_KEY = (r) => `dentsimco.uretim.r${r}`;
 const TAB_KEY = 'dentsimco.uretim.tab';
@@ -15,16 +16,7 @@ const PERIOD_KEY = 'dentsimco.uretim.period';
 const PERIODS = [['hour', 'Saatlik', 1 / 24], ['day', 'Günlük', 1], ['week', 'Haftalık', 7], ['month', 'Aylık', 30]];
 const TABS = [['kurulum', 'Kurulum'], ['binalar', 'Binalar'], ['alimsatim', 'Alım-Satım'], ['ozet', 'Özet']];
 
-// Bina adları veride yok; oyunun Türkçe arayüzüne göre
-const BUILDING_NAMES = {
-  E: 'Enerji santrali', W: 'Su deposu', P: 'Tarla', F: 'Çiftlik', O: 'Petrol kuyusu', R: 'Rafineri', S: 'Nakliye deposu',
-  M: 'Maden', Q: 'Taş ocağı', Y: 'Fabrika', L: 'Elektronik fabrikası', T: 'Moda fabrikası', D: 'İtici fabrikası',
-  1: 'Araba fabrikası', 6: 'İçecek fabrikası', 7: 'Havacılık fabrikası', 8: 'Havacılık elektroniği', 9: 'Dikey entegrasyon tesisi',
-  0: 'Hangar', k: 'Gıda işleme tesisi', e: 'Mezbaha', i: 'Değirmen', j: 'Fırın', m: 'Catering', o: 'Beton santrali',
-  x: 'İnşaat fabrikası', g: 'Genel müteahhit', v: 'Orman fidanlığı',
-  p: 'Bitki araştırma merkezi', h: 'Fizik laboratuvarı', b: 'Islah laboratuvarı', c: 'Kimya laboratuvarı', s: 'Yazılım Ar-Ge',
-  a: 'Otomotiv Ar-Ge', f: 'Moda ve tasarım', l: 'Fırlatma rampası', q: 'Mutfak', y: 'Akademi',
-};
+// Bina adları veride yok; ortak liste adlar.js dosyasındadır
 const REC = [['park', 'Park'], ['temple', 'Tapınak'], ['lake', 'Göl']];
 
 // ---- biçimlendirme ----
@@ -154,7 +146,7 @@ export const CSS = `
 .ur-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; min-width: 44px; padding: 0 14px; border-radius: 12px;
   background: var(--raise); color: var(--text); border: 1px solid var(--line-2); font: 600 16px var(--font); white-space: nowrap; }
 .ur-btn.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); min-height: 50px; }
-.ur-btn.tint { background: #0d2a44; color: var(--accent); border-color: #1f4a73; }
+.ur-btn.tint { background: var(--tint-bg); color: var(--accent); border-color: var(--tint-line); }
 .ur-btn.danger { background: transparent; color: var(--down); }
 .ur-btn.grow { flex: 1 1 0; white-space: normal; text-align: center; line-height: 1.2; padding: 6px 12px; }
 .ur-btn:disabled { opacity: 0.45; cursor: default; }
@@ -173,10 +165,10 @@ export const CSS = `
 .ur-input > i { font-style: normal; color: var(--muted); font-weight: 600; min-width: 14px; }
 .ur input:focus-visible, .ur select:focus-visible, .ur textarea:focus-visible, .ur button:focus-visible, .ur a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 .ur-chip { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 13px; font-size: 13px; font-weight: 600; white-space: nowrap;
-  background: #0d2a44; color: var(--accent); border: 1px solid #1f4a73; }
+  background: var(--tint-bg); color: var(--accent); border: 1px solid var(--tint-line); }
 .ur-chip.muted { background: var(--raise); color: var(--muted); border-color: var(--line-2); }
-.ur-chip.up { background: #062a1c; color: var(--up); border-color: #0f5a3c; }
-.ur-chip.down { background: #2d0f1a; color: var(--down); border-color: #5e2032; }
+.ur-chip.up { background: var(--up-bg); color: var(--up); border-color: var(--up-line); }
+.ur-chip.down { background: var(--down-bg); color: var(--down); border-color: var(--down-line); }
 .ur-chips { display: flex; flex-wrap: wrap; gap: 6px; }
 .ur-switch { width: 52px; height: 32px; border-radius: 16px; background: var(--raise); border: 1px solid var(--line-2); display: flex; align-items: center; padding: 0 3px; flex: none; }
 .ur-switch::before { content: ""; width: 22px; height: 22px; border-radius: 11px; background: var(--muted); }
@@ -196,7 +188,7 @@ export const CSS = `
 .ur-stats > div { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
 .ur-bgrid { display: grid; grid-template-columns: 1fr; gap: 12px; }
 @media (min-width: 740px) { .ur-bgrid { grid-template-columns: 1fr 1fr; } }
-.ur-badge { width: 44px; height: 44px; border-radius: 12px; background: #0d2a44; border: 1px solid #1f4a73; color: var(--accent); display: flex; align-items: center;
+.ur-badge { width: 44px; height: 44px; border-radius: 12px; background: var(--tint-bg); border: 1px solid var(--tint-line); color: var(--accent); display: flex; align-items: center;
   justify-content: center; font: 600 18px var(--font-c); flex: none; }
 .ur-level { text-align: right; } .ur-level b { display: block; font: 600 24px/1 var(--font-c); } .ur-level small { color: var(--muted); font-size: 13px; font-weight: 600; }
 .ur-empty { text-align: center; padding: 22px 12px; }
@@ -213,7 +205,7 @@ export const CSS = `
 .ur .ur-stepper input { flex: 1 1 auto; text-align: center; font-size: 22px; height: 50px; }
 .ur-stepper svg { width: 22px; height: 22px; }
 .ur-msg { border-radius: 12px; padding: 12px; font-size: 14px; line-height: 1.4; background: var(--raise); border: 1px solid var(--line-2); }
-.ur-msg.err { background: #2d0f1a; border-color: #5e2032; color: #ffc2cf; }
+.ur-msg.err { background: var(--down-bg); border-color: var(--down-line); color: var(--down-text); }
 .ur-tri { display: grid; grid-template-columns: minmax(0, 1fr) minmax(84px, auto) minmax(84px, auto); gap: 8px; align-items: center; min-height: 30px; padding: 2px 0; }
 .ur-tri > span { font-size: 15px; } .ur-tri > span:not(:first-child) { text-align: right; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ur-tri.head { min-height: 22px; border-bottom: 1px solid var(--line-2); padding-bottom: 4px; } .ur-tri.head > span { color: var(--accent); font-size: 13px; font-weight: 600; }
@@ -226,8 +218,8 @@ export const CSS = `
 .ur-check { display: flex; align-items: center; gap: 10px; min-height: 48px; border-bottom: 1px solid var(--line); }
 .ur-check input { width: 24px; height: 24px; accent-color: var(--accent); flex: none; }
 .ur-toast { position: fixed; left: 50%; bottom: calc(18px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 60; background: var(--raise-2);
-  border: 1px solid var(--line-2); border-radius: 12px; padding: 12px 16px; font-size: 15px; max-width: calc(100vw - 32px); box-shadow: 0 8px 30px rgba(0,0,0,.5); }
-.ur-sheet { position: fixed; inset: 0; z-index: 50; background: rgba(1, 3, 8, 0.72); display: flex; align-items: flex-end; justify-content: center; }
+  border: 1px solid var(--line-2); border-radius: 12px; padding: 12px 16px; font-size: 15px; max-width: calc(100vw - 32px); box-shadow: 0 8px 30px var(--shadow); }
+.ur-sheet { position: fixed; inset: 0; z-index: 50; background: var(--overlay); display: flex; align-items: flex-end; justify-content: center; }
 .ur-panel { background: var(--surface); border: 1px solid var(--line-2); border-bottom: 0; border-radius: 20px 20px 0 0; width: 100%; max-width: 640px;
   max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); overflow: auto; overscroll-behavior: contain; padding: 16px 16px calc(20px + env(safe-area-inset-bottom, 0px));
   display: flex; flex-direction: column; gap: 12px; box-sizing: border-box; }
@@ -307,7 +299,7 @@ export function mountUretim(root, { realm = 0 } = {}) {
     const panel = sheetHost.querySelector('.ur-panel');
     if (panel && st.scroll) panel.scrollTop = st.scroll;
   }
-  const buildingName = (letter) => BUILDING_NAMES[letter] || `Bina ${letter}`;
+  const buildingName = (letter) => binaAdi(letter);
   const now = () => Date.now();
 
   // Bir kutuya yazıp hemen bir düğmeye dokununca kutudan çıkma ("change") olayı, dokunmanın ortasında gelir
@@ -326,6 +318,7 @@ export function mountUretim(root, { realm = 0 } = {}) {
   function commit(next, { quiet = false, soft = false } = {}) {
     setup = sanitizeSetup(next);
     if (!saveSetup(r, setup) && !quiet) toast('Tarayıcı kaydı açık değil; değişiklikler sayfa kapanınca kaybolur.');
+    syncPart();
     if (silentSave) return;
     if (soft) softRender(); else render();
   }
@@ -347,6 +340,7 @@ export function mountUretim(root, { realm = 0 } = {}) {
       data = d;
       live = l;
       gamePhase = gp;
+      syncPart();
     } catch (e) {
       if (destroyed || my !== loadToken) return;
       loadError = e?.message || String(e);
@@ -380,7 +374,21 @@ export function mountUretim(root, { realm = 0 } = {}) {
   // Üretim kurulumu + şirket kaydı: yönetim gideri her zaman ekipten gelir
   // Evre: elle seçilmişse o, Otomatik ise oyunun güncel evresi (okunamadıysa Durgunluk)
   const phaseOf = (s) => (s.economyPhase != null ? s.economyPhase : gamePhase ? gamePhase.index : 0);
-  const withTeam = (s) => ({ ...s, economyPhase: phaseOf(s), executives: company.executives, finance: company.finance, admin: { mode: 'executives' } });
+  // Yönetim gideri: Perakende binalarının seviyeleri de toplama girer (Perakende kaydettiyse); akademi bir kez sayılır
+  const withTeam = (s) => {
+    const o = Y.otherAdminLevels(company, 'uretim');
+    return { ...s, economyPhase: phaseOf(s), executives: company.executives, finance: company.finance, admin: { mode: 'executives' },
+      otherLevels: o.levels, academyLevel: Math.max(s.academyLevel || 0, o.academy) };
+  };
+  // Bu bölümün payını şirket kaydına yazar: Yönetim ekibinin değeri (COO) buradan beslenir
+  function syncPart() {
+    if (!data) return;
+    try {
+      const levels = H.adminInfo({ ...withTeam(setup), academyLevel: 0, otherLevels: 0 }, data).totalLevels;
+      const plan = H.evaluatePlan(withTeam(setup), data, marketPrice, { now: now() });
+      company = Y.setCompanyPart(r, 'uretim', { levels, academy: setup.academyLevel, wagesDay: plan.totals.wagesDayNet });
+    } catch (e) { console.error(e); }
+  }
   function phaseNote() {
     const g = gamePhase;
     if (setup.economyPhase == null) {
@@ -532,7 +540,7 @@ export function mountUretim(root, { realm = 0 } = {}) {
       ${tri('Brüt kâr marjı', A.netX ? pctText(A.profitX / A.netX, 1) : '—', A.netC ? pctText(A.profitC / A.netC, 1) : '—', { muted: true })}
       ${tri('Yönetici tasarrufu', m(A.saved, true), m(A.saved, true), { muted: true, ca: 'c-up', cb: 'c-up' })}
       <p class="ur-note">Brüt kâr: net satıştan girdi, bina maaşı ve yönetim gideri düşülmüş hâli. Net nakit: yönetici maaşları da düşülünce günün sonunda kasaya giren. Yönetici tasarrufu bilgi satırıdır, toplama girmez.</p></section>`;
-    const parts = [['Girdi alımları', A.buy, 'var(--accent)'], ['Bina maaşları', A.direct, '#3e78b2'], ['Yönetim gideri', A.admin, 'var(--price)'], ['Yönetici maaşları', A.exec, '#6f86a3']].filter((x) => x[1] > 0);
+    const parts = [['Girdi alımları', A.buy, 'var(--accent)'], ['Bina maaşları', A.direct, 'var(--s-vol)'], ['Yönetim gideri', A.admin, 'var(--price)'], ['Yönetici maaşları', A.exec, '#6f86a3']].filter((x) => x[1] > 0);
     const total = parts.reduce((a, x) => a + x[1], 0);
     const costs = total > 0 ? `<section class="ur-card" aria-labelledby="h-cost"><h2 id="h-cost">Maliyet dağılımı (${periodName})</h2>
       <div class="ur-bar" role="img" aria-label="${parts.map(([n, v]) => `${n} ${pctText(v / total, 0)}`).join(', ')}">${parts.map(([, v, c]) => `<span style="width:${(v / total * 100).toFixed(2)}%;background:${c}"></span>`).join('')}</div>
@@ -565,7 +573,7 @@ export function mountUretim(root, { realm = 0 } = {}) {
           ${kv('Yöneticilerin kazandırdığı', m(ex.teamValueDay), '', true)}${kv('Yönetici maaşları', m(ex.salariesDay))}
           ${kv('Net getiri', m(ex.teamNetDay, true), cls(ex.teamNetDay), true)}</div>
         ${hasTeam ? `<p class="ur-note">Bilim: araştırma hızı +%${NF[0].format(ex.team.researchSpeedPct)} (araştırma binalarına uygulandı). İletişim: satış hızı +%${NF[0].format(ex.team.salesSpeedPct)} (Perakende bölümünde).</p>` : ''}
-        ${!ex.assets ? '<p class="ur-note">Muhasebenin vergi değeri için Yönetim › Muhasebe altında nakit ve bonoyu girin.</p>' : ''}
+        ${!ex.assets ? '<p class="ur-note">Muhasebenin vergi değeri için Yönetim › Simülasyon › Muhasebe altında nakit ve bonoyu girin.</p>' : ''}
         <a class="ur-btn" href="#yonetim/ekip" style="text-decoration:none">Yönetim'de düzenle</a></section>`;
     const manualCount = Object.keys(setup.prices || {}).length + Object.keys(setup.contractPrices || {}).length + (setup.transportPrice != null ? 1 : 0);
     const evs = activeEvents().filter((e) => setup.events?.[e.product] !== false && setup.buildings.some((b) => b.product === e.product));
@@ -633,9 +641,9 @@ export function mountUretim(root, { realm = 0 } = {}) {
         ${field('Akademi seviyesi', 'academyLevel', num(setup.academyLevel), { mode: 'numeric' })}
         ${field('Banka seviyesi', 'finance.bankLevel', num(company.finance.bankLevel), { mode: 'numeric', hint: 'Bankanız yoksa 0. Seviye başı, muhasebe puanı başı +$50k vergi eşiği (en çok 40).' })}
         <div class="ur-hr"></div>
-        ${kv('Plandaki binalar', num(planLevels))}${kv('Akademi', num(setup.academyLevel))}
+        ${kv('Plandaki binalar', num(planLevels))}${kv('Perakende mağazaları', num(Y.otherAdminLevels(company, 'uretim').levels))}${kv('Akademi', num(Math.max(setup.academyLevel, Y.otherAdminLevels(company, 'uretim').academy)))}
         ${kv('Toplam bina seviyesi', num(a.totalLevels), '', true)}
-        <p class="ur-note">Yönetim gideri bu toplamdan ve Yönetim sekmesindeki ekipten hesaplanır. Perakende mağazaları bu toplama dahil değil; gerçek yönetim gideriniz bundan yüksek olabilir.</p></section>
+        <p class="ur-note">Yönetim gideri bu toplamdan ve Yönetim sekmesindeki ekipten hesaplanır. Perakende mağazaları da toplama girer (Perakende bölümünü kaydettiyseniz).</p></section>
 
       ${cardEvents()}
 

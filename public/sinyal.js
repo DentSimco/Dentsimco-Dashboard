@@ -47,12 +47,12 @@ const EYLEM = {
   satici: {
     TUT: { ad: 'TUT', yon: 'up', metin: 'Satışı ertele: 14 gün içinde fiyatın yükselmesi bekleniyor.' },
     SAT: { ad: 'SAT', yon: '', metin: 'Normal: ürettikçe satmaya devam et.' },
-    HSAT: { ad: 'HEMEN SAT', yon: 'down', metin: 'Bekletme: 14 gün içinde fiyatın düşmesi bekleniyor.' },
+    HSAT: { ad: 'SAT', yon: 'down', metin: 'Bekletme: 14 gün içinde fiyatın düşmesi bekleniyor.' }, // normal SAT'tan çubuk ve renkle ayrılır
   },
   alici: {
     BEKLE: { ad: 'BEKLE', yon: 'down', metin: 'Girdi alımını ertele: fiyatın düşmesi bekleniyor.' },
     AL: { ad: 'AL', yon: '', metin: 'Normal: ihtiyacın kadar al.' },
-    STOKLA: { ad: 'STOKLA', yon: 'up', metin: 'İhtiyacını şimdiden al: fiyatın yükselmesi bekleniyor.' },
+    STOKLA: { ad: 'AL', yon: 'up', metin: 'İhtiyacını şimdiden al: fiyatın yükselmesi bekleniyor.' }, // normal AL'dan çubuk ve renkle ayrılır
   },
 };
 const EYLEM_HAFIF = { AL1: 'Alımı biraz öne çekebilirsin.', SAT_SEZON: 'Sezonda alıcı çok: şimdi sat.' };
@@ -60,9 +60,9 @@ const EYLEM_HAFIF = { AL1: 'Alımı biraz öne çekebilirsin.', SAT_SEZON: 'Sezo
 const DERECE = ['', 'biraz', 'belirgin biçimde', 'çok'];
 function gerekce(code) {
   let m = /^p([+-])(\d)$/.exec(code);
-  if (m) return `Fiyat kendi normalinin ${DERECE[m[2]]} ${m[1] === '+' ? 'üstünde' : 'altında'}`;
+  if (m) return `Fiyat, yakın dönem ortalamasının ${DERECE[m[2]]} ${m[1] === '+' ? 'üstünde' : 'altında'}`;
   m = /^c([+-])(\d)$/.exec(code);
-  if (m) return m[1] === '+' ? `Maliyet normalinin ${DERECE[m[2]]} üstünde: fiyat genelde maliyete yetişir` : `Maliyet normalinin ${DERECE[m[2]]} altında: fiyat genelde maliyete iner`;
+  if (m) return m[1] === '+' ? `Maliyet, yakın dönem ortalamasının ${DERECE[m[2]]} üstünde: fiyat genelde maliyete yetişir` : `Maliyet, yakın dönem ortalamasının ${DERECE[m[2]]} altında: fiyat genelde maliyete iner`;
   return {
     'mk+': 'Piyasa geneli yükselişte',
     'mk-': 'Piyasa geneli düşüşte',
@@ -106,10 +106,10 @@ function gecmisCumle(doc, e) {
   const [n, up, ort] = useLive ? c : doc?.karne?.onsel?.[k] || [];
   if (!n) return '';
   const kaynak = useLive ? `Bu motorun son sinyallerinde (${n} kayıt)` : 'Geçmiş sınamada';
-  if (k === 'b3') return `${kaynak} bu aralıktaki beklentilerde yön belirsizdi (fiyat %${Math.round(up * 100)} yükseldi).`;
+  if (k === 'b3') return `${kaynak} bu aralıkta fiyat 14 günde vakaların %${Math.round(up * 100)}'inde yükseldi, yani yön belirsizdi.`;
   const dusus = e < 0;
   const pay = Math.round((dusus ? 1 - up : up) * 100);
-  return `${kaynak} bu aralıktaki beklentilerin %${pay}'inde fiyat 14 günde ${dusus ? 'düştü' : 'yükseldi'} (ortalama ${fmtPct(ort)}).`;
+  return `${kaynak} bu aralıktaki beklentilerin %${pay}'inde fiyat 14 günde ${dusus ? 'düştü' : 'yükseldi'} (ortalama gerçekleşen değişim ${fmtPct(ort)}).`;
 }
 
 function olayMetni(o, products) {
@@ -153,7 +153,7 @@ const gucBar = (g) => `<span class="sg-meter" aria-hidden="true">${[1, 2, 3].map
 function veriZamani(doc) {
   if (!doc) return '';
   const gun = fmtDate(Date.parse(`${doc.gun}T12:00:00Z`));
-  return `${gun} verisiyle, ${fmtAgo(doc.t)} hesaplandı`;
+  return `${gun} verisiyle hesaplandı · ${fmtAgo(doc.t)}`;
 }
 
 const eskiMi = (doc) => doc && Date.now() - doc.t > 36 * HOUR;
@@ -189,7 +189,7 @@ export function signalCard(doc, { id, q, products, realm = 0 } = {}) {
 
   let uretim = '';
   if (e.m != null || kal) {
-    const durum = e.m == null ? '' : e.m >= 3 ? 'Bugün tipik üretici kârda.' : e.m <= -10 ? 'Bugün tipik üretici belirgin zararda; fiyatı daha verimli üreticiler belirliyor.' : 'Bugün marj ince: yalnız verimli üretici kâr eder.';
+    const durum = e.m == null ? '' : e.m >= 3 ? 'Bu fiyatta tipik üretici kâr ediyor.' : e.m <= -10 ? 'Bu fiyatta ortalama üretici zarar ediyor; fiyatı maliyeti düşük üreticiler belirliyor.' : 'Marj ince: yalnız maliyeti düşük üretici kâr eder.';
     let kalMetin = '';
     if (kal && kal[0] !== Number(q)) {
       const q0 = kal[2] != null ? `, Q0'da ${pctInt(kal[2])}` : '';
@@ -198,8 +198,8 @@ export function signalCard(doc, { id, q, products, realm = 0 } = {}) {
         : ` Son 90 günde hiçbir kalite genelde artıda değildi; en iyisi Q${kal[0]} (${pctInt(kal[1])}${q0}).`;
     }
     uretim = `<div class="sg-role" data-yon="${e.m >= 3 ? 'up' : e.m <= -10 ? 'down' : ''}">
-      <span class="sg-who">Üretim (tipik üretici)</span>
-      <span class="sg-verdict"><b class="sg-act">${pctInt(e.m)}</b><span class="sg-pow">net marj</span></span>
+      <span class="sg-who">Tipik üreticinin marjı</span>
+      <span class="sg-verdict"><b class="sg-act">${pctInt(e.m)}</b><span class="sg-pow">tipik maliyetle net marj</span></span>
       <p class="sg-text">${esc(durum + kalMetin)}</p>
     </div>`;
   }
@@ -212,7 +212,7 @@ export function signalCard(doc, { id, q, products, realm = 0 } = {}) {
   let beklenti = '';
   if (e.e != null) {
     const oran = e.e / 200;
-    beklenti = `<p class="sg-exp"><span>14 gün beklentisi <b class="${oran > 0 ? 'up' : oran < 0 ? 'down' : ''}">${fmtPct(oran)}</b> <span class="sg-band">(±%${esc(e.u)})</span></span><span class="sg-hist">${esc(gecmisCumle(doc, oran))}</span></p>`;
+    beklenti = `<p class="sg-exp"><span>14 gün beklentisi <b class="${oran > 0 ? 'up' : oran < 0 ? 'down' : ''}">${fmtPct(oran)}</b> <span class="sg-band">(belirsizlik ±%${esc(e.u)})</span></span><span class="sg-hist">${esc(gecmisCumle(doc, oran))}</span></p>`;
   } else if (e.z) {
     beklenti = `<p class="sg-exp"><span>${esc(sezonMetni(doc.sezon?.[id]))}</span></p>`;
   }
@@ -224,9 +224,9 @@ export function signalCard(doc, { id, q, products, realm = 0 } = {}) {
   const liste = nedenler.length ? `<ul class="sg-why">${nedenler.map((x) => `<li>${x}</li>`).join('')}</ul>` : '';
 
   return `<section class="sg">${head(when)}
-    <div class="sg-roles">${rol('Elinde mal varsa', sat)}${rol('Girdi alacaksan', al)}${uretim}${tuccar}</div>
+    <div class="sg-roles"><p class="sg-sec">Fiyat yönü · 14 gün</p>${rol('Elinde mal varsa', sat)}${rol('Girdi alacaksan', al)}${tuccar}${uretim ? `<p class="sg-sec">Üretim marjı · bugün</p>${uretim}` : ''}</div>
     ${beklenti}${liste}
-    <p class="sg-foot">Sinyaller olasılık gösterir, kesinlik değil.${uretim ? ' Net marj, yönetim gideri dahil tipik maliyetle ve komisyon ile taşıma düşülerek hesaplanır; kendi maliyetin Kâr Hesaplayıcı\'da.' : ''} <a href="#sinyal">Tüm sinyaller</a></p>
+    <p class="sg-foot">Sinyaller olasılık gösterir, kesinlik değil.${uretim ? ' Marj, tipik maliyetle ve komisyon ile taşıma düşülerek hesaplanır. Kendi marjın için Kâr Hesaplayıcı\'yı kullan.' : ''} <a href="#sinyal">Tüm sinyaller</a></p>
   </section>`;
 }
 
@@ -377,13 +377,13 @@ export function mountSinyal(root, { realm = 0 } = {}) {
       const hs = entries((e) => e.s?.[0] === 'HSAT').sort(byE(-1));
       html = pair(
         block('tut', 'Satışı ertele (TUT)', 'Elindeki malı bekletmek daha iyi görünüyor.', tut, (x) => row(x, 'TUT', 'up', x.e.s[1], eTxt(x.e), ilkNeden(x.e))),
-        block('hsat', 'Hemen sat', 'Bekletirsen fiyatın düşmesi bekleniyor.', hs, (x) => row(x, 'HEMEN SAT', 'down', x.e.s[1], eTxt(x.e), ilkNeden(x.e))),
+        block('hsat', 'Sat', 'Bekletirsen fiyatın düşmesi bekleniyor.', hs, (x) => row(x, 'SAT', 'down', x.e.s[1], eTxt(x.e), ilkNeden(x.e))),
       );
     } else if (t === 'alici') {
       const bek = entries((e) => e.a?.[0] === 'BEKLE').sort((a, b) => b.e.a[1] - a.e.a[1] || (a.e.e ?? 0) - (b.e.e ?? 0));
       const sto = entries((e) => e.a?.[0] === 'STOKLA').sort((a, b) => b.e.a[1] - a.e.a[1] || (b.e.e ?? 0) - (a.e.e ?? 0));
       html = pair(
-        block('stokla', 'Şimdiden al (STOKLA)', 'Fiyatın yükselmesi bekleniyor; ihtiyacını öne çek.', sto, (x) => row(x, 'STOKLA', 'up', x.e.a[1], eTxt(x.e), ilkNeden(x.e))),
+        block('stokla', 'Al', 'Fiyatın yükselmesi bekleniyor; ihtiyacını öne çek.', sto, (x) => row(x, 'AL', 'up', x.e.a[1], eTxt(x.e), ilkNeden(x.e))),
         block('bekle', 'Alımı ertele (BEKLE)', 'Geçmiş sınamada en isabetli sinyal grubu buydu.', bek, (x) => row(x, 'BEKLE', 'down', x.e.a[1], eTxt(x.e), ilkNeden(x.e))),
       );
     } else if (t === 'uretim') {
@@ -391,10 +391,10 @@ export function mountSinyal(root, { realm = 0 } = {}) {
       const zarar = entries((e) => e.m != null && e.m <= -10).sort((a, b) => a.e.m - b.e.m);
       const kal = Object.entries(doc.kalite || {}).map(([id, k]) => ({ id: Number(id), q: k[0], k }))
         .filter((x) => x.k[0] !== 0 && x.k[2] != null && x.k[1] - x.k[2] >= 5).sort((a, b) => (b.k[1] - b.k[2]) - (a.k[1] - a.k[2]));
-      const mrow = (x) => row(x, x.e.m >= 3 ? 'KÂRDA' : 'ZARARDA', x.e.m >= 3 ? 'up' : 'down', 0, `<b class="${x.e.m >= 0 ? 'up' : 'down'}">${pctInt(x.e.m)}</b>`, 'Tipik üretici maliyetiyle net marj');
+      const mrow = (x) => row(x, x.e.m >= 3 ? 'KÂR' : 'ZARAR', x.e.m >= 3 ? 'up' : 'down', 0, `<b class="${x.e.m >= 0 ? 'up' : 'down'}">${pctInt(x.e.m)}</b>`, 'Tipik üretici maliyetiyle net marj');
       html = pair(
-        block('kar', 'Tipik üretici kârda (+%3 ve üstü)', 'Yönetim gideri dahil tipik maliyetle, komisyon ve taşıma sonrası. Kendi maliyetin farklıdır.', kar, mrow),
-        block('zarar', 'Tipik üretici belirgin zararda (−%10 ve altı)', 'Fiyatı daha verimli üreticiler belirliyor. Yönetim giderin yüksekse bu ürünleri üretmek yerine almak daha ucuz olabilir.', zarar, mrow),
+        block('kar', 'Kâr: tipik üretici +%3 ve üstü', 'Yönetim gideri dahil tipik maliyetle, komisyon ve taşıma sonrası. Kendi maliyetin farklıdır.', kar, mrow),
+        block('zarar', 'Zarar: tipik üretici −%10 ve altı', 'Fiyatı maliyeti düşük üreticiler belirliyor. Yönetim giderin yüksekse bu ürünleri üretmek yerine almak daha ucuz olabilir.', zarar, mrow),
       )
         + block('kalite', 'Kalite önerisi', 'Son 90 günde Q0\'a göre belirgin daha kârlı kalite (girdiler en az bir alt kaliteden).', kal,
           (x) => row({ id: x.id, q: x.k[0] }, `Q${x.k[0]}`, x.k[1] > 0 ? 'up' : '', 0, `<b class="${x.k[1] > 0 ? 'up' : 'down'}">${pctInt(x.k[1])}</b>`, `Q0'da ${pctInt(x.k[2])}`));
