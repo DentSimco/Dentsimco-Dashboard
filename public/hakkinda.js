@@ -11,7 +11,7 @@ export const UPDATES = [
       'Yönetim ayrı bir bölüm oldu (Kâr Hesaplayıcı altında en solda): Ekip ve Simülasyon. Simülasyon altında Araştırma, İnşaat ve Muhasebe var; Satış ve Şirket kaldırıldı.',
       'İnşaat simülatörü eklendi: yeni bina, bina yükseltme, hurda ve seviye düşürme için malzeme, maliyet, süre, bitiş tarihi ve nakit karşılaştırması.',
       'Yönetim gideri artık Üretim ve Perakende binalarının toplamından hesaplanıyor; yönetici değerleri bu bölümlerden otomatik alınıyor. İki bölümü birlikte kullanırken sonuçlar değişebilir.',
-      'Gündüz teması eklendi. Sağ üstteki düğme Otomatik, Gündüz ve Gece arasında geçiş yapar. Gece temasında neon hafifletildi.',
+      'Epilepsi geçirmemeniz için tema güncellendi, gündüz ve gece modu eklendi. Gündüz ve Gece arasında sağ üstten geçiş yapar. Gece temasında neon hafifletildi.',
       'Sinyal kartı sadeleştirildi: fiyat yönü ve üretim marjı ayrı başlıklarda; KÂR, ZARAR, AL, SAT adları; belirsiz cümleler düzeltildi.',
       'Perakende: mevsimlik pazarlar ve diğer binalar Türkçe adlarıyla görünüyor.',
       'Hakkımızda bölümü eklendi.',
