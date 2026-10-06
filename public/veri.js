@@ -6,6 +6,8 @@
 //   daily/r{realm}_{id}_{yıl}      d{AAGG} = {q: [açılış,yüksek,düşük,kapanış,ortArz,satış,tutar]}
 //   p = en düşük fiyat, a = arz, s = tahmini satış adedi, v = tahmini satış tutarı. Saatler UTC.
 
+import { urunAdi } from './urun-adlari.js';
+
 export const PROJECT_ID = 'dentsimco-e1c85';
 export const START_YEAR = 2026; // botun veri toplamaya başladığı yıl
 export const SHARDS = 16; // parça = ürün ID % 16
@@ -199,10 +201,19 @@ export function dailyRows(fields, year) {
 // ---- Yükleyiciler ----
 
 // Realm'in ürün adları, borsadaki ürün listesi ve son ölçüm
+// Ürün adlarını oyundaki Türkçe adlara çevirir (urun-adlari.js). Aynı nesne bir kez işlenir.
+const duzeltilenUrunler = new WeakSet();
+export function urunAdlariniDuzelt(products) {
+  if (!products || typeof products !== 'object' || duzeltilenUrunler.has(products)) return products;
+  for (const [id, p] of Object.entries(products)) if (p && typeof p === 'object') p.name = urunAdi(p.id ?? id, p.name);
+  duzeltilenUrunler.add(products);
+  return products;
+}
+
 export async function loadBasics(r, options) {
   const P = { products: PATHS.meta(`products_r${r}`), tradable: PATHS.meta('tradable'), live: PATHS.live(r) };
   const docs = await readDocs(Object.values(P), options);
-  const products = dataField(docs.get(P.products)) || {};
+  const products = urunAdlariniDuzelt(dataField(docs.get(P.products)) || {});
   const tradable = dataField(docs.get(P.tradable)) || {};
   const live = dataField(docs.get(P.live));
   let ids = (tradable[r] || []).map(Number).filter(Number.isFinite);

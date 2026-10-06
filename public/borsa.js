@@ -8,6 +8,7 @@ import {
 } from './veri.js';
 import { createChart } from './grafik.js';
 import { loadSignals, signalCard } from './sinyal.js';
+import { hasQuality } from './hesap.js';
 
 // ---- Ayarlar (renkleri buradan değiştirebilirsin) ----
 
@@ -28,7 +29,7 @@ function seriesLabel(key, { q, daily }) {
     case 'dusuk': return 'Gün en düşük';
     case 'yuksek': return 'Gün en yüksek';
     case 'vwap': return 'VWAP';
-    case 'hacim': return `Q${q} Satılan Birim`;
+    case 'hacim': return q == null ? 'Satılan Birim' : `Q${q} Satılan Birim`;
     default: return 'Toplam Satılan Birim';
   }
 }
@@ -361,7 +362,12 @@ export function mountBorsa(root, { realm = 0 } = {}) {
   let signalsFresh = false;
   let signalToken = 0;
 
-  const pick = () => prefs.picks[r] || { id: null, q: 0 };
+  // Kalite seçilemeyen ürünler (araştırma, Taşıma, İnşaat gereci...): kalite seçimi gösterilmez, hep Q0 okunur
+  const noQuality = (id) => id != null && !hasQuality(basics?.products?.[id]);
+  const pick = () => {
+    const p = prefs.picks[r] || { id: null, q: 0 };
+    return noQuality(p.id) ? { ...p, q: 0 } : p;
+  };
   const range = () => RANGES.find((x) => x.key === prefs.range) || RANGES[3];
   const nameOf = (id) => basics?.products?.[id]?.name || `Ürün ${id}`;
 
@@ -456,7 +462,7 @@ export function mountBorsa(root, { realm = 0 } = {}) {
     renderFoot(now);
     renderTable();
     paintSignal();
-    document.title = `${nameOf(id)} Q${q} | DentSimco`;
+    document.title = `${nameOf(id)}${noQuality(id) ? '' : ` Q${q}`} | DentSimco`;
   }
 
   function emptyMessage() {
@@ -468,8 +474,8 @@ export function mountBorsa(root, { realm = 0 } = {}) {
   function chartLabel() {
     const { id, q } = pick();
     const last = shown?.xs.length ? shown.values.anlik[shown.xs.length - 1] : null;
-    const label = seriesLabel('anlik', { q, daily: shown?.daily }).toLocaleLowerCase('tr');
-    return `${nameOf(id)} Q${q}, ${range().name} grafiği. Son ${label}: ${fmtPrice(last)}. Ok tuşlarıyla noktalar arasında gezinebilirsin.`;
+    const label = seriesLabel('anlik', { q: noQuality(id) ? null : q, daily: shown?.daily }).toLocaleLowerCase('tr');
+    return `${nameOf(id)}${noQuality(id) ? '' : ` Q${q}`}, ${range().name} grafiği. Son ${label}: ${fmtPrice(last)}. Ok tuşlarıyla noktalar arasında gezinebilirsin.`;
   }
 
   function renderProduct() {
@@ -479,7 +485,12 @@ export function mountBorsa(root, { realm = 0 } = {}) {
   }
 
   function renderQualities() {
-    const { q } = pick();
+    const { id, q } = pick();
+    const hide = noQuality(id);
+    el.quals.style.display = hide ? 'none' : '';
+    const tablo = el.rows.closest('.quality');
+    if (tablo) tablo.style.display = hide ? 'none' : '';
+    el.heroQ.style.display = hide ? 'none' : '';
     for (const btn of el.quals.children) {
       const bq = Number(btn.dataset.q);
       const has = snap?.qs?.[bq]?.[0] != null || todaySum[bq]?.[5] > 0;
@@ -505,7 +516,7 @@ export function mountBorsa(root, { realm = 0 } = {}) {
   function renderHero(now) {
     const { id, q } = pick();
     el.heroName.textContent = nameOf(id);
-    el.heroQ.textContent = `Q${q}`;
+    el.heroQ.textContent = noQuality(id) ? '' : `Q${q}`;
     const cur = snap?.qs?.[q];
     const p = cur?.[0] ?? null;
     el.price.textContent = p != null ? fmtPrice(p) : snap ? 'İşlem yok' : '—';
@@ -536,7 +547,7 @@ export function mountBorsa(root, { realm = 0 } = {}) {
   }
 
   function renderLegend() {
-    const ctx = { q: pick().q, daily: shown?.daily };
+    const ctx = { q: noQuality(pick().id) ? null : pick().q, daily: shown?.daily };
     for (const btn of el.legend.children) {
       btn.querySelector('.lg-label').textContent = seriesLabel(btn.dataset.key, ctx);
       btn.setAttribute('aria-pressed', String(chart.isVisible(btn.dataset.key)));
@@ -604,7 +615,7 @@ export function mountBorsa(root, { realm = 0 } = {}) {
   async function paintSignal() {
     const my = ++signalToken;
     const { id, q } = pick();
-    const ctx = { id, q, products: basics?.products, realm: r };
+    const ctx = { id, q, products: basics?.products, realm: r, noQuality: noQuality(id) };
     if (signalsRealm !== r || signals === undefined || signalsFresh) {
       el.sinyal.innerHTML = signalCard(signalsRealm === r ? signals : undefined, ctx);
       const fresh = signalsFresh;
@@ -680,7 +691,7 @@ export function mountBorsa(root, { realm = 0 } = {}) {
 
   function selectQuality(q) {
     const cur = pick();
-    if (cur.q === q || cur.id == null) return;
+    if (cur.q === q || cur.id == null || noQuality(cur.id)) return;
     prefs.picks[r] = { ...cur, q };
     save();
     if (product) renderAll('morph');

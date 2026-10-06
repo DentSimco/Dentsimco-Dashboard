@@ -31,6 +31,8 @@
 //   transportPrice: null,                         // elle taşıma fiyatı (yoksa borsadaki Taşıma Q0)
 // }
 
+import { urunAdi } from './urun-adlari.js';
+
 export const MAX_QUALITY = 12;
 export const HOURS_PER_DAY = 24;
 export const MARKET_FEE = 0.04; // borsada satıcıdan kesilen komisyon
@@ -66,9 +68,10 @@ export const qualityKey = (product, quality) => `${product}:${quality}`;
 export const clampQuality = (quality) => clamp(Math.floor(num(quality, 0)), 0, MAX_QUALITY);
 const toLevel = (level) => Math.max(0, Math.floor(num(level, 0)));
 
-// Kalite seçilemeyen ürünler: araştırma ürünleri ve Taşıma. Bunlar hep Q0 sayılır.
+// Kalite seçilemeyen ürünler: araştırma ürünleri, Taşıma ve İnşaat gereci. Bunlar hep Q0 sayılır.
 // Başka ürün eklemek için kimliğini (ID) buraya yazın ya da bota "noQuality" alanı ekleyin.
-export const NO_QUALITY_PRODUCTS = new Set([TRANSPORT_ID]);
+export const CONSTRUCTION_UNITS_ID = 111;
+export const NO_QUALITY_PRODUCTS = new Set([TRANSPORT_ID, CONSTRUCTION_UNITS_ID]);
 export const hasQuality = (product) => !!product && !product.research && !product.noQuality && !NO_QUALITY_PRODUCTS.has(product.id);
 const productQuality = (product, quality) => (product && !hasQuality(product) ? 0 : clampQuality(quality));
 
@@ -91,7 +94,7 @@ export function normalizeData({ products = {}, buildings = {}, core = {}, modifi
     const modifier = bld[p.building]?.salaryModifier;
     prod[id] = {
       id,
-      name: p.name || `#${id}`,
+      name: urunAdi(id, p.name) || `#${id}`,
       building: p.building,
       inputs: (p.inputs || [])
         .map(([input, amount]) => [Number(input), Number(amount)])
@@ -251,12 +254,16 @@ export function buildingRate(building, setup, data, admin, now = Date.now(), eff
   const robots = !!b.robots && category !== 'research';
   if (b.robots && category === 'research') notes.push('Araştırma binalarına robot kurulamaz; robot yok sayıldı');
   const ok = errors.length === 0;
-  const perLevelHour = ok ? (p.perHour * phaseFactor * (1 + eventPct / 100) * efficiency * teamFactor) / (1 - bonus) : 0;
+  // İnşaatta olan bina üretmez ve işçi çalıştırmadığı için maaş ödemez; ama seviyesi yönetim giderine girer
+  // (totalAdminLevels binanın seviyesini her durumda sayar), yani diğer binaların maaşını ve kârını etkiler.
+  const construction = !!b.construction;
+  if (construction) notes.push('İnşaatta: üretmez ve maaş ödemez; seviyesi yönetim giderine girer');
+  const perLevelHour = ok && !construction ? (p.perHour * phaseFactor * (1 + eventPct / 100) * efficiency * teamFactor) / (1 - bonus) : 0;
   const hourly = perLevelHour * level;
-  const wageHour = p.baseSalary * level * (robots ? ROBOT_WAGE_FACTOR : 1); // olay, bonus ve verimlilik maaşı değiştirmez
+  const wageHour = construction ? 0 : p.baseSalary * level * (robots ? ROBOT_WAGE_FACTOR : 1); // olay, bonus ve verimlilik maaşı değiştirmez
   const unitWorker = hourly > 0 ? wageHour / hourly : null;
   return {
-    id: b.id, ok, type, category, product: p.id, quality, level, robots, eventPct, efficiency, bonus, phaseFactor, teamFactor,
+    id: b.id, ok, type, category, product: p.id, quality, level, robots, eventPct, efficiency, bonus, phaseFactor, teamFactor, construction,
     perLevelHour, hourly, daily: hourly * HOURS_PER_DAY,
     wageHour,
     wageDayGross: wageHour * HOURS_PER_DAY * (1 + admin.gross),
@@ -378,7 +385,7 @@ export function autoQuality(setup, data) {
     const need = new Map();
     for (const b of buildings) {
       const p = data.products[b.product];
-      if (!p) continue;
+      if (!p || b.construction) continue;
       const q = minInputQuality(productQuality(p, b.quality));
       for (const [input] of p.inputs) need.set(input, Math.max(need.get(input) ?? 0, q));
     }

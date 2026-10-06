@@ -12,6 +12,7 @@ import { CSS, parseNum } from './uretim.js';
 import * as R from './hesap-perakende.js';
 import { guideCard } from './rehber.js';
 import { binaAdi } from './adlar.js';
+import { urunAdi } from './urun-adlari.js';
 
 const STORE_KEY = (r) => `dentsimco.perakende.r${r}`;
 const TAB_KEY = 'dentsimco.perakende.tab';
@@ -115,7 +116,7 @@ const isRetail = (letter) => !!R.buildingProducts(letter, 1).length && !EXCLUDED
 function cleanBuilding(b) {
   const product = Number(b?.product);
   if (!b || !isRetail(b.letter) || !R.buildingProducts(b.letter, 1).includes(product)) return null;
-  return { id: b.id || uid(), letter: b.letter, product, quality: R.clampQuality(b.quality), level: toInt(b.level), cost: posNum(b.cost), price: posNum(b.price) };
+  return { id: b.id || uid(), letter: b.letter, product, quality: R.clampQuality(b.quality), level: toInt(b.level), cost: posNum(b.cost), price: posNum(b.price), construction: !!b.construction };
 }
 function sanitize(raw) {
   const s = defaultSetup();
@@ -180,7 +181,7 @@ async function loadData(r) {
   const qw = core.RETAIL_MODELING_QUALITY_WEIGHT;
   return {
     norm: H.normalizeData({ products, buildings: get('buildings') || {}, core, modifiers: get('modifiers') || {}, realm: r }),
-    names: Object.fromEntries(Object.entries(products).map(([id, p]) => [id, p?.name || `#${id}`])),
+    names: Object.fromEntries(Object.entries(products).map(([id, p]) => [id, urunAdi(id, p?.name) || `#${id}`])),
     saturation,
     market: parseLive(get('live')),
     liveT: Number(get('live')?.t) || null,
@@ -350,7 +351,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     return R.calcProduct({ economy: c.econ, productId: product, quality, saturation: c.ctx.saturation[product], cAct, price: p,
       bonusPct: c.ctx.bonusPct, weather: 1, qualityWeight: c.ctx.qualityWeight, wage: baseWage(c, letter, product, quality) * (1 + c.ctx.adminNet) });
   }
-  const engineSetup = (c, list = setup.buildings) => ({ economyPhase: c.econ, buildings: list.map((b) => ({ id: b.id, letter: b.letter, level: b.level,
+  const engineSetup = (c, list = setup.buildings) => ({ economyPhase: c.econ, buildings: list.map((b) => ({ id: b.id, letter: b.letter, level: b.level, construction: !!b.construction,
     lines: [{ product: b.product, quality: b.quality, cost: b.cost ?? marketOf(b.product, b.quality), price: b.price }] })) });
   // Kalite seçenekleri: borsada fiyatı olan kaliteler (maliyet = borsa fiyatı); hiç yoksa Q0 ve modeldeki maliyet
   function qualityOptions(c, letter, product) {
@@ -503,7 +504,10 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   function buildingCard(c, b, line, i) {
     const title = esc(nameOf(b.product));
     const chips = [];
-    if (line?.ok) {
+    if (b.construction) {
+      chips.push(chip('İnşaatta', 'muted'));
+      chips.push(chip('Satmaz, maaş ödemez; seviyesi yönetim giderine girer', 'muted'));
+    } else if (line?.ok) {
       chips.push(chip(`PPHPL ${money(line.pphpl, 2)}`, line.pphpl > 0 ? 'up' : 'down'));
       chips.push(chip(`Kâr ${money(line.profitDay)}/gün`, line.profitDay > 0 ? 'up' : 'down'));
       chips.push(chip(`Fiyat ${price(line.price)}${b.price == null ? ' (en kârlı)' : ''}`, 'muted'));
@@ -521,6 +525,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
         <div class="ur-stat"><span>Günlük</span><span>${line?.ok ? num(line.unitsDay) : '—'}</span></div>
         <div class="ur-stat"><span>Maaş/gün</span><span>${line?.ok ? money(line.wagesHour * 24) : '—'}</span></div></div>
       <div class="ur-chips">${chips.join('')}</div>
+      <div class="ur-row"><button type="button" class="ur-btn grow${b.construction ? ' tint' : ''}" data-act="build" data-i="${i}" aria-pressed="${!!b.construction}">İnşaatta</button></div>
       <div class="ur-row"><button type="button" class="ur-btn tint grow" data-act="edit" data-i="${i}">${icon('edit')}Düzenle</button>
         <button type="button" class="ur-btn" data-act="copy" data-i="${i}" aria-label="Aynı özelliklerle kopyala">${icon('copy')}</button>
         <button type="button" class="ur-btn danger" data-act="del" data-i="${i}" aria-label="Sil">${icon('trash')}</button></div>
@@ -623,6 +628,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       const head = `<div class="ur-row" style="gap:6px;flex-wrap:wrap"><span style="font-size:18px;font-weight:600">${esc(nameOf(b.product))}</span>${chip(`Q${b.quality}`)}${badge(c.ctx.saturation[b.product])}
         <span class="ur-note" style="margin-left:auto">${l?.ok ? `${num(l.unitsDay * k)} adet` : ''}</span></div>
         <span class="ur-note">${esc(buildingName(b.letter))} · seviye ${num(b.level)}</span>`;
+      if (b.construction) return `<div class="ur-card" style="padding:12px">${head}<p class="ur-note">İnşaatta: satış ve maaş yok; seviyesi yönetim giderine girer.</p></div>`;
       if (!l?.ok) return `<div class="ur-card" style="padding:12px">${head}<p class="ur-note c-down">${esc(l?.reason || 'Hesaplanamadı')}</p></div>`;
       const gross = l.price - l.cAct;
       const has = l.unitsHour > 0;
@@ -819,7 +825,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     const d = sheet?.draft;
     if (!d?.letter || !d.product || !(d.level > 0)) return;
     const next = clone();
-    const b = { id: d.id || uid(), letter: d.letter, product: d.product, quality: d.quality, level: d.level, cost: d.cost, price: d.price };
+    const b = { id: d.id || uid(), letter: d.letter, product: d.product, quality: d.quality, level: d.level, cost: d.cost, price: d.price, construction: !!d.construction };
     if (d.index != null && next.buildings[d.index]) next.buildings[d.index] = b; else next.buildings.push(b);
     const added = d.index == null;
     closeSheet();
@@ -863,6 +869,14 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       const b = setup.buildings[i];
       if (b) openSheet({ ...b, index: i });
       return;
+    }
+    if (act === 'build') {
+      const i = Number(btn.dataset.i);
+      if (!setup.buildings[i]) return;
+      const next = clone();
+      next.buildings[i] = { ...next.buildings[i], construction: !next.buildings[i].construction };
+      commit(next);
+      return toast(next.buildings[i].construction ? 'Bina inşaatta: satış ve maaş yok, seviyesi yönetim giderine girer.' : 'Bina inşaattan çıktı.');
     }
     if (act === 'copy') {
       const i = Number(btn.dataset.i);

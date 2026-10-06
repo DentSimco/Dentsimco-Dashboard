@@ -30,13 +30,13 @@ const POSITIONS = [['o', 'COO'], ['f', 'CFO'], ['m', 'CMO'], ['t', 'CTO'], ['v',
   ['y', 'CMO stajyeri'], ['z', 'CTO stajyeri'], ['1', 'Personel']];
 const positionName = (p) => (/^\d+$/.test(String(p)) ? 'Personel' : POSITIONS.find(([k]) => k === p)?.[1] || String(p || '?'));
 const SKILL_LABELS = [['coo', 'Yönetim'], ['cfo', 'Muhasebe'], ['cmo', 'İletişim'], ['cto', 'Bilim']];
-const SECTOR_LABELS = [['coo', 'Yönetim', 'maaş tasarrufu'], ['cfo', 'Muhasebe', 'ödenmeyen vergi'], ['cmo', 'İletişim', 'perakende satış'], ['cto', 'Bilim', 'araştırma üretimi']];
+const SECTOR_LABELS = [['coo', 'Yönetim', 'maaş tasarrufu'], ['cfo', 'Muhasebe', 'ödenmeyen vergi'], ['cmo', 'İletişim', 'perakende satış'], ['cto', 'Bilim', 'araştırma binalarının hız artışı']];
 // Her katkının hangi veriden geldiği ve eksikse nereye gidileceği
 const SECTOR_VERI = {
   coo: ['Binalarınızı Üretim ya da Perakende bölümüne girince hesaplanır.', '#uretim', 'Üretim\'e git'],
   cfo: ['Nakdinizi Simülasyon › Muhasebe\'ye girince hesaplanır.', '#yonetim/simulasyon/muhasebe', 'Muhasebe\'ye git'],
   cmo: ['Mağazalarınızı Perakende bölümüne girince hesaplanır.', '#perakende', 'Perakende\'ye git'],
-  cto: ['Günlük araştırma üretiminizi Simülasyon › Araştırma\'ya girince hesaplanır.', '#yonetim/simulasyon/arastirma', 'Araştırma\'ya git'],
+  cto: ['Üretim bölümüne araştırma binası (ör. Mutfak) ekleyince hesaplanır.', '#uretim', 'Üretim\'e git'],
 };
 
 const NF = [0, 1, 2, 3, 4].map((d) => new Intl.NumberFormat('tr-TR', { minimumFractionDigits: d, maximumFractionDigits: d }));
@@ -238,13 +238,13 @@ export function mountYonetim(root, { realm = 0 } = {}) {
   function viewMuhasebe(s) {
     const c = company;
     return `<section class="ur-card" aria-labelledby="h-fin"><h2 id="h-fin">Nakit ve bono</h2>
-        <p class="ur-sub">Vergi (muhasebe ücreti) ve muhasebecinin (CFO) kazandırdığı için.</p>
+        <p class="ur-sub">Vergi (muhasebe ücreti) ve muhasebecinin (CFO) sağladığı kazanç, nakit ve bonoya göre hesaplanır.</p>
         ${field('Nakit', 'finance.cash', inVal(c.finance.cash), { unit: '$', mode: 'numeric', hint: 'Oyunun sağ üstündeki yeşil tutar; tipik gün sonu nakdiniz.' })}
         <div class="ur-grid2">${field('Alınan bono', 'finance.bondsBought', inVal(c.finance.bondsBought), { unit: '$', mode: 'numeric' })}${field('İhraç edilen bono', 'finance.bondsIssued', inVal(c.finance.bondsIssued), { unit: '$', mode: 'numeric' })}</div>
         <div class="ur-box">${kv('Banka seviyesi', `${num(c.finance.bankLevel)} <span class="c-muted">(Üretim › Kurulum)</span>`)}
           ${kv('Vergilenen varlık', money(s.tax.assets))}${kv('Vergilendirme başlangıcı', money(s.tax.threshold))}
           ${kv('Günlük vergi', money(s.tax.day), 'c-price')}${kv('Yöneticisiz olsaydı', money(s.tax.withoutDay))}${kv('Muhasebenin günlük katkısı', money(s.sectors.cfo), 'c-up', true)}
-          <p class="ur-note">Vergi kademeli: eşiğin üstüne %0,5; +3M, +6M, +9M'de %0,5 daha, +12M'de %1 daha.</p></div></section>`;
+          <p class="ur-note">Vergi kademelidir: eşiğin üstündeki tutara %0,5; eşiğin 3M, 6M ve 9M üstünde %0,5 daha, 12M üstünde %1 daha.</p></div></section>`;
   }
 
   // ---- YÖNETİCİLER ----
@@ -274,7 +274,7 @@ export function mountYonetim(root, { realm = 0 } = {}) {
   // Ekibin günlük katkısı: eksik veri varsa sıfır yerine nereden girileceği yazılır
   function sectorCard(s) {
     const c = company;
-    const has = { coo: c.admin.totalLevels > 0, cfo: c.finance.cash > 0, cmo: c.retail.marginDay > 0, cto: c.research.outputDay > 0 || c.research.upgrades.length > 0 };
+    const has = { coo: c.admin.totalLevels > 0, cfo: c.finance.cash > 0, cmo: c.retail.marginDay > 0, cto: (c.parts?.uretim?.researchDay || 0) > 0 };
     const rows = SECTOR_LABELS.map(([k, name, what]) => (has[k]
       ? `<div class="ur-kv"><span>${name} <span class="c-muted">· ${what}</span></span><span class="c-up">${money(s.sectors[k], 0, true)}/gün</span></div>`
       : `<div class="ur-kv" style="align-items:flex-start"><span>${name}</span><span class="c-muted" style="text-align:right;font-size:13px;max-width:70%">${SECTOR_VERI[k][0]} <a href="${SECTOR_VERI[k][1]}" style="color:var(--accent)">${SECTOR_VERI[k][2]}</a></span></div>`)).join('');
@@ -324,8 +324,6 @@ export function mountYonetim(root, { realm = 0 } = {}) {
     const plan = s.plan;
     const none = s.planWithout;
     const rows = c.research.upgrades.map((u, i) => upgradeRow(u, i, plan.rows[i], none.rows[i])).join('');
-    const resMarket = marketOf(c.research.researchId);
-    const resPrice = c.research.price ?? resMarket?.price ?? null;
     return `<section class="ur-card" aria-labelledby="h-up"><h2 id="h-up">Kalite planı</h2>
       <p class="ur-sub">Ürünlerinizi daha yüksek kaliteye çıkarmak için gereken patent ve araştırma. Gereken araştırma = patent ÷ patent olasılığı.</p>
       <div class="ur-box">${kv('Patent olasılığınız', `%${NF[2].format(plan.chancePct)}`, 'c-price', true)}<p class="ur-note">Taban %6,25, etkili bilim puanı başı +%0,0625 (bilim 60 → %10).</p></div>
@@ -335,14 +333,7 @@ export function mountYonetim(root, { realm = 0 } = {}) {
       ${c.research.upgrades.length ? `<div class="ur-box"><span class="ur-note" style="font-weight:600">Toplam</span>
         ${kv('Patent', num(plan.patents))}${kv('Araştırma', num(plan.research))}${kv('Maliyet', money(plan.cost), 'c-price', true)}
         ${s.upgradeSaving > 0 ? `<div class="ur-hr"></div>${kv('Bilim puanı olmasa', money(none.cost))}${kv('Ekibinizin tasarrufu', money(s.upgradeSaving), 'c-up', true)}` : ''}
-        ${plan.missingPrice ? '<p class="ur-note">Fiyatı olmayan satırlar maliyete katılmadı.</p>' : ''}</div>` : ''}</section>
-      <section class="ur-card" aria-labelledby="h-rp"><h2 id="h-rp">Araştırma üretimi</h2>
-        <p class="ur-sub">Bilim puanı araştırma binalarının üretim hızını artırır (puan başı %2). Ürettiğiniz araştırmanın değeri bilimin günlük katkısıdır.</p>
-        <label class="ur-field"><span>Araştırma türü (fiyat için)</span><select data-f="research.researchId">${options(researchList(), c.research.researchId, 'Araştırma seçin')}</select></label>
-        ${field('Günlük araştırma üretimi (şu an)', 'research.outputDay', inVal(c.research.outputDay), { unit: 'adet', mode: 'numeric', hint: 'Bütün araştırma binalarınızın şu anki toplamı.' })}
-        ${field('Birim fiyat', 'research.price', c.research.price != null ? dec(c.research.price) : '', { unit: '$', placeholder: resMarket?.price != null ? NF[2].format(resMarket.price) : '', hint: 'Boş bırakırsanız borsadan alınır.' })}
-        <div class="ur-chips">${priceTag(c.research.price, resMarket)}</div>
-        <div class="ur-box">${kv('Günlük üretim değeri', money(c.research.outputDay * (resPrice || 0)))}${kv('Bilimin günlük katkısı', money(s.sectors.cto), 'c-up', true)}</div></section>`;
+        ${plan.missingPrice ? '<p class="ur-note">Fiyatı olmayan satırlar maliyete katılmadı.</p>' : ''}</div>` : ''}</section>`;
   }
 
   // ---- olaylar ----

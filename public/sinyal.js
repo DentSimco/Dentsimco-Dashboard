@@ -9,7 +9,9 @@
 //   urun: {id: {q: {e, u, s:[eylem, güç], a:[eylem, güç], t, m, r:[gerekçe], o:[[olay]], z, k}}}
 //     e: 14 günlük beklenti, yarım yüzde adımı (e ÷ 200 = oran)
 
-import { readDocs, dataField, loadBasics, PATHS, fmtDate, fmtDateTime, fmtAgo, fmtPct, HOUR } from './veri.js';
+import { readDocs, dataField, loadBasics, PATHS, fmtDate, fmtDateTime, fmtAgo, fmtPct, fmtPrice, HOUR } from './veri.js';
+import { loadPerakendeSinyal, karMi, zararMi } from './perakende-sinyal.js';
+import { binaAdi } from './adlar.js';
 
 const PREFS_KEY = 'dentsimco.sinyal.v1';
 const BORSA_KEY = 'dentsimco.borsa.v1';
@@ -30,7 +32,8 @@ export async function loadSignals(r, options) {
 function readPrefs() {
   let p = {};
   try { p = JSON.parse(localStorage.getItem(PREFS_KEY)) || {}; } catch { p = {}; }
-  return { tab: typeof p.tab === 'string' ? p.tab : 'satici', q: Number.isInteger(p.q) || p.q === 'tum' ? p.q : 0, tuccar: p.tuccar === true };
+  const tab = p.tab === 'sezon' || p.tab === 'olay' ? 'takvim' : typeof p.tab === 'string' ? p.tab : 'satici'; // Mevsim ve Olaylar Takvim altına taşındı
+  return { tab, q: Number.isInteger(p.q) || p.q === 'tum' ? p.q : 0, tuccar: p.tuccar === true };
 }
 
 function savePrefs(prefs) {
@@ -161,8 +164,8 @@ const eskiMi = (doc) => doc && Date.now() - doc.t > 36 * HOUR;
 // ---- Borsa ekranındaki kart ----
 
 // doc: undefined = yükleniyor, null = belge yok
-export function signalCard(doc, { id, q, products, realm = 0 } = {}) {
-  const head = (extra = '') => `<div class="sg-head"><h2 class="sg-title">Sinyal <span class="qtag">Q${esc(q)}</span></h2>${extra}</div>`;
+export function signalCard(doc, { id, q, products, realm = 0, noQuality = false } = {}) {
+  const head = (extra = '') => `<div class="sg-head"><h2 class="sg-title">Sinyal${noQuality ? '' : ` <span class="qtag">Q${esc(q)}</span>`}</h2>${extra}</div>`;
   if (doc === undefined) return `<section class="sg" aria-busy="true">${head()}<p class="sg-empty">Sinyal yükleniyor.</p></section>`;
   if (!doc) {
     return `<section class="sg">${head()}<p class="sg-empty">Sinyaller henüz hesaplanmadı. Motor her gece 04:20'de (TR) çalışır; ilk çalışmadan sonra burada görünür.</p></section>`;
@@ -170,7 +173,7 @@ export function signalCard(doc, { id, q, products, realm = 0 } = {}) {
   const when = `<span class="sg-when${eskiMi(doc) ? ' stale' : ''}">${esc(veriZamani(doc))}</span>`;
   const e = doc.urun?.[id]?.[q];
   if (!e) {
-    const baska = Object.keys(doc.urun?.[id] || {}).map((x) => `Q${x}`);
+    const baska = noQuality ? [] : Object.keys(doc.urun?.[id] || {}).map((x) => `Q${x}`);
     const not = baska.length ? ` Bu ürün için sinyal olan kaliteler: ${esc(baska.join(', '))}.` : '';
     const neden = realm === 1 && doc.makro?.m7 == null ? ' R2 için geçmiş veri birikiyor; sinyaller yaklaşık 60 gün sonra dolar.' : '';
     return `<section class="sg">${head(when)}<p class="sg-empty">Bu kalite için yeterli işlem geçmişi yok (son 60 günde en az 40 işlem günü gerekir).${not}${neden}</p></section>`;
@@ -181,7 +184,7 @@ export function signalCard(doc, { id, q, products, realm = 0 } = {}) {
   const kal = doc.kalite?.[id];
   const tuc = tuccarAcik();
 
-  const rol = (kim, b) => `<div class="sg-role" data-yon="${b.yon}">
+  const rol = (kim, b) => `<div class="sg-role" data-yon="${b.yon}" data-guc="${b.guc || 0}">
       <span class="sg-who">${kim}</span>
       <span class="sg-verdict"><b class="sg-act">${esc(b.ad)}</b>${b.guc ? `${gucBar(b.guc)}<span class="sg-pow">${GUC[b.guc]}</span>` : ''}</span>
       <p class="sg-text">${esc(b.metin)}</p>
@@ -204,7 +207,7 @@ export function signalCard(doc, { id, q, products, realm = 0 } = {}) {
     </div>`;
   }
   const tuccar = tuc ? `<div class="sg-role" data-yon="${e.t ? 'up' : ''}">
-      <span class="sg-who">Tüccar (al, 14 gün sonra sat)</span>
+      <span class="sg-who">Resell (al, 14 gün sonra sat)</span>
       <span class="sg-verdict"><b class="sg-act">${e.t ? 'AL' : 'İŞLEM YOK'}</b></span>
       <p class="sg-text">${e.t ? 'Beklenti komisyon ve taşımayı karşılıyor. Geçmişte zayıf bir sinyaldi, küçük miktarla dene.' : 'Beklenen hareket %4 komisyonu ve taşımayı karşılamıyor.'}</p>
     </div>` : '';
@@ -236,8 +239,8 @@ const SEKMELER = [
   ['satici', 'Satış'],
   ['alici', 'Alım'],
   ['uretim', 'Üretim'],
-  ['sezon', 'Mevsim'],
-  ['olay', 'Olaylar'],
+  ['perakende', 'Perakende'],
+  ['takvim', 'Takvim'],
   ['karne', 'Karne'],
 ];
 
@@ -255,9 +258,9 @@ const SAYFA = `
   <div class="sy-tabs" role="tablist" aria-label="Sinyal türü" data-el="tabs"></div>
   <div class="sy-quals" data-el="quals" role="radiogroup" aria-label="Kalite"></div>
   <div class="sy-body" data-el="body"></div>
-  <label class="sy-opt"><input type="checkbox" data-el="tuccar"> Tüccar sinyallerini göster (al-sat; geçmişte zayıftı)</label>
+  <label class="sy-opt"><input type="checkbox" data-el="tuccar"> Resell sinyallerini göster (al-sat; geçmişte zayıftı)</label>
   <p class="sy-note">Hesap her gece özel sunucuda yapılır; bu sayfa yalnız sonuçları gösterir. Beklentiler 14 günlüktür ve olasılık bildirir.
-    Komisyon satışı bugün de sonra da yapsan ödendiği için satış ve alım zamanlamasında hesaba girmez; yalnız tüccar sinyalinde düşülür.</p>
+    Komisyon, bugün de sonra da satsan ödendiği için Satış ve Alım sinyallerinde hesaba katılmaz; yalnız Resell sinyalinde düşülür.</p>
 </section>`;
 
 export function mountSinyal(root, { realm = 0 } = {}) {
@@ -298,10 +301,10 @@ export function mountSinyal(root, { realm = 0 } = {}) {
   }
 
   function tabs() {
-    const list = prefs.tuccar ? [...SEKMELER.slice(0, 3), ['tuccar', 'Tüccar'], ...SEKMELER.slice(3)] : SEKMELER;
+    const list = prefs.tuccar ? [...SEKMELER.slice(0, 4), ['tuccar', 'Resell'], ...SEKMELER.slice(4)] : SEKMELER;
     if (!list.some(([k]) => k === prefs.tab)) prefs.tab = 'satici';
     el.tabs.innerHTML = list.map(([k, ad]) => `<button type="button" role="tab" data-tab="${k}" aria-selected="${k === prefs.tab}" tabindex="${k === prefs.tab ? 0 : -1}">${ad}</button>`).join('');
-    const showQ = ['satici', 'alici', 'uretim', 'tuccar'].includes(prefs.tab);
+    const showQ = ['satici', 'alici', 'uretim', 'perakende', 'tuccar'].includes(prefs.tab);
     el.quals.hidden = !showQ;
     if (showQ) {
       const opts = [...Array.from({ length: 13 }, (_, q) => [q, `Q${q}`]), ['tum', 'Tümü']];
@@ -365,8 +368,67 @@ export function mountSinyal(root, { realm = 0 } = {}) {
   const eTxt = (e) => (e.e == null ? '<span class="sy-dim">mevsim</span>' : `<b class="${e.e > 0 ? 'up' : e.e < 0 ? 'down' : ''}">${fmtPct(e.e / 200)}</b>`);
   const byE = (dir) => (a, b) => (b.e.s?.[1] ?? 0) - (a.e.s?.[1] ?? 0) || dir * ((b.e.e ?? 0) - (a.e.e ?? 0));
 
+  // Takvim: Mevsim takvimi ve Üretim hızı olayları tek sekmede
+  function takvimSezon() {
+      const sira = { sezon: 0, once: 1, sonra: 2, dis: 3 };
+      const list = Object.entries(doc.sezon || {}).map(([id, s]) => ({ id: Number(id), q: 0, s }))
+        .sort((a, b) => sira[a.s[3]] - sira[b.s[3]] || (a.s[1] < b.s[1] ? -1 : 1));
+      return block('sezon', 'Mevsim takvimi', 'Yıllık işlem değerinin yarısı 60 günden kısa sürede toplanan ürünler. Her biri için yalnız bir yıllık döngü görüldü.', list, (x) => {
+        const e = doc.urun?.[x.id]?.[0];
+        const sat = eylemBilgi('satici', e?.s, x.s);
+        return row(x, e ? sat.ad : '—', sat.yon, e?.s?.[1] || 0, `<span class="sy-dim">${esc({ once: 'yaklaşıyor', sezon: 'sezonda', sonra: 'bitti', dis: 'dışında' }[x.s[3]] || '')}</span>`, sezonMetni(x.s));
+      });
+  }
+  function takvimOlay() {
+      const sira = { aktif: 0, yakinda: 1, bitti: 2 };
+      const list = (doc.olaylar || []).map((o) => ({ id: o[0], q: 0, o })).sort((a, b) => sira[a.o[4]] - sira[b.o[4]] || (a.o[3] < b.o[3] ? -1 : 1));
+      return block('olay', 'Üretim hızı olayları', 'Hız artışı arzı artırır (fiyata aşağı baskı), düşüşü azaltır. Olay girdilere ve kullanan ürünlere de yayılır.', list, (x) => {
+        const [, s, since, until, durum] = x.o;
+        const yon = s > 0 ? 'down' : 'up';
+        const ne = durum === 'aktif' ? `${fmtDate(Date.parse(until))} tarihine kadar` : durum === 'yakinda' ? `${fmtDate(Date.parse(since))} tarihinde başlıyor` : `${fmtDate(Date.parse(until))} tarihinde bitti`;
+        return row(x, `${s > 0 ? '+' : '−'}%${Math.abs(s)}`, yon, 0, `<span class="sy-dim">${esc({ aktif: 'sürüyor', yakinda: 'yakında', bitti: 'bitti' }[durum])}</span>`, ne);
+      });
+  }
+
+  // Perakende sinyali: borsadan al, perakende binasında en kârlı fiyatla sat. Veri sekme açılınca bir kez yüklenir.
+  let pk = null;      // null: yüklenmedi | 'yukleniyor' | { list, ... } | { hata }
+  let pkRealm = null;
+  let pkToken = 0;
+  async function pkYukle(fresh = false) {
+    const my = ++pkToken;
+    const rr = r;
+    pk = 'yukleniyor';
+    try {
+      const d = await loadPerakendeSinyal(rr, fresh ? { refresh: (p) => p.startsWith('live/') || p.startsWith('meta/') } : undefined);
+      if (my !== pkToken || destroyed) return;
+      pk = d;
+    } catch (e) {
+      if (my !== pkToken || destroyed) return;
+      pk = { hata: e?.message || String(e) };
+    }
+    pkRealm = rr;
+    if (prefs.tab === 'perakende') body();
+  }
+  function perakendeHtml() {
+    if (pkRealm !== r || !pk || pk === 'yukleniyor') {
+      if (pk !== 'yukleniyor') pkYukle();
+      return '<p class="sy-empty">Perakende hesaplanıyor.</p>';
+    }
+    if (pk.hata) return `<p class="sy-empty">Perakende sinyali hesaplanamadı: ${esc(pk.hata)}</p>`;
+    const secili = pk.list.filter((x) => prefs.q === 'tum' || x.q === prefs.q);
+    const kar = secili.filter(karMi).sort((a, b) => b.pphpl - a.pphpl);
+    const zarar = secili.filter(zararMi).sort((a, b) => a.pphpl - b.pphpl);
+    const fp = (x) => fmtPrice(x);
+    const prow = (x) => row(x, karMi(x) ? 'KÂR' : 'ZARAR', karMi(x) ? 'up' : 'down', 0,
+      x.marj == null ? '<span class="sy-dim">satılmaz</span>' : `<b class="${x.marj >= 0 ? 'up' : 'down'}">${pctInt(x.marj)}</b>`,
+      `${binaAdi(x.letter, 'Mağaza')} · en kârlı fiyat ${fp(x.price)} · borsa maliyeti ${fp(x.cost)}`);
+    const evre = { 0: 'Durgunluk', 1: 'Normal', 2: 'Büyüme' }[pk.economy];
+    return block('pkkar', 'Kâr: borsadan al, perakendede sat', `Borsadaki fiyat mal maliyeti, satış fiyatı en kârlı fiyat sayılır; bina maaşı düşülmüş net marj +%3 ve üstü. Evre: ${evre}.`, kar, prow)
+      + block('pkzarar', 'Zarar: bu maliyetle satmaya değmez', 'Borsa fiyatı o kadar yüksek ki en kârlı fiyatta bile maaşı çıkarmıyor ya da ürün satılamıyor.', zarar, prow);
+  }
+
   function body() {
-    if (!doc) {
+    if (!doc && prefs.tab !== 'perakende') {
       el.body.innerHTML = '<p class="sy-empty">Sinyaller henüz hesaplanmadı. Motor her gece 04:20\'de (TR) çalışır; elle çalıştırmak için GitHub\'da Actions › DentSimco Sinyal › Run workflow.</p>';
       return;
     }
@@ -401,24 +463,10 @@ export function mountSinyal(root, { realm = 0 } = {}) {
     } else if (t === 'tuccar') {
       const tc = entries((e) => e.t === 1).sort((a, b) => (b.e.e ?? 0) - (a.e.e ?? 0));
       html = block('tuccar', 'Al, 14 gün sonra sat', 'Yalnız $1.000 üstü ürünlerde ve beklenti komisyon + taşımayı aştığında. Geçmişte zayıf bir sinyaldi.', tc, (x) => row(x, 'AL', 'up', 0, eTxt(x.e), ilkNeden(x.e)));
-    } else if (t === 'sezon') {
-      const sira = { sezon: 0, once: 1, sonra: 2, dis: 3 };
-      const list = Object.entries(doc.sezon || {}).map(([id, s]) => ({ id: Number(id), q: 0, s }))
-        .sort((a, b) => sira[a.s[3]] - sira[b.s[3]] || (a.s[1] < b.s[1] ? -1 : 1));
-      html = block('sezon', 'Mevsim takvimi', 'Yıllık işlem değerinin yarısı 60 günden kısa sürede toplanan ürünler. Her biri için yalnız bir yıllık döngü görüldü.', list, (x) => {
-        const e = doc.urun?.[x.id]?.[0];
-        const sat = eylemBilgi('satici', e?.s, x.s);
-        return row(x, e ? sat.ad : '—', sat.yon, e?.s?.[1] || 0, `<span class="sy-dim">${esc({ once: 'yaklaşıyor', sezon: 'sezonda', sonra: 'bitti', dis: 'dışında' }[x.s[3]] || '')}</span>`, sezonMetni(x.s));
-      });
-    } else if (t === 'olay') {
-      const sira = { aktif: 0, yakinda: 1, bitti: 2 };
-      const list = (doc.olaylar || []).map((o) => ({ id: o[0], q: 0, o })).sort((a, b) => sira[a.o[4]] - sira[b.o[4]] || (a.o[3] < b.o[3] ? -1 : 1));
-      html = block('olay', 'Üretim hızı olayları', 'Hız artışı arzı artırır (fiyata aşağı baskı), düşüşü azaltır. Olay girdilere ve kullanan ürünlere de yayılır.', list, (x) => {
-        const [, s, since, until, durum] = x.o;
-        const yon = s > 0 ? 'down' : 'up';
-        const ne = durum === 'aktif' ? `${fmtDate(Date.parse(until))} tarihine kadar` : durum === 'yakinda' ? `${fmtDate(Date.parse(since))} tarihinde başlıyor` : `${fmtDate(Date.parse(until))} tarihinde bitti`;
-        return row(x, `${s > 0 ? '+' : '−'}%${Math.abs(s)}`, yon, 0, `<span class="sy-dim">${esc({ aktif: 'sürüyor', yakinda: 'yakında', bitti: 'bitti' }[durum])}</span>`, ne);
-      });
+    } else if (t === 'perakende') {
+      html = perakendeHtml();
+    } else if (t === 'takvim') {
+      html = takvimSezon() + takvimOlay();
     } else if (t === 'karne') {
       const k = doc.karne || {};
       const satirlar = Object.keys(KOVA_AD).map((b) => {
@@ -495,6 +543,9 @@ export function mountSinyal(root, { realm = 0 } = {}) {
       if (next === r) return;
       r = next;
       doc = null;
+      pk = null;
+      pkRealm = null;
+      pkToken++;
       el.when.textContent = 'Yükleniyor';
       refresh();
     },

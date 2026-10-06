@@ -8,7 +8,7 @@
 //   finance:  { cash, bondsBought, bondsIssued, bankLevel }        // bono = oyundaki tahvil
 //   admin:    { totalLevels, wagesDay }      // yönetim gideri için: toplam bina seviyesi, yönetim gideri DAHİL günlük maaş
 //   retail:   { marginDay, otherSpeedPct }   // perakende: günlük brüt marj (satış − mal maliyeti), ekip dışı satış hızı bonusu
-//   research: { outputDay, price, upgrades: [{ label, researchId, from, to, price }] }
+//   research: { upgrades: [{ label, researchId, from, to, price }] }   (outputDay ve price eski kayıtlarda kalır, kullanılmaz)
 
 import * as H from './hesap.js';
 
@@ -67,7 +67,8 @@ export function defaultCompany() {
     finance: { cash: 0, bondsBought: 0, bondsIssued: 0, bankLevel: 0 },
     admin: { totalLevels: 0, wagesDay: 0 },
     // Üretim ve Perakende kendi payını buraya yazar (bina seviyesi, akademi, günlük maaş). Yönetim gideri ikisinin toplamıdır.
-    parts: { uretim: { levels: 0, academy: 0, wagesDay: 0 }, perakende: { levels: 0, academy: 0, wagesDay: 0 } },
+    // researchDay: Üretim'deki araştırma binalarının ekipsiz (bilim puanı olmadan) günlük üretim değeri ($); bilimin değeri bundan hesaplanır
+    parts: { uretim: { levels: 0, academy: 0, wagesDay: 0, researchDay: 0 }, perakende: { levels: 0, academy: 0, wagesDay: 0, researchDay: 0 } },
     retail: { marginDay: 0, otherSpeedPct: 0 },
     research: { outputDay: 0, price: null, researchId: null, otherSpeedPct: 0, upgrades: [] },
   };
@@ -88,7 +89,7 @@ export function sanitizeCompany(raw) {
   c.finance = { cash: pos(f.cash), bondsBought: pos(f.bondsBought), bondsIssued: pos(f.bondsIssued), bankLevel: H.clampBankLevel(f.bankLevel) };
   const a = raw.admin || {};
   c.admin = { totalLevels: Math.floor(pos(a.totalLevels)), wagesDay: pos(a.wagesDay) }; // eski kayıtlardaki elle giriş (yedek)
-  const part = (x) => ({ levels: Math.floor(pos(x?.levels)), academy: Math.floor(pos(x?.academy)), wagesDay: pos(x?.wagesDay) });
+  const part = (x) => ({ levels: Math.floor(pos(x?.levels)), academy: Math.floor(pos(x?.academy)), wagesDay: pos(x?.wagesDay), researchDay: pos(x?.researchDay) });
   c.parts = { uretim: part(raw.parts?.uretim), perakende: part(raw.parts?.perakende) };
   const fromParts = adminFromParts(c.parts);
   if (fromParts.totalLevels > 0 || fromParts.wagesDay > 0) c.admin = fromParts; // Üretim/Perakende verisi varsa elle girişin yerine geçer
@@ -157,9 +158,9 @@ export function companyBases(company) {
   // Girilen marj şimdiki ekiple olduğundan sabit katsayı K = marj × (1 − b/100); ekip değişince marj K ÷ (1 − b'/100) olur.
   const speedNow = c.retail.otherSpeedPct + team.salesSpeedPct;
   const retailK = speedNow < 100 ? c.retail.marginDay * (1 - speedNow / 100) : 0;
-  const price = num(c.research.price, 0);
-  // araştırma hızı çarpandır: şimdiki üretim = ekipsiz üretim × (1 + hız); girilen üretim ekiple birlikte
-  const researchPerPct = (c.research.outputDay * price) / (100 + team.researchSpeedPct);
+  // araştırma hızı çarpandır: şimdiki üretim = ekipsiz üretim × (1 + hız). Üretim bölümü araştırma binalarının EKİPSİZ günlük
+  // değerini yazar (kendi araştırma ürünü fiyatıyla); bilimin değeri bunun hız yüzdesi kadarıdır. Simülasyondaki elle giriş kalktı.
+  const researchPerPct = pos(c.parts?.uretim?.researchDay) / 100;
   return { team, gross, wageBaseDay, retailK, retailOtherPct: c.retail.otherSpeedPct, researchPerPct, assets: H.assessableAssets(c.finance) };
 }
 
@@ -248,9 +249,9 @@ export function saveCompanyRecord(r, company) {
 // Üretim ya da Perakende kendi payını yazar. Değişmediyse kayda dokunmaz. Güncel şirket kaydını döndürür.
 export function setCompanyPart(r, name, part) {
   const { company } = loadCompanyRecord(r);
-  const next = { levels: Math.floor(pos(part?.levels)), academy: Math.floor(pos(part?.academy)), wagesDay: Math.round(pos(part?.wagesDay)) };
+  const next = { levels: Math.floor(pos(part?.levels)), academy: Math.floor(pos(part?.academy)), wagesDay: Math.round(pos(part?.wagesDay)), researchDay: Math.round(pos(part?.researchDay)) };
   const cur = company.parts?.[name] || {};
-  if (cur.levels === next.levels && cur.academy === next.academy && Math.abs((cur.wagesDay || 0) - next.wagesDay) < 1) return company;
+  if (cur.levels === next.levels && cur.academy === next.academy && Math.abs((cur.wagesDay || 0) - next.wagesDay) < 1 && Math.abs((cur.researchDay || 0) - next.researchDay) < 1) return company;
   const saved = sanitizeCompany({ ...company, parts: { ...company.parts, [name]: next } });
   saveCompanyRecord(r, saved);
   return saved;

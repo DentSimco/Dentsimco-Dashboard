@@ -93,7 +93,7 @@ function sanitizeSetup(raw) {
   if (!['cheapest', 'exact'].includes(s.buyPolicy)) s.buyPolicy = 'cheapest';
   s.buildings = (Array.isArray(raw.buildings) ? raw.buildings : []).filter((b) => b && typeof b === 'object')
     .map((b) => ({ id: b.id || uid('b'), type: b.type, product: b.product != null ? Number(b.product) : null, level: Math.max(1, Math.floor(Number(b.level) || 1)),
-      quality: H.clampQuality(b.quality), robots: !!b.robots, efficiency: Number.isFinite(Number(b.efficiency)) ? Number(b.efficiency) : 100 }));
+      quality: H.clampQuality(b.quality), robots: !!b.robots, efficiency: Number.isFinite(Number(b.efficiency)) ? Number(b.efficiency) : 100, construction: !!b.construction }));
   // null = Otomatik (oyunun güncel evresi); 0, 1, 2 = elle seçilmiş (eski kayıtlar elle sayılır)
   s.economyPhase = raw.economyPhase != null && raw.economyPhase !== '' && [0, 1, 2].includes(Number(raw.economyPhase)) ? Number(raw.economyPhase) : null;
   s.extraBonusPct = Math.min(99, Math.max(0, Number(raw.extraBonusPct) || 0));
@@ -386,7 +386,13 @@ export function mountUretim(root, { realm = 0 } = {}) {
     try {
       const levels = H.adminInfo({ ...withTeam(setup), academyLevel: 0, otherLevels: 0 }, data).totalLevels;
       const plan = H.evaluatePlan(withTeam(setup), data, marketPrice, { now: now() });
-      company = Y.setCompanyPart(r, 'uretim', { levels, academy: setup.academyLevel, wagesDay: plan.totals.wagesDayNet });
+      // Bilimin (CTO) değeri: araştırma binalarının EKİPSİZ günlük üretim değeri (ekip çarpanı çıkarılır; fiyat elle girilmişse o, yoksa borsa)
+      const researchDay = plan.rows.reduce((t, x) => {
+        if (!x.ok || x.construction || x.category !== 'research' || !(x.daily > 0) || !(x.teamFactor > 0)) return t;
+        const unit = Number(setup.prices?.[`${x.product}:${x.quality}`]) >= 0 && setup.prices?.[`${x.product}:${x.quality}`] != null ? Number(setup.prices[`${x.product}:${x.quality}`]) : marketPrice(x.product, x.quality);
+        return t + (x.daily / x.teamFactor) * (unit || 0);
+      }, 0);
+      company = Y.setCompanyPart(r, 'uretim', { levels, academy: setup.academyLevel, wagesDay: plan.totals.wagesDayNet, researchDay });
     } catch (e) { console.error(e); }
   }
   function phaseNote() {
@@ -634,7 +640,7 @@ export function mountUretim(root, { realm = 0 } = {}) {
       <section class="ur-card" aria-labelledby="h-hiz"><h2 id="h-hiz">Üretim hızı</h2>
         ${field('Üretim hızı (elle)', 'extraBonusPct', num(setup.extraBonusPct, setup.extraBonusPct % 1 ? 2 : 0), { unit: '%', hint: 'Rekreasyon dışındaki üretim hızı bonusunuz. Rekreasyon bonusu buna her zaman eklenir.' })}
         <div class="ur-hr"></div>${kv('Toplam üretim hızı', bonusPct(totalBonus), 'c-price', true)}
-        <p class="ur-note">Elle girdiğiniz değer ile rekreasyon bonusunun toplamıdır; buradan değiştirilemez.</p></section>
+        <p class="ur-note">Elle girdiğiniz değer ile rekreasyon bonusunun toplamıdır; bu satır elle değiştirilemez.</p></section>
 
       <section class="ur-card" aria-labelledby="h-diger"><h2 id="h-diger">Diğer binalar</h2>
         <p class="ur-sub">Plana girmediğiniz binalar. Akademi yönetim giderine girer. Banka girmez, yalnız vergilendirme başlangıcını yükseltir.</p>
@@ -713,6 +719,7 @@ export function mountUretim(root, { realm = 0 } = {}) {
     if (row?.category === 'production') chips.push(chip(b.robots ? 'Robot var' : 'Robot yok', 'muted'));
     if (H.ABUNDANCE_BUILDINGS.has(b.type)) chips.push(chip(`Bolluk %${num(b.efficiency, b.efficiency % 1 ? 1 : 0)}`, 'muted'));
     for (const e of row?.errors || []) chips.push(chip(e, 'down'));
+    if (b.construction) chips.unshift(chip('İnşaatta', 'muted'), chip('Üretmez, maaş ödemez; seviyesi yönetim giderine girer', 'muted'));
     const title = p ? esc(p.name) : 'Ürün seçilmedi';
     return `<article class="ur-card" aria-label="${title}, ${esc(buildingName(b.type))}, seviye ${b.level}">
       <div class="ur-row" style="gap:12px">
@@ -725,6 +732,7 @@ export function mountUretim(root, { realm = 0 } = {}) {
         <div class="ur-stat"><span>Günlük</span><span>${smart(row?.daily)}</span></div>
         <div class="ur-stat"><span>Maaş/gün</span><span>${money(row?.wageDayNet)}</span></div></div>
       ${chips.length ? `<div class="ur-chips">${chips.join('')}</div>` : ''}
+      <div class="ur-row"><button type="button" class="ur-btn grow${b.construction ? ' tint' : ''}" data-act="bBuild" data-v="${i}" aria-pressed="${!!b.construction}">İnşaatta</button></div>
       <div class="ur-row"><button type="button" class="ur-btn tint grow" data-act="bEdit" data-v="${i}">${icon('edit')}Düzenle</button>
         <button type="button" class="ur-btn" data-act="bCopy" data-v="${i}" aria-label="Aynı özelliklerle kopyala">${icon('copy')}</button>
         <button type="button" class="ur-btn danger" data-act="bDel" data-v="${i}" aria-label="Sil">${icon('trash')}</button></div>
@@ -959,6 +967,14 @@ export function mountUretim(root, { realm = 0 } = {}) {
       return openSheet('building', { id: uid('b'), type: last?.type || '', product: null, quality: 0, level: 1, robots: false, efficiency: 100 });
     }
     if (act === 'bEdit') { clearParked(); const i = Number(v); return openSheet('building', { ...setup.buildings[i] }, { index: i }); }
+    if (act === 'bBuild') {
+      const i = Number(v);
+      const cur = setup.buildings[i];
+      if (!cur) return;
+      const on = !cur.construction;
+      commit({ ...setup, buildings: setup.buildings.map((x, j) => (j === i ? { ...x, construction: on } : x)) });
+      return toast(on ? 'Bina inşaatta: üretim ve maaş yok, seviyesi yönetim giderine girer.' : 'Bina inşaattan çıktı.');
+    }
     if (act === 'bCopy') {
       const i = Number(v);
       const list = [...setup.buildings];

@@ -206,6 +206,14 @@ export function evaluateRetail(setup, ctx) {
     const level = toLevel(b.level);
     const lines = [];
     const notes = [];
+    if (b.construction) {
+      // İnşaatta: satış ve maaş yok; seviyesi yönetim giderine yine girer (çağıran adminNet'i toplam seviyeden hesaplar)
+      buildings.push({ id: b.id, letter: b.letter, level, allocated: 0, unallocated: 0, construction: true,
+        notes: ['İnşaatta: satmaz ve maaş ödemez; seviyesi yönetim giderine girer'], lines: [],
+        unitsHour: 0, revenueHour: 0, costHour: 0, wagesHour: 0, marginHour: 0, profitHour: 0, profitDay: 0, unitsDay: 0 });
+      T.levels += level;
+      continue;
+    }
     if (!SALES[b.letter]) notes.push('Bu harf bir perakende binası değil');
     const single = (b.lines || []).length === 1;
     let allocated = 0;

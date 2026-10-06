@@ -6,12 +6,27 @@ const TABS = [['nedir', 'Nedir'], ['guncellemeler', 'Güncellemeler'], ['kaynakc
 // En yeni en üstte. { date: 'gün ay yıl', items: ['...', '...'] }
 export const UPDATES = [
   {
+    date: '7 Ekim 2026',
+    items: [
+      'Sinyaller: Üretim ile Takvim arasına Perakende sekmesi eklendi. Borsadan al, perakende binasında en kârlı fiyatla sat: net marj ve KÂR / ZARAR ayrımı. Yönetim gideri ve satış bonusu hesaba katılmaz; kendi sonucun için Kâr Hesaplayıcı › Perakende\'yi kullan.',
+      'Sinyaller: Mevsim ve Olaylar tek bir Takvim sekmesinde birleşti. Tüccar sinyalleri Resell adını aldı.',
+      'Sinyaller: en güçlü (üç çubuklu) sinyaller hafifçe yanıp söner; çerçeve rengi aynı kalır. Cihazında hareket azaltma açıksa yanıp sönmez.',
+      'Üretim ve Perakende: bina kartlarına İnşaatta düğmesi eklendi. İnşaattaki bina üretmez ya da satmaz ve maaş ödemez; seviyesi yönetim giderine girer, yani diğer binaların kârını etkiler.',
+      'Yönetim: bilimin (CTO) günlük katkısı artık Üretim\'deki araştırma binalarının hız artışından hesaplanıyor. Simülasyon › Araştırma altındaki Araştırma üretimi kartı kaldırıldı.',
+      'Açılır menüler: açıkken aynı kutuya ya da dışarıya dokunmak menüyü kapatır.',
+      'Büyük sayılar kutuya yazılırken binlik noktayla ayrılıyor (20.000.000).',
+      'Bina ve ürün adları oyundaki Türkçe adlarla eşleştirildi.',
+      'Borsa: araştırma, Taşıma ve İnşaat gereci gibi kalitesi olmayan ürünlerde kalite seçimi gösterilmiyor.',
+      'Tema: yalnız Gündüz ve Gece kaldı; Otomatik seçenek kaldırıldı.',
+    ],
+  },
+  {
     date: '6 Ekim 2026',
     items: [
       'Yönetim ayrı bir bölüm oldu (Kâr Hesaplayıcı altında en solda): Ekip ve Simülasyon. Simülasyon altında Araştırma, İnşaat ve Muhasebe var; Satış ve Şirket kaldırıldı.',
       'İnşaat simülatörü eklendi: yeni bina, bina yükseltme, hurda ve seviye düşürme için malzeme, maliyet, süre, bitiş tarihi ve nakit karşılaştırması.',
       'Yönetim gideri artık Üretim ve Perakende binalarının toplamından hesaplanıyor; yönetici değerleri bu bölümlerden otomatik alınıyor. İki bölümü birlikte kullanırken sonuçlar değişebilir.',
-      'Epilepsi geçirmemeniz için tema güncellendi, gündüz ve gece modu eklendi. Gündüz ve Gece arasında sağ üstten geçiş yapar. Gece temasında neon hafifletildi.',
+      'Göz yormaması için tema güncellendi; gündüz ve gece modu eklendi. Sağ üstten ikisi arasında geçiş yapılır. Gece temasında neon hafifletildi.',
       'Sinyal kartı sadeleştirildi: fiyat yönü ve üretim marjı ayrı başlıklarda; KÂR, ZARAR, AL, SAT adları; belirsiz cümleler düzeltildi.',
       'Perakende: mevsimlik pazarlar ve diğer binalar Türkçe adlarıyla görünüyor.',
       'Hakkımızda bölümü eklendi.',
