@@ -368,10 +368,12 @@
   .sg-meter { display: inline-flex; gap: 3px; }
   .sg-meter i { width: 6px; height: 13px; border-radius: 2px; background: var(--raise-2); }
   .sg-meter i.on { background: currentColor; }
-  /* En güçlü (üç çubuklu) sinyal: zemin yavaşça yanıp söner (saniyede 1'den az); çerçeve sabit kalır. Hareket azaltma ayarı açıksa durur. */
-  @keyframes sg-nabiz { 0%, 100% { background-color: var(--bg); } 50% { background-color: color-mix(in srgb, var(--nabiz) 15%, var(--bg)); } }
-  .sg-role[data-guc="3"][data-yon="up"] { --nabiz: var(--up); animation: sg-nabiz 2.8s ease-in-out infinite; }
-  .sg-role[data-guc="3"][data-yon="down"] { --nabiz: var(--down); animation: sg-nabiz 2.8s ease-in-out infinite; }
+  /* En güçlü (üç çubuklu) sinyal: zemin ANINDA yanar, 0,4 sn'de söner, 1,5 sn sönük bekler; döngü 1,9 sn.
+     Süreleri değiştirmek için: döngü = sönme + bekleme; %21,05 = sönme ÷ döngü (0,4 ÷ 1,9). Çerçeve rengi hiç değişmez.
+     Hareket azaltma ayarı açıksa animasyon çalışmaz. */
+  @keyframes sg-nabiz { 0% { background-color: color-mix(in srgb, var(--nabiz) 24%, var(--bg)); animation-timing-function: ease-out; } 21.05%, 100% { background-color: var(--bg); } }
+  .sg-role[data-guc="3"][data-yon="up"] { --nabiz: var(--up); animation: sg-nabiz 1.9s infinite; }
+  .sg-role[data-guc="3"][data-yon="down"] { --nabiz: var(--down); animation: sg-nabiz 1.9s infinite; }
   @media (prefers-reduced-motion: reduce) { .sg-role[data-guc="3"] { animation: none; } }
   .sg-text { margin: 6px 0 0; font-size: 14px; line-height: 1.45; }
   .sg-exp { display: flex; flex-direction: column; gap: 3px; margin: 12px 2px 0; font-size: 15px; }
