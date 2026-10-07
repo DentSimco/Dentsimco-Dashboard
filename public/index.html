@@ -373,6 +373,15 @@
   .sg-exp b { font: 600 19px var(--font-c); font-variant-numeric: tabular-nums; }
   .sg-band { color: var(--muted); font-size: 13px; }
   .sg-hist { font-size: 13px; color: var(--muted); }
+  .sg-hedef { display: inline-block; margin-left: .7em; white-space: nowrap; }
+  .sg-base { font-size: 13px; color: var(--muted); }
+  .sg-rozet { margin: 10px 2px 0; padding: 7px 10px; border: 1px solid var(--late-line); border-radius: 10px; background: var(--late-bg); color: var(--late); font-size: 13.5px; line-height: 1.4; }
+  .sg-rozet[data-tip="guncelleniyor"] { animation: sg-rz 1.6s ease-in-out infinite; }
+  @keyframes sg-rz { 50% { opacity: .55; } }
+  @media (prefers-reduced-motion: reduce) { .sg-rozet[data-tip="guncelleniyor"] { animation: none; } }
+  .sg[data-eski] .sg-roles, .sg[data-eski] .sg-exp, .sg[data-eski] .sg-why { opacity: .6; }
+  .sy-row[data-eski] { opacity: .62; }
+  .sy-rz { color: var(--late); }
   .sg-why { margin: 10px 0 0; padding-left: 18px; font-size: 14px; line-height: 1.45; }
   .sg-why li { margin: 3px 0; }
   .sg-why li::marker { color: var(--faint); }

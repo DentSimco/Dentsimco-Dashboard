@@ -615,7 +615,7 @@ export function mountBorsa(root, { realm = 0 } = {}) {
   async function paintSignal() {
     const my = ++signalToken;
     const { id, q } = pick();
-    const ctx = { id, q, products: basics?.products, realm: r, noQuality: noQuality(id) };
+    const ctx = { id, q, products: basics?.products, realm: r, noQuality: noQuality(id), live: snap?.qs?.[q] };
     if (signalsRealm !== r || signals === undefined || signalsFresh) {
       el.sinyal.innerHTML = signalCard(signalsRealm === r ? signals : undefined, ctx);
       const fresh = signalsFresh;

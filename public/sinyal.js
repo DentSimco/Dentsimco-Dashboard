@@ -3,11 +3,13 @@
 // Bu dosya o belgeyi okur ve kodları Türkçe metne çevirir; formül, katsayı ya da ara değer içermez.
 //
 // Belge (kısaltılmış alanlar):
-//   t: hesaplanma zamanı, gun: son tam veri günü, makro: {m7, rejim, cmt, cmtGun}, evre: {ad, bas, bit, yeni}
+//   t: son hesap zamanı (gün içi çalışmalar da günceller), tn: gece hesabının zamanı, gun: son tam veri günü, makro: {m7, rejim, cmt, cmtGun}, evre: {ad, bas, bit, yeni}
 //   olaylar: [[ürün, hız %, başlangıç, bitiş, durum]], sezon: {id: [tip, başlangıç, bitiş, faz]}
 //   kalite: {id: [en iyi kalite, marj %, Q0 marjı %]}, karne: {onsel, canli: {kova: [n, yükselen payı, ort.]}}
 //   urun: {id: {q: {e, u, s:[eylem, güç], a:[eylem, güç], t, m, r:[gerekçe], o:[[olay]], z, k}}}
 //     e: 14 günlük beklenti, yarım yüzde adımı (e ÷ 200 = oran)
+//     p: hesap fiyatı (beklentinin hesaplandığı fiyat). Hedef fiyat = p × (1 + e ÷ 200)
+//     l: 1 = gece bayrağı likit | g: 1 = gün içi, canlı son işlem fiyatıyla hesaplandı | b: bekleyen eylem yönü (titreşim önleme)
 
 import { readDocs, dataField, loadBasics, PATHS, fmtDate, fmtDateTime, fmtAgo, fmtPct, fmtPrice, HOUR } from './veri.js';
 import { loadPerakendeSinyal, karMi, zararMi } from './perakende-sinyal.js';
@@ -159,12 +161,54 @@ function veriZamani(doc) {
   return `${gun} verisiyle hesaplandı · ${fmtAgo(doc.t)}`;
 }
 
-const eskiMi = (doc) => doc && Date.now() - doc.t > 36 * HOUR;
+const eskiMi = (doc) => doc && Date.now() - (doc.tn ?? doc.t) > 36 * HOUR; // gün içi çalışmalar gece hesabının durduğunu gizlemesin
+
+// ---- Hedef fiyat ve tazelik rozeti ----
+
+export const TAZE_SA = 6; // likit üründe son işlem bundan eskiyse fiyat "eski" sayılır
+export const ESKI_ESIK = 0.05; // canlı fiyat hesap fiyatından bu kadar oynadıysa sinyal "eski"
+export const GUNCEL_ESIK = 0.10; // likit ve taze üründe bu kadar oynadıysa "Güncelleniyor"
+const YENI_HESAP_SA = 3; // "Güncelleniyor" yalnız son hesap bu kadar yeniyse söylenir (gün içi çalışma duruyorsa söylenmez)
+
+// Hedef fiyat = hesap fiyatı × (1 + beklenti). Hesap fiyatı olmayan eski belgelerde null.
+export function hedefFiyat(e) {
+  return e && e.e != null && e.p > 0 ? e.p * (1 + e.e / 200) : null;
+}
+
+// Canlı kayıt: [fiyat, arz, satış, tutar, sonİşlemZamanı] (live/r{r}). Dönüş: null (rozet yok) ya da
+//   { tip: 'bayat', lt }                      likit üründe son işlem >6 sa önce
+//   { tip: 'degisti', fark }                  canlı fiyat hesap fiyatından ≥%5 oynadı
+//   { tip: 'guncelleniyor', fark }            likit ve taze üründe ≥%10 oynadı, gün içi hesap yakında yenileyecek
+// Likit olmayan üründe son işlemin eski olması normaldir (ince piyasa): yalnız taze fiyat oynadıysa rozet çıkar.
+export function tazelik(e, canli, simdi = Date.now(), docT = null) {
+  if (!e || e.e == null || !(e.p > 0)) return null;
+  const fiyat = Number(canli?.[0]);
+  const lt = Number(canli?.[4]);
+  if (!(fiyat > 0) || !(lt > 0)) return null;
+  const g = e.g === 1;
+  if (simdi - lt > TAZE_SA * HOUR) return e.l === 1 ? { tip: 'bayat', lt, g } : null;
+  const fark = fiyat / e.p - 1;
+  const yeniden = e.l === 1 && (docT == null || simdi - docT <= YENI_HESAP_SA * HOUR);
+  if (Math.abs(fark) >= GUNCEL_ESIK && yeniden) return { tip: 'guncelleniyor', fark, g };
+  if (Math.abs(fark) >= ESKI_ESIK) return { tip: 'degisti', fark, yeniden, g };
+  return null;
+}
+
+function rozetHtml(tz, simdi) {
+  if (!tz) return '';
+  const yuzde = tz.fark == null ? 0 : Math.round(Math.abs(tz.fark) * 100);
+  const yon = tz.fark > 0 ? 'yukarıda' : 'aşağıda';
+  let metin;
+  if (tz.tip === 'bayat') metin = `Son işlem ${fmtAgo(tz.lt, simdi)}. Fiyat eski olabilir; sinyal ${tz.g ? 'son hesaptaki fiyata' : 'gün sonu verisine'} dayanıyor.`;
+  else if (tz.tip === 'guncelleniyor') metin = `Fiyat, hesap fiyatının %${yuzde} ${yon}. Sinyal yeniden hesaplanıyor.`;
+  else metin = `Fiyat, hesap fiyatının %${yuzde} ${yon}. Sinyal eski olabilir; ${tz.yeniden ? 'birkaç saat içinde' : 'gece'} yeniden hesaplanır.`;
+  return `<p class="sg-rozet" data-tip="${tz.tip}" role="status">${esc(metin)}</p>`;
+}
 
 // ---- Borsa ekranındaki kart ----
 
 // doc: undefined = yükleniyor, null = belge yok
-export function signalCard(doc, { id, q, products, realm = 0, noQuality = false } = {}) {
+export function signalCard(doc, { id, q, products, realm = 0, noQuality = false, live, now = Date.now() } = {}) {
   const head = (extra = '') => `<div class="sg-head"><h2 class="sg-title">Sinyal${noQuality ? '' : ` <span class="qtag">Q${esc(q)}</span>`}</h2>${extra}</div>`;
   if (doc === undefined) return `<section class="sg" aria-busy="true">${head()}<p class="sg-empty">Sinyal yükleniyor.</p></section>`;
   if (!doc) {
@@ -178,6 +222,7 @@ export function signalCard(doc, { id, q, products, realm = 0, noQuality = false 
     const neden = realm === 1 && doc.makro?.m7 == null ? ' R2 için geçmiş veri birikiyor; sinyaller yaklaşık 60 gün sonra dolar.' : '';
     return `<section class="sg">${head(when)}<p class="sg-empty">Bu kalite için yeterli işlem geçmişi yok (son 60 günde en az 40 işlem günü gerekir).${not}${neden}</p></section>`;
   }
+  const tz = tazelik(e, live, now, doc.t);
   const sez = e.z ? doc.sezon?.[id] : null;
   const sat = eylemBilgi('satici', e.s, sez);
   const al = eylemBilgi('alici', e.a, sez);
@@ -215,7 +260,10 @@ export function signalCard(doc, { id, q, products, realm = 0, noQuality = false 
   let beklenti = '';
   if (e.e != null) {
     const oran = e.e / 200;
-    beklenti = `<p class="sg-exp"><span>14 gün beklentisi <b class="${oran > 0 ? 'up' : oran < 0 ? 'down' : ''}">${fmtPct(oran)}</b> <span class="sg-band">(belirsizlik ±%${esc(e.u)})</span></span><span class="sg-hist">${esc(gecmisCumle(doc, oran))}</span></p>`;
+    const hedef = hedefFiyat(e);
+    const hedefHtml = hedef != null ? `<span class="sg-hedef">Hedef: <b>${esc(fmtPrice(hedef))}</b></span>` : '';
+    const taban = e.p > 0 ? `<span class="sg-base">Hesap fiyatı ${esc(fmtPrice(e.p))} (${e.g ? 'son işlem fiyatı' : 'son tam günün VWAP\'ı'})</span>` : '';
+    beklenti = `<p class="sg-exp"><span>14 gün beklentisi <b class="${oran > 0 ? 'up' : oran < 0 ? 'down' : ''}">${fmtPct(oran)}</b>${hedefHtml} <span class="sg-band">(belirsizlik ±%${esc(e.u)})</span></span>${taban}<span class="sg-hist">${esc(gecmisCumle(doc, oran))}</span></p>`;
   } else if (e.z) {
     beklenti = `<p class="sg-exp"><span>${esc(sezonMetni(doc.sezon?.[id]))}</span></p>`;
   }
@@ -226,7 +274,7 @@ export function signalCard(doc, { id, q, products, realm = 0, noQuality = false 
   if (e.k != null) nedenler.push(esc(`Satıştaki arz yaklaşık ${String(e.k).replace('.', ',')} günlük satışa denk`));
   const liste = nedenler.length ? `<ul class="sg-why">${nedenler.map((x) => `<li>${x}</li>`).join('')}</ul>` : '';
 
-  return `<section class="sg">${head(when)}
+  return `<section class="sg"${tz ? ` data-eski="${tz.tip}"` : ''}>${head(when)}${rozetHtml(tz, now)}
     <div class="sg-roles"><p class="sg-sec">Fiyat yönü · 14 gün</p>${rol('Elinde mal varsa', sat)}${rol('Girdi alacaksan', al)}${tuccar}${uretim ? `<p class="sg-sec">Üretim marjı · bugün</p>${uretim}` : ''}</div>
     ${beklenti}${liste}
     <p class="sg-foot">Sinyaller olasılık gösterir, kesinlik değil.${uretim ? ' Marj, tipik maliyetle ve komisyon ile taşıma düşülerek hesaplanır. Kendi marjın için Kâr Hesaplayıcı\'yı kullan.' : ''} <a href="#sinyal">Tüm sinyaller</a></p>
@@ -259,7 +307,7 @@ const SAYFA = `
   <div class="sy-quals" data-el="quals" role="radiogroup" aria-label="Kalite"></div>
   <div class="sy-body" data-el="body"></div>
   <label class="sy-opt"><input type="checkbox" data-el="tuccar"> Resell sinyallerini göster (al-sat; geçmişte zayıftı)</label>
-  <p class="sy-note">Hesap her gece özel sunucuda yapılır; bu sayfa yalnız sonuçları gösterir. Beklentiler 14 günlüktür ve olasılık bildirir.
+  <p class="sy-note">Hesap özel sunucuda her gece ve gün içinde iki saatte bir yapılır; bu sayfa yalnız sonuçları gösterir. Beklentiler 14 günlüktür ve olasılık bildirir. Hedef fiyat, hesap fiyatının beklenti kadar değişmiş hâlidir.
     Komisyon, bugün de sonra da satsan ödendiği için Satış ve Alım sinyallerinde hesaba katılmaz; yalnız Resell sinyalinde düşülür.</p>
 </section>`;
 
@@ -271,6 +319,7 @@ export function mountSinyal(root, { realm = 0 } = {}) {
   let r = realm;
   let doc = null;
   let products = {};
+  let live = null; // live/r{r}: borsadaki son işlem fiyatı ve zamanı (tazelik rozeti için)
   let token = 0;
   let destroyed = false;
   const open = new Set(); // "Tümünü göster" açılan listeler
@@ -284,11 +333,12 @@ export function mountSinyal(root, { realm = 0 } = {}) {
     try {
       const [d, b] = await Promise.all([
         loadSignals(r, fresh ? { refresh: (p) => p.startsWith('meta/sinyal_') } : undefined),
-        loadBasics(r).catch(() => null),
+        loadBasics(r, fresh ? { refresh: (p) => p.startsWith('live/') } : undefined).catch(() => null),
       ]);
       if (my !== token || destroyed) return;
       doc = d;
       products = b?.products || {};
+      live = b?.live || null;
       el.alert.hidden = true;
       render();
     } catch (e) {
@@ -344,8 +394,11 @@ export function mountSinyal(root, { realm = 0 } = {}) {
     return out;
   }
 
+  const canliOf = (id, q) => live?.items?.[id]?.[1]?.[q];
+  const tazelikOf = (x) => (x.e ? tazelik(x.e, canliOf(x.id, x.q), Date.now(), doc?.t) : null);
+
   function row(x, act, yon, guc, value, why) {
-    return `<button type="button" class="sy-row" data-id="${x.id}" data-q="${x.q}">
+    return `<button type="button" class="sy-row"${tazelikOf(x) ? ' data-eski="1"' : ''} data-id="${x.id}" data-q="${x.q}">
       <span class="sy-name">${esc(nameOf(x.id))} <span class="pid">#${x.id}</span>${prefs.q === 'tum' ? ` <span class="qtag">Q${x.q}</span>` : ''}</span>
       <span class="sy-act" data-yon="${yon}">${esc(act)}${guc ? ` ${gucBar(guc)}` : ''}</span>
       <span class="sy-val">${value}</span>
@@ -365,7 +418,16 @@ export function mountSinyal(root, { realm = 0 } = {}) {
   const pair = (left, right) => `<div class="sy-pair">${left}${right}</div>`;
 
   const ilkNeden = (e) => (e.r || []).map(gerekce).find(Boolean) || '';
-  const eTxt = (e) => (e.e == null ? '<span class="sy-dim">mevsim</span>' : `<b class="${e.e > 0 ? 'up' : e.e < 0 ? 'down' : ''}">${fmtPct(e.e / 200)}</b>`);
+  const eTxt = (x) => {
+    const e = x.e;
+    if (e.e == null) return '<span class="sy-dim">mevsim</span>';
+    const hedef = hedefFiyat(e);
+    const tz = tazelikOf(x);
+    const alt = [];
+    if (hedef != null) alt.push(`Hedef ${esc(fmtPrice(hedef))}`);
+    if (tz) alt.push(`<span class="sy-rz">${tz.tip === 'guncelleniyor' ? 'güncelleniyor' : 'eski'}</span>`);
+    return `<b class="${e.e > 0 ? 'up' : e.e < 0 ? 'down' : ''}">${fmtPct(e.e / 200)}</b>${alt.length ? `<span class="sy-sub">${alt.join(' · ')}</span>` : ''}`;
+  };
   const byE = (dir) => (a, b) => (b.e.s?.[1] ?? 0) - (a.e.s?.[1] ?? 0) || dir * ((b.e.e ?? 0) - (a.e.e ?? 0));
 
   // Takvim: Mevsim takvimi ve Üretim hızı olayları tek sekmede
@@ -438,15 +500,15 @@ export function mountSinyal(root, { realm = 0 } = {}) {
       const tut = entries((e) => e.s?.[0] === 'TUT' && e.s[1] > 0).sort(byE(1));
       const hs = entries((e) => e.s?.[0] === 'HSAT').sort(byE(-1));
       html = pair(
-        block('tut', 'Satışı ertele (TUT)', 'Elindeki malı bekletmek daha iyi görünüyor.', tut, (x) => row(x, 'TUT', 'up', x.e.s[1], eTxt(x.e), ilkNeden(x.e))),
-        block('hsat', 'Sat', 'Bekletirsen fiyatın düşmesi bekleniyor.', hs, (x) => row(x, 'SAT', 'down', x.e.s[1], eTxt(x.e), ilkNeden(x.e))),
+        block('tut', 'Satışı ertele (TUT)', 'Elindeki malı bekletmek daha iyi görünüyor.', tut, (x) => row(x, 'TUT', 'up', x.e.s[1], eTxt(x), ilkNeden(x.e))),
+        block('hsat', 'Sat', 'Bekletirsen fiyatın düşmesi bekleniyor.', hs, (x) => row(x, 'SAT', 'down', x.e.s[1], eTxt(x), ilkNeden(x.e))),
       );
     } else if (t === 'alici') {
       const bek = entries((e) => e.a?.[0] === 'BEKLE').sort((a, b) => b.e.a[1] - a.e.a[1] || (a.e.e ?? 0) - (b.e.e ?? 0));
       const sto = entries((e) => e.a?.[0] === 'STOKLA').sort((a, b) => b.e.a[1] - a.e.a[1] || (b.e.e ?? 0) - (a.e.e ?? 0));
       html = pair(
-        block('stokla', 'Al', 'Fiyatın yükselmesi bekleniyor; ihtiyacını öne çek.', sto, (x) => row(x, 'AL', 'up', x.e.a[1], eTxt(x.e), ilkNeden(x.e))),
-        block('bekle', 'Alımı ertele (BEKLE)', 'Geçmiş sınamada en isabetli sinyal grubu buydu.', bek, (x) => row(x, 'BEKLE', 'down', x.e.a[1], eTxt(x.e), ilkNeden(x.e))),
+        block('stokla', 'Al', 'Fiyatın yükselmesi bekleniyor; ihtiyacını öne çek.', sto, (x) => row(x, 'AL', 'up', x.e.a[1], eTxt(x), ilkNeden(x.e))),
+        block('bekle', 'Alımı ertele (BEKLE)', 'Geçmiş sınamada en isabetli sinyal grubu buydu.', bek, (x) => row(x, 'BEKLE', 'down', x.e.a[1], eTxt(x), ilkNeden(x.e))),
       );
     } else if (t === 'uretim') {
       const kar = entries((e) => e.m != null && e.m >= 3).sort((a, b) => b.e.m - a.e.m);
@@ -462,7 +524,7 @@ export function mountSinyal(root, { realm = 0 } = {}) {
           (x) => row({ id: x.id, q: x.k[0] }, `Q${x.k[0]}`, x.k[1] > 0 ? 'up' : '', 0, `<b class="${x.k[1] > 0 ? 'up' : 'down'}">${pctInt(x.k[1])}</b>`, `Q0'da ${pctInt(x.k[2])}`));
     } else if (t === 'tuccar') {
       const tc = entries((e) => e.t === 1).sort((a, b) => (b.e.e ?? 0) - (a.e.e ?? 0));
-      html = block('tuccar', 'Al, 14 gün sonra sat', 'Yalnız $1.000 üstü ürünlerde ve beklenti komisyon + taşımayı aştığında. Geçmişte zayıf bir sinyaldi.', tc, (x) => row(x, 'AL', 'up', 0, eTxt(x.e), ilkNeden(x.e)));
+      html = block('tuccar', 'Al, 14 gün sonra sat', 'Yalnız $1.000 üstü ürünlerde ve beklenti komisyon + taşımayı aştığında. Geçmişte zayıf bir sinyaldi.', tc, (x) => row(x, 'AL', 'up', 0, eTxt(x), ilkNeden(x.e)));
     } else if (t === 'perakende') {
       html = perakendeHtml();
     } else if (t === 'takvim') {
@@ -543,6 +605,7 @@ export function mountSinyal(root, { realm = 0 } = {}) {
       if (next === r) return;
       r = next;
       doc = null;
+      live = null;
       pk = null;
       pkRealm = null;
       pkToken++;
