@@ -1,7 +1,8 @@
 // DentSimco — Yönetim menü yönlendirme sınamaları (eski adresler yeni yerlerine gider).
 // Çalıştırma: node test/yonetim_test.mjs
 
-import { yonetimRota } from '../public/yonetim.js';
+import { yonetimRota, puanMetni, etkiDegerleri } from '../public/yonetim.js';
+import * as H from '../public/hesap.js';
 
 const results = [];
 function test(name, fn) {
@@ -38,6 +39,43 @@ test('Adres yalnız #yonetim ise son açılan sekme açılır (Ekip varsayılan)
   eq(rota('yonetim', { tab: 'simulasyon', sim: 'insaat' }).tab, 'simulasyon');
   eq(rota('yonetim', {}).tab, 'ekip');
   eq(rota('yonetim', { tab: 'satis' }).tab, 'ekip');
+});
+
+
+// ---- Ekip puanı: ham puan → etkili beceri ----
+test('Etkili beceri: 66 → 63, 64 → 62, 80,50 → 70, 44,75 → 44, 40 aynı', () => {
+  eq([puanMetni(66).ham, puanMetni(66).etkili, puanMetni(66).farkli], ['66', 63, true]);
+  eq(puanMetni(64).etkili, 62);
+  eq([puanMetni(80.5).ham, puanMetni(80.5).etkili], ['80,50', 70]);
+  eq([puanMetni(44.75).ham, puanMetni(44.75).etkili, puanMetni(44.75).farkli], ['44,75', 44, true]);
+  eq([puanMetni(40).etkili, puanMetni(40).farkli], [40, false], '60 altı değişmez');
+  eq(puanMetni(0).farkli, false);
+});
+
+// ---- Ekibinizin etkisi: oyundaki tabloyla aynı sayılar (7 Ekim ekran görüntüsü) ----
+test('Oyundaki Ekibinizin etkisi tablosu: yönetim %60, vergi +$14M, satış +%2, restoran +0,060, patent +%1,50, araştırma %48', () => {
+  const ex = [
+    { position: 'o', active: true, salary: 0, skills: { coo: 60, cfo: 0, cmo: 0, cto: 0 } },
+    { position: 'f', active: true, salary: 0, skills: { coo: 0, cfo: 28, cmo: 0, cto: 0 } },
+    { position: 'm', active: true, salary: 0, skills: { coo: 0, cfo: 0, cmo: 6, cto: 0 } },
+    { position: 't', active: true, salary: 0, skills: { coo: 0, cfo: 0, cmo: 0, cto: 24 } },
+  ];
+  const E = etkiDegerleri(H.teamEffects(ex, { bankLevel: 0 }), 326, 307665);
+  eq(E.brut.toFixed(2), '191.18', 'brüt yönetim gideri');
+  eq(E.kazanc.toFixed(2), '114.71', 'yönetim giderinden düşen');
+  eq(E.vergiTaban, 3000000);
+  eq(E.vergiArtis, 14000000);
+  eq(E.satisHizi, 2);
+  eq(E.restoran.toFixed(3), '0.060');
+  eq(E.patentTaban, 6.25);
+  eq(E.patent.toFixed(2), '1.50');
+  eq(E.arastirma, 48);
+  eq(E.maas, 307665);
+});
+test('Bina seviyesi bilinmiyorsa yönetim gideri satırı hesaplanmaz (null), diğer satırlar çalışır', () => {
+  const E = etkiDegerleri(H.teamEffects([{ position: 't', active: true, skills: { cto: 60 } }]), 0, 0);
+  eq([E.brut, E.kazanc], [null, null]);
+  eq(E.arastirma, 120);
 });
 
 const failed = results.filter((r) => !r.ok);
