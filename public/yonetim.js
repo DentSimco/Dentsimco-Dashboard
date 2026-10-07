@@ -7,7 +7,7 @@
 import { readDocs, PATHS, dataField, loadProduct, summarizeDay, utcDay, addDays } from './veri.js';
 import * as H from './hesap.js';
 import * as Y from './yonetici.js';
-import { CSS, parseNum } from './uretim.js';
+import { CSS, parseNum, kisayolSatiri } from './uretim.js';
 import { mountInsaat } from './insaat.js';
 
 const TAB_KEY = 'dentsimco.yonetim.tab';
@@ -79,6 +79,31 @@ const EXTRA_CSS = `
 .yo-subtab { flex: 1 1 0; display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--line-2); color: var(--muted); font: 600 15px var(--font-c); text-decoration: none; white-space: nowrap; }
 .yo-subtab[aria-current="page"] { color: var(--accent); border-color: var(--accent); background: var(--raise); }
 `;
+
+// Ekip puanı: ham takım puanı ve oyundaki etkili beceri (60'a kadar aynı, 60–80 arası her puan yarım, 80 üstü çeyrek; tam sayıya iner).
+// Örnek: 66 → 63, 64 → 62, 80,50 → 70, 44,75 → 44. Etkiler (yönetim gideri, vergi, hız) etkili beceriden hesaplanır.
+export function puanMetni(skor) {
+  const etkili = H.effectiveSkill(skor);
+  return { ham: num(skor, skor % 1 ? 2 : 0), etkili, farkli: Math.abs(etkili - skor) > 1e-9 };
+}
+const puanHtml = (skor) => {
+  const p = puanMetni(skor);
+  return `${p.ham}${p.farkli ? `<span class="ur-eff" title="Oyundaki etkili beceri">→ ${p.etkili}</span>` : ''}`;
+};
+
+// "Ekibinizin etkisi" (oyundaki tablo) sayıları. totalLevels: yönetim giderine giren toplam bina seviyesi (Üretim + Perakende + akademi);
+// 0 ise yönetim gideri hesaplanamaz (brut ve kazanc null). team: H.teamEffects çıktısı (yalnız aktif yöneticiler).
+export function etkiDegerleri(team, totalLevels, salariesDay) {
+  const bilgiVar = totalLevels > 0;
+  const brut = bilgiVar ? H.grossOverhead(totalLevels) * 100 : null;
+  return {
+    brut, kazanc: bilgiVar ? brut * Math.min(100, team.adminSavingsPct) / 100 : null,
+    vergiTaban: H.TAX_BASE_THRESHOLD, vergiArtis: team.thresholdLift,
+    satisHizi: team.salesSpeedPct, restoran: team.restaurantRating,
+    patentTaban: H.PATENT_BASE_PCT, patent: team.patentPct,
+    arastirma: team.researchSpeedPct, maas: salariesDay,
+  };
+}
 
 const loadCompany = (r) => Y.loadCompanyRecord(r);
 const saveCompany = (r, c) => Y.saveCompanyRecord(r, c);
@@ -282,6 +307,27 @@ export function mountYonetim(root, { realm = 0 } = {}) {
       <p class="ur-sub">Her yöneticinin alanı kendi verisinden hesaplanır. Yönetim gideri ve perakende marjı Üretim ve Perakende bölümlerinden otomatik gelir.</p>
       <div class="ur-box">${rows}</div></section>`;
   }
+  // Ekibinizin etkisi: oyundaki tablonun karşılığı (sol: taban, sağ: ekibin eklediği)
+  function etkiKarti(s) {
+    const c = company;
+    const E = etkiDegerleri(s.team, c.admin.totalLevels, s.salariesDay);
+    const satir = (ad, taban, etki) => `<div class="ur-kv"><span>${ad}</span><span>${taban ? `<span class="c-muted">${taban}</span> ` : ''}<b class="c-up">${etki}</b></span></div>`;
+    const yonetim = E.brut != null
+      ? satir('Yönetim giderleri', `${NF[2].format(E.brut)}%`, `−${NF[2].format(E.kazanc)}%`)
+      : `<div class="ur-kv" style="align-items:flex-start"><span>Yönetim giderleri</span><span class="c-muted" style="text-align:right;font-size:13px;max-width:70%">${SECTOR_VERI.coo[0]} <a href="${SECTOR_VERI.coo[1]}" style="color:var(--accent)">${SECTOR_VERI.coo[2]}</a></span></div>`;
+    const pasif = c.executives.some((e) => !e.active);
+    return `<section class="ur-card" aria-labelledby="h-etki"><h2 id="h-etki">Ekibinizin etkisi</h2>
+      <p class="ur-sub">Oyundaki "Ekibinizin etkisi" tablosunun karşılığı: solda taban, sağda ekibin eklediği.</p>
+      <div class="ur-box">${yonetim}
+        ${satir('Vergilendirme başlangıcı', `$${NF[0].format(E.vergiTaban / 1e6)}M`, `+$${NF[1].format(E.vergiArtis / 1e6)}M`)}
+        ${satir('Satış hızı', '0%', `+${NF[0].format(E.satisHizi)}%`)}
+        ${satir('Restoran derecesi', '+0', `+${NF[3].format(E.restoran)}`)}
+        ${satir('Patent olasılığı', `${NF[2].format(E.patentTaban)}%`, `+${NF[2].format(E.patent)}%`)}
+        ${satir('Araştırma üretim hızı artışı', '', `${NF[1].format(E.arastirma)}%`)}
+        ${kv('Toplam maaş', money(E.maas))}</div>
+      ${pasif ? '<p class="ur-note">Bazı yöneticiler eğitim görüyor, yerleşiyor veya grev yapıyor ve şu anda katkıda bulunmuyor.</p>' : ''}
+      <p class="ur-note">Yönetim giderleri yalnız Üretim ve Perakende'ye girdiğiniz binalardan hesaplanır; oyundaki değer tüm binalarınızı içerir.</p></section>`;
+  }
   function viewEkip(s) {
     if (draft) return formCard();
     if (api) return apiCard();
@@ -301,7 +347,9 @@ export function mountYonetim(root, { realm = 0 } = {}) {
       <p class="ur-sub">Ekibiniz yalnız burada girilir; Üretim ve Perakende hesapları da buradan okur.</p>
       <div class="ur-row"><button type="button" class="ur-btn tint grow" data-act="apiOpen">${icon('plus')}API'den yapıştır</button><button type="button" class="ur-btn grow" data-act="execNew">${icon('plus')}Elle ekle</button></div>
       ${ex.length ? `<div>${rows}</div>` : '<p class="ur-note">Henüz yönetici yok.</p>'}
-      ${ex.length ? `<div class="ur-box"><span class="ur-note" style="font-weight:600">Ekip puanı (yalnız aktifler)</span><div class="ur-grid4" style="margin-top:6px">${SKILL_LABELS.map(([k, n]) => `<div class="ur-stat"><span>${n}</span><span>${num(scores[k], scores[k] % 1 ? 2 : 0)}</span></div>`).join('')}</div></div>` : ''}</section>${ex.length ? sectorCard(s) : ''}`;
+      ${ex.length ? `<div class="ur-box"><span class="ur-note" style="font-weight:600">Ekip puanı (yalnız aktifler)</span><div class="ur-grid4" style="margin-top:6px">${SKILL_LABELS.map(([k, n]) => `<div class="ur-stat"><span>${n}</span><span>${puanHtml(scores[k])}</span></div>`).join('')}</div>
+        <p class="ur-note" style="margin-top:6px">Okun sağındaki sayı etkili beceridir (oyunda "etkili yetenek"): 60'a kadar aynı, 60–80 arası her puan yarım, 80 üstü çeyrek sayılır. Etkiler bu sayıdan hesaplanır.</p></div>` : ''}</section>${ex.length ? etkiKarti(s) + sectorCard(s) : ''}
+      ${kisayolSatiri('uretimKurulum', 'perakendeKurulum', 'simulasyon')}`;
   }
 
   // ---- ARAŞTIRMA ----

@@ -14,7 +14,45 @@ const TAB_KEY = 'dentsimco.uretim.tab';
 const PARK_KEY = 'dentsimco.uretim.parked';
 const PERIOD_KEY = 'dentsimco.uretim.period';
 const PERIODS = [['hour', 'Saatlik', 1 / 24], ['day', 'Günlük', 1], ['week', 'Haftalık', 7], ['month', 'Aylık', 30]];
-const TABS = [['kurulum', 'Kurulum'], ['binalar', 'Binalar'], ['alimsatim', 'Alım-Satım'], ['ozet', 'Özet']];
+export const TABS = [['kurulum', 'Kurulum'], ['binalar', 'Binalar'], ['alimsatim', 'Alım-Satım'], ['ozet', 'Özet']];
+
+// Bölümler arası kısa yollar (Üretim, Perakende ve Yönetim ortak kullanır). Adresler sınamada gerçek sekmelerle karşılaştırılır.
+export const KISAYOL = {
+  uretimKurulum: ['#uretim/kurulum', 'Üretim Kuruluma git'],
+  uretimBinalar: ['#uretim/binalar', 'Üretim Binalara Git'],
+  uretimAlimSatim: ['#uretim/alimsatim', "Alım-Satım'a git"],
+  uretimOzet: ['#uretim/ozet', 'Özete git'],
+  perakendeKurulum: ['#perakende/kurulum', 'Perakende Kuruluma git'],
+  perakendeBinalar: ['#perakende/binalar', 'Perakende Binalara Git'],
+  perakendePphpl: ['#perakende/pphpl', "PPHPL Max'i incele"],
+  perakendeOzet: ['#perakende/ozet', 'Özete git'],
+  simulasyon: ['#yonetim/simulasyon', 'Simülasyona git'],
+};
+export function kisayolHtml(anahtar, sinif = 'ur-btn grow') {
+  const k = KISAYOL[anahtar];
+  if (!k) throw new Error(`Bilinmeyen kısayol: ${anahtar}`);
+  return `<a class="${sinif}" href="${k[0]}" style="text-decoration:none;flex:1 1 140px">${k[1]}</a>`;
+}
+// Tek küçük buton (kartların arasında, sola dayalı)
+export const kisayolKucuk = (anahtar) => kisayolHtml(anahtar, 'ur-btn tint').replace('flex:1 1 140px', 'align-self:flex-start;min-height:40px');
+// İki ya da üç buton yan yana (dar ekranda alt alta sarar)
+export const kisayolSatiri = (...anahtarlar) => `<div class="ur-row" style="flex-wrap:wrap;gap:8px">${anahtarlar.map((a) => kisayolHtml(a)).join('')}</div>`;
+
+// Bilimin (CTO) kazandırdığı: araştırma binalarının ekipli ve ekipsiz günlük üretim farkı × araştırma fiyatı.
+// Ekip sekmesindeki Bilim satırıyla aynı değerdir (orada ekipsiz üretim değeri × hız yüzdesi). unitOf(satır) = birim fiyat ya da null.
+export function bilimKazanci(rows, unitOf) {
+  let day = 0;
+  let count = 0;
+  let noPrice = false;
+  for (const x of rows || []) {
+    if (!x?.ok || x.construction || x.category !== 'research' || !(x.daily > 0) || !(x.teamFactor > 0)) continue;
+    count++;
+    const unit = Number(unitOf(x));
+    if (!(unit > 0)) { noPrice = true; continue; }
+    day += (x.daily - x.daily / x.teamFactor) * unit;
+  }
+  return { day, count, noPrice };
+}
 
 // Bina adları veride yok; ortak liste adlar.js dosyasındadır
 const REC = [['park', 'Park'], ['temple', 'Tapınak'], ['lake', 'Göl']];
@@ -183,6 +221,8 @@ export const CSS = `
 .ur-stat { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
 .ur-stat > span:first-child { font-size: 13px; color: var(--muted); font-weight: 600; }
 .ur-stat > span:last-child { font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.ur-eff { font-size: 14px; font-weight: 600; color: var(--accent); margin-left: 4px; }
+@media (max-width: 600px) { .ur-eff { display: block; margin-left: 0; } }
 .ur-stats { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 1.5fr); gap: 8px; }
 .ur-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .ur-stats > div { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
@@ -380,6 +420,11 @@ export function mountUretim(root, { realm = 0 } = {}) {
     return { ...s, economyPhase: phaseOf(s), executives: company.executives, finance: company.finance, admin: { mode: 'executives' },
       otherLevels: o.levels, academyLevel: Math.max(s.academyLevel || 0, o.academy) };
   };
+  // Araştırma ürününün birim fiyatı: elle girilmişse o, yoksa borsa (Ekip sekmesindeki Bilim değeri ve Özet aynı fiyatı kullanır)
+  function researchUnit(x) {
+    const v = setup.prices?.[`${x.product}:${x.quality}`];
+    return v != null && Number(v) >= 0 ? Number(v) : marketPrice(x.product, x.quality);
+  }
   // Bu bölümün payını şirket kaydına yazar: Yönetim ekibinin değeri (COO) buradan beslenir
   function syncPart() {
     if (!data) return;
@@ -389,8 +434,7 @@ export function mountUretim(root, { realm = 0 } = {}) {
       // Bilimin (CTO) değeri: araştırma binalarının EKİPSİZ günlük üretim değeri (ekip çarpanı çıkarılır; fiyat elle girilmişse o, yoksa borsa)
       const researchDay = plan.rows.reduce((t, x) => {
         if (!x.ok || x.construction || x.category !== 'research' || !(x.daily > 0) || !(x.teamFactor > 0)) return t;
-        const unit = Number(setup.prices?.[`${x.product}:${x.quality}`]) >= 0 && setup.prices?.[`${x.product}:${x.quality}`] != null ? Number(setup.prices[`${x.product}:${x.quality}`]) : marketPrice(x.product, x.quality);
-        return t + (x.daily / x.teamFactor) * (unit || 0);
+        return t + (x.daily / x.teamFactor) * (researchUnit(x) || 0);
       }, 0);
       company = Y.setCompanyPart(r, 'uretim', { levels, academy: setup.academyLevel, wagesDay: plan.totals.wagesDayNet, researchDay });
     } catch (e) { console.error(e); }
@@ -567,6 +611,9 @@ export function mountUretim(root, { realm = 0 } = {}) {
     const grossPct = T.gross * 100;
     const savedPts = grossPct * T.savings;
     const hasTeam = company.executives.length > 0;
+    const B = bilimKazanci(plan.rows, researchUnit); // araştırma binası yoksa B.count = 0 ve satır görünmez
+    const worthAll = ex.teamValueDay + B.day;
+    const netAll = ex.teamNetDay + B.day;
     const execs = `<section class="ur-card" aria-labelledby="h-ex2"><h2 id="h-ex2">Yönetim ve vergi (${periodName})</h2>
         <p class="ur-sub">Ekip Yönetim sekmesinde girilir; bu plandaki binalar için hesaplanır.${hasTeam ? '' : ' Henüz yönetici yok.'}</p>
         <div class="ur-box">${kv('Brüt yönetim gideri', `%${NF[2].format(grossPct)} − ${NF[2].format(savedPts)}`)}
@@ -575,9 +622,11 @@ export function mountUretim(root, { realm = 0 } = {}) {
         <div class="ur-box">${kv('Yönetimin kazandırdığı', m(ex.teamCooValueDay), ex.teamCooValueDay > 0 ? 'c-up' : '')}
           ${kv('Günlük vergi', m(ex.taxDay), 'c-price')}${kv('Yöneticisiz olsaydı', m(ex.taxWithoutDay))}
           ${kv('Muhasebenin kazandırdığı', m(ex.teamCfoValueDay), ex.teamCfoValueDay > 0 ? 'c-up' : '')}
+          ${B.count ? kv('Bilimin kazandırdığı (araştırma hızı)', B.day > 0 ? m(B.day) : '—', B.day > 0 ? 'c-up' : '') : ''}
           <div class="ur-hr"></div>
-          ${kv('Yöneticilerin kazandırdığı', m(ex.teamValueDay), '', true)}${kv('Yönetici maaşları', m(ex.salariesDay))}
-          ${kv('Net getiri', m(ex.teamNetDay, true), cls(ex.teamNetDay), true)}</div>
+          ${kv('Yöneticilerin kazandırdığı', m(worthAll), '', true)}${kv('Yönetici maaşları', m(ex.salariesDay))}
+          ${kv('Net getiri', m(netAll, true), cls(netAll), true)}</div>
+        ${B.noPrice ? '<p class="ur-note">Bilimin değeri için araştırma ürününün fiyatı gerekir: Alım-Satım sekmesinde fiyat girin ya da borsa fiyatını bekleyin.</p>' : ''}
         ${hasTeam ? `<p class="ur-note">Bilim: araştırma hızı +%${NF[0].format(ex.team.researchSpeedPct)} (araştırma binalarına uygulandı). İletişim: satış hızı +%${NF[0].format(ex.team.salesSpeedPct)} (Perakende bölümünde).</p>` : ''}
         ${!ex.assets ? '<p class="ur-note">Muhasebenin vergi değeri için Yönetim › Simülasyon › Muhasebe altında nakit ve bonoyu girin.</p>' : ''}
         <a class="ur-btn" href="#yonetim/ekip" style="text-decoration:none">Yönetim'de düzenle</a></section>`;
@@ -651,6 +700,8 @@ export function mountUretim(root, { realm = 0 } = {}) {
         ${kv('Toplam bina seviyesi', num(a.totalLevels), '', true)}
         <p class="ur-note">Yönetim gideri bu toplamdan ve Yönetim sekmesindeki ekipten hesaplanır. Perakende mağazaları da toplama girer (Perakende bölümünü kaydettiyseniz).</p></section>
 
+      ${kisayolKucuk('uretimBinalar')}
+
       ${cardEvents()}
 
       <section class="ur-card" aria-labelledby="h-gen"><h2 id="h-gen">Genel</h2>
@@ -708,7 +759,8 @@ export function mountUretim(root, { realm = 0 } = {}) {
         ${rows.length > 1 ? '<button type="button" class="ur-btn grow" data-act="bulk">Toplu düzenle</button><button type="button" class="ur-btn grow" data-act="autoQuality">Otomatik kalite</button>' : ''}</div>
       ${rows.length ? `<div class="ur-bgrid">${cards}</div>` : empty}
       ${rows.length ? summaryCard(plan) : ''}
-      ${missingCard(plan)}`;
+      ${missingCard(plan)}
+      ${kisayolSatiri('uretimOzet', 'uretimAlimSatim')}`;
   }
 
   function buildingCard(b, row, i) {

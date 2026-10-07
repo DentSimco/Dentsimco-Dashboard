@@ -8,7 +8,7 @@
 import { readDocs, PATHS, dataField, loadProduct, summarizeDay, utcDay, addDays, START_YEAR, loadGamePhase } from './veri.js';
 import * as H from './hesap.js';
 import * as Y from './yonetici.js';
-import { CSS, parseNum } from './uretim.js';
+import { CSS, parseNum, kisayolKucuk, kisayolSatiri } from './uretim.js';
 import * as R from './hesap-perakende.js';
 import { guideCard } from './rehber.js';
 import { binaAdi } from './adlar.js';
@@ -17,7 +17,7 @@ import { urunAdi } from './urun-adlari.js';
 const STORE_KEY = (r) => `dentsimco.perakende.r${r}`;
 const TAB_KEY = 'dentsimco.perakende.tab';
 const PERIOD_KEY = 'dentsimco.perakende.period';
-const TABS = [['kurulum', 'Kurulum'], ['binalar', 'Binalar'], ['pphpl', 'PPHPL Max'], ['ozet', 'Özet']];
+export const TABS = [['kurulum', 'Kurulum'], ['binalar', 'Binalar'], ['pphpl', 'PPHPL Max'], ['ozet', 'Özet']];
 const PERIODS = [['hour', 'Saatlik', 1 / 24], ['day', 'Günlük', 1], ['week', 'Haftalık', 7], ['month', 'Aylık', 30]];
 const REC = [['park', 'Park'], ['temple', 'Tapınak'], ['lake', 'Göl']];
 const HISTORY_DAYS = 30;
@@ -483,7 +483,9 @@ export function mountPerakende(root, { realm = 0 } = {}) {
 
       <section class="ur-card" aria-labelledby="h-gen"><h2 id="h-gen">Genel</h2>
         <button type="button" class="ur-btn danger" data-act="reset">${icon('trash')}Perakende kurulumunu sıfırla</button>
-        <p class="ur-note">Realm ${r + 1} perakende binalarını ve ayarlarını bu tarayıcıdan siler.</p></section>`;
+        <p class="ur-note">Realm ${r + 1} perakende binalarını ve ayarlarını bu tarayıcıdan siler.</p></section>
+
+      ${kisayolKucuk('perakendeBinalar')}`;
   }
   function cardEvents() {
     const t = Date.now();
@@ -544,7 +546,8 @@ export function mountPerakende(root, { realm = 0 } = {}) {
         <div class="ur-stat"><span>Toplam maaş</span><span>${money(t.wagesDay)}</span></div>
         <div class="ur-stat"><span>Kullanılan seviye</span><span>${num(t.levels)}</span></div></div>` : ''}
       <button type="button" class="ur-btn primary" data-act="add" style="width:100%">${icon('plus')}Bina ekle</button>
-      ${setup.buildings.length ? `<div class="ur-bgrid">${cards}</div>` : empty}`;
+      ${setup.buildings.length ? `<div class="ur-bgrid">${cards}</div>` : empty}
+      ${kisayolSatiri('perakendePphpl', 'perakendeOzet')}`;
   }
 
   // ---- PPHPL MAX ----
