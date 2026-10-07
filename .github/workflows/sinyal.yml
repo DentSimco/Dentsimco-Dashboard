@@ -1,14 +1,28 @@
 # DentSimco — Sinyal motoru (ÖZEL depo: formüller burada kalır, siteye gitmez)
-# Her gece 01:20 UTC'de (04:20 TR) botun gece özetinden sonra çalışır, 1 dakikadan kısa sürer.
-# Sıra: sınamalar → sinyalleri hesapla → Firestore'a yalnız sonuçları yaz. Sınama geçmezse hiçbir şey yazılmaz.
-# Elle çalıştırmak için: Actions > DentSimco Sinyal > Run workflow
+# İki çalışma şekli:
+#   gece    Her gece 01:20 UTC'de (04:20 TR) botun gece özetinden sonra: tam hesap (sinyaller, karne, olay ve evre arşivi).
+#   gunici  Gün boyu iki saatte bir (03:20, 05:20 ... 23:20 UTC): yalnız meta/sinyal_r{0,1} yazılır. Likit ve son işlemi
+#           ≤6 saat önce olan ürün×kalitede canlı son işlem fiyatıyla yeniden hesaplanır.
+# Her çalışma 1-2 dakika sürür. Sıra: sınamalar → sinyalleri hesapla → Firestore'a yalnız sonuçları yaz. Sınama geçmezse hiçbir şey yazılmaz.
+# Elle çalıştırmak için: Actions > DentSimco Sinyal > Run workflow (şekil seçilir; yeni sürümü ilk kurarken önce "gece" çalıştır).
+# Okuma maliyeti: her çalışma yaklaşık 600 Firestore belgesi okur (iki saatte bir ≈ 7 bin/gün). Saatlik yapmak için
+# ikinci cron'u '20 2-23 * * *' yapın (≈ 14 bin/gün; GitHub dakikası da iki katına çıkar).
 # Secret: FIREBASE_BOT_JSON varsa o, yoksa FIREBASE_SERVICE_ACCOUNT_JSON kullanılır (Firestore yazma izni gerekir).
 name: DentSimco Sinyal
 
 on:
   schedule:
     - cron: '20 1 * * *'
+    - cron: '20 3-23/2 * * *'
   workflow_dispatch:
+    inputs:
+      mod:
+        description: 'gece = tam hesap ve karne, gunici = yalnız canlı fiyatla yeniden hesap'
+        type: choice
+        options:
+          - gece
+          - gunici
+        default: gece
 
 permissions:
   contents: read
@@ -21,6 +35,8 @@ jobs:
   sinyal:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    env:
+      SINYAL_MOD: ${{ github.event_name == 'workflow_dispatch' && inputs.mod || (github.event.schedule == '20 1 * * *' && 'gece' || 'gunici') }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -33,7 +49,7 @@ jobs:
       - name: Sınamalar
         run: node sinyal/motor.test.mjs
 
-      - name: Sinyalleri hesapla ve yaz
+      - name: Sinyalleri hesapla ve yaz (${{ env.SINYAL_MOD }})
         run: node sinyal/motor.mjs
         env:
           FIREBASE_SERVICE_ACCOUNT_JSON: ${{ secrets.FIREBASE_BOT_JSON || secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
