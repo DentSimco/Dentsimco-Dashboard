@@ -4,6 +4,12 @@
 # Herhangi bir adım hata verirse yayın yapılmaz, canlı site eski hâliyle kalır.
 # Elle çalıştırmak için: Actions > DentSimco Site > Run workflow
 # Adres: https://dentsimco-e1c85.web.app
+#
+# Güvenlik:
+#  • İki ayrı iş: "hazirla" npm paketi kurar ama gizli anahtarı HİÇ görmez; "yayinla" anahtarı görür ama npm paketi kurmaz.
+#  • npm paketi sabit sürümle ve kurulum betikleri kapalı (--ignore-scripts) kurulur.
+#  • GitHub eylemleri değişmez commit numarasıyla (SHA), firebase-tools sabit sürümle çağrılır.
+#  • Yayın anahtarı FIREBASE_HOSTING_JSON yalnız "Firebase Hosting Admin" rolündeki ayrı bir hesaba aittir; Firestore'a yazamaz.
 name: DentSimco Site
 
 on:
@@ -25,25 +31,26 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  yayinla:
+  hazirla:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
         with:
+          persist-credentials: false
           sparse-checkout: |
             public
             test
             araclar
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: 22
 
       - name: Hazırlık
         run: |
           [ -f package.json ] || echo '{"type":"module"}' > package.json
-          npm install --no-save --no-package-lock javascript-obfuscator@4
+          npm install --no-save --no-package-lock --ignore-scripts --no-audit --no-fund javascript-obfuscator@4.2.1
 
       - name: Testler (okunur kod)
         run: |
@@ -70,10 +77,30 @@ jobs:
           done
           [ "$n" -gt 0 ] || echo "::warning::test/ klasöründe test bulunamadı; yalnız gizleme denetimi çalışacak."
 
+      - name: Yayın kopyasını sakla
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: site
+          path: |
+            public
+            firebase.json
+          retention-days: 3
+          if-no-files-found: error
+
+  yayinla:
+    needs: hazirla
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Yayın kopyasını al
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          name: site
 
       - name: Firebase Hosting'e yayınla
-        uses: FirebaseExtended/action-hosting-deploy@v0
+        uses: FirebaseExtended/action-hosting-deploy@500ac625ca2dd40cbd15f7659af953801858032a # v0.11.0
         with:
-          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_HOSTING_JSON }}
           projectId: dentsimco-e1c85
           channelId: live
+          firebaseToolsVersion: 15.32.1
