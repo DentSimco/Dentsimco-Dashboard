@@ -1,11 +1,12 @@
-// DentSimco — Sinyal motoru için Firestore bağlantısı (özel depo, sinyal/ klasörü)
+// DentSimco — Sinyal motoru için Firestore bağlantısı (sinyal/ klasörü)
 // npm paketi kullanmaz. Botun bot/firestore.mjs dosyasının bağımsız kopyasıdır; ondan farkı:
 // kendi bekleme işlevini içerir ve yetki hatasında ne yapılacağını Türkçe söyler.
+// Güvenlik: yalnız Firestore yetkisi istenir (datastore). Hesabın rolü "Cloud Datastore User" olmalı.
 
 import crypto from 'node:crypto';
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
-const SCOPES = 'https://www.googleapis.com/auth/datastore https://www.googleapis.com/auth/cloud-platform';
+const SCOPES = 'https://www.googleapis.com/auth/datastore';
 const MAX_WRITES_PER_COMMIT = 400;
 const MAX_BYTES_PER_COMMIT = 4_000_000;
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -17,7 +18,7 @@ export class Firestore {
       try { sa = JSON.parse(sa); } catch { sa = null; }
     }
     if (!sa?.client_email || !sa?.private_key || !sa?.project_id) {
-      throw new Error('FIREBASE_SERVICE_ACCOUNT_JSON secret eksik veya bozuk (GitHub > Settings > Secrets and variables > Actions).');
+      throw new Error('FIREBASE_BOT_JSON secret eksik veya bozuk (GitHub > Settings > Secrets and variables > Actions).');
     }
     this.sa = { ...sa, private_key: sa.private_key.replace(/\\n/g, '\n') };
     this.root = `projects/${sa.project_id}/databases/(default)/documents`;
@@ -66,8 +67,8 @@ export class Firestore {
         return this.call(action, body, attempt + 1);
       }
       if (res.status === 403) {
-        throw new Error('Firestore izin vermedi (403). Bu depodaki FIREBASE_SERVICE_ACCOUNT_JSON secret\'ı Firestore\'a yazamayan bir hesaba ait. '
-          + 'Çözüm: bot deposundaki (dentsimco-bot) FIREBASE_SERVICE_ACCOUNT_JSON değerinin aynısını bu depoya FIREBASE_BOT_JSON adıyla ekle.');
+        throw new Error('Firestore izin vermedi (403). Bu depodaki FIREBASE_BOT_JSON hesabına Google Cloud > IAM\'de '
+          + '"Cloud Datastore User" rolü verilmiş olmalı.');
       }
       throw new Error(`Firestore ${action} ${res.status}: ${text.slice(0, 400)}`);
     }
