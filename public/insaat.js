@@ -2,7 +2,9 @@
 // Bina yükseltme, yeni bina, hurda ve seviye düşürme için gereken malzeme, maliyet ve süre. Yalnız hesap: sinyal ya da öneri yok.
 // Hesap kuralları hesap-insaat.js'te; burada ekran, fiyat okuma ve tarayıcıda kayıt var.
 // Tarayıcı kaydı: dentsimco.insaat.r{realm} (her realm ayrı plan tutar).
+// Ekran metni Türkçedir; seçili dil Türkçe değilse i18n.js sayfayı çevirir. Sayı ve tarih biçimi seçili dile uyar.
 
+import { LOCALE, DIL, t } from './i18n.js';
 import { readDocs, PATHS, dataField, loadProduct, summarizeDay, utcDay, addDays, fmtDateTime, fmtAgo } from './veri.js';
 import * as Y from './yonetici.js';
 import * as I from './hesap-insaat.js';
@@ -10,7 +12,7 @@ import { binaAdi } from './adlar.js';
 import { parseNum } from './uretim.js';
 
 const KEY = (r) => `dentsimco.insaat.r${r}`;
-const NF = [0, 1, 2].map((d) => new Intl.NumberFormat('tr-TR', { minimumFractionDigits: d, maximumFractionDigits: d }));
+const NF = [0, 1, 2].map((d) => new Intl.NumberFormat(LOCALE, { minimumFractionDigits: d, maximumFractionDigits: d }));
 const fin = (x) => x != null && Number.isFinite(x);
 const num = (x, d = 0) => (fin(x) ? NF[d].format(x) : '—');
 const money = (x, d = 0, sign = false) => {
@@ -21,6 +23,16 @@ const money = (x, d = 0, sign = false) => {
 const price = (x) => (!fin(x) ? '—' : money(x, Math.abs(x) < 1000 ? 2 : 0));
 const pct = (x) => (!fin(x) ? '—' : `${x > 0 ? '+' : x < 0 ? '−' : ''}%${NF[1].format(Math.abs(x) * 100)}`);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// Süre: Türkçede hesap motorunun metni ("3 gün 20 saat"); diğer dillerde kısa biçim ("3 d 20 h"). Sözlükle çevrilmez
+// çünkü tekil/çoğul ayrımı kalıpla yapılamıyor.
+const sure = (sn) => {
+  if (DIL === 'tr') return I.sureMetni(sn);
+  if (!Number.isFinite(sn) || sn <= 0) return '—';
+  const saat = Math.round(sn / 3600);
+  const gun = Math.floor(saat / 24);
+  const kalan = saat % 24;
+  return gun ? `${gun} d${kalan ? ` ${kalan} h` : ''}` : `${saat} h`;
+};
 const uid = () => `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 const chip = (text, kind = '') => `<span class="ur-chip ${kind}">${esc(text)}</span>`;
 const kv = (label, value, c = '', strong = false) => `<div class="ur-kv${strong ? ' strong' : ''}"><span>${label}</span><span class="${c}">${value}</span></div>`;
@@ -167,7 +179,7 @@ export function mountInsaat(host, { realm = 0 } = {}) {
   }
   const prices = () => Object.fromEntries(I.MALZEMELER.map((m) => [m.key, priceOf(m).price]));
   const cash = () => { try { return Y.loadCompanyRecord(r).company.finance.cash || 0; } catch { return 0; } };
-  const sortedBuildings = () => Object.keys(table).sort((a, b) => binaAdi(a).localeCompare(binaAdi(b), 'tr'));
+  const sortedBuildings = () => Object.keys(table).sort((a, b) => binaAdi(a).localeCompare(binaAdi(b), DIL));
 
   // ---- ekran ----
   const stepper = (rowId, f, value, label) => `<div class="in-step"><span>${label}</span><div class="in-ctl">
@@ -183,7 +195,7 @@ export function mountInsaat(host, { realm = 0 } = {}) {
     else if (calc.hata) sonuc = `<span class="in-line">${esc(calc.hata)}.</span>`;
     else if (calc.tur === 'yok') sonuc = '<span class="in-line">Mevcut ve hedef seviye aynı: yapılacak bir şey yok.</span>';
     else if (calc.tur === 'yukselt') {
-      sonuc = `<div class="in-line"><span>Bina başına <b>${num(calc.birimBina)}</b> inşaat gereci</span><span>Süre <b>${I.sureMetni(calc.sureSn)}</b></span><span>Referans <b>${money(calc.referans)}</b></span></div>`;
+      sonuc = `<div class="in-line"><span>Bina başına <b>${num(calc.birimBina)}</b> inşaat gereci</span><span>Süre <b>${sure(calc.sureSn)}</b></span><span>Referans <b>${money(calc.referans)}</b></span></div>`;
     } else {
       sonuc = `<div class="in-line"><span>${calc.b === 0 ? 'Yıkım' : 'Seviye düşürme'}: bina başına <b>${num(calc.birimBina)}</b> inşaat gereci iade</span><span>İade değeri <b>${money(calc.referans)}</b></span></div>`;
     }
@@ -191,7 +203,7 @@ export function mountInsaat(host, { realm = 0 } = {}) {
     if (open.has(row.id) && bina && calc.tur === 'yukselt') {
       const lv = I.seviyeDokumu(bina, calc.a, calc.b);
       dokum = `<div class="in-wrap"><table class="in-lv"><thead><tr><th>Seviye</th><th>Betonarme</th><th>Tuğla</th><th>Kereste</th><th>Gereç</th><th>Süre</th></tr></thead><tbody>${lv.map((x) =>
-        `<tr><td>${x.seviye}</td><td>${num(x.malzeme.concrete)}</td><td>${num(x.malzeme.bricks)}</td><td>${num(x.malzeme.planks)}</td><td>${num(x.malzeme.units)}</td><td>${I.sureMetni(x.sureSn)}</td></tr>`).join('')}</tbody></table></div>
+        `<tr><td>${x.seviye}</td><td>${num(x.malzeme.concrete)}</td><td>${num(x.malzeme.bricks)}</td><td>${num(x.malzeme.planks)}</td><td>${num(x.malzeme.units)}</td><td>${sure(x.sureSn)}</td></tr>`).join('')}</tbody></table></div>
         <p class="ur-note">Bina başına, seviye seviye. Seviye 1 ve 2'nin maliyeti aynıdır, sonrası (seviye − 1) katıdır.</p>`;
     }
     const canDetail = bina && calc.tur === 'yukselt' && !calc.hata;
@@ -218,17 +230,21 @@ export function mountInsaat(host, { realm = 0 } = {}) {
       </div>`;
   }
 
+  // Panoya giden metin sayfada değil; seçili dile burada parça parça çevrilir (t: Türkçede metni aynen döndürür)
   function summaryText(calc, p) {
-    const L = [`DentSimco inşaat planı · Realm ${r + 1}`, ''];
+    const L = [`DentSimco ${t('inşaat planı')} · Realm ${r + 1}`, ''];
     for (const x of calc.rows) {
       if (x.hata || x.tur === 'yok') continue;
       const ad = binaAdi(x.letter);
-      L.push(x.tur === 'yukselt' ? `${ad} ×${x.adet}: seviye ${x.a} → ${x.b} (${I.sureMetni(x.sureSn)})` : `${ad} ×${x.adet}: seviye ${x.a} → ${x.b} ${x.b === 0 ? '(yıkım)' : '(düşürme)'}`);
+      const ek = x.tur === 'yukselt' ? sure(x.sureSn) : t(x.b === 0 ? 'yıkım' : 'düşürme');
+      L.push(`${ad} ×${x.adet}: ${t('seviye')} ${x.a} → ${x.b} (${ek})`);
     }
     L.push('');
-    for (const m of I.MALZEMELER) L.push(`${m.ad}: gerekli ${num(calc.gerekli[m.key])}${calc.geriGelen[m.key] ? `, hurda −${num(calc.dusulen[m.key])}` : ''}${calc.stok[m.key] ? `, stok −${num(calc.stok[m.key])}` : ''} → alınacak ${num(calc.alinacak[m.key])}${p[m.key] ? ` × ${price(p[m.key])}` : ''}`);
-    L.push('', `Tahmini maliyet: ${money(calc.toplam)}${calc.eksikFiyat ? ' (fiyatı olmayan malzemeler dahil değil)' : ''}`);
-    if (calc.enUzunSn > 0) L.push(`Süre: ${I.sureMetni(calc.enUzunSn)}${calc.bitis ? ` (bitiş ${fmtDateTime(calc.bitis)})` : ''}`);
+    for (const m of I.MALZEMELER) {
+      L.push(`${t(m.ad)}: ${t('gerekli')} ${num(calc.gerekli[m.key])}${calc.geriGelen[m.key] ? `, ${t('hurda')} −${num(calc.dusulen[m.key])}` : ''}${calc.stok[m.key] ? `, ${t('stok')} −${num(calc.stok[m.key])}` : ''} → ${t('alınacak')} ${num(calc.alinacak[m.key])}${p[m.key] ? ` × ${price(p[m.key])}` : ''}`);
+    }
+    L.push('', `${t('Tahmini maliyet')}: ${money(calc.toplam)}${calc.eksikFiyat ? ` (${t('fiyatı olmayan malzemeler dahil değil')})` : ''}`);
+    if (calc.enUzunSn > 0) L.push(`${t('Süre')}: ${sure(calc.enUzunSn)}${calc.bitis ? ` (${t('bitiş')} ${fmtDateTime(calc.bitis)})` : ''}`);
     return L.join('\n');
   }
 
@@ -266,7 +282,7 @@ export function mountInsaat(host, { realm = 0 } = {}) {
         ${hurdaVar ? `<div class="ur-hr"></div>${kv('Hurdadan gelen malzemenin referans değeri', money(calc.iadeReferans), 'c-up')}` : ''}</div>
       <div class="ur-box"><span class="ur-note" style="font-weight:600">Takvim</span>
         <label class="ur-field"><span>Başlangıç</span><input type="datetime-local" class="in-date" data-start value="${esc(startLocal)}"></label>
-        ${kv('Toplam süre', I.sureMetni(calc.enUzunSn), '', true)}
+        ${kv('Toplam süre', sure(calc.enUzunSn), '', true)}
         ${kv('Bitiş', calc.bitis ? fmtDateTime(calc.bitis) : '—')}
         <p class="ur-note">Satırlar aynı anda başlarsa en uzun satır bitince hepsi biter. ${plan.start == null ? 'Başlangıç şu an.' : '<a href="#" data-act="now" style="color:var(--accent)">Şimdiye ayarla</a>'}</p></div>
       <div class="ur-box"><span class="ur-note" style="font-weight:600">Nakit</span>

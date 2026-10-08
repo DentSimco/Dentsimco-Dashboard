@@ -4,6 +4,7 @@
 // Yönetim gideri ve perakende marjı elle girilmez: Üretim ve Perakende kendi payını şirket kaydına yazar.
 // Şirket kaydı (dentsimco.sirket.r{realm}) Üretim ve Perakende tarafından da okunur; yöneticiler yalnız burada girilir.
 
+import { LOCALE } from './i18n.js';
 import { readDocs, PATHS, dataField, loadProduct, summarizeDay, utcDay, addDays } from './veri.js';
 import * as H from './hesap.js';
 import * as Y from './yonetici.js';
@@ -39,7 +40,7 @@ const SECTOR_VERI = {
   cto: ['Üretim bölümüne araştırma binası (ör. Mutfak) ekleyince hesaplanır.', '#uretim', 'Üretim\'e git'],
 };
 
-const NF = [0, 1, 2, 3, 4].map((d) => new Intl.NumberFormat('tr-TR', { minimumFractionDigits: d, maximumFractionDigits: d }));
+const NF = [0, 1, 2, 3, 4].map((d) => new Intl.NumberFormat(LOCALE, { minimumFractionDigits: d, maximumFractionDigits: d }));
 const fin = (x) => x != null && Number.isFinite(x);
 const num = (x, d = 0) => (fin(x) ? NF[d].format(x) : '—');
 const dec = (x) => (!fin(x) ? '—' : Math.abs(x) >= 100 ? NF[0].format(x) : NF[x % 1 ? 2 : 0].format(x));

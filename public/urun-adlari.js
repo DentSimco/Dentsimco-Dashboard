@@ -7,6 +7,8 @@
 //     farkıyla bu listedekine denk geliyorsa ("Şeker kamışı" → "Şekerkamışı") liste adı kullanılır.
 // Yanlış görünen bir ürün olursa: kimliğini (#sayı) ve oyundaki doğru adını ID_ADLARI'na eklemek yeterlidir.
 
+import { DIL } from './i18n.js';
+
 export const ID_ADLARI = {
   1: 'Enerji', 2: 'Su', 3: 'Elmalar', 4: 'Portakal', 10: 'Ham petrol', 12: 'Dizel', 13: 'Taşıma', 14: 'Mineral', 15: 'Boksit',
   16: 'Silikon', 17: 'Kimyasal', 18: 'Alüminyum', 19: 'Plastik', 20: 'İşlemci', 21: 'Elektronik bileşenler', 22: 'Pil', 23: 'Ekranlar',
@@ -64,6 +66,7 @@ const LISTE = new Map(OYUN_ADLARI.map((a) => [anahtar(a), a]));
 // Bir ürünün ekranda görünecek adı. id bilinen üründe liste adı; değilse veriden gelen ad liste ile eşleşiyorsa liste adı;
 // hiçbiri değilse veriden gelen ad olduğu gibi.
 export function urunAdi(id, ad) {
+  if (DIL !== 'tr' && ad) return ad; // İngilizce (ve sonraki diller): oyunun API'sinden gelen ad
   const kesin = ID_ADLARI[Number(id)];
   if (kesin) return kesin;
   const k = anahtar(ad);

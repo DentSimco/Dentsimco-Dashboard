@@ -1,10 +1,24 @@
 // DentSimco — Hakkımızda: Nedir, Güncellemeler, Kaynakça.
 // Metin ve güncelleme listesi bu dosyanın başındadır; yeni güncelleme eklemek için UPDATES listesinin EN ÜSTÜNE yeni kayıt yazın.
+// Metin Türkçedir; İngilizcesi dil-en.js sözlüğündedir. Yeni bir madde eklerseniz İngilizcesini de sözlüğe yazın,
+// yoksa İngilizce modda o madde Türkçe görünür.
 
 const TABS = [['nedir', 'Nedir'], ['guncellemeler', 'Güncellemeler'], ['kaynakca', 'Kaynakça']];
 
 // En yeni en üstte. { date: 'gün ay yıl', items: ['...', '...'] }
 export const UPDATES = [
+  {
+    date: '8 Ekim 2026',
+    items: [
+      'Dil seçimi eklendi: sağ üstteki TR düğmesine dokununca açılan menüden İngilizceye geçilir. Ürün ve bina adları oyunun İngilizce adlarıyla görünür, sayılar seçili dilin biçimiyle yazılır.',
+      'Sinyaller: 14 günlük beklentinin yanında Hedef fiyat gösteriliyor (hesap fiyatı × beklenti).',
+      'Sinyaller: likit ürünlerde sinyal gün içinde iki saatte bir canlı fiyatla yeniden hesaplanıyor. Son işlem eskiyse ya da fiyat hesap fiyatından %5 oynadıysa kart soluklaşır ve uyarı çıkar.',
+      'Yönetim › Ekip: oyundaki "Ekibinizin etkisi" tablosu eklendi. Ekip puanının yanında etkili beceri gösteriliyor (örneğin 66 → 63).',
+      'Üretim › Özet: planda araştırma binası varsa bilimin (CTO) kazandırdığı dolar olarak yazıyor.',
+      'Kurulum, Binalar, Alım-Satım ve Özet arasında geçiş düğmeleri eklendi.',
+      'Telefonda Üretim › Binalar sayfasının yana taşması düzeltildi.',
+    ],
+  },
   {
     date: '7 Ekim 2026',
     items: [

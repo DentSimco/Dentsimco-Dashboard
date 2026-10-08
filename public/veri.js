@@ -7,6 +7,7 @@
 //   p = en düşük fiyat, a = arz, s = tahmini satış adedi, v = tahmini satış tutarı. Saatler UTC.
 
 import { urunAdi } from './urun-adlari.js';
+import { LOCALE, DIL } from './i18n.js';
 
 export const PROJECT_ID = 'dentsimco-e1c85';
 export const START_YEAR = 2026; // botun veri toplamaya başladığı yıl
@@ -305,12 +306,12 @@ export function summarizeDay(points) {
   return out;
 }
 
-// ---- Biçimlendirme (Türkçe sayı ve tarih) ----
+// ---- Biçimlendirme (seçili dilin sayı ve tarih biçimi: Türkçede 1.234,56 ve %5; İngilizcede 1,234.56 ve 5%) ----
 
 const numberFormats = new Map();
 function nf(key, options) {
   let f = numberFormats.get(key);
-  if (!f) numberFormats.set(key, (f = new Intl.NumberFormat('tr-TR', options)));
+  if (!f) numberFormats.set(key, (f = new Intl.NumberFormat(LOCALE, options)));
   return f;
 }
 const fixed = (d) => nf(`f${d}`, { minimumFractionDigits: d, maximumFractionDigits: d });
@@ -331,7 +332,7 @@ export const fmtShare = (x) => (x == null || !Number.isFinite(x) ? '—'
 const dateFormats = new Map();
 function df(key, options) {
   let f = dateFormats.get(key);
-  if (!f) dateFormats.set(key, (f = new Intl.DateTimeFormat('tr-TR', options)));
+  if (!f) dateFormats.set(key, (f = new Intl.DateTimeFormat(LOCALE, options)));
   return f;
 }
 export const fmtTime = (ms) => df('t', { hour: '2-digit', minute: '2-digit' }).format(ms);
@@ -342,9 +343,10 @@ export const fmtMonthYear = (ms) => df('my', { month: 'short', year: 'numeric' }
 
 export function fmtAgo(ms, now = Date.now()) {
   const m = Math.round((now - ms) / MIN);
-  if (m < 1) return 'az önce';
-  if (m < 60) return `${m} dk önce`;
+  const en = DIL === 'en';
+  if (m < 1) return en ? 'just now' : 'az önce';
+  if (m < 60) return en ? `${m} min ago` : `${m} dk önce`;
   const h = Math.floor(m / 60);
-  if (h < 24) return `${h} sa önce`;
-  return `${Math.floor(h / 24)} gün önce`;
+  if (h < 24) return en ? `${h} h ago` : `${h} sa önce`;
+  return en ? `${Math.floor(h / 24)} d ago` : `${Math.floor(h / 24)} gün önce`;
 }

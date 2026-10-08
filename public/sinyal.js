@@ -14,6 +14,7 @@
 import { readDocs, dataField, loadBasics, PATHS, fmtDate, fmtDateTime, fmtAgo, fmtPct, fmtPrice, HOUR } from './veri.js';
 import { loadPerakendeSinyal, karMi, zararMi } from './perakende-sinyal.js';
 import { binaAdi } from './adlar.js';
+import { LOCALE } from './i18n.js';
 
 const PREFS_KEY = 'dentsimco.sinyal.v1';
 const BORSA_KEY = 'dentsimco.borsa.v1';
@@ -271,7 +272,7 @@ export function signalCard(doc, { id, q, products, realm = 0, noQuality = false,
   // Her madde güvenli HTML olarak üretilir: düz metinler burada kaçışlanır, olay metni ürün adını kendisi kaçışlar
   const nedenler = (e.r || []).map(gerekce).filter(Boolean).map(esc);
   for (const o of e.o || []) nedenler.push(olayMetni(o, products));
-  if (e.k != null) nedenler.push(esc(`Satıştaki arz yaklaşık ${String(e.k).replace('.', ',')} günlük satışa denk`));
+  if (e.k != null) nedenler.push(esc(`Satıştaki arz yaklaşık ${Number(e.k).toLocaleString(LOCALE)} günlük satışa denk`));
   const liste = nedenler.length ? `<ul class="sg-why">${nedenler.map((x) => `<li>${x}</li>`).join('')}</ul>` : '';
 
   return `<section class="sg"${tz ? ` data-eski="${tz.tip}"` : ''}>${head(when)}${rozetHtml(tz, now)}
@@ -536,7 +537,7 @@ export function mountSinyal(root, { realm = 0 } = {}) {
         const c = k.canli?.[b];
         const dusus = b === 'b1' || b === 'b2';
         const fmt = (x) => (x && x[0]
-          ? `<b class="${dusus ? 'down' : b === 'b3' ? '' : 'up'}">%${Math.round((dusus ? 1 - x[1] : x[1]) * 100)} ${dusus ? 'düştü' : 'yükseldi'}</b><span class="sy-sub">ortalama ${fmtPct(x[2])}, ${x[0].toLocaleString('tr-TR')} kayıt</span>`
+          ? `<b class="${dusus ? 'down' : b === 'b3' ? '' : 'up'}">%${Math.round((dusus ? 1 - x[1] : x[1]) * 100)} ${dusus ? 'düştü' : 'yükseldi'}</b><span class="sy-sub">ortalama ${fmtPct(x[2])}, ${x[0].toLocaleString(LOCALE)} kayıt</span>`
           : '—');
         const canli = c && c[0] >= 30 ? fmt(c) : `<span class="sy-dim">birikiyor${c ? ` (${c[0]} kayıt)` : ''}</span>`;
         return `<tr><th scope="row">${KOVA_AD[b]}</th><td>${fmt(o)}</td><td>${canli}</td></tr>`;

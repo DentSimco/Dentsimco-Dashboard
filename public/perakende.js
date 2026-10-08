@@ -5,6 +5,7 @@
 // Tarayıcı kaydı: dentsimco.perakende.r{realm}. Kaydedince şirket kaydındaki "ekip dışı satış hızı" ve
 // "günlük perakende marjı" alanları da buradan güncellenir.
 
+import { LOCALE, t as ceviri } from './i18n.js';
 import { readDocs, PATHS, dataField, loadProduct, summarizeDay, utcDay, addDays, START_YEAR, loadGamePhase } from './veri.js';
 import * as H from './hesap.js';
 import * as Y from './yonetici.js';
@@ -21,7 +22,7 @@ export const TABS = [['kurulum', 'Kurulum'], ['binalar', 'Binalar'], ['pphpl', '
 const PERIODS = [['hour', 'Saatlik', 1 / 24], ['day', 'Günlük', 1], ['week', 'Haftalık', 7], ['month', 'Aylık', 30]];
 const REC = [['park', 'Park'], ['temple', 'Tapınak'], ['lake', 'Göl']];
 const HISTORY_DAYS = 30;
-const PHASE_FMT = new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const PHASE_FMT = new Intl.DateTimeFormat(LOCALE, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 // Restoran ayrı planlanacak; Satış ofisi (B) PPHPL ile ölçülmez: teklifler geliyor ama ne geleceği bilinmiyor
 const EXCLUDED = new Set(['r', 'B']);
 
@@ -36,7 +37,7 @@ const DEMAND = [
 const demandOf = (sat) => (Number.isFinite(sat) ? DEMAND.find((x) => R.demand(sat) >= x.min) : null);
 
 // ---- biçimlendirme ----
-const NF = [0, 1, 2, 3].map((d) => new Intl.NumberFormat('tr-TR', { minimumFractionDigits: d, maximumFractionDigits: d }));
+const NF = [0, 1, 2, 3].map((d) => new Intl.NumberFormat(LOCALE, { minimumFractionDigits: d, maximumFractionDigits: d }));
 const fin = (x) => x != null && Number.isFinite(x);
 const num = (x, d = 0) => (fin(x) ? NF[d].format(x) : '—');
 const money = (x, d = 0) => {
@@ -493,7 +494,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     const seen = new Map();
     for (const e of data.norm.events || []) if (e.since <= t && t < e.until && sold.has(e.product)) seen.set(e.product, e);
     const list = [...seen.values()].sort((a, b) => nameOf(a.product).localeCompare(nameOf(b.product), 'tr'));
-    const when = new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'long' });
+    const when = new Intl.DateTimeFormat(LOCALE, { day: 'numeric', month: 'long' });
     const inPlan = new Set(setup.buildings.map((b) => b.product));
     const rows = list.map((e) => `<div class="ur-line"><div class="grow"><div class="ur-row" style="flex-wrap:wrap"><span class="title">${esc(nameOf(e.product))}</span>${chip(`${e.pct > 0 ? '+' : '−'}%${Math.abs(e.pct)}`, e.pct > 0 ? '' : 'down')}${inPlan.has(e.product) ? chip('Planda', 'muted') : ''}</div>
       <span class="ur-note">${Number.isFinite(e.until) ? `${when.format(e.until)}'e kadar` : 'süresiz'}</span></div></div>`).join('');
@@ -705,11 +706,12 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     const mm = (v) => money(v * k);
     const rows = [['Satış geliri', t.revenueDay], ['Mal maliyeti', -t.costDay], ['Bina maaşları', -A.baseDay], ['Yönetim gideri', -A.adminDay],
       ['Brüt kâr', t.profitDay], ['Yönetici maaşları', -A.salaries], ['Net nakit', A.cash]];
-    return [`DentSimco perakende özeti · Realm ${r + 1} · ${periodLabel} · ${H.ECONOMY_PHASES[c.econ]}`,
-      `Satış hızı: kurulum ${pctText(c.baseSpeed)} + ekip ${pctText(c.teamPct)} · Yönetim gideri ${pctText(c.ctx.adminNet * 100)}`,
-      `Binalar: ${setup.buildings.map((b) => `${nameOf(b.product)} Q${b.quality} (${buildingName(b.letter)} ${b.level})`).join(', ')}`, '',
-      ...rows.map(([n, v]) => `${n.padEnd(20)}${mm(v).padStart(14)}`), '',
-      `Satılan ${num(t.unitsDay * k)} adet · yönetimin kazandırdığı ${mm(A.coo + A.cfo + A.cmo)} · yönetici net getirisi ${mm(A.coo + A.cfo + A.cmo - A.salaries)}`].join('\n');
+    // Panoya giden metin sayfada değil; seçili dile burada çevrilir (etiketler hizalamadan önce)
+    return [ceviri(`DentSimco perakende özeti · Realm ${r + 1} · ${periodLabel} · ${H.ECONOMY_PHASES[c.econ]}`),
+      ceviri(`Satış hızı: kurulum ${pctText(c.baseSpeed)} + ekip ${pctText(c.teamPct)} · Yönetim gideri ${pctText(c.ctx.adminNet * 100)}`),
+      `${ceviri('Binalar:')} ${setup.buildings.map((b) => `${nameOf(b.product)} Q${b.quality} (${buildingName(b.letter)} ${b.level})`).join(', ')}`, '',
+      ...rows.map(([n, v]) => `${ceviri(n).padEnd(20)}${mm(v).padStart(14)}`), '',
+      ceviri(`Satılan ${num(t.unitsDay * k)} adet · yönetimin kazandırdığı ${mm(A.coo + A.cfo + A.cmo)} · yönetici net getirisi ${mm(A.coo + A.cfo + A.cmo - A.salaries)}`)].join('\n');
   }
   async function copyText(text) {
     try { await navigator.clipboard.writeText(text); return true; } catch { /* eski tarayıcı: aşağıdaki yedek yol */ }

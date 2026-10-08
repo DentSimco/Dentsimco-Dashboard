@@ -3,6 +3,8 @@
 // gibi çevrilmemiş adlar da oyundaki gibidir. Oyunda olmayan hiçbir bina eklenmedi.
 // Anahtar: oyunun bina harfi (constants/buildings içindeki dbLetter).
 
+import { DIL } from './i18n.js';
+
 export const BINA_ADLARI = {
   // Üretim
   E: 'Enerji Santrali', W: 'Su deposu', P: 'Tarla', F: 'Çiftlik', O: 'Petrol kuyusu', R: 'Rafineri', S: 'Nakliye deposu',
@@ -22,5 +24,26 @@ export const BINA_ADLARI = {
   3: 'Tapınak', 4: 'Park', 5: 'Göl', n: 'Banka', y: 'Akademi',
 };
 
-// Adı olmayan bir harf ekranda "Bina X" olarak görünür (hiçbir zaman boş kalmaz)
-export const binaAdi = (letter, onEk = 'Bina') => BINA_ADLARI[letter] || `${onEk} ${letter}`;
+// İngilizce adlar oyunun İngilizce bina ekranından (7 Ekim 2026 fotoğrafları) birebir alındı.
+export const BINA_ADLARI_EN = {
+  // Üretim
+  E: 'Power plant', W: 'Water reservoir', P: 'Farm', F: 'Ranch', O: 'Oil rig', R: 'Refinery', S: 'Shipping depot',
+  M: 'Mine', Q: 'Quarry', Y: 'Factory', L: 'Electronics factory', T: 'Fashion factory', D: 'Propulsion factory',
+  1: 'Car factory', 6: 'Beverage factory', 7: 'Aerospace factory', 8: 'Aerospace electronics',
+  9: 'Vertical integration facility', 0: 'Hangar', k: 'Food processing plant', e: 'Slaughterhouse', i: 'Mill', j: 'Bakery',
+  m: 'Catering', o: 'Concrete plant', x: 'Construction factory', g: 'General contractor', v: 'Forest nursery',
+  // Araştırma
+  p: 'Plant research center', h: 'Physics laboratory', b: 'Breeding laboratory', c: 'Chemistry laboratory',
+  s: 'Software R&D', a: 'Automotive R&D', f: 'Fashion & Design', l: 'Launch pad', q: 'Kitchen',
+  // Satış (perakende)
+  G: 'Grocery store', A: 'Gas station', C: 'Electronics store', 2: 'Car dealership', H: 'Fashion store', d: 'Hardware store',
+  B: 'Sales offices', r: 'Restaurant',
+  // Mevsimlik pazarlar
+  I: 'Spring market', t: 'Halloween market', u: 'Xmas market', z: 'Beach market',
+  // Dinlenme, banka, akademi
+  3: 'Temple', 4: 'Park', 5: 'Lake', n: 'Bank', y: 'Academy',
+};
+
+const ADLAR = DIL === 'tr' ? BINA_ADLARI : BINA_ADLARI_EN;
+// Adı olmayan bir harf ekranda "Bina X" olarak görünür (hiçbir zaman boş kalmaz; ön ek çeviri katmanında çevrilir)
+export const binaAdi = (letter, onEk = 'Bina') => ADLAR[letter] || BINA_ADLARI[letter] || `${onEk} ${letter}`;

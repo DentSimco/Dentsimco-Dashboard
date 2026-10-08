@@ -171,9 +171,20 @@
   .realm { margin-left: auto; display: flex; padding: 3px; border: 1px solid var(--line); border-radius: 11px; }
   .realm button { min-width: 44px; height: 32px; padding: 0 10px; border-radius: 8px; color: var(--muted); font: 600 15px/1 var(--font-c); }
   .realm button[aria-pressed="true"] { background: var(--raise-2); color: var(--accent); }
-  .realm .theme-btn { min-width: 38px; margin-left: 2px; border-left: 1px solid var(--line); border-radius: 0 8px 8px 0; display: grid; place-items: center; color: var(--muted); }
+  .realm .theme-btn { min-width: 38px; margin-left: 2px; border-left: 1px solid var(--line); border-radius: 0; display: grid; place-items: center; color: var(--muted); }
   .realm .theme-btn svg { width: 18px; height: 18px; }
   .realm .theme-btn:hover { color: var(--text); }
+  .lang { position: relative; display: flex; margin-left: 2px; border-left: 1px solid var(--line); }
+  .lang-btn { height: 32px; min-width: 44px; padding: 0 8px; border-radius: 0 8px 8px 0; color: var(--muted); font: 600 14px/1 var(--font-c); display: inline-flex; align-items: center; justify-content: center; gap: 3px; }
+  .lang-btn::after { content: ""; width: 6px; height: 6px; border-right: 1.6px solid currentColor; border-bottom: 1.6px solid currentColor; transform: translateY(-2px) rotate(45deg); margin-left: 2px; }
+  .lang-btn:hover, .lang-btn[aria-expanded="true"] { color: var(--text); }
+  .lang-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 60; min-width: 150px; margin: 0; padding: 4px; list-style: none; background: var(--raise-2); border: 1px solid var(--line-3); border-radius: 11px; box-shadow: 0 8px 24px var(--shadow); }
+  .lang-menu[hidden] { display: none; }
+  .lang-menu button { width: 100%; min-height: 40px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--text); font: 500 15px/1 var(--font-c); text-align: left; }
+  .lang-menu button b { color: var(--muted); font-weight: 600; font-size: 13px; }
+  .lang-menu button:hover, .lang-menu button:focus-visible { background: var(--raise); }
+  .lang-menu button[aria-checked="true"] { color: var(--accent); }
+  .lang-menu button[aria-checked="true"] b { color: var(--accent); }
   .about { padding: 6px 9px; border-radius: 9px; color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 500; white-space: nowrap; }
   .about:hover { color: var(--text); }
   .about[aria-current="page"] { color: var(--text); background: var(--raise); }
@@ -184,7 +195,9 @@
   }
 
   @media (max-width: 440px) { .realm button { min-width: 36px; padding: 0 6px; } .realm .theme-btn { min-width: 34px; } .brand { font-size: 18px; gap: 7px; } .brand svg { width: 22px; height: 22px; } .about { font-size: 12px; padding: 6px 2px; } }
-  @media (max-width: 380px) { .top { padding-left: 10px; padding-right: 10px; column-gap: 6px; } .realm button { min-width: 32px; padding: 0 4px; } .realm .theme-btn { min-width: 32px; } .brand { font-size: 17px; gap: 6px; } .brand svg { width: 20px; height: 20px; } .about { font-size: 11.5px; } }
+  @media (max-width: 440px) { .lang-btn { min-width: 32px; padding: 0 4px; font-size: 13px; } .lang-btn::after { display: none; } .realm button { min-width: 32px; padding: 0 4px; } .realm .theme-btn { min-width: 30px; } .top { column-gap: 6px; } }
+  @media (max-width: 370px) { .brand svg { display: none; } }
+  @media (max-width: 410px) { .top { padding-left: 10px; padding-right: 10px; column-gap: 6px; } .realm button { min-width: 32px; padding: 0 4px; } .realm .theme-btn { min-width: 32px; } .brand { font-size: 17px; gap: 6px; } .brand svg { width: 20px; height: 20px; } .about { font-size: 11.5px; } }
 
   main { max-width: 1240px; margin: 0 auto; padding: 4px 20px 48px; }
   @media (max-width: 600px) { main { padding: 2px 12px 40px; } }
@@ -487,6 +500,10 @@
     <button type="button" data-realm="0" aria-pressed="true" title="Realm 1">R1</button>
     <button type="button" data-realm="1" aria-pressed="false" title="Realm 2">R2</button>
     <button type="button" class="theme-btn" id="theme-btn" aria-label="Görünüm" title="Görünüm"></button>
+    <div class="lang" data-no-t>
+      <button type="button" class="lang-btn" id="lang-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="lang-menu">TR</button>
+      <ul class="lang-menu" id="lang-menu" role="menu" aria-label="Dil / Language" hidden></ul>
+    </div>
   </div>
   <a class="about" href="#hakkinda" data-nav="hakkinda">Hakkımızda</a>
 </header>
@@ -496,7 +513,7 @@
   <a href="#perakende" data-sub="perakende">Perakende</a>
 </nav>
 <main id="app"></main>
-<noscript><p style="padding:20px">DentSimco için JavaScript açık olmalı.</p></noscript>
+<noscript><p style="padding:20px">DentSimco için JavaScript açık olmalı. · DentSimco needs JavaScript to be enabled.</p></noscript>
 
 <script>
   // Eski tarayıcı yedeği: replaceChildren yoksa tanımla (eski Samsung Internet gibi).
@@ -508,6 +525,8 @@
   }
   // Yakalanmayan bir hata olursa ekranın altında kısa bir uyarı göster (telefonda konsol olmadığı için).
   (function () {
+    var en = false; // dil seçimi (i18n.js ile aynı kural): kayıtlı seçim, yoksa tarayıcı dili
+    try { var d = localStorage.getItem('dentsimco.dil'); en = d ? d === 'en' : !/^tr/i.test(navigator.language || ''); } catch (e) { en = !/^tr/i.test(navigator.language || ''); }
     var shown = false;
     function show(text) {
       if (shown || !document.body) return;
@@ -516,10 +535,10 @@
       box.setAttribute('role', 'alert');
       box.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;z-index:9999;padding:10px 12px;border-radius:10px;background:var(--raise-2);color:var(--text);border:1px solid var(--line-3);font:13px/1.4 system-ui,sans-serif';
       var msg = document.createElement('span');
-      msg.textContent = 'Bir hata oluştu: ' + String(text).slice(0, 160);
+      msg.textContent = (en ? 'An error occurred: ' : 'Bir hata oluştu: ') + String(text).slice(0, 160);
       var btn = document.createElement('button');
       btn.type = 'button';
-      btn.textContent = 'Kapat';
+      btn.textContent = en ? 'Close' : 'Kapat';
       btn.style.cssText = 'margin-left:10px;padding:4px 10px;border-radius:8px;border:1px solid var(--line-3);background:var(--raise);color:inherit';
       btn.onclick = function () { if (box.parentNode) box.parentNode.removeChild(box); };
       box.appendChild(msg);
@@ -527,9 +546,9 @@
       document.body.appendChild(box);
     }
     window.addEventListener('error', function (e) {
-      var m = e && e.message ? e.message : 'bilinmeyen';
+      var m = e && e.message ? e.message : (en ? 'unknown' : 'bilinmeyen');
       if (/ResizeObserver/i.test(m)) return; // zararsız tarayıcı uyarısı
-      show(m + (e && e.lineno ? ' (satır ' + e.lineno + ')' : ''));
+      show(m + (e && e.lineno ? (en ? ' (line ' : ' (satır ') + e.lineno + ')' : ''));
     });
     window.addEventListener('unhandledrejection', function (e) {
       var r = e && e.reason;
@@ -538,6 +557,13 @@
   })();
 </script>
 <script type="module">
+  // Çeviri katmanı ilk çizimden önce kurulur; yüklenemezse site Türkçe çalışmaya devam eder
+  const i18n = await import('./i18n.js').catch(() => null);
+  try {
+    i18n?.izle(document.documentElement);
+    i18n?.dilMenusuBagla(document.getElementById('lang-btn'), document.getElementById('lang-menu'));
+  } catch (e) { console.error(e); }
+  if (!i18n) document.querySelector('.lang')?.remove();
   const app = document.getElementById('app');
   const realmButtons = [...document.querySelectorAll('[data-realm]')];
   const navLinks = [...document.querySelectorAll('[data-nav]')];

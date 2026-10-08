@@ -3,6 +3,7 @@
 // Kurulum, Binalar, Alım-Satım ve Özet (ön muhasebe). Fiyatlar botun 5 dakikada bir yazdığı live/r{realm} belgesinden.
 // Yöneticiler, nakit, bono ve banka seviyesi şirket kaydında (Yönetim sekmesi); buradaki hesaplar onu okur.
 
+import { LOCALE, t as ceviri } from './i18n.js';
 import { readDocs, PATHS, dataField, loadGamePhase } from './veri.js';
 import * as H from './hesap.js';
 import * as Y from './yonetici.js';
@@ -58,7 +59,7 @@ export function bilimKazanci(rows, unitOf) {
 const REC = [['park', 'Park'], ['temple', 'Tapınak'], ['lake', 'Göl']];
 
 // ---- biçimlendirme ----
-const NF = [0, 1, 2, 3, 4].map((d) => new Intl.NumberFormat('tr-TR', { minimumFractionDigits: d, maximumFractionDigits: d }));
+const NF = [0, 1, 2, 3, 4].map((d) => new Intl.NumberFormat(LOCALE, { minimumFractionDigits: d, maximumFractionDigits: d }));
 const fin = (x) => x != null && Number.isFinite(x);
 const num = (x, d = 0) => (fin(x) ? NF[d].format(x) : '—');
 const smart = (x) => (!fin(x) ? '—' : Math.abs(x) >= 100 ? NF[0].format(x) : Math.abs(x) >= 1 ? NF[2].format(x) : NF[3].format(x));
@@ -70,7 +71,7 @@ const money = (x, d = 0, sign = false) => {
 };
 const pctText = (fraction, d = 2) => (fin(fraction) ? `${fraction < 0 ? '−' : ''}%${NF[d].format(Math.abs(fraction * 100))}` : '—');
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const whenFmt = new Intl.DateTimeFormat('tr-TR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+const whenFmt = new Intl.DateTimeFormat(LOCALE, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 // Türkçe ya da İngilizce yazılmış sayıyı okur: "1.921.272", "0,3582", "72.65", "4,490,000", "1.234,56", "1,234.56", "%62"
 // Tek belirsiz durum: tek nokta + tam 3 hane ("2.345": 2,345 mi, 2345 mi?). Kural:
@@ -202,7 +203,7 @@ export const CSS = `
 .ur textarea { height: 160px; padding: 10px 12px; font: 500 14px/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; resize: vertical; }
 .ur-input > i { font-style: normal; color: var(--muted); font-weight: 600; min-width: 14px; }
 .ur input:focus-visible, .ur select:focus-visible, .ur textarea:focus-visible, .ur button:focus-visible, .ur a:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
-.ur-chip { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 13px; font-size: 13px; font-weight: 600; white-space: nowrap;
+.ur-chip { display: inline-flex; align-items: center; min-height: 26px; max-width: 100%; box-sizing: border-box; line-height: 1.3; padding: 0 10px; border-radius: 13px; font-size: 13px; font-weight: 600; white-space: normal; padding-top: 3px; padding-bottom: 3px;
   background: var(--tint-bg); color: var(--accent); border: 1px solid var(--tint-line); }
 .ur-chip.muted { background: var(--raise); color: var(--muted); border-color: var(--line-2); }
 .ur-chip.up { background: var(--up-bg); color: var(--up); border-color: var(--up-line); }
@@ -226,8 +227,9 @@ export const CSS = `
 .ur-stats { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 1.5fr); gap: 8px; }
 .ur-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .ur-stats > div { background: var(--surface); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; }
-.ur-bgrid { display: grid; grid-template-columns: 1fr; gap: 12px; }
-@media (min-width: 740px) { .ur-bgrid { grid-template-columns: 1fr 1fr; } }
+.ur-bgrid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
+.ur-bgrid > * { min-width: 0; }
+@media (min-width: 740px) { .ur-bgrid { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
 .ur-badge { width: 44px; height: 44px; border-radius: 12px; background: var(--tint-bg); border: 1px solid var(--tint-line); color: var(--accent); display: flex; align-items: center;
   justify-content: center; font: 600 18px var(--font-c); flex: none; }
 .ur-level { text-align: right; } .ur-level b { display: block; font: 600 24px/1 var(--font-c); } .ur-level small { color: var(--muted); font-size: 13px; font-weight: 600; }
@@ -655,12 +657,13 @@ export function mountUretim(root, { realm = 0 } = {}) {
     const k = PERIODS.find(([key]) => key === period)[2];
     const A = accounts(plan);
     const m = (v) => money(v * k);
-    const L = [`DentSimco üretim özeti · Realm ${r + 1} · ${PERIODS.find(([key]) => key === period)[1]} · ${H.ECONOMY_PHASES[phaseOf(setup)]}`,
-      `Binalar: ${setup.buildings.map((b) => `${nameOf(b.product)}${H.hasQuality(data.products[b.product]) ? ` Q${b.quality}` : ''} (${buildingName(b.type)} ${b.level})`).join(', ')}`, '',
-      `                      Borsa        Kontrat`,
+    // Panoya giden metin sayfada değil; seçili dile burada çevrilir (etiketler hizalamadan önce)
+    const L = [ceviri(`DentSimco üretim özeti · Realm ${r + 1} · ${PERIODS.find(([key]) => key === period)[1]} · ${H.ECONOMY_PHASES[phaseOf(setup)]}`),
+      `${ceviri('Binalar:')} ${setup.buildings.map((b) => `${nameOf(b.product)}${H.hasQuality(data.products[b.product]) ? ` Q${b.quality}` : ''} (${buildingName(b.type)} ${b.level})`).join(', ')}`, '',
+      `${''.padEnd(20)}${ceviri('Borsa').padStart(12)} ${ceviri('Kontrat').padStart(13)}`,
       ...[['Brüt satış', A.grossX, A.grossC], ['Komisyon', -A.fee, 0], ['Taşıma', -A.trX, -A.trC], ['Net satış', A.netX, A.netC], ['Girdi alımları', -A.buy, -A.buy],
         ['Bina maaşları', -A.direct, -A.direct], ['Yönetim gideri', -A.admin, -A.admin], ['Brüt kâr', A.profitX, A.profitC], ['Yönetici maaşları', -A.exec, -A.exec],
-        ['Net nakit', A.cashX, A.cashC]].map(([n, a, b]) => `${n.padEnd(20)}${m(a).padStart(12)} ${m(b).padStart(13)}`)];
+        ['Net nakit', A.cashX, A.cashC]].map(([n, a, b]) => `${ceviri(n).padEnd(20)}${m(a).padStart(12)} ${m(b).padStart(13)}`)];
     return L.join('\n');
   }
 
