@@ -492,9 +492,9 @@
     DentSimco
   </a>
   <nav class="modules" aria-label="Modüller">
-    <a href="#borsa" data-nav="borsa">Borsa</a>
-    <a href="#sinyal" data-nav="sinyal">Sinyaller</a>
+    <a href="#borsa" data-nav="piyasa">Piyasa</a>
     <a href="#uretim" data-nav="kar">Kâr Hesaplayıcı</a>
+    <a href="#sirketler" data-nav="sirketler">Şirketler</a>
   </nav>
   <div class="realm" role="group" aria-label="Realm">
     <button type="button" data-realm="0" aria-pressed="true" title="Realm 1">R1</button>
@@ -507,6 +507,10 @@
   </div>
   <a class="about" href="#hakkinda" data-nav="hakkinda">Hakkımızda</a>
 </header>
+<nav class="subnav" id="subnav-piyasa" aria-label="Piyasa bölümleri">
+  <a href="#borsa" data-sub="borsa">Canlı Borsa</a>
+  <a href="#sinyal" data-sub="sinyal">Sinyaller</a>
+</nav>
 <nav class="subnav" id="subnav" aria-label="Kâr Hesaplayıcı bölümleri">
   <a href="#yonetim/ekip" data-sub="yonetim">Yönetim</a>
   <a href="#uretim" data-sub="uretim">Üretim</a>
@@ -568,15 +572,18 @@
   const realmButtons = [...document.querySelectorAll('[data-realm]')];
   const navLinks = [...document.querySelectorAll('[data-nav]')];
   const subNav = document.getElementById('subnav');
-  const subLinks = [...subNav.querySelectorAll('[data-sub]')];
+  const subNavPiyasa = document.getElementById('subnav-piyasa');
+  const subLinks = [...subNav.querySelectorAll('[data-sub]'), ...subNavPiyasa.querySelectorAll('[data-sub]')];
   import('./tema.js').then((m) => m.dugmeyiBagla(document.getElementById('theme-btn'))).catch(() => { /* tema düğmesi yüklenemezse site yine çalışır */ });
   import('./girdi.js').then((m) => m.girdiyiBagla()).catch(() => { /* yüklenemezse sayı kutuları eskisi gibi çalışır */ });
   import('./acilir.js').then((m) => m.acilirlariBagla()).catch(() => { /* yüklenemezse tarayıcının kendi listesi kullanılır */ });
   const CALC = new Set(['uretim', 'perakende', 'yonetim']); // Kâr Hesaplayıcı'nın bölümleri
+  const PIYASA = new Set(['borsa', 'sinyal']); // Piyasa'nın sekmeleri: Canlı Borsa, Sinyaller
 
   const MODULES = {
     borsa: () => import('./borsa.js').then((m) => m.mountBorsa),
     sinyal: () => import('./sinyal.js').then((m) => m.mountSinyal),
+    sirketler: () => import('./sirketler.js').then((m) => m.mountSirketler),
     uretim: () => import('./uretim.js').then((m) => m.mountUretim),
     yonetim: () => import('./yonetim.js').then((m) => m.mountYonetim),
     perakende: () => import('./perakende.js').then((m) => m.mountPerakende),
@@ -609,12 +616,13 @@
     if (key === currentKey) return;
     const my = ++routeToken;
     currentKey = key;
-    const top = CALC.has(key) ? 'kar' : key;
+    const top = CALC.has(key) ? 'kar' : PIYASA.has(key) ? 'piyasa' : key;
     for (const a of navLinks) {
       if (a.dataset.nav === top) a.setAttribute('aria-current', 'page');
       else a.removeAttribute('aria-current');
     }
     subNav.classList.toggle('on', CALC.has(key));
+    subNavPiyasa.classList.toggle('on', PIYASA.has(key));
     for (const a of subLinks) {
       if (a.dataset.sub === key) a.setAttribute('aria-current', 'page');
       else a.removeAttribute('aria-current');

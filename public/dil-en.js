@@ -7,6 +7,12 @@ export default {
   // ---- Üst menü ve genel ----
   'Borsa': 'Exchange',
   'Sinyaller': 'Signals',
+  'Piyasa': 'Market',
+  'Canlı Borsa': 'Live Exchange',
+  'Piyasa bölümleri': 'Market sections',
+  'Şirketler': 'Companies',
+  'Şirket sıralaması': 'Company ranking',
+  'Şirket sıralaması yakında burada olacak. Veriler günde bir kez güncellenir.': 'The company ranking will be here soon. Data is updated once a day.',
   'Kâr Hesaplayıcı': 'Profit Calculator',
   'Hakkımızda': 'About',
   'Modüller': 'Modules',
