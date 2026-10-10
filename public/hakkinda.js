@@ -8,6 +8,12 @@ const TABS = [['nedir', 'Nedir'], ['guncellemeler', 'Güncellemeler'], ['kaynakc
 // En yeni en üstte. { date: 'gün ay yıl', items: ['...', '...'] }
 export const UPDATES = [
   {
+    date: '10 Ekim 2026',
+    items: [
+      'Şirketler bölümü eklendi (Kâr Hesaplayıcı\'nın yanında): Simcotools sıralamasındaki tüm şirketler listelenir; sıra, şirket değeri, değişim, EVA sırası, bina, patent, işçi, tahvil ya da ada göre sıralanır ve ada göre aranır. Veri günde bir kez güncellenir.',
+    ],
+  },
+  {
     date: '8 Ekim 2026',
     items: [
       'Dil seçimi eklendi: sağ üstteki TR düğmesine dokununca açılan menüden İngilizceye geçilir. Ürün ve bina adları oyunun İngilizce adlarıyla görünür, sayılar seçili dilin biçimiyle yazılır.',
