@@ -228,7 +228,12 @@ export function turkceAd(id, ad) {
   return (k && LISTE.get(k)) || ad;
 }
 
+// Dışarıdan (oyun API'si → Firestore) gelen adlar HTML'e girebilir; etiket/özellik kaçırabilecek karakterler atılır.
+// Gerçek ürün adlarında bu karakterler yoktur.
+const temizAd = (ad) => (typeof ad === 'string' ? ad.replace(/[<>"`\u0000-\u001f]/g, '').slice(0, 80) : ad);
+
 export function urunAdi(id, ad) {
+  ad = temizAd(ad);
   const tr = turkceAd(id, ad);
   if (DIL === 'tr') return tr;
   // İngilizce (ve sonraki diller): bilinen ürünün İngilizce adı; bilinmeyende veriden gelen ad olduğu gibi
