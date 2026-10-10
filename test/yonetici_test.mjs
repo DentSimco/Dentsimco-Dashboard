@@ -1,4 +1,4 @@
-// DentSimco — yönetici simülasyonu testleri. Çalıştırma: node test/yonetici.test.mjs
+// DentSimco — yönetici simülasyonu testleri. Çalıştırma: node test/yonetici_test.mjs
 // Patent ve araştırma değerleri Cooper's Tools ekranlarından (Alüminyum, Portakal suyu), ekip etkileri oyundaki
 // "Ekibinizin etkisi" ekranlarından; para karşılıkları elle hesaplanmış örneklerle sınanır.
 

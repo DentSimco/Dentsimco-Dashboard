@@ -49,7 +49,7 @@ jobs:
           node-version: 22
 
       - name: Sınamalar
-        run: node sinyal/motor.test.mjs
+        run: node sinyal/motor_test.mjs
 
       - name: Sinyalleri hesapla ve yaz (${{ env.SINYAL_MOD }})
         run: node sinyal/motor.mjs

@@ -2,7 +2,7 @@
 //
 // Arayüzsüz, saf fonksiyonlar: tarayıcıda ve Node'da aynen çalışır; DOM, ağ ya da Firestore bilgisi içermez.
 // Formüller oyunun kendi Üretim ve Kâr hesaplayıcısı, satış ekranı, yönetici ekranları ve Cooper's Tools ile
-// karşılaştırıldı; kanıtlar test/hesap.test.mjs dosyasında. Yönetici etkileri ve vergi (muhasebe ücreti) oyun
+// karşılaştırıldı; kanıtlar test/hesap_test.mjs dosyasında. Yönetici etkileri ve vergi (muhasebe ücreti) oyun
 // rehberi ve yedi oyuncunun "Ekibinizin etkisi" ekranıyla doğrulandı.
 //
 // Birimler: para dolar, miktar adet. "Hour" ile biten alanlar saatlik, "Day" ile bitenler günlük (24 saat).

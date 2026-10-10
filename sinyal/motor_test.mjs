@@ -1,5 +1,5 @@
 // DentSimco — Sinyal motoru sınamaları (yapay veri; Firestore'a bağlanmaz)
-// Çalıştırma: node sinyal/motor.test.mjs   (sinyal.yml her çalışmada önce bunu koşar; hata varsa sinyal yazılmaz)
+// Çalıştırma: node sinyal/motor_test.mjs   (sinyal.yml her çalışmada önce bunu koşar; hata varsa sinyal yazılmaz)
 
 import { hesapla, seriKur, sezonFazi, addDays, diffDays, sonDeger, likitMi, canliHaritasi, titresimOnle, titresimUygula, main } from './motor.mjs';
 
@@ -201,7 +201,7 @@ ok(b1 && b1[0] === 1 && b1[1] === 0, 'karne: ≤ −%4 beklentisi sonrası fiyat
   const sinyalOku = () => JSON.parse(store.get('meta/sinyal_r0').data);
 
   const d0 = sahteDb();
-  await main({ db: d0, simdi: simdi0, mod: 'gece' });
+  await main({ seed: null, db: d0, simdi: simdi0, mod: 'gece' });
   uygula(d0);
   const gece = sinyalOku();
   ok(d0.yazilan.some((w) => w.path === 'meta/sinyal_karne_r0') && d0.yazilan.some((w) => w.path === 'meta/olaylar_r0'), 'gece çalışması karne ve arşivi de yazar');
@@ -213,7 +213,7 @@ ok(b1 && b1[0] === 1 && b1[1] === 0, 'karne: ≤ −%4 beklentisi sonrası fiyat
 
   store.set('live/r0', canliDoc(simdi1 - 60_000));
   const d1 = sahteDb();
-  await main({ db: d1, simdi: simdi1, mod: 'gunici' });
+  await main({ seed: null, db: d1, simdi: simdi1, mod: 'gunici' });
   ok(d1.yazilan.length === 1 && d1.yazilan[0].path === 'meta/sinyal_r0', 'gün içi çalışma yalnız sinyal belgesini yazar (karne ve arşive dokunmaz)');
   uygula(d1);
   const g1 = sinyalOku();
@@ -223,7 +223,7 @@ ok(b1 && b1[0] === 1 && b1[1] === 0, 'karne: ≤ −%4 beklentisi sonrası fiyat
   const simdi2 = simdi1 + 2 * 3_600_000;
   store.set('live/r0', canliDoc(simdi2 - 60_000));
   const d2 = sahteDb();
-  await main({ db: d2, simdi: simdi2, mod: 'gunici' });
+  await main({ seed: null, db: d2, simdi: simdi2, mod: 'gunici' });
   uygula(d2);
   const g2 = sinyalOku();
   ok(g2.urun[901][0].g === 1 && g2.urun[901][0].s[0] !== 'HSAT' && g2.urun[901][0].b === undefined && g2.urun[901][0].p === canliFiyat, 'ikinci ardışık çalışma: yön değişimi onaylandı, canlı fiyat hesap fiyatı');
@@ -231,14 +231,14 @@ ok(b1 && b1[0] === 1 && b1[1] === 0, 'karne: ≤ −%4 beklentisi sonrası fiyat
   // Canlı belge eskiyse hiçbir şey yazılmaz
   store.set('live/r0', canliDoc(simdi2 - 3_600_000));
   const d3 = sahteDb();
-  await main({ db: d3, simdi: simdi2, mod: 'gunici' });
+  await main({ seed: null, db: d3, simdi: simdi2, mod: 'gunici' });
   ok(d3.yazilan.length === 0, 'canlı belge eskiyse gün içi çalışma yazmaz');
 
   // Gece hesabı hiç yapılmadıysa gün içi çalışma yazmaz
   store.delete('meta/sinyal_r0');
   store.set('live/r0', canliDoc(simdi2 - 60_000));
   const d4 = sahteDb();
-  await main({ db: d4, simdi: simdi2, mod: 'gunici' });
+  await main({ seed: null, db: d4, simdi: simdi2, mod: 'gunici' });
   ok(d4.yazilan.length === 0, 'önceki sinyal belgesi yoksa gün içi çalışma yazmaz');
   console.log = sessiz;
 }

@@ -4,7 +4,7 @@
   "type": "module",
   "description": "DentSimco dashboard: canlı borsa, üretim ve perakende hesaplayıcı. Yayın öncesi kod gizlenir (araclar/gizle.mjs).",
   "scripts": {
-    "test": "node test/hesap.test.mjs && node test/yonetici.test.mjs && node test/perakende.test.mjs"
+    "test": "for f in test/*_test.mjs sinyal/motor_test.mjs; do node $f || exit 1; done"
   },
   "engines": {
     "node": ">=20"

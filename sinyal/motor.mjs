@@ -759,6 +759,7 @@ export async function main({
   db = new Firestore(process.env.FIREBASE_SERVICE_ACCOUNT_JSON),
   simdi = Date.now(),
   mod = process.env.SINYAL_MOD === 'gunici' || process.argv.includes('--gunici') ? 'gunici' : 'gece',
+  seed: seedVerilen, // sınamalar için: verilirse gecmis-r0.json yerine kullanılır (null = tohumsuz)
 } = {}) {
   const t0 = simdi;
   const basla = Date.now();
@@ -778,7 +779,7 @@ export async function main({
   const ozet = [];
   for (const realm of realms) {
     const products = parseJSON(meta.get(`meta/products_r${realm}`)?.data) || {};
-    const seed = await seedOku(realm);
+    const seed = seedVerilen !== undefined ? (realm === 0 ? seedVerilen : null) : await seedOku(realm);
     let ids = (tradable[realm] || []).map(Number).filter(fin);
     if (!ids.length && seed) ids = Object.keys(seed.p).map(Number);
     if (!ids.length) { ozet.push(`r${realm}: ürün listesi yok, atlandı`); continue; }
