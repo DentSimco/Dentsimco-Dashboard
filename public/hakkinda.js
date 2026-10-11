@@ -8,6 +8,12 @@ const TABS = [['nedir', 'Nedir'], ['guncellemeler', 'Güncellemeler'], ['kaynakc
 // En yeni en üstte. { date: 'gün ay yıl', items: ['...', '...'] }
 export const UPDATES = [
   {
+    date: '11 Ekim 2026',
+    items: [
+      'Borsa menüsünün adı Piyasa oldu. Piyasa altında iki sekme var: Canlı Borsa ve Sinyaller.',
+    ],
+  },
+  {
     date: '10 Ekim 2026',
     items: [
       'Şirketler bölümü eklendi (Kâr Hesaplayıcı\'nın yanında): Simcotools sıralamasındaki tüm şirketler listelenir; sıra, şirket değeri, değişim, EVA sırası, bina, patent, işçi, tahvil ya da ada göre sıralanır ve ada göre aranır. Veri günde bir kez güncellenir.',
