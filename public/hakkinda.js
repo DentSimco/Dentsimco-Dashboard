@@ -11,7 +11,7 @@ export const UPDATES = [
     date: '11 Ekim 2026',
     items: [
       'Şirketler: şirket numarası (ID) tabloda adın altında görünür. Bir şirkete dokununca ayrıntı paneli açılır (sıra, EVA, değer, günlük değişim, bina, patent, işçi, bono) ve numara kopyalanabilir.',
-      'Şirketler: İşçi artık sıralama ölçütü değil; sütun tabloda görünmeye devam eder.',
+      'Şirketler: Ad (A-Z) sıralaması ve İşçi sütunu kaldırıldı; işçi sayısı şirketin ayrıntı panelinde görünür.',
       'Şirketler: "Sıra" ölçütü kaldırıldı; Simcotools sırası şirket değerine göre olduğu için Şirket değeri ölçütüyle aynıydı. Sayfa artık şirket değerine göre açılıyor, sıra numarası tabloda duruyor.',
       'Şirketler: Tahvil sütunu Bono oldu.',
       'Haberler: kayan borsa şeridinde en çok yükselen ve düşen ürünler öne alındı; yükselenlerin fiyatı ve değişimi yeşil, düşenlerinki kırmızı.',

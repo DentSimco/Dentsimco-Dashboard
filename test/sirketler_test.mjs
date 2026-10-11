@@ -13,7 +13,9 @@ assert.ok(!SIRALAMA.some((s) => s[0] === 'rank'), '"Sıra" ölçütü yok (şirk
 assert.equal(SIRALAMA[0][0], 'value', 'varsayılan ölçüt şirket değeri');
 assert.deepEqual(ids(sirala(rows, 'value', -1)), [1, 2, 3]);
 assert.deepEqual(ids(sirala(rows, 'valueDiff', 1)), [2, 3, 1]);
-assert.deepEqual(ids(sirala(rows, 'name', 1)), [2, 1, 3], 'Türkçe sıra: arı, Çelik, Zeytin');
+assert.ok(!SIRALAMA.some((s) => s[0] === 'name'), 'Ad (A-Z) sıralaması kaldırıldı');
+assert.deepEqual(ids(sirala(rows, 'name', -1)), [1, 2, 3], 'eski "name" anahtarı şirket değerine düşer (azalan)');
+assert.deepEqual(SIRALAMA.map((s) => s[0]), ['value', 'valueDiff', 'valuePct', 'eva', 'buildings', 'patents', 'bonds'], 'sıralama menüsü');
 // Ayrıntı ölçütünde ayrıntısı olmayan şirket yön ne olursa olsun sonda kalır
 assert.deepEqual(ids(sirala(rows, 'buildings', -1)), [2, 1, 3]);
 assert.deepEqual(ids(sirala(rows, 'buildings', 1)), [1, 2, 3]);
