@@ -6,6 +6,9 @@
 export default {
   // ---- Üst menü ve genel ----
   'Borsa': 'Exchange',
+  'Piyasa': 'Market',
+  'Canlı Borsa': 'Live Exchange',
+  'Piyasa bölümleri': 'Market sections',
   'Sinyaller': 'Signals',
   'Kâr Hesaplayıcı': 'Profit Calculator',
   'Şirketler': 'Companies',
@@ -1032,6 +1035,8 @@ export default {
   'Açık kaynak olarak paylaşılan Simcotools API ·': 'The openly shared Simcotools API ·',
   'DentSimco formülü ile hesaplanır.': 'Calculated with the DentSimco formula.',
   'Sim Companies API verileriyle tarafımızca hesaplanır.': 'Calculated by us from Sim Companies API data.',
+  '11 Ekim 2026': 'October 11, 2026',
+  'Borsa menüsünün adı Piyasa oldu. Piyasa altında iki sekme var: Canlı Borsa ve Sinyaller.': 'The Borsa menu is now called Market. It has two tabs: Live Exchange and Signals.',
   '10 Ekim 2026': 'October 10, 2026',
   "Şirketler bölümü eklendi (Kâr Hesaplayıcı'nın yanında): Simcotools sıralamasındaki tüm şirketler listelenir; sıra, şirket değeri, değişim, EVA sırası, bina, patent, işçi, tahvil ya da ada göre sıralanır ve ada göre aranır. Veri günde bir kez güncellenir.": 'Companies section added (next to the Profit Calculator): every company in the Simcotools ranking is listed; sort by rank, company value, change, EVA rank, buildings, patents, workers, bonds or name, and search by name. Data updates once a day.',
   'Sırala': 'Sort by',
