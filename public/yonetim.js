@@ -105,6 +105,17 @@ export function apiOku(text) {
   } catch { return { error: 'Metin okunamadı. Sayfadaki metnin tamamını kopyaladığınızdan emin olun.' }; }
 }
 
+// Tüm ekip kadrosunu siler. Sonuç: { company, silinen }; silinen = geri alma için eski liste. Boş kadroda silinen boştur.
+export function ekibiTemizle(company) {
+  const silinen = Array.isArray(company?.executives) ? company.executives : [];
+  return { company: { ...company, executives: [] }, silinen };
+}
+// Silinen kadroyu geri koyar; yalnız kadro hâlâ boşsa (arada yeni yönetici eklenmediyse), yoksa null.
+export function ekibiGeriYukle(company, silinen) {
+  if (!Array.isArray(silinen) || !silinen.length || (company?.executives || []).length) return null;
+  return { ...company, executives: silinen };
+}
+
 export function puanMetni(skor) {
   const etkili = H.effectiveSkill(skor);
   return { ham: num(skor, skor % 1 ? 2 : 0), etkili, farkli: Math.abs(etkili - skor) > 1e-9 };
@@ -163,6 +174,7 @@ export function mountYonetim(root, { realm = 0 } = {}) {
   let draft = null; // yönetici formu: { index, e }
   let api = null; // { text, parsed, error }
   let toastTimer = null;
+  let silinenKadro = null; // "Tümünü sil" sonrası geri alma için
 
   const style = document.createElement('style');
   style.dataset.module = 'yonetim';
@@ -188,6 +200,11 @@ export function mountYonetim(root, { realm = 0 } = {}) {
     toastHost.innerHTML = `<div class="ur-toast" role="status">${esc(text)}</div>`;
     clearTimeout(toastTimer);
     toastTimer = setTimeout(() => { toastHost.innerHTML = ''; }, 3200);
+  }
+  function toastGeriAl(text) {
+    toastHost.innerHTML = `<div class="ur-toast" role="status">${esc(text)} <button type="button" class="ur-btn" data-act="execUndo" style="min-height:36px;margin-left:10px">Geri al</button></div>`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toastHost.innerHTML = ''; silinenKadro = null; }, 8000);
   }
   // silent: yazarken yalnız kaydeder; ekranı yeniden çizmez (klavye ve imleç kaybolmasın). Sonuçlar kutudan çıkınca yenilenir.
   function commit(next, { soft = false, silent = false } = {}) {
@@ -371,6 +388,7 @@ export function mountYonetim(root, { realm = 0 } = {}) {
       <p class="ur-sub">Ekibiniz yalnız burada girilir; Üretim ve Perakende hesapları da buradan okur.</p>
       <div class="ur-row"><button type="button" class="ur-btn tint grow" data-act="apiOpen">${icon('plus')}JSON ekle</button><button type="button" class="ur-btn grow" data-act="execNew">${icon('plus')}Manuel giriş</button></div>
       ${ex.length ? `<div>${rows}</div>` : '<p class="ur-note">Henüz yönetici yok.</p>'}
+      ${ex.length ? `<button type="button" class="ur-btn danger" data-act="execDelAll" style="align-self:flex-start" aria-label="Tüm yöneticileri sil">${icon('trash')}Tümünü sil (${num(ex.length)})</button>` : ''}
       ${ex.length ? `<div class="ur-box"><span class="ur-note" style="font-weight:600">Ekip puanı (yalnız aktifler)</span><div class="ur-grid4" style="margin-top:6px">${SKILL_LABELS.map(([k, n]) => `<div class="ur-stat"><span>${n}</span><span>${puanHtml(scores[k])}</span></div>`).join('')}</div>
         <p class="ur-note" style="margin-top:6px">Okun sağındaki sayı etkili beceridir (oyunda "etkili yetenek"): 60'a kadar aynı, 60–80 arası her puan yarım, 80 üstü çeyrek sayılır. Etkiler bu sayıdan hesaplanır.</p></div>` : ''}</section>${ex.length ? etkiKarti(s) + sectorCard(s) : ''}
       ${kisayolSatiri('uretimKurulum', 'perakendeKurulum', 'simulasyon')}`;
@@ -435,6 +453,21 @@ export function mountYonetim(root, { realm = 0 } = {}) {
       const list = company.executives.filter((_, j) => j !== draft.index);
       draft = null;
       return commit({ ...company, executives: list });
+    }
+    if (act === 'execDelAll') {
+      const out = ekibiTemizle(company);
+      if (!out.silinen.length) return;
+      silinenKadro = out.silinen;
+      commit(out.company);
+      return toastGeriAl(`${out.silinen.length} yönetici silindi.`);
+    }
+    if (act === 'execUndo') {
+      const back = ekibiGeriYukle(company, silinenKadro);
+      silinenKadro = null;
+      toastHost.innerHTML = '';
+      if (!back) return toast('Geri alınamadı; listeye yeni yönetici eklendi.');
+      commit(back);
+      return toast('Yönetici listesi geri yüklendi.');
     }
     if (act === 'apiOpen') { api = { text: '' }; draft = null; return render(); }
     if (act === 'apiClose') { api = null; return render(); }

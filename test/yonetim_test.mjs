@@ -1,7 +1,7 @@
 // DentSimco — Yönetim menü yönlendirme sınamaları (eski adresler yeni yerlerine gider).
 // Çalıştırma: node test/yonetim_test.mjs
 
-import { yonetimRota, puanMetni, etkiDegerleri, apiOku } from '../public/yonetim.js';
+import { yonetimRota, puanMetni, etkiDegerleri, apiOku, ekibiTemizle, ekibiGeriYukle } from '../public/yonetim.js';
 import * as H from '../public/hesap.js';
 
 const results = [];
@@ -106,6 +106,33 @@ test('Yönetici yapıştırma: gerçek biçimdeki liste okunur (dizi ve {executi
     eq(r.parsed.length, 1);
     eq([r.parsed[0].name, r.parsed[0].position, r.parsed[0].salary, r.parsed[0].skills.coo], ['Ada', 'o', 225000, 60]);
   }
+});
+
+test('Tümünü sil: tüm yöneticiler gider, öteki şirket verisi (nakit, banka, binalar) kalır, silinen liste geri alma için döner', () => {
+  const e1 = { name: 'A', position: 'o', salary: 1, skills: { coo: 60, cfo: 0, cmo: 0, cto: 0 }, active: true };
+  const e2 = { name: 'B', position: 't', salary: 2, skills: { coo: 0, cfo: 0, cmo: 0, cto: 60 }, active: false };
+  const company = { executives: [e1, e2], finance: { cash: 5, bankLevel: 3 }, retail: { marginDay: 9 } };
+  const out = ekibiTemizle(company);
+  eq(out.company.executives, []);
+  eq(out.silinen, [e1, e2]);
+  eq(out.company.finance, { cash: 5, bankLevel: 3 });
+  eq(out.company.retail, { marginDay: 9 });
+  eq(company.executives.length, 2, 'giriş değişmez');
+  eq(ekibiTemizle({ executives: [] }).silinen, [], 'boş kadroda silinen yok');
+  eq(ekibiTemizle({}).silinen, []);
+});
+
+test('Geri al: kadro boşsa liste geri gelir; arada yeni yönetici eklendiyse ya da silinen boşsa null', () => {
+  const e1 = { name: 'A' };
+  const e2 = { name: 'B' };
+  const bos = { executives: [], finance: { cash: 5 } };
+  eq(ekibiGeriYukle(bos, [e1, e2]).executives, [e1, e2]);
+  eq(ekibiGeriYukle(bos, [e1, e2]).finance, { cash: 5 });
+  eq(ekibiGeriYukle({ executives: [e2] }, [e1]), null, 'arada yönetici eklendi');
+  eq(ekibiGeriYukle(bos, []), null);
+  eq(ekibiGeriYukle(bos, null), null);
+  const back = ekibiTemizle({ executives: [e1, e2] });
+  eq(ekibiGeriYukle(back.company, back.silinen).executives, [e1, e2], 'sil ve geri al gidiş dönüş');
 });
 
 const failed = results.filter((r) => !r.ok);
