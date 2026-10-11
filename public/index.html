@@ -492,6 +492,7 @@
     DentSimco
   </a>
   <nav class="modules" aria-label="Modüller">
+    <a href="#haberler" data-nav="haberler">Haberler</a>
     <a href="#borsa" data-nav="piyasa">Piyasa</a>
     <a href="#uretim" data-nav="kar">Kâr Hesaplayıcı</a>
     <a href="#sirketler" data-nav="sirketler">Şirketler</a>
@@ -587,6 +588,7 @@
     yonetim: () => import('./yonetim.js').then((m) => m.mountYonetim),
     perakende: () => import('./perakende.js').then((m) => m.mountPerakende),
     sirketler: () => import('./sirketler.js').then((m) => m.mountSirketler),
+    haberler: () => import('./haberler.js').then((m) => m.mountHaberler),
     hakkinda: () => import('./hakkinda.js').then((m) => m.mountHakkinda),
   };
 

@@ -18,6 +18,12 @@ assert.deepEqual(ids(sirala(rows, 'name', 1)), [2, 1, 3], 'Türkçe sıra: arı,
 assert.deepEqual(ids(sirala(rows, 'buildings', -1)), [2, 1, 3]);
 assert.deepEqual(ids(sirala(rows, 'buildings', 1)), [1, 2, 3]);
 assert.deepEqual(ids(sirala(rows, 'eva', 1)), [2, 1, 3]);
+assert.deepEqual(ids(sirala(rows, 'eva', -1)), [1, 2, 3]);
+// EVA puanı 0 olan (ayrıntısı gelse bile) yön ne olursa olsun sonda
+const D = [4, 'Dört', 4, 0, 0, 10, 0, 0, 1, 1, 1, 1, 1];
+assert.deepEqual(ids(sirala([D, A, B], 'eva', -1)), [1, 2, 4]);
+assert.deepEqual(ids(sirala([D, A, B], 'eva', 1)), [2, 1, 4]);
+assert.equal(SIRALAMA.find((s) => s[0] === 'eva')[3], -1, 'EVA varsayılanı büyükten küçüğe');
 assert.deepEqual(ids(sirala(rows, 'bilinmeyen', 1)), [1, 2, 3], 'bilinmeyen ölçüt sıraya düşer');
 assert.deepEqual(ids(rows), [3, 1, 2], 'giriş listesi değişmez');
 // Eşit değerde sıra numarası belirler
