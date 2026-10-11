@@ -99,7 +99,6 @@ const CSS = `
 .nw-aside { grid-column: 3; grid-row: 1 / span 2; border-left: 1px solid var(--line); padding-left: 24px; display: flex; flex-direction: column; gap: 26px; }
 
 .nw-kicker { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font: 600 12.5px/1 var(--font-c); letter-spacing: .14em; color: var(--nw-acc); text-transform: uppercase; }
-.nw-ai { padding: 2px 5px 1px; border: 1px solid var(--line-3); border-radius: 3px; color: var(--muted); font-size: 10.5px; letter-spacing: .1em; }
 .nw a.nw-h { color: var(--text); text-decoration: none; }
 .nw a.nw-h:hover h2, .nw a.nw-h:hover h3, .nw a.nw-h:focus-visible h2, .nw a.nw-h:focus-visible h3 { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; text-decoration-color: var(--nw-acc); }
 .nw-lead h2 { margin: 0 0 12px; font: 600 clamp(30px, 3.3vw, 46px)/1.05 var(--font-c); letter-spacing: -.015em; text-wrap: balance; }
@@ -221,7 +220,7 @@ function spark(g) {
   return `<svg class="nw-spark ${dn ? 'dn' : ''}" viewBox="0 0 84 22" preserveAspectRatio="none" aria-hidden="true"><path class="ln" d="${paths[0]}"/></svg>`;
 }
 
-const kicker = (h, extra = '') => `<div class="nw-kicker"><span data-no-t>${esc(kategori(h.kategori))}</span><span class="nw-ai" title="Yapay zekâ ile yazıldı">YZ</span>${extra}</div>`;
+const kicker = (h, extra = '') => `<div class="nw-kicker"><span data-no-t>${esc(kategori(h.kategori))}</span>${extra}</div>`;
 
 function card(h, big) {
   const t = dil(h);
@@ -262,7 +261,7 @@ function viewFront(st) {
     <div class="nw-grid">
       <section class="nw-lead" aria-label="Manşet">
         <div><a class="nw-h" href="#haberler/${esc(lead.id)}">${kicker(lead)}<h2 data-no-t>${esc(lt.baslik)}</h2></a>
-          ${lt.spot ? `<p class="nw-spot" data-no-t>${esc(lt.spot)}</p>` : ''}<div class="nw-meta">${esc(fmtAgo(lead.t))} · Yapay zekâ ile yazıldı</div></div>
+          ${lt.spot ? `<p class="nw-spot" data-no-t>${esc(lt.spot)}</p>` : ''}<div class="nw-meta">${esc(fmtAgo(lead.t))}</div></div>
         <div>${lead.grafik ? chartBox(lead.grafik) : `<div class="nw-typo"><b data-no-t>${esc(kategori(lead.kategori))}</b><span>DENTSIMCO NEWS</span></div>`}</div>
       </section>
       <div class="nw-pair">
@@ -282,7 +281,7 @@ function viewFront(st) {
         ${rankBox({ title: 'En yüksek EVA', note: 'EVA puanı', href: '#sirketler/eva', rows: top?.eva, value: (r) => new Intl.NumberFormat(LOCALE).format(r[4]) })}
       </aside>
     </div>
-    <p class="nw-foot">Haberler, DentSimco verileriyle yapay zekâ tarafından yazılır ve her sabah 08:00'de (TR) yenilenir. Yatırım tavsiyesi değildir; rakamları Piyasa ve Şirketler bölümlerinden doğrulayabilirsin.</p>`;
+    <p class="nw-foot">Haberler DentSimco verileriyle hazırlanır ve her sabah 08:00'de (TR) yenilenir. Yatırım tavsiyesi değildir; rakamları Piyasa ve Şirketler bölümlerinden doğrulayabilirsin.</p>`;
 }
 
 function viewArticle(st, id) {
@@ -295,10 +294,10 @@ function viewArticle(st, id) {
   const more = all.filter((x) => x.id !== id).slice(0, 5);
   return `<article class="nw-art ${isKose ? 'kose' : ''}">
     <a class="nw-back" href="#haberler">← Haberler</a>
-    ${isKose ? '<div class="nw-kicker"><span>KÖŞE YAZISI</span><span class="nw-ai">YZ</span></div>' : kicker(h)}
+    ${isKose ? '<div class="nw-kicker"><span>KÖŞE YAZISI</span></div>' : kicker(h)}
     <h1 data-no-t>${esc(t.baslik)}</h1>
     ${t.spot ? `<p class="nw-spot" data-no-t>${esc(t.spot)}</p>` : ''}
-    <div class="nw-meta">${isKose ? '<b style="color:var(--text)">Masa</b> · ' : ''}${esc(fmtDateTime(h.t))} · Yapay zekâ ile yazıldı</div>
+    <div class="nw-meta">${isKose ? '<b style="color:var(--text)">Masa</b> · ' : ''}${esc(fmtDateTime(h.t))}</div>
     ${h.grafik ? chartBox(h.grafik, { big: true }) : ''}
     <div class="nw-body">${t.govde.map((p) => `<p data-no-t>${esc(p)}</p>`).join('')}</div>
     ${more.length ? `<nav class="nw-more-list" aria-label="Diğer haberler"><div class="nw-sec"><h4>Diğer haberler</h4></div>${more.map((x) => `<a href="#haberler/${esc(x.id)}" data-no-t>${esc(dil(x).baslik)}</a>`).join('')}</nav>` : ''}

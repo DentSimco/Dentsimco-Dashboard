@@ -10,7 +10,7 @@ export const UPDATES = [
   {
     date: '11 Ekim 2026',
     items: [
-      'Haberler bölümü eklendi (menüde en solda): manşet, iki sütun haber ve köşe yazısı yapay zekâ haber masası tarafından DentSimco verileriyle her sabah 08:00\'de (TR) yazılır. En üstte borsadan rastgele ürünlerin canlı fiyatları kayar; sağ sütunun altında şirket değeri ve EVA sıralamasının ilk 3\'ü var, tıklayınca Şirketler o sıralamayla açılır.',
+      'Haberler bölümü eklendi (menüde en solda): manşet, iki sütun haber ve köşe yazısı haber masası tarafından DentSimco verileriyle her sabah 08:00\'de (TR) yazılır. En üstte borsadan rastgele ürünlerin canlı fiyatları kayar; sağ sütunun altında şirket değeri ve EVA sıralamasının ilk 3\'ü var, tıklayınca Şirketler o sıralamayla açılır.',
       'Şirketler: EVA sütunu EVA puanı oldu ve büyükten küçüğe sıralanır (Simcotools\'ta büyük puan daha iyidir).',
       'Borsa menüsünün adı Piyasa oldu. Piyasa altında iki sekme var: Canlı Borsa ve Sinyaller.',
     ],
