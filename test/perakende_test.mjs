@@ -1,4 +1,4 @@
-// DentSimco — perakende hesap motoru testleri. Çalıştırma: node test/perakende.test.mjs
+// DentSimco — perakende hesap motoru testleri. Çalıştırma: node test/perakende_test.mjs
 // "Veri" ve "Formül" bölümleri PDF'teki formüllerin kendi tutarlılığını sınar. "Oyun verisiyle" bölümü, önceki
 // oturumlarda oyundan ölçülen satış hızlarıyla karşılaştırır; doygunluk (s) o ölçümlerden geri çözüldüğü için
 // bu bölüm "yaklaşık"tır: aynı gün alınmış canlı doygunlukla gerçek bir doğrulama henüz yapılmadı.
@@ -6,7 +6,7 @@
 import * as R from '../public/hesap-perakende.js';
 import { TABLE, SALES } from '../public/perakende-veri.js';
 
-// ---- küçük test düzeneği (hesap.test.mjs ile aynı) ----
+// ---- küçük test düzeneği (hesap_test.mjs ile aynı) ----
 const results = [];
 let group = '';
 const section = (name) => { group = name; };
