@@ -13,7 +13,7 @@ export const SIRALAMA = [
   ['value', 'Şirket değeri', 5, -1, false],
   ['valueDiff', 'Değer değişimi', 6, -1, false],
   ['valuePct', 'Değer değişimi %', 7, -1, false],
-  ['eva', 'EVA sırası', 4, 1, true],
+  ['eva', 'EVA puanı', 4, -1, true],
   ['buildings', 'Bina değeri', 8, -1, true],
   ['patents', 'Patent değeri', 9, -1, true],
   ['workers', 'İşçi', 10, -1, true],
@@ -21,7 +21,8 @@ export const SIRALAMA = [
   ['name', 'Ad (A-Z)', 1, 1, false],
 ];
 
-export const ayrintiVar = (row) => row[12] === 1;
+// EVA puanında büyük olan iyidir; 0 = Simcotools'ta puan yok (ayrıntısı gelmemiş sayılır).
+export const ayrintiVar = (row, key) => row[12] === 1 && (key !== 'eva' || row[4] > 0);
 
 // rows'u değiştirmez. dir: 1 artan, -1 azalan. Ayrıntısı henüz gelmemiş şirketler ayrıntı ölçütlerinde hep sonda kalır.
 export function sirala(rows, key, dir = 1) {
@@ -31,8 +32,8 @@ export function sirala(rows, key, dir = 1) {
   const collator = col === 1 ? new Intl.Collator('tr', { sensitivity: 'base', numeric: true }) : null;
   return [...rows].sort((a, b) => {
     if (needsDetail) {
-      const ma = ayrintiVar(a);
-      const mb = ayrintiVar(b);
+      const ma = ayrintiVar(a, spec[0]);
+      const mb = ayrintiVar(b, spec[0]);
       if (ma !== mb) return ma ? -1 : 1;
     }
     const d = collator ? collator.compare(a[col], b[col]) : a[col] - b[col];
@@ -98,6 +99,24 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
   let token = 0;
   let data = null;
   const state = { key: 'rank', dir: 1, q: '', page: 1 };
+  // #sirketler/value, #sirketler/eva gibi bağlantılar o ölçütle açılır (haber sayfasındaki sıralama kutuları)
+  function keyFromHash() {
+    const k = location.hash.slice(1).split('/')[1];
+    const spec = SIRALAMA.find((s) => s[0] === k);
+    if (!spec) return false;
+    state.key = spec[0];
+    state.dir = spec[3];
+    state.page = 1;
+    return true;
+  }
+  keyFromHash();
+  function onHash() {
+    if (location.hash.slice(1).split('/')[0] !== 'sirketler' || !keyFromHash() || !data) return;
+    const sel = box.querySelector('#sk-key');
+    if (sel) sel.value = state.key;
+    paint();
+  }
+  window.addEventListener('hashchange', onHash);
   let view = []; // süzülmüş + sıralanmış liste
 
   const style = document.createElement('style');
@@ -135,15 +154,15 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
     state.page = Math.min(Math.max(1, state.page), pages);
     const from = (state.page - 1) * PAGE;
     const cols = [['Sıra', 'rank', 'l'], ['Şirket', 'name', 'l'], ['Şirket değeri', 'value'], ['Değişim', 'valueDiff'], ['%', 'valuePct'],
-      ['EVA', 'eva'], ['Bina değeri', 'buildings'], ['Patent değeri', 'patents'], ['İşçi', 'workers'], ['Tahvil', 'bonds']];
+      ['EVA puanı', 'eva'], ['Bina değeri', 'buildings'], ['Patent değeri', 'patents'], ['İşçi', 'workers'], ['Tahvil', 'bonds']];
     box.querySelector('thead').innerHTML = `<tr>${cols.map(([t, k, c]) => `<th data-k="${k}" class="${c || ''}" ${k === state.key ? `aria-sort="${state.dir > 0 ? 'ascending' : 'descending'}"` : ''}>${t}</th>`).join('')}</tr>`;
     box.querySelector('tbody').innerHTML = view.slice(from, from + PAGE).map((r) => {
-      const d = ayrintiVar(r);
+      const d = r[12] === 1;
       const dim = (v) => (d ? v : '<span class="dim">—</span>');
       return `<tr><td>${NUM.format(r[2])} <span class="${tone(r[3])}">${r[3] ? (r[3] > 0 ? '▲' : '▼') + Math.abs(r[3]) : ''}</span></td>
         <td class="l">${esc(r[1])}</td><td>${usd(r[5])}</td>
         <td class="${tone(r[6])}">${signed(r[6])}</td><td class="${tone(r[7])}">${r[7] ? PCT.format(r[7]) : '0%'}</td>
-        <td>${dim(NUM.format(r[4]))}</td><td>${dim(usd(r[8]))}</td><td>${dim(usd(r[9]))}</td><td>${dim(NUM.format(r[10] / 100))}</td><td>${dim(usd(r[11]))}</td></tr>`;
+        <td>${r[4] > 0 ? dim(NUM.format(r[4])) : '<span class="dim">—</span>'}</td><td>${dim(usd(r[8]))}</td><td>${dim(usd(r[9]))}</td><td>${dim(NUM.format(r[10] / 100))}</td><td>${dim(usd(r[11]))}</td></tr>`;
     }).join('') || '<tr><td colspan="10" class="l dim">Eşleşen şirket yok.</td></tr>';
     box.querySelector('#sk-dir').textContent = state.dir > 0 ? '↑' : '↓';
     box.querySelector('#sk-note').textContent = `${NUM.format(view.length)} şirket · Veri: Simcotools · ${data.date ? new Date(data.date).toLocaleDateString(LOCALE, { timeZone: 'UTC' }) : ''}. Ayrıntıları (EVA, bina, patent, işçi, tahvil) henüz gelmemiş şirketlerde "—" görünür.`;
@@ -186,6 +205,6 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
   load();
   return {
     setRealm(next) { if (next === realm) return; realm = next; state.page = 1; load(); },
-    destroy() { alive = false; style.remove(); root.replaceChildren(); },
+    destroy() { alive = false; window.removeEventListener('hashchange', onHash); style.remove(); root.replaceChildren(); },
   };
 }
