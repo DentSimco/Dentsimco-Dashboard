@@ -62,6 +62,7 @@ const REC = [['park', 'Park'], ['temple', 'Tapınak'], ['lake', 'Göl']];
 const NF = [0, 1, 2, 3, 4].map((d) => new Intl.NumberFormat(LOCALE, { minimumFractionDigits: d, maximumFractionDigits: d }));
 const fin = (x) => x != null && Number.isFinite(x);
 const num = (x, d = 0) => (fin(x) ? NF[d].format(x) : '—');
+const hoursText = (h) => (!fin(h) ? '—' : h >= 1 ? `${NF[h % 1 ? 1 : 0].format(h)} sa` : `${NF[0].format(h * 60)} dk`);
 const smart = (x) => (!fin(x) ? '—' : Math.abs(x) >= 100 ? NF[0].format(x) : Math.abs(x) >= 1 ? NF[2].format(x) : NF[3].format(x));
 const perHour = (x) => (!fin(x) ? '—' : Math.abs(x) > 0 && Math.abs(x) < 0.01 ? NF[3].format(x) : NF[2].format(x)); // oyun gibi iki ondalık
 const money = (x, d = 0, sign = false) => {
@@ -132,7 +133,7 @@ function sanitizeSetup(raw) {
   if (!['cheapest', 'exact'].includes(s.buyPolicy)) s.buyPolicy = 'cheapest';
   s.buildings = (Array.isArray(raw.buildings) ? raw.buildings : []).filter((b) => b && typeof b === 'object')
     .map((b) => ({ id: b.id || uid('b'), type: b.type, product: b.product != null ? Number(b.product) : null, level: Math.max(1, Math.floor(Number(b.level) || 1)),
-      quality: H.clampQuality(b.quality), robots: !!b.robots, efficiency: Number.isFinite(Number(b.efficiency)) ? Number(b.efficiency) : 100, construction: !!b.construction }));
+      quality: H.clampQuality(b.quality), rocket: b.rocket === 'bfr' ? 'bfr' : 'sub', robots: !!b.robots, efficiency: Number.isFinite(Number(b.efficiency)) ? Number(b.efficiency) : 100, construction: !!b.construction }));
   // null = Otomatik (oyunun güncel evresi); 0, 1, 2 = elle seçilmiş (eski kayıtlar elle sayılır)
   s.economyPhase = raw.economyPhase != null && raw.economyPhase !== '' && [0, 1, 2].includes(Number(raw.economyPhase)) ? Number(raw.economyPhase) : null;
   s.extraBonusPct = Math.min(99, Math.max(0, Number(raw.extraBonusPct) || 0));
@@ -321,6 +322,9 @@ export function mountUretim(root, { realm = 0 } = {}) {
 
   const nameOf = (id) => data?.products[id]?.name || `#${id}`;
   // Kalitesi olmayan ürünlerde (araştırma, Taşıma) kalite etiketi gösterilmez
+  // Havacılık araştırması fırlatma rampasında üretilir; "kalite" burada roketin kalitesidir (kaza olasılığını belirler)
+  const isLaunchSel = (type, product) => type === H.LAUNCH_PAD && product === H.AEROSPACE_RESEARCH_ID;
+  const accidentText = (q) => `%${NF[2].format(H.launchAccident(q) * 100)}`;
   const qChip = (product, q, kind = '') => (H.hasQuality(data?.products[product]) ? chip(`Q${q}`, kind) : '');
 
   // "Olayları yönet" ile Kurulum'a giderken yarım kalan bina paneli (bu oturumda saklanır, Binalar'a dönünce yeniden açılır)
@@ -488,13 +492,13 @@ export function mountUretim(root, { realm = 0 } = {}) {
     const sells = plan.sales.slice().sort((a, b) => (b.revenueExchangeDay || 0) - (a.revenueExchangeDay || 0));
     const buyCards = buys.map((p) => {
       const forced = setup.buyQuality?.[p.product];
-      const opts = H.allowedQualities(p.minQuality).map((q) => {
+      const opts = (p.exact ? [p.minQuality] : H.allowedQualities(p.minQuality)).map((q) => { // fırlatılan roket tam seçilen kalitede olur
         const mp = marketPrice(p.product, q);
         return `<option value="${q}" ${forced != null && Number(forced) === q ? 'selected' : ''}>Q${q} · ${mp != null ? money(mp, mp < 10 ? 3 : 2) : 'fiyat yok'}</option>`;
       }).join('');
       const moved = p.quality !== p.minQuality;
       return `<div class="ur-card" style="padding:12px">
-        <div class="ur-row" style="align-items:flex-start;gap:12px"><div class="grow"><div class="ur-row" style="gap:6px;flex-wrap:wrap"><span style="font-size:18px;font-weight:600">${esc(nameOf(p.product))}</span>${chip(moved ? `Q${p.minQuality}+ → Q${p.quality}` : `Q${p.minQuality}+`)}</div>
+        <div class="ur-row" style="align-items:flex-start;gap:12px"><div class="grow"><div class="ur-row" style="gap:6px;flex-wrap:wrap"><span style="font-size:18px;font-weight:600">${esc(nameOf(p.product))}</span>${chip(p.exact ? `Q${p.minQuality}` : moved ? `Q${p.minQuality}+ → Q${p.quality}` : `Q${p.minQuality}+`)}</div>
           <span class="ur-note">${smart(p.qtyDay)} adet/gün</span></div>
           <div style="text-align:right"><div class="c-down" style="font-size:18px;font-weight:600;font-variant-numeric:tabular-nums">${p.price == null ? '—' : money(-p.costDay)}</div><span class="ur-note">günlük</span></div></div>
         <div class="ur-grid2">
@@ -773,6 +777,11 @@ export function mountUretim(root, { realm = 0 } = {}) {
     if (row?.bonus > 0) chips.push(chip(`Rekreasyon ${pctText(row.bonus, 0)}`, 'muted'));
     if (row?.category === 'production') chips.push(chip(b.robots ? 'Robot var' : 'Robot yok', 'muted'));
     if (H.ABUNDANCE_BUILDINGS.has(b.type)) chips.push(chip(`Bolluk %${num(b.efficiency, b.efficiency % 1 ? 1 : 0)}`, 'muted'));
+    if (row?.launch) {
+      const L = row.launch;
+      chips.unshift(chip(`${H.LAUNCH_ROCKETS[L.rocket].label} Q${L.quality}`), chip(`Kaza ${accidentText(L.quality)}`, 'muted'));
+      if (L.hours) chips.push(chip(`Her ${hoursText(L.hours)} bir fırlatma`, 'muted'));
+    }
     for (const e of row?.errors || []) chips.push(chip(e, 'down'));
     if (b.construction) chips.unshift(chip('İnşaatta', 'muted'), chip('Üretmez, maaş ödemez; seviyesi yönetim giderine girer', 'muted'));
     const title = p ? esc(p.name) : 'Ürün seçilmedi';
@@ -783,8 +792,8 @@ export function mountUretim(root, { realm = 0 } = {}) {
         <div class="ur-level"><small>Seviye</small><b>${num(b.level)}</b></div></div>
       <div class="ur-hr"></div>
       <div class="ur-metrics">
-        <div class="ur-stat"><span>Saatlik</span><span class="c-price">${perHour(row?.hourly)}</span></div>
-        <div class="ur-stat"><span>Günlük</span><span>${smart(row?.daily)}</span></div>
+        <div class="ur-stat"><span>Saatlik${row?.launch ? ' (beklenen)' : ''}</span><span class="c-price">${perHour(row?.hourly)}</span></div>
+        <div class="ur-stat"><span>Günlük${row?.launch ? ' (beklenen)' : ''}</span><span>${smart(row?.daily)}</span></div>
         <div class="ur-stat"><span>Maaş/gün</span><span>${money(row?.wageDayNet)}</span></div></div>
       ${chips.length ? `<div class="ur-chips">${chips.join('')}</div>` : ''}
       <div class="ur-row"><button type="button" class="ur-btn grow${b.construction ? ' tint' : ''}" data-act="bBuild" data-v="${i}" aria-pressed="${!!b.construction}">İnşaatta</button></div>
@@ -823,7 +832,7 @@ export function mountUretim(root, { realm = 0 } = {}) {
       const s = p.suggestion;
       const who = consumers(p.product, p.minQuality);
       return `<div class="ur-card" style="padding:12px">
-        <div class="ur-row" style="align-items:flex-start;gap:12px"><div class="grow"><div class="ur-row" style="gap:6px;flex-wrap:wrap"><span style="font-size:18px;font-weight:600">${esc(nameOf(p.product))}</span>${chip(`Q${p.minQuality}+`)}</div>
+        <div class="ur-row" style="align-items:flex-start;gap:12px"><div class="grow"><div class="ur-row" style="gap:6px;flex-wrap:wrap"><span style="font-size:18px;font-weight:600">${esc(nameOf(p.product))}</span>${chip(`Q${p.minQuality}${p.exact ? '' : '+'}`)}</div>
           <span class="ur-note">${who.length ? `${esc(who.join(', '))} için` : ''}</span></div>
           <div style="text-align:right"><div class="c-down" style="font-size:18px;font-weight:600;font-variant-numeric:tabular-nums">${smart(p.qtyDay)}</div><span class="ur-note">adet/gün eksik</span></div></div>
         ${s ? `<button type="button" class="ur-btn tint" data-act="quickAdd" data-v="${p.product}" data-q="${p.minQuality}" data-l="${s.levels}">${icon('plus')}+${num(s.levels)} ${esc(buildingName(s.type))}</button>`
@@ -902,6 +911,18 @@ export function mountUretim(root, { realm = 0 } = {}) {
     if (sheet.index != null) list[sheet.index] = b; else list.push(b);
     return withTeam({ ...setup, buildings: list });
   }
+  function launchResult(row, admin) {
+    const L = row.launch;
+    const wageLaunch = L.hours ? row.wageHour * (1 + admin.net) * L.hours : null;
+    return `<div class="ur-box"><span class="ur-note" style="font-weight:600">Fırlatma başına</span>
+      ${kv('Fırlatma süresi', L.hours ? hoursText(L.hours) : '—', 'c-price', true)}${kv('Günlük fırlatma', L.hours ? smart(L.launchesDay) : '—')}
+      ${kv('Başarılı fırlatmada araştırma', smart(L.points))}${kv('Kaza olasılığı (roket kaybolur, araştırma gelmez)', accidentText(L.quality))}
+      ${kv('Beklenen araştırma', smart(L.pointsExpected))}
+      ${kv('Maaş (yönetim dahil)', wageLaunch == null ? '—' : money(wageLaunch))}
+      <div class="ur-hr"></div>
+      ${kv(`Günlük roket: ${esc(nameOf(L.rocketProduct))} Q${L.quality}`, L.hours ? smart(L.launchesDay) : '—')}${kv('Günlük beklenen araştırma', smart(row.daily))}
+      ${row.notes.map((n) => `<p class="ur-note">${esc(n)}</p>`).join('')}</div>`;
+  }
   function buildingResult() {
     const d = sheet.draft;
     const p = data.products[d.product];
@@ -910,6 +931,7 @@ export function mountUretim(root, { realm = 0 } = {}) {
     const admin = H.adminInfo(ds, data);
     const row = H.buildingRate(d, ds, data, admin, now());
     if (!row.ok) return `<div class="ur-msg err">${esc(row.errors.join('. '))}</div>`;
+    if (row.launch) return launchResult(row, admin);
     const minQ = H.minInputQuality(H.hasQuality(p) ? d.quality : 0);
     return `<div class="ur-box"><span class="ur-note" style="font-weight:600">Bu bina için</span>
       ${kv('Saatlik üretim', perHour(row.hourly), 'c-price', true)}${kv('Günlük üretim', smart(row.daily))}
@@ -927,7 +949,11 @@ export function mountUretim(root, { realm = 0 } = {}) {
     return `${panelHead(sheet.index != null ? 'Bina düzenle' : 'Bina ekle', d.type ? buildingName(d.type) : '')}
       <label class="ur-field"><span>Bina türü</span><select data-d="type">${typeOptions()}</select></label>
       ${d.type ? `<label class="ur-field"><span>Ürün</span><select data-d="product">${productOptions()}</select></label>` : ''}
-      ${p ? `${H.hasQuality(p) ? `<div class="ur-field"><span>Ürün kalitesi</span><div class="ur-q" role="group" aria-label="Ürün kalitesi">${H.allowedQualities(0).map((q) => `<button type="button" data-act="dq" data-v="${q}" aria-pressed="${d.quality === q}">Q${q}</button>`).join('')}</div></div>` : ''}
+      ${p && isLaunchSel(d.type, d.product) ? `<div class="ur-field"><span>Roket</span>${seg('dRocket', Object.entries(H.LAUNCH_ROCKETS).map(([k, x]) => [k, `${x.label} · ${NF[0].format(x.points)}`]), d.rocket === 'bfr' ? 'bfr' : 'sub', 'Roket türü')}
+          <p class="ur-note">Fırlatma Rampası seviye ${H.LAUNCH_MIN_LEVEL} veya üstü ister. Alt yörüngesel roket ${NF[0].format(H.LAUNCH_ROCKETS.sub.points)}, BFR ${NF[0].format(H.LAUNCH_ROCKETS.bfr.points)} Havacılık araştırması verir.</p></div>
+        <div class="ur-field"><span>Roket kalitesi</span><div class="ur-q" role="group" aria-label="Roket kalitesi">${H.allowedQualities(0).map((q) => `<button type="button" data-act="dq" data-v="${q}" aria-pressed="${d.quality === q}">Q${q}</button>`).join('')}</div>
+          <p class="ur-note">Kaza olasılığı: Q${d.quality} ${accidentText(d.quality)}. Her kalitede yarıya iner. Kazada roket kaybolur, araştırma gelmez.</p></div>` : ''}
+        ${p ? `${H.hasQuality(p) ? `<div class="ur-field"><span>Ürün kalitesi</span><div class="ur-q" role="group" aria-label="Ürün kalitesi">${H.allowedQualities(0).map((q) => `<button type="button" data-act="dq" data-v="${q}" aria-pressed="${d.quality === q}">Q${q}</button>`).join('')}</div></div>` : ''}
         <div class="ur-field"><span>Bina seviyesi</span><div class="ur-stepper"><button type="button" data-act="dLevel" data-v="-1" aria-label="Seviyeyi azalt">${icon('minus')}</button>
           <input type="text" inputmode="numeric" data-d="level" value="${d.level}" aria-label="Bina seviyesi"><button type="button" data-act="dLevel" data-v="1" aria-label="Seviyeyi artır">${icon('plus')}</button></div></div>
         ${cat === 'production' ? `<div class="ur-field"><span>Robot</span>${seg('dRobot', [['0', 'Yok'], ['1', 'Var']], d.robots ? '1' : '0', 'Robot')}<p class="ur-note">Robot taban maaşı %3 düşürür, üretimi değiştirmez.</p></div>` : ''}
@@ -1083,13 +1109,15 @@ export function mountUretim(root, { realm = 0 } = {}) {
     if (act === 'dq') { d.quality = Number(v); return renderSheet(); }
     if (act === 'dLevel') { d.level = Math.max(1, (Number(d.level) || 1) + Number(v)); return renderSheet(); }
     if (act === 'dRobot') { d.robots = v === '1'; return renderSheet(); }
+    if (act === 'dRocket') { d.rocket = v === 'bfr' ? 'bfr' : 'sub'; return renderSheet(); }
     if (act === 'gotoEvents') {
       parkSheet({ realm: r, draft: JSON.parse(JSON.stringify(sheet.draft)), index: sheet.index ?? null, scroll: sheetHost.querySelector('.ur-panel')?.scrollTop || 0 });
       closeSheet(); location.hash = '#uretim/kurulum'; setTimeout(() => document.getElementById('h-ev')?.scrollIntoView({ block: 'start' }), 50); return;
     }
     if (act === 'bSave') {
       if (!data.products[d.product]) return;
-      if (!H.hasQuality(data.products[d.product])) d.quality = 0;
+      if (isLaunchSel(d.type, d.product)) d.rocket = d.rocket === 'bfr' ? 'bfr' : 'sub'; // kalite = roketin kalitesi
+      else if (!H.hasQuality(data.products[d.product])) d.quality = 0;
       const list = [...setup.buildings];
       if (sheet.index != null) list[sheet.index] = d; else list.push(d);
       const isNew = sheet.index == null;
@@ -1166,7 +1194,12 @@ export function mountUretim(root, { realm = 0 } = {}) {
     const d = sheet.draft;
     const key = t.dataset.d;
     if (key === 'type') { d.type = t.value; d.product = null; d.robots = false; d.efficiency = 100; return renderSheet(); }
-    if (key === 'product') { d.product = Number(t.value); if (!H.hasQuality(data.products[d.product])) d.quality = 0; return renderSheet(); }
+    if (key === 'product') {
+      d.product = Number(t.value);
+      if (isLaunchSel(d.type, d.product)) { d.rocket = d.rocket === 'bfr' ? 'bfr' : 'sub'; d.level = Math.max(Number(d.level) || 1, H.LAUNCH_MIN_LEVEL); } // fırlatma en az seviye 3
+      else if (!H.hasQuality(data.products[d.product])) d.quality = 0;
+      return renderSheet();
+    }
     if (key === 'importText') { sheet.text = t.value; return; }
     // Yazı kutuları: taslak ve sonuç kutusu güncellenir, panel yeniden çizilmez (dokunulan düğme kaybolmasın)
     if (updateDraftInput(t)) refreshResult();

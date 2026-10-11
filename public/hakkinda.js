@@ -10,6 +10,7 @@ export const UPDATES = [
   {
     date: '11 Ekim 2026',
     items: [
+      'Üretim: Fırlatma Rampası ve Havacılık araştırması artık oyundaki gibi hesaplanıyor. Roket türü (alt yörüngesel 400, BFR 2.800 araştırma), roket kalitesi (kaza olasılığı Q0 %50, her kalitede yarıya iner), seviye (fırlatma süresi 128 sa, her seviyede yarıya iner, en az seviye 3) seçilir; fırlatma başına süre, beklenen araştırma, roket ve maaş görünür. Bilim (araştırma hızı) süreyi kısaltır, ekonomi evresi etkilemez.',
       'Şirketler: "Sıra" ölçütü kaldırıldı; Simcotools sırası şirket değerine göre olduğu için Şirket değeri ölçütüyle aynıydı. Sayfa artık şirket değerine göre açılıyor, sıra numarası tabloda duruyor.',
       'Şirketler: Tahvil sütunu Bono oldu.',
       'Haberler: kayan borsa şeridinde en çok yükselen ve düşen ürünler öne alındı; yükselenlerin fiyatı ve değişimi yeşil, düşenlerinki kırmızı.',

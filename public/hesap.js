@@ -43,6 +43,23 @@ export const RECREATION_MAX_LEVEL = 3;
 export const CONTRACT_TRANSPORT_SHARE = 0.5; // kontratta taşıma, borsadakinin yarısı; komisyon yok
 export const DEFAULT_AVERAGE_SALARY = 345;
 export const TRANSPORT_ID = 13;
+
+// Fırlatma Rampası (Launch pad) ve Havacılık araştırması. Oyunun ansiklopedisinden (Ekim 2026):
+//  • Alt yörüngesel roket fırlatmak 400, BFR fırlatmak 2.800 Havacılık araştırması verir; fırlatma Fırlatma Rampası seviye 3 ve üstü ister.
+//  • Roket kazaya uğrarsa roket kaybolur, araştırma gelmez. Kaza olasılığı: Q0 %50, her kalitede yarıya iner (Q4 %3,13).
+//  • Fırlatma süresi: seviye 1 = 128 sa, her seviyede yarıya iner (svy 2 64 sa, svy 3 32 sa ... svy 6 4 sa). Ekonomi evresinden etkilenmez.
+//  • Araştırma hızı (bilim) fırlatmayı hızlandırır (kullanıcı doğruladı).
+// Tarifteki "1 alt yörüngesel roket + 1 BFR" iki ayrı fırlatma türüdür (veya), birlikte tüketilmez.
+export const LAUNCH_PAD = 'l';
+export const AEROSPACE_RESEARCH_ID = 100;
+export const LAUNCH_MIN_LEVEL = 3;
+export const LAUNCH_BASE_HOURS = 128;
+export const LAUNCH_ROCKETS = {
+  sub: { product: 91, points: 400, label: 'Alt yörüngesel roket' },
+  bfr: { product: 94, points: 2800, label: 'BFR' },
+};
+export const launchAccident = (quality) => 0.5 / 2 ** clamp(Math.floor(num(quality, 0)), 0, 12);
+export const launchHours = (level, speedFactor = 1) => (level >= 1 && speedFactor > 0 ? LAUNCH_BASE_HOURS / 2 ** (level - 1) / speedFactor : null);
 export const ABUNDANCE_BUILDINGS = new Set(['M', 'O', 'Q']); // maden, petrol kuyusu, taş ocağı: verimlilik = bolluk
 
 const BONUS_CATEGORIES = new Set(['production', 'research']);
@@ -253,18 +270,37 @@ export function buildingRate(building, setup, data, admin, now = Date.now(), eff
   if (bonus >= 1) errors.push('Üretim hızı bonusu %100 veya üzeri olamaz');
   const robots = !!b.robots && category !== 'research';
   if (b.robots && category === 'research') notes.push('Araştırma binalarına robot kurulamaz; robot yok sayıldı');
-  const ok = errors.length === 0;
+  const ok = errors.length === 0; // fırlatma seviye hatası aşağıda okFinal'a girer
   // İnşaatta olan bina üretmez ve işçi çalıştırmadığı için maaş ödemez; ama seviyesi yönetim giderine girer
   // (totalAdminLevels binanın seviyesini her durumda sayar), yani diğer binaların maaşını ve kârını etkiler.
   const construction = !!b.construction;
   if (construction) notes.push('İnşaatta: üretmez ve maaş ödemez; seviyesi yönetim giderine girer');
-  const perLevelHour = ok && !construction ? (p.perHour * phaseFactor * (1 + eventPct / 100) * efficiency * teamFactor) / (1 - bonus) : 0;
-  const hourly = perLevelHour * level;
+  // Fırlatma Rampası: üretim "saatte şu kadar" değil, fırlatma başına; ayrıntı LAUNCH_ROCKETS üstündeki açıklamada.
+  const isLaunch = type === LAUNCH_PAD && p.id === AEROSPACE_RESEARCH_ID;
+  let launch = null;
+  if (isLaunch) {
+    const rocket = b.rocket === 'bfr' ? 'bfr' : 'sub';
+    const rq = clampQuality(b.quality);
+    const accident = launchAccident(rq);
+    if (level < LAUNCH_MIN_LEVEL && !construction) errors.push(`Fırlatma için Fırlatma Rampası seviye ${LAUNCH_MIN_LEVEL} veya üstü olmalı`);
+    const speed = ok && !construction && level >= LAUNCH_MIN_LEVEL ? ((1 + eventPct / 100) * efficiency * teamFactor) / (1 - bonus) : 0;
+    const hours = speed > 0 ? launchHours(level, speed) : null; // ekonomi evresi uygulanmaz
+    const points = LAUNCH_ROCKETS[rocket].points;
+    launch = {
+      rocket, rocketProduct: LAUNCH_ROCKETS[rocket].product, quality: rq, accident, points, hours,
+      pointsExpected: points * (1 - accident),
+      launchesDay: hours ? HOURS_PER_DAY / hours : 0,
+    };
+    notes.push('Fırlatma süresi seviye başına yarıya iner ve ekonomi evresinden etkilenmez; araştırma hızı (bilim) süreyi kısaltır.');
+  }
+  const okFinal = errors.length === 0;
+  const perLevelHour = launch ? 0 : ok && !construction ? (p.perHour * phaseFactor * (1 + eventPct / 100) * efficiency * teamFactor) / (1 - bonus) : 0;
+  const hourly = launch ? (launch.hours ? launch.pointsExpected / launch.hours : 0) : perLevelHour * level;
   const wageHour = construction ? 0 : p.baseSalary * level * (robots ? ROBOT_WAGE_FACTOR : 1); // olay, bonus ve verimlilik maaşı değiştirmez
   const unitWorker = hourly > 0 ? wageHour / hourly : null;
   return {
-    id: b.id, ok, type, category, product: p.id, quality, level, robots, eventPct, efficiency, bonus, phaseFactor, teamFactor, construction,
-    perLevelHour, hourly, daily: hourly * HOURS_PER_DAY,
+    id: b.id, ok: okFinal, type, category, product: p.id, quality, level, robots, eventPct, efficiency, bonus, phaseFactor: launch ? 1 : phaseFactor, teamFactor, construction, launch,
+    perLevelHour: launch ? (level > 0 ? hourly / level : 0) : perLevelHour, hourly, daily: hourly * HOURS_PER_DAY,
     wageHour,
     wageDayGross: wageHour * HOURS_PER_DAY * (1 + admin.gross),
     wageDayNet: wageHour * HOURS_PER_DAY * (1 + admin.net),
@@ -312,14 +348,14 @@ function makePriceLookup(setup, market) {
   };
 }
 
-function purchaseChoice(product, minQuality, setup, priceOf) {
+function purchaseChoice(product, minQuality, setup, priceOf, exact = false) {
   const forced = setup.buyQuality?.[product];
   if (forced != null && forced !== '') {
     const q = Math.max(clampQuality(forced), minQuality);
     const found = priceOf(product, q);
     return { quality: q, price: found?.price ?? null, source: found?.source ?? null, forced: true };
   }
-  const qualities = setup.buyPolicy === 'exact' ? [minQuality] : allowedQualities(minQuality);
+  const qualities = setup.buyPolicy === 'exact' || exact ? [minQuality] : allowedQualities(minQuality);
   let best = null;
   for (const q of qualities) {
     const found = priceOf(product, q);
@@ -440,6 +476,11 @@ export function evaluatePlan(setup = {}, data, market = null, { now = Date.now()
   const demands = [];
   rows.forEach((r, index) => {
     if (!r.ok || !(r.daily > 0)) return;
+    if (r.launch) {
+      // Her fırlatma, seçilen kalitede tam 1 roket tüketir (kazada da kaybolur); daha yüksek kaliteli roket yerine geçmez.
+      demands.push({ row: index, product: r.launch.rocketProduct, minQuality: r.launch.quality, exact: true, qty: r.launch.launchesDay, own: [], buyQty: 0 });
+      return;
+    }
     for (const [input, amount] of data.products[r.product].inputs) {
       demands.push({ row: index, product: input, minQuality: minInputQuality(r.quality), qty: amount * r.daily, own: [], buyQty: 0 });
     }
@@ -452,7 +493,7 @@ export function evaluatePlan(setup = {}, data, market = null, { now = Date.now()
     list.sort((a, b) => b.minQuality - a.minQuality);
     for (const d of list) {
       let rest = d.qty;
-      const top = substitution ? MAX_QUALITY : d.minQuality;
+      const top = substitution && !d.exact ? MAX_QUALITY : d.minQuality;
       for (let q = d.minQuality; q <= top && rest > EPS; q++) {
         const take = Math.min(cap[q], rest);
         if (take > EPS) {
@@ -474,14 +515,19 @@ export function evaluatePlan(setup = {}, data, market = null, { now = Date.now()
   for (const d of demands) {
     if (!(d.buyQty > 0)) continue;
     const key = qualityKey(d.product, d.minQuality);
-    if (!purchaseMap.has(key)) purchaseMap.set(key, { key, product: d.product, minQuality: d.minQuality, qtyDay: 0 });
-    purchaseMap.get(key).qtyDay += d.buyQty;
+    if (!purchaseMap.has(key)) purchaseMap.set(key, { key, product: d.product, minQuality: d.minQuality, qtyDay: 0, exact: false });
+    const g = purchaseMap.get(key);
+    g.qtyDay += d.buyQty;
+    if (d.exact) g.exact = true;
   }
   const purchases = [...purchaseMap.values()].map((g) => {
-    const choice = purchaseChoice(g.product, g.minQuality, setup, priceOf);
+    const choice = purchaseChoice(g.product, g.minQuality, setup, priceOf, g.exact);
     if (choice.price == null) {
+      const noExchange = data.products[g.product]?.tradable === false;
       warnings.push({ kind: 'price', product: g.product, quality: g.minQuality,
-        text: `${nameOf(g.product)} (Q${g.minQuality} ve üstü) için alış fiyatı yok; elle girin` });
+        text: noExchange
+          ? `${nameOf(g.product)} borsada satılmaz: planına üreten bina ekle ya da Q${g.minQuality} birim maliyetini elle gir`
+          : `${nameOf(g.product)} (Q${g.minQuality}${g.exact ? '' : ' ve üstü'}) için alış fiyatı yok; elle girin` });
     }
     return {
       ...g,
