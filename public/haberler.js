@@ -1,5 +1,5 @@
 // DentSimco — Haberler: yapay zekâ haber masasının yazdığı manşet, haberler ve köşe yazısı.
-// Veri: meta/news_r{realm} (DentSimco-Bot bot/news.mjs yazar, günde 3 kez), meta/ranking_top_r{realm} (sıralama botu),
+// Veri: meta/news_r{realm} (DentSimco-Bot bot/news.mjs yazar, her sabah 08:00 TR), meta/ranking_top_r{realm} (sıralama botu),
 // live/r{realm} (kayan şerit için canlı fiyat). Biçimler için bot/news.mjs ve bot/ranking.mjs başına bak.
 //
 // Düzen (masaüstü):  [ kayan borsa şeridi                                   ]
@@ -64,27 +64,27 @@ export const compactUsd = (x) => (Number.isFinite(x)
 // ---- Görünüm ----------------------------------------------------------------------------------
 
 const CSS = `
-.nw { --nw-red: #ff5d6c; --nw-band: #03070d; --nw-band-text: #e6edf7; --nw-band-line: #18263b; --nw-serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+.nw { --nw-acc: #6cc4ff; --nw-up: #8fd4ff; --nw-dn: #9fb0c8; --nw-band: #03070d; --nw-band-text: #e6edf7; --nw-band-line: #18263b; --nw-serif: "Source Serif 4", Georgia, "Times New Roman", serif;
   max-width: 1240px; margin: 0 auto; padding: 0 20px 48px; }
-:root[data-theme="light"] .nw { --nw-red: #c8102e; --nw-band: #0e1b30; --nw-band-text: #f3f6fb; --nw-band-line: #22324d; }
+:root[data-theme="light"] .nw { --nw-acc: #0a4fa8; --nw-up: #0a4fa8; --nw-dn: #6a7b96; --nw-band: #0e1b30; --nw-band-text: #f3f6fb; --nw-band-line: #22324d; }
 .nw-ticker { position: relative; margin: 0 -20px; background: var(--nw-band); color: var(--nw-band-text); border-bottom: 1px solid var(--nw-band-line); overflow: hidden; height: 40px; display: flex; align-items: center; }
 .nw-ticker::before, .nw-ticker::after { content: ""; position: absolute; top: 0; bottom: 0; width: 40px; z-index: 2; pointer-events: none; }
 .nw-ticker::before { left: 0; background: linear-gradient(90deg, var(--nw-band), transparent); }
 .nw-ticker::after { right: 0; background: linear-gradient(-90deg, var(--nw-band), transparent); }
-.nw-live { position: relative; z-index: 3; flex: none; display: flex; align-items: center; gap: 7px; height: 100%; padding: 0 14px 0 20px; background: var(--nw-red); color: #fff; font: 600 13px/1 var(--font-c); letter-spacing: .12em; }
-.nw-live i { width: 7px; height: 7px; border-radius: 50%; background: #fff; animation: nw-pulse 1.6s ease-in-out infinite; }
+.nw-live { position: relative; z-index: 3; flex: none; display: flex; align-items: center; gap: 7px; height: 100%; padding: 0 14px 0 20px; background: #e8f2ff; color: #0a3d82; font: 600 13px/1 var(--font-c); letter-spacing: .12em; }
+.nw-live i { width: 7px; height: 7px; border-radius: 50%; background: #1f7ae0; animation: nw-pulse 1.6s ease-in-out infinite; }
 @keyframes nw-pulse { 50% { opacity: .25; } }
 .nw-track { display: flex; width: max-content; animation: nw-scroll var(--nw-dur, 60s) linear infinite; }
 .nw-ticker:hover .nw-track, .nw-ticker:focus-within .nw-track { animation-play-state: paused; }
 @keyframes nw-scroll { to { transform: translateX(-50%); } }
 .nw-tk { display: inline-flex; align-items: baseline; gap: 7px; padding: 0 18px; border-right: 1px solid var(--nw-band-line); color: inherit; text-decoration: none; white-space: nowrap; font: 500 14px var(--font-c); font-variant-numeric: tabular-nums; }
 .nw-tk b { font-weight: 600; }
-.nw-tk .u { color: #4ee39a; } .nw-tk .d { color: #ff7b88; } .nw-tk .f { color: #9aa8bd; }
+.nw-tk .u { color: #8fd4ff; } .nw-tk .d { color: #c3cedd; } .nw-tk .f { color: #7f8ea6; }
 @media (prefers-reduced-motion: reduce) { .nw-track { animation: none; } .nw-ticker { overflow-x: auto; } .nw-live i { animation: none; } }
 
 .nw-mast { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 18px 0 10px; border-bottom: 3px double var(--line-3); }
 .nw-logo { font: 600 30px/1 var(--font-c); letter-spacing: -.01em; color: var(--text); }
-.nw-logo span { color: var(--nw-red); }
+.nw-logo span { color: var(--nw-acc); }
 .nw-logo em { font-style: normal; display: inline-block; margin-left: 8px; padding: 3px 7px 2px; border: 1.5px solid currentColor; border-radius: 3px; font-size: 14px; letter-spacing: .2em; vertical-align: 6px; color: var(--muted); }
 .nw-dateline { color: var(--muted); font-size: 13px; letter-spacing: .02em; text-align: right; }
 .nw-dateline b { color: var(--text); font-weight: 600; }
@@ -98,10 +98,10 @@ const CSS = `
 .nw-flat { display: none; }
 .nw-aside { grid-column: 3; grid-row: 1 / span 2; border-left: 1px solid var(--line); padding-left: 24px; display: flex; flex-direction: column; gap: 26px; }
 
-.nw-kicker { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font: 600 12.5px/1 var(--font-c); letter-spacing: .14em; color: var(--nw-red); text-transform: uppercase; }
+.nw-kicker { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; font: 600 12.5px/1 var(--font-c); letter-spacing: .14em; color: var(--nw-acc); text-transform: uppercase; }
 .nw-ai { padding: 2px 5px 1px; border: 1px solid var(--line-3); border-radius: 3px; color: var(--muted); font-size: 10.5px; letter-spacing: .1em; }
 .nw a.nw-h { color: var(--text); text-decoration: none; }
-.nw a.nw-h:hover h2, .nw a.nw-h:hover h3, .nw a.nw-h:focus-visible h2, .nw a.nw-h:focus-visible h3 { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; text-decoration-color: var(--nw-red); }
+.nw a.nw-h:hover h2, .nw a.nw-h:hover h3, .nw a.nw-h:focus-visible h2, .nw a.nw-h:focus-visible h3 { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; text-decoration-color: var(--nw-acc); }
 .nw-lead h2 { margin: 0 0 12px; font: 600 clamp(30px, 3.3vw, 46px)/1.05 var(--font-c); letter-spacing: -.015em; text-wrap: balance; }
 .nw-lead .nw-spot { font-size: 18px; line-height: 1.5; color: var(--muted); margin: 0 0 12px; }
 .nw-meta { color: var(--faint); font-size: 13px; }
@@ -120,13 +120,13 @@ const CSS = `
 .nw-art .nw-chart svg { height: 230px; }
 .nw-chart .ln { fill: none; stroke: var(--price); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
 .nw-chart .ar { fill: var(--price); opacity: .12; }
-.nw-chart.dn .ln { stroke: var(--down); } .nw-chart.dn .ar { fill: var(--down); }
+.nw-chart.dn .ln { stroke: var(--nw-dn); } .nw-chart.dn .ar { fill: var(--nw-dn); }
 .nw-chart-f { display: flex; justify-content: space-between; color: var(--faint); font-size: 12px; margin-top: 6px; }
 .nw-spark { margin-left: auto; width: 84px; height: 22px; }
 .nw-spark .ln { fill: none; stroke: var(--price); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
-.nw-spark.dn .ln { stroke: var(--down); }
+.nw-spark.dn .ln { stroke: var(--nw-dn); }
 .nw-typo { min-height: 220px; display: flex; flex-direction: column; justify-content: flex-end; padding: 18px; border-radius: 4px; background: linear-gradient(135deg, var(--raise-2), var(--surface)); border: 1px solid var(--line); }
-.nw-typo b { font: 600 46px/1 var(--font-c); color: var(--nw-red); letter-spacing: -.02em; }
+.nw-typo b { font: 600 46px/1 var(--font-c); color: var(--nw-acc); letter-spacing: -.02em; }
 .nw-typo span { color: var(--muted); font-size: 13px; letter-spacing: .1em; margin-top: 8px; }
 
 .nw-sec { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin: 0 0 4px; padding-bottom: 8px; border-bottom: 2px solid var(--text); }
@@ -134,16 +134,16 @@ const CSS = `
 .nw-sec small { color: var(--faint); font-size: 12px; }
 .nw-kose { position: relative; }
 .nw-kose .nw-byline { display: flex; align-items: center; gap: 10px; margin: 14px 0 10px; color: var(--muted); font-size: 13px; }
-.nw-kose .nw-byline i { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--nw-red); color: #fff; font: 600 15px var(--nw-serif); font-style: italic; }
+.nw-kose .nw-byline i { width: 34px; height: 34px; border-radius: 50%; display: grid; place-items: center; background: var(--nw-acc); color: var(--surface); font: 600 15px var(--nw-serif); font-style: italic; }
 .nw-kose h3 { margin: 0 0 8px; font: italic 600 23px/1.2 var(--nw-serif); }
 .nw-kose p { margin: 0 0 10px; font: 400 15.5px/1.6 var(--nw-serif); color: var(--text); }
-.nw-kose p:first-of-type::first-letter { float: left; font: 600 44px/.9 var(--nw-serif); padding: 5px 4px 0 0; color: var(--nw-red); }
+.nw-kose p:first-of-type::first-letter { float: left; font: 600 44px/.9 var(--nw-serif); padding: 5px 4px 0 0; color: var(--nw-acc); }
 .nw-kose .nw-more { font: 600 14px var(--font-c); color: var(--accent); text-decoration: none; }
 
 .nw-rank { display: block; color: var(--text); text-decoration: none; }
 .nw-rank ol { list-style: none; margin: 0; padding: 0; }
 .nw-rank li { display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; gap: 8px; align-items: baseline; padding: 10px 0; border-bottom: 1px solid var(--line); }
-.nw-rank li b { font: 600 20px/1 var(--font-c); color: var(--nw-red); }
+.nw-rank li b { font: 600 20px/1 var(--font-c); color: var(--nw-acc); }
 .nw-rank li span { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nw-rank li em { font-style: normal; font: 600 15px var(--font-c); font-variant-numeric: tabular-nums; }
 .nw-rank .nw-go { display: inline-block; margin-top: 10px; font: 600 14px var(--font-c); color: var(--accent); }
@@ -208,7 +208,7 @@ function chartBox(g, { big = false } = {}) {
   const fmtD = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString(LOCALE, { day: 'numeric', month: 'short', timeZone: 'UTC' });
   const pctTxt = new Intl.NumberFormat(LOCALE, { style: 'percent', maximumFractionDigits: 1, signDisplay: 'exceptZero' }).format(ch);
   return `<figure class="nw-chart ${ch < 0 ? 'dn' : ''}">
-    <div class="nw-chart-h"><b data-no-t>${esc(g.ad)} · Q${esc(g.q)}</b><span class="${ch < 0 ? 'down' : 'up'}" style="color:var(--${ch < 0 ? 'down' : 'up'})">${pctTxt}</span></div>
+    <div class="nw-chart-h"><b data-no-t>${esc(g.ad)} · Q${esc(g.q)}</b><span style="color:var(--nw-${ch < 0 ? 'dn' : 'up'})">${pctTxt}</span></div>
     <svg viewBox="0 0 300 ${big ? 120 : 110}" preserveAspectRatio="none" aria-hidden="true"><path class="ar" d="${paths[1]}"/><path class="ln" d="${paths[0]}"/></svg>
     <figcaption class="nw-chart-f"><span>${fmtD(g.seri[0][0])}</span><span>${DIL === 'en' ? 'Daily close' : 'Günlük kapanış'} · ${fmtPrice(last)}</span><span>${fmtD(g.seri.at(-1)[0])}</span></figcaption>
   </figure>`;
@@ -282,7 +282,7 @@ function viewFront(st) {
         ${rankBox({ title: 'En yüksek EVA', note: 'EVA puanı', href: '#sirketler/eva', rows: top?.eva, value: (r) => new Intl.NumberFormat(LOCALE).format(r[4]) })}
       </aside>
     </div>
-    <p class="nw-foot">Haberler, DentSimco verileriyle yapay zekâ tarafından yazılır ve günde üç kez yenilenir. Yatırım tavsiyesi değildir; rakamları Piyasa ve Şirketler bölümlerinden doğrulayabilirsin.</p>`;
+    <p class="nw-foot">Haberler, DentSimco verileriyle yapay zekâ tarafından yazılır ve her sabah 08:00'de (TR) yenilenir. Yatırım tavsiyesi değildir; rakamları Piyasa ve Şirketler bölümlerinden doğrulayabilirsin.</p>`;
 }
 
 function viewArticle(st, id) {
@@ -328,7 +328,7 @@ export function mountHaberler(root, { realm: startRealm = 0 } = {}) {
   function render() {
     if (!st) return;
     if (!st.news?.manset) {
-      box.innerHTML = '<div class="nw-empty"><h2>İlk baskı hazırlanıyor</h2><p>Haber masası günde üç kez (TR 08:41, 14:41, 20:41) yazar. İlk çalışmadan sonra haberler burada görünür.</p></div>';
+      box.innerHTML = '<div class="nw-empty"><h2>İlk baskı hazırlanıyor</h2><p>Haber masası her sabah 08:00\'de (TR) yazar. İlk çalışmadan sonra haberler burada görünür.</p></div>';
       return;
     }
     const id = sub();
