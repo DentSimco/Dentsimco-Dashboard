@@ -1,6 +1,6 @@
 // node test/sirketler_test.mjs — Şirketler sıralama ve arama mantığı (ağ kullanmaz)
 import assert from 'node:assert/strict';
-import { sirala, ara, SIRALAMA } from '../public/sirketler.js';
+import { sirala, ara, sirketBul, detaySatirlari, SIRALAMA } from '../public/sirketler.js';
 
 // [id, ad, sıra, sıraFarkı, eva, değer, değerFarkı, yüzde, bina, patent, işçi, tahvil, ayrıntıVar]
 const A = [1, 'Çelik A.Ş.', 1, 0, 9, 900, 5, 0.01, 50, 10, 300, 0, 1];
@@ -36,5 +36,37 @@ assert.deepEqual(ids(ara(rows, 'arı')), [2]);
 assert.deepEqual(ids(ara(rows, ' zey ')), [3]);
 assert.deepEqual(ids(ara(rows, '2')), [2], 'sayı = şirket numarası');
 assert.equal(ara(rows, ''), rows);
+// İşçi sıralama ölçütü değil: listede yok, eski bağlantı/anahtar şirket değerine düşer
+assert.ok(!SIRALAMA.some((s) => s[0] === 'workers'), 'İşçi sıralama ölçütü kaldırıldı');
+assert.deepEqual(ids(sirala(rows, 'workers', -1)), [1, 2, 3], 'eski "workers" anahtarı şirket değerine düşer (azalan)');
+
+// Şirket numarasıyla bulma (Haber ve arama bağlantıları sayı ya da metin verebilir); liste değişmez
+assert.equal(sirketBul(rows, 2), B);
+assert.equal(sirketBul(rows, '2'), B);
+assert.equal(sirketBul(rows, 99), null);
+assert.equal(sirketBul([], 1), null);
+assert.deepEqual(ids(rows), [3, 1, 2]);
+
+// Detay satırları: [etiket, metin, ton]
+const detay = (r) => Object.fromEntries(detaySatirlari(r).map(([t, v, c]) => [t, [v, c]]));
+const dA = detay(A);
+assert.deepEqual(Object.keys(dA), ['Sıra', 'EVA sırası', 'Şirket değeri', 'Günlük değişim', 'Günlük değişim %', 'Bina değeri', 'Patent değeri', 'İşçi', 'Satılan bono']);
+assert.deepEqual(dA['Sıra'], ['1', ''], 'sıra farkı 0: ok yazılmaz');
+assert.deepEqual(dA['EVA sırası'], ['9', '']);
+assert.deepEqual(dA['Şirket değeri'], ['$900', '']);
+assert.deepEqual(dA['Günlük değişim'], ['+5', 'up']);
+assert.deepEqual(dA['Bina değeri'], ['$50', '']);
+assert.deepEqual(dA['İşçi'], ['3', ''], 'işçi tabloda olduğu gibi ÷100');
+const dB = detay(B);
+assert.deepEqual(dB['Sıra'], ['2 (▲2)', 'up']);
+assert.deepEqual(dB['Günlük değişim'], ['−20', 'down']);
+assert.deepEqual(dB['Günlük değişim %'].slice(1), ['down']);
+// Ayrıntısı gelmemiş şirket: EVA, bina, patent, işçi, bono "—"; değer ve değişim yine görünür
+const dC = detay(C);
+for (const k of ['EVA sırası', 'Bina değeri', 'Patent değeri', 'İşçi', 'Satılan bono']) assert.deepEqual(dC[k], ['—', ''], k);
+assert.deepEqual(dC['Şirket değeri'], ['$700', '']);
+assert.deepEqual(dC['Sıra'], ['3 (▼1)', 'down']);
+// EVA'sı 0 olan (ayrıntısı gelmiş) şirkette EVA "—"
+assert.deepEqual(detay(D)['EVA sırası'], ['—', '']);
 assert.ok(SIRALAMA.every(([k, t, col, dir]) => k && t && Number.isInteger(col) && (dir === 1 || dir === -1)));
 console.log('sirketler_test: tamam');

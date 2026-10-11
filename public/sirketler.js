@@ -2,6 +2,7 @@
 // Veri: meta/ranking_r{realm} (index) + meta/ranking_r{realm}_c{NN} (parçalar). Biçim için bot/ranking.mjs başına bak.
 //   satır = [id, ad, sıra, sıraFarkı, evaSırası (1 en iyi, 0 yok), değer, değerFarkı, değerYüzde, bina, patent, işçi, bono, ayrıntıVar]
 // "Sıra" ayrı bir ölçüt değildir: Simcotools sırası şirket değerine göredir (Şirket değeri ölçütüyle aynı).
+// İşçi sütunu gösterilir ama ölçüt olarak sıralanmaz.
 
 import { PATHS, readDocs, dataField, VeriHatasi } from './veri.js';
 import { LOCALE } from './i18n.js';
@@ -16,7 +17,6 @@ export const SIRALAMA = [
   ['eva', 'EVA sırası', 4, 1, true],
   ['buildings', 'Bina değeri', 8, -1, true],
   ['patents', 'Patent değeri', 9, -1, true],
-  ['workers', 'İşçi', 10, -1, true],
   ['bonds', 'Satılan bono', 11, -1, true],
   ['name', 'Ad (A-Z)', 1, 1, false],
 ];
@@ -55,6 +55,26 @@ const usd = (x) => `$${NUM.format(x)}`;
 const signed = (x) => (x > 0 ? '+' : x < 0 ? '−' : '') + (x === 0 ? '0' : NUM.format(Math.abs(x)));
 const tone = (x) => (x > 0 ? 'up' : x < 0 ? 'down' : '');
 
+// Numarayla şirketi bulur (liste değişmez); yoksa null.
+export const sirketBul = (rows, id) => rows.find((r) => String(r[0]) === String(id)) || null;
+
+// Detay panelindeki satırlar: [etiket, metin, ton]. Ayrıntısı henüz gelmemiş şirkette (r[12] = 0) o satırlar "—" olur.
+export function detaySatirlari(r) {
+  const d = r[12] === 1;
+  const dim = (v) => (d ? v : '—');
+  return [
+    ['Sıra', `${NUM.format(r[2])}${r[3] ? ` (${r[3] > 0 ? '▲' : '▼'}${NUM.format(Math.abs(r[3]))})` : ''}`, tone(r[3])],
+    ['EVA sırası', r[4] > 0 ? dim(NUM.format(r[4])) : '—', ''],
+    ['Şirket değeri', usd(r[5]), ''],
+    ['Günlük değişim', signed(r[6]), tone(r[6])],
+    ['Günlük değişim %', r[7] ? PCT.format(r[7]) : '0%', tone(r[7])],
+    ['Bina değeri', dim(usd(r[8])), ''],
+    ['Patent değeri', dim(usd(r[9])), ''],
+    ['İşçi', dim(NUM.format(r[10] / 100)), ''],
+    ['Satılan bono', dim(usd(r[11])), ''],
+  ];
+}
+
 const CSS = `
 .sk { max-width: 1100px; margin: 0 auto; padding: 8px 14px 40px; display: flex; flex-direction: column; gap: 12px; }
 .sk h1 { font: 600 22px/1.2 var(--font-c); margin: 0; }
@@ -75,6 +95,23 @@ const CSS = `
 .sk .up { color: var(--up); }
 .sk .down { color: var(--down); }
 .sk .dim { color: var(--faint); }
+.sk tbody tr[data-id] { cursor: pointer; }
+.sk tbody tr[data-id]:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.sk-id { display: block; color: var(--faint); font-size: 12px; font-weight: 500; letter-spacing: .02em; }
+.sk-sheet { position: fixed; inset: 0; z-index: 50; background: var(--overlay); display: flex; align-items: flex-end; justify-content: center; }
+.sk-panel { background: var(--surface); border: 1px solid var(--line-2); border-bottom: 0; border-radius: 20px 20px 0 0; width: 100%; max-width: 560px; max-height: calc(100dvh - 24px);
+  overflow: auto; overscroll-behavior: contain; padding: 16px 16px calc(20px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 12px; box-sizing: border-box; }
+@media (min-width: 740px) { .sk-sheet { align-items: center; } .sk-panel { border-radius: 20px; border-bottom: 1px solid var(--line-2); } }
+.sk-panel-head { display: flex; align-items: flex-start; gap: 10px; }
+.sk-panel-head h2 { flex: 1 1 auto; min-width: 0; margin: 0; font: 600 20px/1.25 var(--font-c); overflow-wrap: anywhere; }
+.sk-btn { min-height: 44px; min-width: 44px; padding: 0 14px; border: 1px solid var(--line-2); border-radius: 12px; background: var(--raise); color: var(--text); font: 600 15px var(--font); }
+.sk-idrow { display: flex; align-items: center; gap: 10px; justify-content: space-between; background: var(--raise); border: 1px solid var(--line-2); border-radius: 12px; padding: 8px 8px 8px 12px; }
+.sk-idrow span { color: var(--muted); font-size: 14px; }
+.sk-idrow b { font: 600 20px var(--font-c); font-variant-numeric: tabular-nums; }
+.sk-kv { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 36px; border-bottom: 1px solid var(--row-line); }
+.sk-kv:last-child { border-bottom: 0; }
+.sk-kv > span:first-child { color: var(--muted); font-size: 15px; }
+.sk-kv > span:last-child { font-weight: 600; font-size: 16px; font-variant-numeric: tabular-nums; text-align: right; }
 .sk-pager { display: flex; gap: 8px; align-items: center; justify-content: center; }
 .sk-pager button { height: 40px; padding: 0 14px; border: 1px solid var(--line-2); border-radius: 10px; background: var(--surface); font-weight: 600; }
 .sk-pager button:disabled { opacity: .4; }
@@ -119,6 +156,7 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
   }
   window.addEventListener('hashchange', onHash);
   let view = []; // süzülmüş + sıralanmış liste
+  let sheet = null; // açık detay paneli: { id, opener }
 
   const style = document.createElement('style');
   style.dataset.module = 'sirketler';
@@ -155,22 +193,68 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
     state.page = Math.min(Math.max(1, state.page), pages);
     const from = (state.page - 1) * PAGE;
     const cols = [['Sıra', null, 'l'], ['Şirket', 'name', 'l'], ['Şirket değeri', 'value'], ['Değişim', 'valueDiff'], ['%', 'valuePct'],
-      ['EVA sırası', 'eva'], ['Bina değeri', 'buildings'], ['Patent değeri', 'patents'], ['İşçi', 'workers'], ['Bono', 'bonds']];
+      ['EVA sırası', 'eva'], ['Bina değeri', 'buildings'], ['Patent değeri', 'patents'], ['İşçi'], ['Bono', 'bonds']];
     box.querySelector('thead').innerHTML = `<tr>${cols.map(([t, k, c]) => `<th${k ? ` data-k="${k}"` : ''} class="${c || ''}" ${k && k === state.key ? `aria-sort="${state.dir > 0 ? 'ascending' : 'descending'}"` : ''}>${t}</th>`).join('')}</tr>`;
     box.querySelector('tbody').innerHTML = view.slice(from, from + PAGE).map((r) => {
       const d = r[12] === 1;
       const dim = (v) => (d ? v : '<span class="dim">—</span>');
-      return `<tr><td>${NUM.format(r[2])} <span class="${tone(r[3])}">${r[3] ? (r[3] > 0 ? '▲' : '▼') + Math.abs(r[3]) : ''}</span></td>
-        <td class="l">${esc(r[1])}</td><td>${usd(r[5])}</td>
+      return `<tr data-id="${r[0]}" tabindex="0" role="button" aria-label="${esc(r[1])}, ID ${r[0]}"><td>${NUM.format(r[2])} <span class="${tone(r[3])}">${r[3] ? (r[3] > 0 ? '▲' : '▼') + Math.abs(r[3]) : ''}</span></td>
+        <td class="l">${esc(r[1])}<span class="sk-id">ID ${r[0]}</span></td><td>${usd(r[5])}</td>
         <td class="${tone(r[6])}">${signed(r[6])}</td><td class="${tone(r[7])}">${r[7] ? PCT.format(r[7]) : '0%'}</td>
         <td>${r[4] > 0 ? dim(NUM.format(r[4])) : '<span class="dim">—</span>'}</td><td>${dim(usd(r[8]))}</td><td>${dim(usd(r[9]))}</td><td>${dim(NUM.format(r[10] / 100))}</td><td>${dim(usd(r[11]))}</td></tr>`;
     }).join('') || '<tr><td colspan="10" class="l dim">Eşleşen şirket yok.</td></tr>';
     box.querySelector('#sk-dir').textContent = state.dir > 0 ? '↑' : '↓';
-    box.querySelector('#sk-note').textContent = `${NUM.format(view.length)} şirket · Veri: Simcotools · ${data.date ? new Date(data.date).toLocaleDateString(LOCALE, { timeZone: 'UTC' }) : ''}. Ayrıntıları (EVA, bina, patent, işçi, bono) henüz gelmemiş şirketlerde "—" görünür.`;
+    box.querySelector('#sk-note').textContent = `${NUM.format(view.length)} şirket · Veri: Simcotools · ${data.date ? new Date(data.date).toLocaleDateString(LOCALE, { timeZone: 'UTC' }) : ''}. Ayrıntıları (EVA, bina, patent, işçi, bono) henüz gelmemiş şirketlerde "—" görünür. Ayrıntı için şirkete dokunun.`;
     box.querySelector('.sk-pager').innerHTML = `<button type="button" data-p="-1" ${state.page <= 1 ? 'disabled' : ''}>‹ Önceki</button><span>${state.page} / ${pages}</span><button type="button" data-p="1" ${state.page >= pages ? 'disabled' : ''}>Sonraki ›</button>`;
   }
 
+  // ---- Şirket detayı ----
+  const sheetHost = document.createElement('div');
+  root.append(sheetHost);
+  function closeSheet() {
+    if (!sheet) return;
+    const id = sheet.id;
+    sheet = null;
+    sheetHost.innerHTML = '';
+    document.body.style.overflow = '';
+    const row = box.querySelector(`tr[data-id="${id}"]`);
+    if (row) row.focus({ preventScroll: true });
+  }
+  function openSheet(id) {
+    const r = data && sirketBul(data.rows, id);
+    if (!r) return;
+    sheet = { id: r[0] };
+    const lines = detaySatirlari(r).map(([t, v, c]) => `<div class="sk-kv"><span>${t}</span><span class="${c}">${v}</span></div>`).join('');
+    sheetHost.innerHTML = `<div class="sk-sheet" data-sheet-bg><div class="sk-panel" role="dialog" aria-modal="true" aria-labelledby="sk-title">
+      <div class="sk-panel-head"><h2 id="sk-title">${esc(r[1])}</h2><button type="button" class="sk-btn" data-close aria-label="Kapat">✕</button></div>
+      <div class="sk-idrow"><span>Şirket numarası (ID)</span><b>${r[0]}</b><button type="button" class="sk-btn" data-copy>Kopyala</button></div>
+      <div>${lines}</div>
+      ${r[12] === 1 ? '' : '<p class="sk-note">Bu şirketin ayrıntıları (EVA, bina, patent, işçi, bono) henüz gelmedi; sonraki günlük güncellemede tamamlanabilir.</p>'}
+      <p class="sk-note">Veri: Simcotools${data.date ? ` · ${new Date(data.date).toLocaleDateString(LOCALE, { timeZone: 'UTC' })}` : ''}</p></div></div>`;
+    document.body.style.overflow = 'hidden';
+    sheetHost.querySelector('[data-close]').focus();
+  }
+  sheetHost.addEventListener('click', (e) => {
+    if (e.target.closest('[data-close]') || e.target.matches('[data-sheet-bg]')) return closeSheet();
+    const copy = e.target.closest('[data-copy]');
+    if (copy && sheet) {
+      const done = (text) => { copy.textContent = text; setTimeout(() => { if (copy.isConnected) copy.textContent = 'Kopyala'; }, 1600); };
+      if (navigator.clipboard?.writeText) navigator.clipboard.writeText(String(sheet.id)).then(() => done('Kopyalandı'), () => done('Kopyalanamadı'));
+      else done('Kopyalanamadı');
+    }
+  });
+  const onKey = (e) => {
+    if (e.key === 'Escape' && sheet) { e.preventDefault(); closeSheet(); return; }
+    if ((e.key === 'Enter' || e.key === ' ') && !sheet) {
+      const tr = e.target.closest?.('tr[data-id]');
+      if (tr && box.contains(tr)) { e.preventDefault(); openSheet(tr.dataset.id); }
+    }
+  };
+  document.addEventListener('keydown', onKey);
+
   box.addEventListener('click', (e) => {
+    const tr = e.target.closest('tbody tr[data-id]');
+    if (tr) return openSheet(tr.dataset.id);
     const th = e.target.closest('th[data-k]');
     if (th) {
       const k = th.dataset.k;
@@ -205,7 +289,7 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
 
   load();
   return {
-    setRealm(next) { if (next === realm) return; realm = next; state.page = 1; load(); },
-    destroy() { alive = false; window.removeEventListener('hashchange', onHash); style.remove(); root.replaceChildren(); },
+    setRealm(next) { if (next === realm) return; closeSheet(); realm = next; state.page = 1; load(); },
+    destroy() { alive = false; window.removeEventListener('hashchange', onHash); document.removeEventListener('keydown', onKey); document.body.style.overflow = ''; style.remove(); root.replaceChildren(); },
   };
 }
