@@ -2,7 +2,7 @@
 // Veri: meta/ranking_r{realm} (index) + meta/ranking_r{realm}_c{NN} (parçalar). Biçim için bot/ranking.mjs başına bak.
 //   satır = [id, ad, sıra, sıraFarkı, evaSırası (1 en iyi, 0 yok), değer, değerFarkı, değerYüzde, bina, patent, işçi, bono, ayrıntıVar]
 // "Sıra" ayrı bir ölçüt değildir: Simcotools sırası şirket değerine göredir (Şirket değeri ölçütüyle aynı).
-// İşçi sütunu gösterilir ama ölçüt olarak sıralanmaz.
+// Ad ve işçi ölçüt değildir; işçi tabloda da yok, yalnız ayrıntı panelinde görünür.
 
 import { PATHS, readDocs, dataField, VeriHatasi } from './veri.js';
 import { LOCALE } from './i18n.js';
@@ -18,7 +18,6 @@ export const SIRALAMA = [
   ['buildings', 'Bina değeri', 8, -1, true],
   ['patents', 'Patent değeri', 9, -1, true],
   ['bonds', 'Satılan bono', 11, -1, true],
-  ['name', 'Ad (A-Z)', 1, 1, false],
 ];
 
 // EVA sırasında 1 en iyidir (en çok değer katan); 0 = Simcotools'ta EVA yok (ayrıntısı gelmemiş sayılır).
@@ -29,15 +28,13 @@ export function sirala(rows, key, dir = 1) {
   const spec = SIRALAMA.find((s) => s[0] === key) || SIRALAMA[0];
   const col = spec[2];
   const needsDetail = spec[4];
-  const collator = col === 1 ? new Intl.Collator('tr', { sensitivity: 'base', numeric: true }) : null;
   return [...rows].sort((a, b) => {
     if (needsDetail) {
       const ma = ayrintiVar(a, spec[0]);
       const mb = ayrintiVar(b, spec[0]);
       if (ma !== mb) return ma ? -1 : 1;
     }
-    const d = collator ? collator.compare(a[col], b[col]) : a[col] - b[col];
-    return (d * dir) || (a[2] - b[2]);
+    return ((a[col] - b[col]) * dir) || (a[2] - b[2]);
   });
 }
 
@@ -192,8 +189,8 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
     const pages = Math.max(1, Math.ceil(view.length / PAGE));
     state.page = Math.min(Math.max(1, state.page), pages);
     const from = (state.page - 1) * PAGE;
-    const cols = [['Sıra', null, 'l'], ['Şirket', 'name', 'l'], ['Şirket değeri', 'value'], ['Değişim', 'valueDiff'], ['%', 'valuePct'],
-      ['EVA sırası', 'eva'], ['Bina değeri', 'buildings'], ['Patent değeri', 'patents'], ['İşçi'], ['Bono', 'bonds']];
+    const cols = [['Sıra', null, 'l'], ['Şirket', null, 'l'], ['Şirket değeri', 'value'], ['Değişim', 'valueDiff'], ['%', 'valuePct'],
+      ['EVA sırası', 'eva'], ['Bina değeri', 'buildings'], ['Patent değeri', 'patents'], ['Bono', 'bonds']];
     box.querySelector('thead').innerHTML = `<tr>${cols.map(([t, k, c]) => `<th${k ? ` data-k="${k}"` : ''} class="${c || ''}" ${k && k === state.key ? `aria-sort="${state.dir > 0 ? 'ascending' : 'descending'}"` : ''}>${t}</th>`).join('')}</tr>`;
     box.querySelector('tbody').innerHTML = view.slice(from, from + PAGE).map((r) => {
       const d = r[12] === 1;
@@ -201,10 +198,10 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
       return `<tr data-id="${r[0]}" tabindex="0" role="button" aria-label="${esc(r[1])}, ID ${r[0]}"><td>${NUM.format(r[2])} <span class="${tone(r[3])}">${r[3] ? (r[3] > 0 ? '▲' : '▼') + Math.abs(r[3]) : ''}</span></td>
         <td class="l">${esc(r[1])}<span class="sk-id">ID ${r[0]}</span></td><td>${usd(r[5])}</td>
         <td class="${tone(r[6])}">${signed(r[6])}</td><td class="${tone(r[7])}">${r[7] ? PCT.format(r[7]) : '0%'}</td>
-        <td>${r[4] > 0 ? dim(NUM.format(r[4])) : '<span class="dim">—</span>'}</td><td>${dim(usd(r[8]))}</td><td>${dim(usd(r[9]))}</td><td>${dim(NUM.format(r[10] / 100))}</td><td>${dim(usd(r[11]))}</td></tr>`;
-    }).join('') || '<tr><td colspan="10" class="l dim">Eşleşen şirket yok.</td></tr>';
+        <td>${r[4] > 0 ? dim(NUM.format(r[4])) : '<span class="dim">—</span>'}</td><td>${dim(usd(r[8]))}</td><td>${dim(usd(r[9]))}</td><td>${dim(usd(r[11]))}</td></tr>`;
+    }).join('') || '<tr><td colspan="9" class="l dim">Eşleşen şirket yok.</td></tr>';
     box.querySelector('#sk-dir').textContent = state.dir > 0 ? '↑' : '↓';
-    box.querySelector('#sk-note').textContent = `${NUM.format(view.length)} şirket · Veri: Simcotools · ${data.date ? new Date(data.date).toLocaleDateString(LOCALE, { timeZone: 'UTC' }) : ''}. Ayrıntıları (EVA, bina, patent, işçi, bono) henüz gelmemiş şirketlerde "—" görünür. Ayrıntı için şirkete dokunun.`;
+    box.querySelector('#sk-note').textContent = `${NUM.format(view.length)} şirket · Veri: Simcotools · ${data.date ? new Date(data.date).toLocaleDateString(LOCALE, { timeZone: 'UTC' }) : ''}. Ayrıntıları (EVA, bina, patent, bono) henüz gelmemiş şirketlerde "—" görünür. Ayrıntı için şirkete dokunun.`;
     box.querySelector('.sk-pager').innerHTML = `<button type="button" data-p="-1" ${state.page <= 1 ? 'disabled' : ''}>‹ Önceki</button><span>${state.page} / ${pages}</span><button type="button" data-p="1" ${state.page >= pages ? 'disabled' : ''}>Sonraki ›</button>`;
   }
 
