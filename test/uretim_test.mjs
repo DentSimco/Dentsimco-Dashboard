@@ -1,7 +1,9 @@
 // DentSimco — sayı okuma sınamaları (parseNum: Üretim, Perakende ve Yönetim'deki tüm yazı kutuları bunu kullanır).
 // Çalıştırma: node test/uretim_test.mjs
 
-import { parseNum, KISAYOL, TABS as URETIM_TABS, kisayolHtml, kisayolKucuk, kisayolSatiri, bilimKazanci } from '../public/uretim.js';
+import { parseNum, parsePrice, sanitizeSetup, KISAYOL, TABS as URETIM_TABS, kisayolHtml, kisayolKucuk, kisayolSatiri, bilimKazanci } from '../public/uretim.js';
+import * as H from '../public/hesap.js';
+import { products, buildings, core, modifiers, NOW } from './veri-ornek.mjs';
 import { TABS as PERAKENDE_TABS } from '../public/perakende.js';
 import { yonetimRota } from '../public/yonetim.js';
 import * as Y from '../public/yonetici.js';
@@ -126,6 +128,50 @@ test('Bilimin değeri: araştırma binası yoksa satır yok; inşaatta ya da ça
   eq(fiyatsiz.noPrice, true);
   eq(fiyatsiz.day, 0);
   eq(Math.round(bilimKazanci([arastirma(10000, 1)], () => 100).day), 0, 'ekip yoksa kazanç 0');
+});
+
+// ---- Fırlatma rampası ----
+test('Roket fiyatı kutusu: 795.000, 795k, 1.2m, 1,2m ve $35k okunur', () => {
+  eq(parsePrice('795.000'), 795000);
+  eq(parsePrice('795k'), 795000);
+  eq(parsePrice('1.2m'), 1200000);
+  eq(parsePrice('1,2m'), 1200000);
+  eq(parsePrice('$35K'), 35000);
+  eq(parsePrice('105000'), 105000);
+  eq(parsePrice(''), null);
+  eq(parsePrice('abc'), null);
+});
+
+test('Kayıt temizleme: rampa seviyesi 1–10, adet en az 1, roket yalnız Alt yörüngesel ya da BFR, fiyat sayı; öteki binalara alan eklenmez', () => {
+  const s = sanitizeSetup({ buildings: [
+    { id: 'a', type: 'l', product: 100, level: 14, count: '3', rocket: '94', rocketQuality: 5, rocketPrice: '795000', robots: true, quality: 4 },
+    { id: 'b', type: 'l', product: 100, level: 2, count: 0, rocket: 93, rocketPrice: -5 },
+    { id: 'c', type: 'D', product: 86, level: 14 },
+  ] });
+  const [a, b, c] = s.buildings;
+  eqj([a.level, a.count, a.rocket, a.rocketQuality, a.rocketPrice, a.robots, a.quality], [10, 3, 94, 5, 795000, false, 0]);
+  eqj([b.level, b.count, b.rocket, b.rocketPrice], [2, 1, null, null]);
+  eqj([c.level, 'rocket' in c, 'count' in c], [14, false, false]);
+});
+
+test('Eski kayıttaki rampa (roket alanı yok) açılır: roket seçilmemiş sayılır, plan bozulmaz', () => {
+  const DATA = H.normalizeData({ products, buildings, core, modifiers, realm: 0 });
+  const s = sanitizeSetup({ buildings: [{ id: 'old', type: 'l', product: 100, level: 5 }, { id: 'e', type: 'D', product: 86, level: 1 }] });
+  const plan = H.evaluatePlan({ ...s, admin: { mode: 'savings', savingsPct: 0 } }, DATA, { '86:0': 3000 }, { now: NOW });
+  eq(plan.rows[0].ok, false);
+  eq(plan.rows[0].errors[0], 'Roket seçilmedi');
+  eq(plan.rows[1].ok, true);
+  eq(plan.admin.totalLevels, 6);
+});
+
+test('Bilimin değeri rampada da çalışır: ekipli ve ekipsiz günlük ASR farkı × fiyat', () => {
+  const DATA = H.normalizeData({ products, buildings, core, modifiers, realm: 0 });
+  const setup = { buildings: [{ id: 'pad', type: 'l', product: 100, level: 10, count: 1, rocket: 94, rocketQuality: 5, rocketPrice: 0 }], admin: { mode: 'savings', savingsPct: 0 } };
+  const plan = H.evaluatePlan(setup, DATA, {}, { now: NOW, effects: { researchSpeedPct: 120 } });
+  const b = bilimKazanci(plan.rows, () => 105);
+  const daily = 2756.25 * 2.2 * 96;
+  eq(b.count, 1);
+  eq(Math.round(b.day), Math.round((daily - daily / 2.2) * 105));
 });
 
 const failed = results.filter((r) => !r.ok);

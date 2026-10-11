@@ -108,6 +108,14 @@ export function parseNum(input, { ref = null } = {}) {
   return Number.isFinite(n) ? n : null;
 }
 
+// Fiyat kutusu: parseNum'a ek olarak "795k", "1.2m", "1,2m" (bin, milyon, milyar) kısaltmalarını da okur.
+export function parsePrice(input, options) {
+  const m = /^\s*\$?\s*(-?[\d.,]+)\s*([kmb])\s*$/i.exec(String(input ?? ''));
+  if (!m) return parseNum(input, options);
+  const base = parseNum(m[1]);
+  return base == null ? null : Math.round(base * { k: 1e3, m: 1e6, b: 1e9 }[m[2].toLowerCase()] * 100) / 100;
+}
+
 const uid = (p) => `${p}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 
 function defaultSetup() {
@@ -118,7 +126,7 @@ function defaultSetup() {
     prices: {}, contractPrices: {}, keep: {}, buyQuality: {}, transportPrice: null,
   };
 }
-function sanitizeSetup(raw) {
+export function sanitizeSetup(raw) {
   const base = defaultSetup();
   if (!raw || typeof raw !== 'object') return base;
   const s = { ...base, ...raw };
@@ -131,12 +139,22 @@ function sanitizeSetup(raw) {
   s.transportPrice = Number.isFinite(Number(raw.transportPrice)) && raw.transportPrice !== null && raw.transportPrice !== '' ? Number(raw.transportPrice) : null;
   if (!['cheapest', 'exact'].includes(s.buyPolicy)) s.buyPolicy = 'cheapest';
   s.buildings = (Array.isArray(raw.buildings) ? raw.buildings : []).filter((b) => b && typeof b === 'object')
-    .map((b) => ({ id: b.id || uid('b'), type: b.type, product: b.product != null ? Number(b.product) : null, level: Math.max(1, Math.floor(Number(b.level) || 1)),
-      quality: H.clampQuality(b.quality), robots: !!b.robots, efficiency: Number.isFinite(Number(b.efficiency)) ? Number(b.efficiency) : 100, construction: !!b.construction }));
+    .map((b) => {
+      const out = { id: b.id || uid('b'), type: b.type, product: b.product != null ? Number(b.product) : null, level: Math.max(1, Math.floor(Number(b.level) || 1)),
+        quality: H.clampQuality(b.quality), robots: !!b.robots, efficiency: Number.isFinite(Number(b.efficiency)) ? Number(b.efficiency) : 100, construction: !!b.construction };
+      return b.type === H.LAUNCH_PAD ? { ...out, ...padFields(b), level: H.launchLevel(b.level), quality: 0, robots: false } : out;
+    });
   // null = Otomatik (oyunun güncel evresi); 0, 1, 2 = elle seçilmiş (eski kayıtlar elle sayılır)
   s.economyPhase = raw.economyPhase != null && raw.economyPhase !== '' && [0, 1, 2].includes(Number(raw.economyPhase)) ? Number(raw.economyPhase) : null;
   s.extraBonusPct = Math.min(99, Math.max(0, Number(raw.extraBonusPct) || 0));
   return s;
+}
+// Fırlatma rampasına özel alanlar: roket (Alt yörüngesel roket | BFR), roket kalitesi, elle roket fiyatı, adet
+export function padFields(b = {}) {
+  const rocket = Number(b.rocket);
+  const price = b.rocketPrice != null && b.rocketPrice !== '' && Number.isFinite(Number(b.rocketPrice)) && Number(b.rocketPrice) >= 0 ? Number(b.rocketPrice) : null;
+  return { rocket: H.LAUNCH_ROCKETS.includes(rocket) ? rocket : null, rocketQuality: H.clampQuality(b.rocketQuality), rocketPrice: price,
+    count: Math.max(1, Math.floor(Number(b.count) || 1)) };
 }
 function loadSetup(r) {
   try { return sanitizeSetup(JSON.parse(localStorage.getItem(STORE_KEY(r)) || 'null')); } catch { return defaultSetup(); }
@@ -564,13 +582,14 @@ export function mountUretim(root, { realm = 0 } = {}) {
     const fee = S.reduce((a, x) => a + (x.price == null ? 0 : x.surplusDay * x.price * H.MARKET_FEE), 0);
     const trX = S.reduce((a, x) => a + (x.price == null ? 0 : x.surplusDay * x.transportUnits * tp), 0);
     const trC = S.reduce((a, x) => a + (x.contractPrice == null ? 0 : x.surplusDay * x.transportUnits * tp * H.CONTRACT_TRANSPORT_SHARE), 0);
-    return { grossX, grossC, fee, trX, trC, netX: t.revenueExchangeDay, netC: t.revenueContractDay, buy: t.purchasesDay, direct: t.wageBaseDay,
+    return { grossX, grossC, fee, trX, trC, netX: t.revenueExchangeDay, netC: t.revenueContractDay, buy: t.purchasesDay, rockets: t.rocketsDay, direct: t.wageBaseDay,
       admin: t.wagesDayNet - t.wageBaseDay, cost: t.costDay, profitX: t.profitExchangeDay, profitC: t.profitContractDay, exec: t.executiveSalariesDay,
       cashX: t.netCashExchangeDay, cashC: t.netCashContractDay, saved: t.executiveSavingsDay };
   }
   function viewOzet(plan) {
     const k = PERIODS.find(([key]) => key === period)[2];
     const A = accounts(plan);
+    const hasPad = plan.rows.some((x) => x.launch);
     const m = (v, sign = false) => money(v * k, 0, sign);
     const cls = (v) => (v > 0 ? 'c-up' : v < 0 ? 'c-down' : '');
     const tri = (label, a, b, o = {}) => `<div class="ur-tri${o.strong ? ' strong' : ''}${o.line ? ' line' : ''}${o.indent ? ' indent' : ''}${o.muted ? ' muted' : ''}"><span>${label}</span><span class="${o.ca || ''}">${a}</span><span class="${o.cb || ''}">${b}</span></div>`;
@@ -583,7 +602,7 @@ export function mountUretim(root, { realm = 0 } = {}) {
       ${grp('Gelir')}${tri('Brüt satış', m(A.grossX), m(A.grossC))}
       ${tri('Komisyon (%4)', m(-A.fee), '—', { indent: true, muted: true })}${tri('Taşıma', m(-A.trX), m(-A.trC), { indent: true, muted: true })}
       ${tri('Net satış', m(A.netX), m(A.netC), { strong: true, line: true })}
-      ${grp('Maliyet')}${tri('Girdi alımları', m(-A.buy), m(-A.buy), { indent: true })}${tri('Bina maaşları', m(-A.direct), m(-A.direct), { indent: true })}
+      ${grp('Maliyet')}${tri('Girdi alımları', m(-A.buy), m(-A.buy), { indent: true })}${hasPad ? tri('Roket alımları', m(-A.rockets), m(-A.rockets), { indent: true }) : ''}${tri('Bina maaşları', m(-A.direct), m(-A.direct), { indent: true })}
       ${tri('Yönetim gideri', m(-A.admin), m(-A.admin), { indent: true })}${tri('Toplam maliyet', m(-A.cost), m(-A.cost), { strong: true, line: true })}
       ${tri('Brüt kâr', m(A.profitX, true), m(A.profitC, true), { strong: true, line: true, ca: cls(A.profitX), cb: cls(A.profitC) })}
       ${grp('İşletme gideri')}${tri('Yönetici maaşları', m(-A.exec), m(-A.exec), { indent: true })}
@@ -591,8 +610,9 @@ export function mountUretim(root, { realm = 0 } = {}) {
       <div class="ur-hr"></div>
       ${tri('Brüt kâr marjı', A.netX ? pctText(A.profitX / A.netX, 1) : '—', A.netC ? pctText(A.profitC / A.netC, 1) : '—', { muted: true })}
       ${tri('Yönetici tasarrufu', m(A.saved, true), m(A.saved, true), { muted: true, ca: 'c-up', cb: 'c-up' })}
+      ${hasPad ? '<p class="ur-note">Roket alımları: fırlatma rampalarının kendi üretiminizle karşılanmayan roketleri, binada girdiğiniz fiyatla.</p>' : ''}
       <p class="ur-note">Brüt kâr: net satıştan girdi, bina maaşı ve yönetim gideri düşülmüş hâli. Net nakit: yönetici maaşları da düşülünce günün sonunda kasaya giren. Yönetici tasarrufu bilgi satırıdır, toplama girmez.</p></section>`;
-    const parts = [['Girdi alımları', A.buy, 'var(--accent)'], ['Bina maaşları', A.direct, 'var(--s-vol)'], ['Yönetim gideri', A.admin, 'var(--price)'], ['Yönetici maaşları', A.exec, '#6f86a3']].filter((x) => x[1] > 0);
+    const parts = [['Girdi alımları', A.buy, 'var(--accent)'], ['Roket alımları', A.rockets, 'var(--up)'], ['Bina maaşları', A.direct, 'var(--s-vol)'], ['Yönetim gideri', A.admin, 'var(--price)'], ['Yönetici maaşları', A.exec, '#6f86a3']].filter((x) => x[1] > 0);
     const total = parts.reduce((a, x) => a + x[1], 0);
     const costs = total > 0 ? `<section class="ur-card" aria-labelledby="h-cost"><h2 id="h-cost">Maliyet dağılımı (${periodName})</h2>
       <div class="ur-bar" role="img" aria-label="${parts.map(([n, v]) => `${n} ${pctText(v / total, 0)}`).join(', ')}">${parts.map(([, v, c]) => `<span style="width:${(v / total * 100).toFixed(2)}%;background:${c}"></span>`).join('')}</div>
@@ -659,9 +679,10 @@ export function mountUretim(root, { realm = 0 } = {}) {
     const m = (v) => money(v * k);
     // Panoya giden metin sayfada değil; seçili dile burada çevrilir (etiketler hizalamadan önce)
     const L = [ceviri(`DentSimco üretim özeti · Realm ${r + 1} · ${PERIODS.find(([key]) => key === period)[1]} · ${H.ECONOMY_PHASES[phaseOf(setup)]}`),
-      `${ceviri('Binalar:')} ${setup.buildings.map((b) => `${nameOf(b.product)}${H.hasQuality(data.products[b.product]) ? ` Q${b.quality}` : ''} (${buildingName(b.type)} ${b.level})`).join(', ')}`, '',
+      `${ceviri('Binalar:')} ${setup.buildings.map((b) => `${nameOf(b.product)}${H.hasQuality(data.products[b.product]) ? ` Q${b.quality}` : ''}${H.isLaunchPad(b, data) && b.rocket != null ? ` · ${nameOf(b.rocket)} Q${b.rocketQuality}` : ''} (${buildingName(b.type)} ${b.level}${H.buildingCount(b, data) > 1 ? ` × ${H.buildingCount(b, data)}` : ''})`).join(', ')}`, '',
       `${''.padEnd(20)}${ceviri('Borsa').padStart(12)} ${ceviri('Kontrat').padStart(13)}`,
       ...[['Brüt satış', A.grossX, A.grossC], ['Komisyon', -A.fee, 0], ['Taşıma', -A.trX, -A.trC], ['Net satış', A.netX, A.netC], ['Girdi alımları', -A.buy, -A.buy],
+        ...(A.rockets ? [['Roket alımları', -A.rockets, -A.rockets]] : []),
         ['Bina maaşları', -A.direct, -A.direct], ['Yönetim gideri', -A.admin, -A.admin], ['Brüt kâr', A.profitX, A.profitC], ['Yönetici maaşları', -A.exec, -A.exec],
         ['Net nakit', A.cashX, A.cashC]].map(([n, a, b]) => `${ceviri(n).padEnd(20)}${m(a).padStart(12)} ${m(b).padStart(13)}`)];
     return L.join('\n');
@@ -670,7 +691,7 @@ export function mountUretim(root, { realm = 0 } = {}) {
   // ---- KURULUM ----
   function viewKurulum(plan) {
     const a = plan.admin;
-    const planLevels = (setup.buildings || []).reduce((t, b) => t + (b.level || 0), 0);
+    const planLevels = (setup.buildings || []).reduce((t, b) => t + H.buildingLevels(b, data), 0);
     const recBonus = H.recreationBonus(setup.recreation);
     const manualBonus = (Number(setup.extraBonusPct) || 0) / 100;
     const totalBonus = recBonus + manualBonus;
@@ -745,8 +766,8 @@ export function mountUretim(root, { realm = 0 } = {}) {
   // ---- BİNALAR ----
   function viewBinalar(plan) {
     const rows = plan.rows;
-    const levels = rows.reduce((t, x) => t + (x.level || 0), 0);
-    const cards = (setup.buildings || []).map((b, i) => buildingCard(b, rows[i], i)).join('');
+    const levels = rows.reduce((t, x) => t + (x.levels ?? x.level ?? 0), 0);
+    const cards = (setup.buildings || []).map((b, i) => buildingCard(b, rows[i], i, plan)).join('');
     const empty = `<div class="ur-card ur-empty"><h2>Henüz bina yok</h2><p class="ur-sub">Bina ekleyin: tür, ürün, kalite ve seviye seçin. Eksik girdiler aşağıda listelenir ve tek dokunuşla eklenir.</p></div>`;
     // Rehber kartı: toplam üretim hızı (rekreasyon + elle girilen) ve ekiple net yönetim gideri; Perakende ile aynı kart
     const speed = H.recreationBonus(setup.recreation) + (Number(setup.extraBonusPct) || 0) / 100;
@@ -766,9 +787,15 @@ export function mountUretim(root, { realm = 0 } = {}) {
       ${kisayolSatiri('uretimOzet', 'uretimAlimSatim')}`;
   }
 
-  function buildingCard(b, row, i) {
+  function buildingCard(b, row, i, plan) {
     const p = data.products[b.product];
     const chips = [];
+    if (row?.launch?.rocket != null && row.ok) {
+      const L = row.launch;
+      chips.push(chip(`${nameOf(L.rocket)} Q${L.rocketQuality}`), chip(`Kaza ${pctText(L.crash, 2)}`, 'muted'), chip(`Fırlatma ${durationText(L.hours)}`, 'muted'));
+      if (row.count > 1) chips.push(chip(`${num(row.count)} rampa`, 'muted'));
+      if (L.rocketPrice == null && plan.launchBuys.some((x) => x.building === row.id)) chips.push(chip('Roket fiyatı yok', 'down'));
+    }
     if (row?.eventPct) chips.push(chip(`Olay ${row.eventPct > 0 ? '+' : '−'}%${Math.abs(row.eventPct)}`, row.eventPct > 0 ? '' : 'down'));
     if (row?.bonus > 0) chips.push(chip(`Rekreasyon ${pctText(row.bonus, 0)}`, 'muted'));
     if (row?.category === 'production') chips.push(chip(b.robots ? 'Robot var' : 'Robot yok', 'muted'));
@@ -812,7 +839,7 @@ export function mountUretim(root, { realm = 0 } = {}) {
     const byRow = new Map(plan.rows.map((x, i) => [i, x]));
     const consumers = (product, minQ) => {
       const set = new Set();
-      for (const d of plan.demands) if (d.product === product && d.minQuality === minQ && d.buyQty > 0) {
+      for (const d of plan.demands) if (!d.launch && d.product === product && d.minQuality === minQ && d.buyQty > 0) {
         const x = byRow.get(d.row);
         if (x) set.add(`${nameOf(x.product)} Q${x.quality}`);
       }
@@ -896,6 +923,66 @@ export function mountUretim(root, { realm = 0 } = {}) {
       .sort((a, b) => a.name.localeCompare(b.name, 'tr'));
     return `<option value="" ${sheet.draft.product ? '' : 'selected'} disabled>Ürün seçin</option>${list.map((p) => `<option value="${p.id}" ${sheet.draft.product === p.id ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}`;
   };
+  // ---- Fırlatma rampası ----
+  // Rampanın tek ürünü Havacılık araştırması: ürün listesi yerine roket, roket kalitesi, adet ve roket fiyatı sorulur.
+  const padProduct = () => Object.values(data.products).find((p) => p.building === H.LAUNCH_PAD)?.id ?? null;
+  const isPadDraft = (d) => d?.type === H.LAUNCH_PAD && !!data.products[padProduct()];
+  function initPad(d) {
+    Object.assign(d, padFields(d), { product: padProduct(), quality: 0, robots: false, efficiency: 100, level: H.launchLevel(d.level) });
+  }
+  const countText = (x) => (fin(x) && Math.abs(x - Math.round(x)) < 1e-9 ? num(Math.round(x)) : smart(x)); // 96, 0,188
+  const durationText = (h) => (!fin(h) ? '—' : h >= 1 ? `${num(h, h % 1 ? 1 : 0)} sa` : `${num(h * 60)} dk`);
+  const stepper = (act, key, value, label, minus, plus) => `<div class="ur-stepper"><button type="button" data-act="${act}" data-v="-1" aria-label="${esc(minus)}">${icon('minus')}</button>
+    <input type="text" inputmode="numeric" data-d="${key}" value="${esc(value)}" aria-label="${esc(label)}"><button type="button" data-act="${act}" data-v="1" aria-label="${esc(plus)}">${icon('plus')}</button></div>`;
+  function sheetPad() {
+    const d = sheet.draft;
+    return `${panelHead(sheet.index != null ? 'Bina düzenle' : 'Bina ekle', buildingName(d.type))}
+      <label class="ur-field"><span>Bina türü</span><select data-d="type">${typeOptions()}</select></label>
+      <div class="ur-field"><span>Roket</span>${seg('dRocket', H.LAUNCH_ROCKETS.map((id) => [id, nameOf(id)]), d.rocket ?? '', 'Roket')}
+        <p class="ur-note">Rampa her fırlatmada tek roket kullanır.</p></div>
+      <div class="ur-field"><span>Roket kalitesi</span><div class="ur-q" role="group" aria-label="Roket kalitesi">${H.allowedQualities(0).map((q) =>
+        `<button type="button" data-act="drq" data-v="${q}" aria-pressed="${d.rocketQuality === q}">Q${q}</button>`).join('')}</div></div>
+      <div class="ur-field"><span>Bina seviyesi (1–10)</span>${stepper('dLevel', 'level', d.level, 'Bina seviyesi', 'Seviyeyi azalt', 'Seviyeyi artır')}</div>
+      <div class="ur-field"><span>Adet</span>${stepper('dCount', 'count', d.count, 'Rampa adedi', 'Adedi azalt', 'Adedi artır')}<p class="ur-note">Aynı seviyedeki rampa sayısı.</p></div>
+      <label class="ur-field"><span>Roket birim fiyatı</span><div class="ur-input"><i>$</i><input type="text" inputmode="decimal" data-d="rocketPrice" value="${d.rocketPrice == null ? '' : esc(num(d.rocketPrice))}" placeholder="ör. 795.000 ya da 795k" aria-label="Roket birim fiyatı"></div>
+        <p class="ur-note">Roketler borsada işlem görmez; elinize geçen fiyatı girin. Planda bu roketi üreten bina varsa önce onun üretimi kullanılır.</p></label>
+      <div data-result>${buildingResult()}</div>
+      ${sheetFoot(d.rocket != null)}`;
+  }
+  function padResult(d, ds, admin, row) {
+    const L = row.launch;
+    const plan = H.evaluatePlan(ds, data, marketPrice, { now: now() });
+    const idx = sheet.index != null ? sheet.index : ds.buildings.length - 1;
+    const dem = plan.demands.find((x) => x.launch && x.row === idx);
+    const ownDay = dem ? dem.own.reduce((t, x) => t + x.qty, 0) : 0;
+    const buyDay = dem ? dem.buyQty : L.launchesDay;
+    const ownCost = dem ? dem.own.reduce((t, x) => t + x.qty * (plan.pools.find((p) => p.product === dem.product && p.quality === x.quality)?.unitCost || 0), 0) : 0;
+    const priced = L.rocketPrice != null || !(buyDay > 0);
+    const rocketDay = ownCost + (L.rocketPrice ?? 0) * buyDay;
+    const unit = priced && row.daily > 0 ? (row.wageDayNet + rocketDay) / row.daily : null;
+    return `<div class="ur-box"><span class="ur-note" style="font-weight:600">Bu bina için</span>
+      ${kv('Fırlatma süresi', durationText(L.hours))}
+      ${kv('Kaza olasılığı', pctText(L.crash, 2), 'c-down')}${kv('Başarı şansı', pctText(1 - L.crash, 2), 'c-up')}
+      ${kv('Fırlatma başına ASR', smart(L.perLaunch))}
+      ${kv('Saatlik ASR / rampa', smart(L.hourlyPerPad), 'c-price', true)}
+      ${row.count > 1 ? kv('Saatlik ASR (toplam)', smart(row.hourly)) : ''}
+      ${kv('Günlük ASR', smart(row.daily))}
+      ${kv('Günlük fırlatma', `${countText(L.launchesDay)} (${countText(L.launchesDayPerPad)}/rampa başına)`)}
+      <div class="ur-hr"></div>
+      ${kv('Maaş/saat (yönetim dahil)', money(row.wageHour * (1 + admin.net)))}
+      ${kv('Fırlatma başına maaş (yönetim dahil)', money(L.wagePerLaunch * (1 + admin.net)))}
+      ${kv(`Günlük roket: ${esc(nameOf(L.rocket))} Q${L.rocketQuality}`, countText(L.launchesDay))}
+      ${ownDay > 0 ? kv('Kendi üretiminizden', smart(ownDay)) : ''}
+      ${kv('Günlük roket maliyeti', priced ? money(rocketDay) : '—')}
+      ${kv('Fırlatma başına maliyet', unit == null ? '—' : money(unit * L.perLaunch))}
+      ${kv('ASR birim maliyeti', unit == null ? '—' : money(unit, 2), '', true)}
+      ${priced ? '' : '<p class="ur-note">Maliyet için roket birim fiyatını girin.</p>'}
+      ${row.notes.map((n) => `<p class="ur-note">${esc(n)}</p>`).join('')}</div>`;
+  }
+  const sheetFoot = (enabled) => `<div class="ur-panel-foot">${sheet.index != null ? `<button type="button" class="ur-btn danger" data-act="bDelSheet" aria-label="Binayı sil">${icon('trash')}</button>` : ''}
+        <button type="button" class="ur-btn grow" data-act="sheetClose">Vazgeç</button>
+        <button type="button" class="ur-btn primary grow" data-act="bSave" ${enabled ? '' : 'disabled'}>${sheet.index != null ? 'Kaydet' : 'Ekle'}</button></div>`;
+
   function draftSetup() {
     const b = { ...sheet.draft };
     const list = [...setup.buildings];
@@ -906,10 +993,12 @@ export function mountUretim(root, { realm = 0 } = {}) {
     const d = sheet.draft;
     const p = data.products[d.product];
     if (!p) return '<p class="ur-note">Sonucu görmek için ürün seçin.</p>';
+    if (isPadDraft(d) && d.rocket == null) return '<p class="ur-note">Sonucu görmek için roket seçin.</p>';
     const ds = draftSetup();
     const admin = H.adminInfo(ds, data);
     const row = H.buildingRate(d, ds, data, admin, now());
     if (!row.ok) return `<div class="ur-msg err">${esc(row.errors.join('. '))}</div>`;
+    if (row.launch) return padResult(d, ds, admin, row);
     const minQ = H.minInputQuality(H.hasQuality(p) ? d.quality : 0);
     return `<div class="ur-box"><span class="ur-note" style="font-weight:600">Bu bina için</span>
       ${kv('Saatlik üretim', perHour(row.hourly), 'c-price', true)}${kv('Günlük üretim', smart(row.daily))}
@@ -920,6 +1009,7 @@ export function mountUretim(root, { realm = 0 } = {}) {
   }
   function sheetBuilding() {
     const d = sheet.draft;
+    if (isPadDraft(d)) return sheetPad();
     const p = data.products[d.product];
     const cat = d.type ? H.buildingCategory(data, d.type) : null;
     const eventPct = p && setup.events?.[p.id] !== false ? H.activeEventPct(data, p.id, now()) : 0;
@@ -937,9 +1027,7 @@ export function mountUretim(root, { realm = 0 } = {}) {
           <p class="ur-note">${eventPct ? `${whenFmt.format(ev.until)}'e kadar. Bu ürünü üreten bütün binalarda hesaba katılır.` : 'Kurulum\'da kapatıldı; hesaba katılmıyor.'}</p>
           <button type="button" class="ur-btn" data-act="gotoEvents" style="margin-top:6px">Olayları yönet</button></div>` : ''}
         <div data-result>${buildingResult()}</div>` : ''}
-      <div class="ur-panel-foot">${sheet.index != null ? `<button type="button" class="ur-btn danger" data-act="bDelSheet" aria-label="Binayı sil">${icon('trash')}</button>` : ''}
-        <button type="button" class="ur-btn grow" data-act="sheetClose">Vazgeç</button>
-        <button type="button" class="ur-btn primary grow" data-act="bSave" ${p ? '' : 'disabled'}>${sheet.index != null ? 'Kaydet' : 'Ekle'}</button></div>`;
+      ${sheetFoot(!!p)}`;
   }
 
   function sheetExport() {
@@ -1019,7 +1107,9 @@ export function mountUretim(root, { realm = 0 } = {}) {
     if (act === 'bNew') {
       clearParked();
       const last = setup.buildings[setup.buildings.length - 1];
-      return openSheet('building', { id: uid('b'), type: last?.type || '', product: null, quality: 0, level: 1, robots: false, efficiency: 100 });
+      const draft = { id: uid('b'), type: last?.type || '', product: null, quality: 0, level: 1, robots: false, efficiency: 100 };
+      if (isPadDraft(draft)) initPad(draft);
+      return openSheet('building', draft);
     }
     if (act === 'bEdit') { clearParked(); const i = Number(v); return openSheet('building', { ...setup.buildings[i] }, { index: i }); }
     if (act === 'bBuild') {
@@ -1081,7 +1171,14 @@ export function mountUretim(root, { realm = 0 } = {}) {
     }
     const d = sheet.draft;
     if (act === 'dq') { d.quality = Number(v); return renderSheet(); }
-    if (act === 'dLevel') { d.level = Math.max(1, (Number(d.level) || 1) + Number(v)); return renderSheet(); }
+    if (act === 'dLevel') {
+      const next = Math.max(1, (Number(d.level) || 1) + Number(v));
+      d.level = isPadDraft(d) ? H.launchLevel(next) : next;
+      return renderSheet();
+    }
+    if (act === 'dCount') { d.count = Math.max(1, (Number(d.count) || 1) + Number(v)); return renderSheet(); }
+    if (act === 'dRocket') { d.rocket = Number(v); return renderSheet(); }
+    if (act === 'drq') { d.rocketQuality = Number(v); return renderSheet(); }
     if (act === 'dRobot') { d.robots = v === '1'; return renderSheet(); }
     if (act === 'gotoEvents') {
       parkSheet({ realm: r, draft: JSON.parse(JSON.stringify(sheet.draft)), index: sheet.index ?? null, scroll: sheetHost.querySelector('.ur-panel')?.scrollTop || 0 });
@@ -1089,6 +1186,10 @@ export function mountUretim(root, { realm = 0 } = {}) {
     }
     if (act === 'bSave') {
       if (!data.products[d.product]) return;
+      if (isPadDraft(d)) {
+        if (d.rocket == null) return toast('Roket seçin.');
+        initPad(d);
+      }
       if (!H.hasQuality(data.products[d.product])) d.quality = 0;
       const list = [...setup.buildings];
       if (sheet.index != null) list[sheet.index] = d; else list.push(d);
@@ -1165,7 +1266,11 @@ export function mountUretim(root, { realm = 0 } = {}) {
     if (!sheet || !t.dataset?.d) return;
     const d = sheet.draft;
     const key = t.dataset.d;
-    if (key === 'type') { d.type = t.value; d.product = null; d.robots = false; d.efficiency = 100; return renderSheet(); }
+    if (key === 'type') {
+      d.type = t.value; d.product = null; d.robots = false; d.efficiency = 100;
+      if (isPadDraft(d)) initPad(d);
+      return renderSheet();
+    }
     if (key === 'product') { d.product = Number(t.value); if (!H.hasQuality(data.products[d.product])) d.quality = 0; return renderSheet(); }
     if (key === 'importText') { sheet.text = t.value; return; }
     // Yazı kutuları: taslak ve sonuç kutusu güncellenir, panel yeniden çizilmez (dokunulan düğme kaybolmasın)
@@ -1179,8 +1284,10 @@ export function mountUretim(root, { realm = 0 } = {}) {
     const d = sheet.draft;
     const key = t.dataset.d;
     const n = parseNum(t.value);
-    if (key === 'level') d.level = Math.max(1, Math.floor(n || 1));
+    if (key === 'level') d.level = isPadDraft(d) ? H.launchLevel(n || 1) : Math.max(1, Math.floor(n || 1));
     else if (key === 'efficiency') d.efficiency = Math.min(100, Math.max(0, n ?? 100));
+    else if (key === 'count') d.count = Math.max(1, Math.floor(n || 1));
+    else if (key === 'rocketPrice') { const x = parsePrice(t.value); d.rocketPrice = x == null || x < 0 ? null : x; }
     else return false;
     return true;
   }
@@ -1206,7 +1313,7 @@ export function mountUretim(root, { realm = 0 } = {}) {
       return;
     }
     if (sheet && t.dataset?.d === 'importText') { sheet.text = t.value; return; }
-    if (!sheet || !['level', 'efficiency'].includes(t.dataset?.d)) return;
+    if (!sheet || !['level', 'efficiency', 'count', 'rocketPrice'].includes(t.dataset?.d)) return;
     if (updateDraftInput(t)) refreshResult();
   }
   function onKey(ev) {

@@ -59,7 +59,12 @@ export const products = Object.fromEntries([
   P(87, 'Heat shield', '7', [[43, 20], [16, 30]], 13.450618128314272, 586.5, 1),
   P(92, 'Orbital booster', '7', [[77, 40], [84, 16], [86, 34]], 1.681327266039284, 586.5, 100),
   P(93, 'Starship', '7', [[81, 2], [87, 10], [82, 4], [84, 6], [86, 7]], 0.3362654532078568, 586.5, 100),
+  // Alt yörüngesel roket: yalnız kimlik, ad ve bina (fırlatma testleri için); tarifi ve hızı testlerde kullanılmıyor
+  P(91, 'Sub-orbital rocket', '9', [], 0, 759.0000000000001, 400),
   P(94, 'BFR', '9', [[92, 1], [93, 1]], 0.2440456939515566, 759.0000000000001, 2000),
+  // Havacılık araştırması: tarifte iki roket de girdi (oyunda rampa fırlatma başına birini kullanır).
+  // Taban maaş 1,5 × 345 = $517,5/saat (oyunda $518 görünür). Saatlik üretim (perHour) fırlatma hesabında kullanılmaz.
+  P(100, 'Aerospace research', 'l', [[91, 1], [94, 1]], 0, 517.5, 0, { research: true }),
   P(106, 'Wood', 'P', [[2, 4], [66, 1]], 78.37849929193634, 103.5, 1),
   P(107, 'Beams', 'x', [[43, 1], [1, 4]], 142.65170193570592, 482.99999999999994, 5),
   P(108, 'Planks', 'x', [[106, 0.5]], 126.34865028591095, 482.99999999999994, 1),
