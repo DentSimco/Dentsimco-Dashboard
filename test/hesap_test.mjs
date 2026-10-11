@@ -1,4 +1,4 @@
-// DentSimco — hesap motoru testleri. Çalıştırma: node test/hesap.test.mjs
+// DentSimco — hesap motoru testleri. Çalıştırma: node test/hesap_test.mjs
 // Beklenen değerlerin hepsi oyunun kendi ekranlarından, Cooper's Tools'tan ya da oyunculardan alınan ekran
 // görüntülerinden; "İç tutarlılık" bölümü motorun kendi kurallarını, "Yaklaşık" bölümü doğrulanmamış çıkarımları sınar.
 
