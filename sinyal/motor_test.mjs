@@ -1,7 +1,7 @@
 // DentSimco — Sinyal motoru sınamaları (yapay veri; Firestore'a bağlanmaz)
 // Çalıştırma: node sinyal/motor.test.mjs   (sinyal.yml her çalışmada önce bunu koşar; hata varsa sinyal yazılmaz)
 
-import { hesapla, seriKur, sezonFazi, addDays, diffDays, sonDeger, likitMi, canliHaritasi, titresimOnle, titresimUygula, main } from './motor.mjs';
+import { hesapla, seriKur, sezonFazi, addDays, diffDays, sonDeger, likitMi, canliHaritasi, titresimOnle, titresimUygula, gunIciOlay, main } from './motor.mjs';
 
 let pass = 0;
 let fail = 0;
@@ -201,7 +201,7 @@ ok(b1 && b1[0] === 1 && b1[1] === 0, 'karne: ≤ −%4 beklentisi sonrası fiyat
   const sinyalOku = () => JSON.parse(store.get('meta/sinyal_r0').data);
 
   const d0 = sahteDb();
-  await main({ db: d0, simdi: simdi0, mod: 'gece' });
+  await main({ db: d0, simdi: simdi0, mod: 'gece', seedYukle: async () => null });
   uygula(d0);
   const gece = sinyalOku();
   ok(d0.yazilan.some((w) => w.path === 'meta/sinyal_karne_r0') && d0.yazilan.some((w) => w.path === 'meta/olaylar_r0'), 'gece çalışması karne ve arşivi de yazar');
@@ -213,34 +213,86 @@ ok(b1 && b1[0] === 1 && b1[1] === 0, 'karne: ≤ −%4 beklentisi sonrası fiyat
 
   store.set('live/r0', canliDoc(simdi1 - 60_000));
   const d1 = sahteDb();
-  await main({ db: d1, simdi: simdi1, mod: 'gunici' });
-  ok(d1.yazilan.length === 1 && d1.yazilan[0].path === 'meta/sinyal_r0', 'gün içi çalışma yalnız sinyal belgesini yazar (karne ve arşive dokunmaz)');
+  await main({ db: d1, simdi: simdi1, mod: 'gunici', seedYukle: async () => null });
+  const yollar = d1.yazilan.map((w) => w.path).sort();
+  ok(yollar.length === 2 && yollar[0] === 'meta/sinyal_r0' && yollar[1].startsWith('meta/sinyalgecmisgi_r0_'), 'gün içi çalışma sinyal belgesini ve gün içi karne kaydını yazar (karne ve arşive dokunmaz)');
+  const giKayit = d1.yazilan.find((w) => w.path.startsWith('meta/sinyalgecmisgi_r0_'));
+  ok(giKayit.type === 'merge' && /^s\d\d$/.test(Object.keys(giKayit.data).find((k) => k !== 'u')), 'gün içi karne: saat alanı birleştirilerek yazılır');
   uygula(d1);
   const g1 = sinyalOku();
-  ok(g1.urun[901][0].s[0] === 'HSAT' && g1.urun[901][0].b?.[0] !== 'HSAT' && g1.urun[901][0].b != null, 'birinci gün içi çalışma: yön değişimi bekletildi');
+  // 901 gece sıçradı (SAT, düşüş hedefi). Canlı fiyat sıçrama öncesine döndü: hedefe ulaşıldı → beklemeden yenilenir
+  ok(gece.urun[901][0].h?.[1] === -1 && g1.urun[901][0].v?.[0] === 'hd-' && g1.urun[901][0].b === undefined && g1.urun[901][0].s[0] !== 'HSAT', 'düşüş hedefine ulaşıldı: sinyal titreşim beklemesi olmadan yenilendi');
+  ok(g1.urun[901][0].r[0] === 'hd-', 'olay gerekçe listesinin başında');
   ok(g1.tn === simdi0 && g1.t === simdi1, 'gün içi çalışma gece hesabının zamanını (tn) korur');
 
   const simdi2 = simdi1 + 2 * 3_600_000;
   store.set('live/r0', canliDoc(simdi2 - 60_000));
   const d2 = sahteDb();
-  await main({ db: d2, simdi: simdi2, mod: 'gunici' });
+  await main({ db: d2, simdi: simdi2, mod: 'gunici', seedYukle: async () => null });
   uygula(d2);
   const g2 = sinyalOku();
-  ok(g2.urun[901][0].g === 1 && g2.urun[901][0].s[0] !== 'HSAT' && g2.urun[901][0].b === undefined && g2.urun[901][0].p === canliFiyat, 'ikinci ardışık çalışma: yön değişimi onaylandı, canlı fiyat hesap fiyatı');
+  ok(g2.urun[901][0].g === 1 && g2.urun[901][0].s[0] !== 'HSAT' && g2.urun[901][0].b === undefined && g2.urun[901][0].p === canliFiyat, 'ikinci çalışma: yenilenen sinyal sürer, canlı fiyat hesap fiyatı');
+  ok(g2.urun[901][0].v?.[0] === 'hd-' && g2.urun[901][0].v[1] === g1.urun[901][0].v[1], 'olay etiketi sonraki saatte de kalır (yeniden üretilmez)');
 
   // Canlı belge eskiyse hiçbir şey yazılmaz
   store.set('live/r0', canliDoc(simdi2 - 3_600_000));
   const d3 = sahteDb();
-  await main({ db: d3, simdi: simdi2, mod: 'gunici' });
+  await main({ db: d3, simdi: simdi2, mod: 'gunici', seedYukle: async () => null });
   ok(d3.yazilan.length === 0, 'canlı belge eskiyse gün içi çalışma yazmaz');
 
   // Gece hesabı hiç yapılmadıysa gün içi çalışma yazmaz
   store.delete('meta/sinyal_r0');
   store.set('live/r0', canliDoc(simdi2 - 60_000));
   const d4 = sahteDb();
-  await main({ db: d4, simdi: simdi2, mod: 'gunici' });
+  await main({ db: d4, simdi: simdi2, mod: 'gunici', seedYukle: async () => null });
   ok(d4.yazilan.length === 0, 'önceki sinyal belgesi yoksa gün içi çalışma yazmaz');
   console.log = sessiz;
+}
+
+// 11) Gün içi olaylar
+{
+  const simdi = 1_000_000_000;
+  const hi = Math.log(110), lo = Math.log(90);
+  ok(gunIciOlay({ p: 121, once: { h: [120, 1] }, hi, lo, nn: 20, simdi }) === 'hd+', 'yükseliş hedefine ulaşıldı');
+  ok(gunIciOlay({ p: 80, once: { h: [85, -1] }, hi, lo, nn: 20, simdi }) === 'hd-', 'düşüş hedefine ulaşıldı');
+  ok(gunIciOlay({ p: 112, once: { h: [120, 1] }, hi, lo, nn: 20, simdi }) === 'ky', 'hedef yok ama 20 günlük tepe %1+ aşıldı: yukarı kırılım');
+  ok(gunIciOlay({ p: 110.5, once: {}, hi, lo, nn: 20, simdi }) === null, 'tepenin %1 içi kırılım sayılmaz');
+  ok(gunIciOlay({ p: 88, once: {}, hi, lo, nn: 20, simdi }) === 'ka', '20 günlük dip %1+ kırıldı: yeni dip');
+  ok(gunIciOlay({ p: 88, once: { v: ['ka', simdi - 3_600_000] }, hi, lo, nn: 20, simdi }) === null, 'aynı kırılım 12 saat içinde tekrar üretilmez');
+  ok(gunIciOlay({ p: 88, once: { v: ['ka', simdi - 13 * 3_600_000] }, hi, lo, nn: 20, simdi }) === 'ka', '12 saat sonra yeni dip yeniden olay olur');
+  ok(gunIciOlay({ p: 88, once: {}, hi, lo, nn: 5, simdi }) === null, 'yeterli geçmiş yoksa kırılım yok');
+  const t = titresimOnle({ e: 10, s: ['TUT', 3], a: ['STOKLA', 2], p: 100, g: 1, v: ['ky', simdi] }, { e: -10, s: ['HSAT', 3], a: ['BEKLE', 3], p: 95, v: ['ka', simdi - 1] });
+  ok(t.s[0] === 'TUT', 'yeni olay titreşim beklemesini atlar');
+  const t2 = titresimOnle({ e: 10, s: ['TUT', 3], a: ['STOKLA', 2], p: 100, g: 1, v: ['ka', 5] }, { e: -10, s: ['HSAT', 3], a: ['BEKLE', 3], p: 95, v: ['ka', 5] });
+  ok(t2.s[0] === 'HSAT', 'taşınan (eski) olay beklemeyi atlatmaz');
+}
+
+// 12) Zayıf yükseliş (+%2…+%4) nötr; gece hedefi
+{
+  const gece = hesapla(girdi(null)).sinyal.urun;
+  let zayif = 0, yanlis = 0;
+  for (const qs of Object.values(gece)) for (const e of Object.values(qs)) {
+    if (e.e == null) continue;
+    const o = e.e / 200;
+    if (o >= 0.02 && o < 0.04) { zayif++; if (e.s[0] !== 'SAT' || e.a[0] !== 'AL' || e.s[1] || e.a[1]) yanlis++; }
+    if (Math.abs(o) >= 0.02 && !e.h) yanlis++;
+    if (Math.abs(o) < 0.02 && e.h) yanlis++;
+  }
+  ok(yanlis === 0, `zayıf yükseliş nötr ve hedef yalnız |beklenti| ≥ %2'de (${zayif} zayıf kayıt)`);
+}
+
+// 13) Karne: kaçan gece sonraki gece değerlendirilir; gün içi karne
+{
+  const T = addDays(start, N - 1);
+  const d15 = addDays(T, -15); // bir gece kaçtı: bu kayıt 15 gün önceden
+  const gecmisDocs = new Map([[d15, { d: d15, items: { 900: { 0: [-10, 20] } } }]]);
+  const gecmisGiDocs = new Map([[d15, { saat: { s10: { 900: { 0: [10, 5] } }, s11: { 900: { 0: [10, 5] } } } }]]);
+  const r = hesapla({ ...girdi(null), gecmisDocs, gecmisGiDocs });
+  ok(r.karne.gunler[d15]?.b1?.[0] === 1, 'kaçan gecenin kaydı sonraki gece değerlendirildi');
+  ok(r.karne.gunici[d15]?.b5?.[0] === 2 && r.karne.gunici[d15].b5[1] === 2, 'gün içi karne: her saatin kaydı sayılır (fiyat 5 → ~10, yükseldi)');
+  ok(r.sinyal.karne.gunici?.b5?.[0] === 2, 'gün içi karne özeti yayında');
+  const r2 = hesapla({ ...girdi(null), gecmisDocs, karneDoc: { gunler: { [d15]: { b1: [9, 9, 9] } } } });
+  ok(r2.karne.gunler[d15].b1[0] === 9, 'karnede olan gün yeniden sayılmaz');
 }
 
 console.log(`${pass}/${pass + fail} test geçti`);
