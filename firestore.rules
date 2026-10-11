@@ -1,0 +1,15 @@
+// DentSimco — Firestore güvenlik kuralları (kaynak kopya).
+// Bu dosya Firebase'e otomatik yüklenmez: değişince Firebase Console > Firestore > Kurallar'a yapıştırıp Yayınla'ya basın.
+// Site (public/veri.js) yalnız documents:batchGet çağırır; bu, belge başına "get" kuralıyla yetkilendirilir.
+// Bu yüzden listeleme (list), yazma ve burada sayılmayan koleksiyonlar (ör. eski "state") kapalıdır.
+// Botlar servis hesabıyla (IAM) yazar; güvenlik kuralları onları etkilemez.
+// test/guvenlik_test.mjs, sitenin okuduğu koleksiyonların bu listede olduğunu denetler.
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{col}/{doc} {
+      // Sadece tek belge okuma; listeleme, state ve yazma kapalı
+      allow get: if col in ['live', 'intraday', 'daily', 'meta', 'system'];
+    }
+  }
+}
