@@ -872,7 +872,6 @@ export default {
   'Beceriler': 'Skills',
   'Günlük maaş': 'Daily salary',
   'Eğitimde, yerleşmekte ya da grevde olan yönetici etki etmez, maaşı yine ödenir.': 'An executive in training, settling in or on strike has no effect, but the salary is still paid.',
-  'Yöneticileri yapıştır': 'Paste executives',
   'Oyuna girişliyken': 'While logged in to the game, open',
   'adresini açın, açılan sayfadaki metnin tamamını kopyalayıp buraya yapıştırın (adresi değil).': ', copy all the text on the page that opens and paste it here (not the address).',
   'API çıktısı': 'API output',

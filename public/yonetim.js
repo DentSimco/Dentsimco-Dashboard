@@ -83,7 +83,7 @@ const EXTRA_CSS = `
 
 // Ekip puanı: ham takım puanı ve oyundaki etkili beceri (60'a kadar aynı, 60–80 arası her puan yarım, 80 üstü çeyrek; tam sayıya iner).
 // Örnek: 66 → 63, 64 → 62, 80,50 → 70, 44,75 → 44. Etkiler (yönetim gideri, vergi, hız) etkili beceriden hesaplanır.
-// "Yöneticileri yapıştır" kutusundaki metni okur. Sonuç: { parsed } ya da { error, link? }.
+// "JSON ekle" kutusundaki metni okur. Sonuç: { parsed } ya da { error, link? }.
 // Sık yanlış: kutuya sayfanın içeriği yerine adresin kendisi yapıştırılır; o zaman adresi açan bağlantı önerilir.
 export function apiOku(text) {
   const t = String(text ?? '').trim();
@@ -310,7 +310,7 @@ export function mountYonetim(root, { realm = 0 } = {}) {
   }
   function apiCard() {
     const p = api.parsed;
-    return `<section class="ur-card" aria-labelledby="h-api"><h2 id="h-api">Yöneticileri yapıştır</h2>
+    return `<section class="ur-card" aria-labelledby="h-api"><h2 id="h-api">JSON ekle</h2>
       <p class="ur-sub">Oyuna girişliyken <b>simcompanies.com/api/v3/companies/ŞİRKET_NO/executives/</b> adresini açın, açılan sayfadaki metnin tamamını kopyalayıp buraya yapıştırın (adresi değil).</p>
       <textarea data-api spellcheck="false" autocapitalize="off" aria-label="API çıktısı">${esc(api.text || '')}</textarea>
       ${api.error ? `<div class="ur-msg err" role="alert">${esc(api.error)}</div>` : ''}
