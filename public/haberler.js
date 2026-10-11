@@ -22,7 +22,8 @@ const kategori = (k) => (DIL === 'en' ? KATEGORI_EN[k] || k : k);
 
 // ---- Saf yardımcılar (sınanır) ----------------------------------------------------------------
 
-// Kayan şerit: fiyatı olan ürünlerden rastgele n tanesi. Fiyat = canlı (ana kalite), değişim = dünkü kapanışa göre.
+// Kayan şerit: en çok yükselen ve en çok düşen ürünler öne alınır (biri yükselen, biri düşen sırasıyla); yetmezse
+// kalan ürünler rastgele eklenir. Fiyat = canlı (ana kalite), değişim = dünkü kapanışa göre.
 // fiyatlar = {id: [ad, dünküKapanış, anaKalite]} (haber belgesi), live = live belgesinin items'ı. Canlı fiyat ana kaliteden
 // okunur (dünkü kapanış da o kalitenin); canlı kayıtta o kalite yoksa dünkü kapanış gösterilir, değişim boş kalır. rnd: sınama için değiştirilebilir rastgele sayı üreteci.
 export function tickerItems(fiyatlar, live, n = TICKER_N, rnd = Math.random) {
@@ -33,8 +34,16 @@ export function tickerItems(fiyatlar, live, n = TICKER_N, rnd = Math.random) {
     if (!fiyat) continue;
     out.push({ id: Number(id), ad, q, fiyat, degisim: canli && dun > 0 ? canli / dun - 1 : null });
   }
-  for (let i = out.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; }
-  return out.slice(0, n);
+  const up = out.filter((x) => x.degisim > 0).sort((a, b) => b.degisim - a.degisim);
+  const down = out.filter((x) => x.degisim < 0).sort((a, b) => a.degisim - b.degisim);
+  const rest = out.filter((x) => !(x.degisim > 0) && !(x.degisim < 0));
+  for (let i = rest.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [rest[i], rest[j]] = [rest[j], rest[i]]; }
+  const sec = [];
+  for (let i = 0; sec.length < n && (i < up.length || i < down.length); i++) {
+    if (i < up.length) sec.push(up[i]);
+    if (sec.length < n && i < down.length) sec.push(down[i]);
+  }
+  return [...sec, ...rest].slice(0, n);
 }
 
 // Kapanış serisinden SVG yolu: [çizgi, alan] (viewBox 0 0 w h). Seri boş ya da tek noktaysa null.
@@ -83,7 +92,7 @@ const CSS = `
 .nw-tk { display: inline-flex; align-items: baseline; gap: 7px; padding: 0 18px; border-right: 1px solid var(--nw-band-line); color: inherit; text-decoration: none; white-space: nowrap; font: 500 14px var(--font-c); font-variant-numeric: tabular-nums; }
 .nw-tk b { font-weight: 600; }
 .nw-tk .nw-q { font-style: normal; font-size: 11.5px; padding: 1px 4px; border: 1px solid var(--nw-band-line); border-radius: 3px; color: #9fb3cf; }
-.nw-tk .u { color: #8fd4ff; } .nw-tk .d { color: #c3cedd; } .nw-tk .f { color: #7f8ea6; }
+.nw-tk .u { color: #3ee08f; } .nw-tk .d { color: #ff6577; } .nw-tk .f { color: #7f8ea6; } /* şeritte yükselen yeşil, düşen kırmızı (yalnız sayılar) */
 /* Sitenin genel "hareketi azalt" kuralı animasyonları sıfırlar; şerit yine yavaşça kaysın (istenen davranış). */
 @media (prefers-reduced-motion: reduce) { .nw .nw-track { animation-duration: calc(var(--nw-dur, 60s) * 1.5) !important; } .nw-live i { animation: none; } }
 
@@ -261,7 +270,7 @@ function viewFront(st) {
   const tk = ticker.map((x) => {
     const cls = x.degisim == null || Math.abs(x.degisim) < 0.0005 ? 'f' : x.degisim > 0 ? 'u' : 'd';
     const arrow = cls === 'u' ? '▲' : cls === 'd' ? '▼' : '■';
-    return `<a class="nw-tk" href="#borsa" tabindex="-1"><span data-no-t>${esc(x.ad)}</span><i class="nw-q">Q${esc(x.q)}</i><b>${fmtPrice(x.fiyat)}</b><span class="${cls}">${arrow} ${x.degisim == null ? '' : pctF.format(x.degisim)}</span></a>`;
+    return `<a class="nw-tk" href="#borsa" tabindex="-1"><span data-no-t>${esc(x.ad)}</span><i class="nw-q">Q${esc(x.q)}</i><b class="${cls === 'f' ? '' : cls}">${fmtPrice(x.fiyat)}</b><span class="${cls}">${arrow} ${x.degisim == null ? '' : pctF.format(x.degisim)}</span></a>`;
   }).join('');
   const lead = news.manset;
   const lt = dil(lead);
@@ -295,7 +304,7 @@ function viewFront(st) {
           <a class="nw-more" href="#haberler/${esc(kose.id)}">Devamını oku →</a>
         </section>` : ''}
         ${rankBox({ title: 'En değerli şirketler', note: 'Şirket değeri', href: '#sirketler/value', rows: top?.deger, value: (r) => compactUsd(r[5]) })}
-        ${rankBox({ title: 'En yüksek EVA', note: 'EVA puanı', href: '#sirketler/eva', rows: top?.eva, value: (r) => new Intl.NumberFormat(LOCALE).format(r[4]) })}
+        ${rankBox({ title: 'En iyi EVA', note: 'Günlük değer artışı', href: '#sirketler/eva', rows: top?.eva, value: (r) => `${r[6] > 0 ? '+' : r[6] < 0 ? '−' : ''}${compactUsd(Math.abs(r[6]))}` })}
       </aside>
     </div>
     <p class="nw-foot">Haberler DentSimco verileriyle hazırlanır ve her sabah 08:00'de (TR) yenilenir. Yatırım tavsiyesi değildir; rakamları Piyasa ve Şirketler bölümlerinden doğrulayabilirsin.</p>`;

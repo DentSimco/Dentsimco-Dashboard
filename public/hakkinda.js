@@ -10,12 +10,15 @@ export const UPDATES = [
   {
     date: '11 Ekim 2026',
     items: [
+      'Şirketler: "Sıra" ölçütü kaldırıldı; Simcotools sırası şirket değerine göre olduğu için Şirket değeri ölçütüyle aynıydı. Sayfa artık şirket değerine göre açılıyor, sıra numarası tabloda duruyor.',
+      'Şirketler: Tahvil sütunu Bono oldu.',
+      'Haberler: kayan borsa şeridinde en çok yükselen ve düşen ürünler öne alındı; yükselenlerin fiyatı ve değişimi yeşil, düşenlerinki kırmızı.',
       'Sinyaller artık gün içinde saatte bir yenileniyor (önce iki saatte birdi). Fiyat hedefe ulaşır, son 20 günün zirvesini yukarı ya da dibini aşağı kırarsa sinyal o saatte beklemeden yeniden hesaplanır; kartta "Yeni sinyal" etiketi çıkar.',
       'Sinyaller: +%2 ile +%4 arasındaki zayıf yükseliş beklentileri artık nötr (SAT / AL) gösteriliyor; geçmiş sınamada bu aralığın isabeti düşüktü.',
       'Sinyaller › Karne: gün içinde yenilenen sinyaller de karneye giriyor (Gün içi sütunu). Bir gece hesabı kaçarsa o günün karnesi sonraki gece tamamlanıyor.',
       'Sinyaller: R2\'de geçmiş veri az olduğu için sinyallerin sınırlı olduğu ve piyasa genelinin hesaba katılmadığı açıkça yazılıyor.',
       'Haberler bölümü eklendi (menüde en solda): manşet, iki sütun haber ve köşe yazısı haber masası tarafından DentSimco verileriyle her sabah 08:00\'de (TR) yazılır. En üstte borsadan rastgele ürünlerin canlı fiyatları kayar; sağ sütunun altında şirket değeri ve EVA sıralamasının ilk 3\'ü var, tıklayınca Şirketler o sıralamayla açılır.',
-      'Şirketler: EVA sütunu EVA puanı oldu ve büyükten küçüğe sıralanır (Simcotools\'ta büyük puan daha iyidir).',
+      'Şirketler: EVA sırasına göre sıralama 1\'den (en çok değer katan şirket) başlar; EVA\'sı hesaplanmamış şirketler sonda. Haberler\'deki En iyi EVA kutusu da buna göre.',
       'Borsa menüsünün adı Piyasa oldu. Piyasa altında iki sekme var: Canlı Borsa ve Sinyaller.',
     ],
   },
