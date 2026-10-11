@@ -31,7 +31,7 @@ export function tickerItems(fiyatlar, live, n = TICKER_N, rnd = Math.random) {
     const canli = Number(live?.[id]?.[1]?.[q]?.[0]) || null;
     const fiyat = canli ?? (Number(dun) || null);
     if (!fiyat) continue;
-    out.push({ id: Number(id), ad, fiyat, degisim: canli && dun > 0 ? canli / dun - 1 : null });
+    out.push({ id: Number(id), ad, q, fiyat, degisim: canli && dun > 0 ? canli / dun - 1 : null });
   }
   for (let i = out.length - 1; i > 0; i--) { const j = Math.floor(rnd() * (i + 1)); [out[i], out[j]] = [out[j], out[i]]; }
   return out.slice(0, n);
@@ -79,8 +79,10 @@ const CSS = `
 @keyframes nw-scroll { to { transform: translateX(-50%); } }
 .nw-tk { display: inline-flex; align-items: baseline; gap: 7px; padding: 0 18px; border-right: 1px solid var(--nw-band-line); color: inherit; text-decoration: none; white-space: nowrap; font: 500 14px var(--font-c); font-variant-numeric: tabular-nums; }
 .nw-tk b { font-weight: 600; }
+.nw-tk .nw-q { font-style: normal; font-size: 11.5px; padding: 1px 4px; border: 1px solid var(--nw-band-line); border-radius: 3px; color: #9fb3cf; }
 .nw-tk .u { color: #8fd4ff; } .nw-tk .d { color: #c3cedd; } .nw-tk .f { color: #7f8ea6; }
-@media (prefers-reduced-motion: reduce) { .nw-track { animation: none; } .nw-ticker { overflow-x: auto; } .nw-live i { animation: none; } }
+/* Sitenin genel "hareketi azalt" kuralı animasyonları sıfırlar; şerit yine yavaşça kaysın (istenen davranış). */
+@media (prefers-reduced-motion: reduce) { .nw .nw-track { animation-duration: calc(var(--nw-dur, 60s) * 1.5) !important; } .nw-live i { animation: none; } }
 
 .nw-mast { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 18px 0 10px; border-bottom: 3px double var(--line-3); }
 .nw-logo { font: 600 30px/1 var(--font-c); letter-spacing: -.01em; color: var(--text); }
@@ -113,7 +115,8 @@ const CSS = `
 .nw-chart { background: var(--surface); border: 1px solid var(--line); border-radius: 4px; padding: 14px 14px 10px; }
 .nw-chart-h { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 8px; }
 .nw-chart-h b { font: 600 15px var(--font-c); }
-.nw-chart-h span { font: 600 20px var(--font-c); font-variant-numeric: tabular-nums; }
+.nw-chart-h > span { font: 600 20px var(--font-c); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.nw-chart-h .nw-per { font: 500 12px var(--font); color: var(--faint); margin-right: 4px; }
 .nw-chart { margin: 0; }
 .nw-chart svg { display: block; width: 100%; height: 170px; }
 .nw-art .nw-chart svg { height: 230px; }
@@ -198,25 +201,36 @@ function loadSerif() {
   document.head.append(l);
 }
 
+// Grafik serisi: günlük kapanışlar + (varsa) bugünkü canlı fiyat. Haber metnindeki "bugün" ile grafik aynı yönü gösterir.
+export function chartSeries(g, today = new Date().toISOString().slice(0, 10)) {
+  const seri = [...(g?.seri || [])];
+  if (Number(g?.canli) > 0 && seri.length && seri.at(-1)[0] < today) seri.push([today, Number(g.canli)]);
+  return seri;
+}
+
 function chartBox(g, { big = false } = {}) {
-  const paths = g && sparkPaths(g.seri, 300, big ? 120 : 110);
+  const seri = chartSeries(g);
+  const paths = g && sparkPaths(seri, 300, big ? 120 : 110);
   if (!paths) return '';
-  const first = g.seri[0][1];
-  const last = g.seri.at(-1)[1];
+  const first = seri[0][1];
+  const last = seri.at(-1)[1];
+  const days = Math.round((Date.parse(`${seri.at(-1)[0]}T00:00:00Z`) - Date.parse(`${seri[0][0]}T00:00:00Z`)) / 864e5);
+  const hasLive = seri.length > (g.seri || []).length;
   const ch = first > 0 ? last / first - 1 : 0;
   const fmtD = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString(LOCALE, { day: 'numeric', month: 'short', timeZone: 'UTC' });
   const pctTxt = new Intl.NumberFormat(LOCALE, { style: 'percent', maximumFractionDigits: 1, signDisplay: 'exceptZero' }).format(ch);
   return `<figure class="nw-chart ${ch < 0 ? 'dn' : ''}">
-    <div class="nw-chart-h"><b data-no-t>${esc(g.ad)} · Q${esc(g.q)}</b><span style="color:var(--nw-${ch < 0 ? 'dn' : 'up'})">${pctTxt}</span></div>
+    <div class="nw-chart-h"><b><span data-no-t>${esc(g.ad)}</span> · Q${esc(g.q)} fiyatı</b><span style="color:var(--nw-${ch < 0 ? 'dn' : 'up'})"><small class="nw-per">${days} gün</small> ${pctTxt}</span></div>
     <svg viewBox="0 0 300 ${big ? 120 : 110}" preserveAspectRatio="none" aria-hidden="true"><path class="ar" d="${paths[1]}"/><path class="ln" d="${paths[0]}"/></svg>
-    <figcaption class="nw-chart-f"><span>${fmtD(g.seri[0][0])}</span><span>${DIL === 'en' ? 'Daily close' : 'Günlük kapanış'} · ${fmtPrice(last)}</span><span>${fmtD(g.seri.at(-1)[0])}</span></figcaption>
+    <figcaption class="nw-chart-f"><span>${fmtD(seri[0][0])}</span><span>${hasLive ? `Günlük kapanış + bugün · ${fmtPrice(last)}` : `Günlük kapanış · ${fmtPrice(last)}`}</span><span>${hasLive ? 'Bugün' : fmtD(seri.at(-1)[0])}</span></figcaption>
   </figure>`;
 }
 
 function spark(g) {
-  const paths = g && sparkPaths(g.seri, 84, 22);
+  const seri = chartSeries(g);
+  const paths = g && sparkPaths(seri, 84, 22);
   if (!paths) return '';
-  const dn = g.seri.at(-1)[1] < g.seri[0][1];
+  const dn = seri.at(-1)[1] < seri[0][1];
   return `<svg class="nw-spark ${dn ? 'dn' : ''}" viewBox="0 0 84 22" preserveAspectRatio="none" aria-hidden="true"><path class="ln" d="${paths[0]}"/></svg>`;
 }
 
@@ -244,7 +258,7 @@ function viewFront(st) {
   const tk = ticker.map((x) => {
     const cls = x.degisim == null || Math.abs(x.degisim) < 0.0005 ? 'f' : x.degisim > 0 ? 'u' : 'd';
     const arrow = cls === 'u' ? '▲' : cls === 'd' ? '▼' : '■';
-    return `<a class="nw-tk" href="#borsa" tabindex="-1"><span data-no-t>${esc(x.ad)}</span><b>${fmtPrice(x.fiyat)}</b><span class="${cls}">${arrow} ${x.degisim == null ? '' : pctF.format(x.degisim)}</span></a>`;
+    return `<a class="nw-tk" href="#borsa" tabindex="-1"><span data-no-t>${esc(x.ad)}</span><i class="nw-q">Q${esc(x.q)}</i><b>${fmtPrice(x.fiyat)}</b><span class="${cls}">${arrow} ${x.degisim == null ? '' : pctF.format(x.degisim)}</span></a>`;
   }).join('');
   const lead = news.manset;
   const lt = dil(lead);
