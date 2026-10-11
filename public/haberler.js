@@ -67,15 +67,18 @@ const CSS = `
 .nw { --nw-acc: #6cc4ff; --nw-up: #8fd4ff; --nw-dn: #9fb0c8; --nw-band: #03070d; --nw-band-text: #e6edf7; --nw-band-line: #18263b; --nw-serif: "Source Serif 4", Georgia, "Times New Roman", serif;
   max-width: 1240px; margin: 0 auto; padding: 0 20px 48px; }
 :root[data-theme="light"] .nw { --nw-acc: #0a4fa8; --nw-up: #0a4fa8; --nw-dn: #6a7b96; --nw-band: #0e1b30; --nw-band-text: #f3f6fb; --nw-band-line: #22324d; }
-.nw-ticker { position: relative; margin: 0 -20px; background: var(--nw-band); color: var(--nw-band-text); border-bottom: 1px solid var(--nw-band-line); overflow: hidden; height: 40px; display: flex; align-items: center; }
-.nw-ticker::before, .nw-ticker::after { content: ""; position: absolute; top: 0; bottom: 0; width: 40px; z-index: 2; pointer-events: none; }
-.nw-ticker::before { left: 0; background: linear-gradient(90deg, var(--nw-band), transparent); }
-.nw-ticker::after { right: 0; background: linear-gradient(-90deg, var(--nw-band), transparent); }
+.nw-ticker { position: relative; margin: 0 -20px; background: var(--nw-band); color: var(--nw-band-text); border-bottom: 1px solid var(--nw-band-line); overflow: hidden; height: 40px; display: flex; align-items: stretch; }
+/* CANLI rozeti sabit durur; yalnız sağındaki pencere kayar. Pencere elle kaydırılamaz (dokunmatikte de), dikey sayfa kaydırma serbest. */
+.nw-view { position: relative; flex: 1 1 auto; min-width: 0; overflow: hidden; display: flex; align-items: center; touch-action: pan-y; overscroll-behavior-x: none; }
+.nw-view::before, .nw-view::after { content: ""; position: absolute; top: 0; bottom: 0; width: 32px; z-index: 2; pointer-events: none; }
+.nw-view::before { left: 0; background: linear-gradient(90deg, var(--nw-band), transparent); }
+.nw-view::after { right: 0; background: linear-gradient(-90deg, var(--nw-band), transparent); }
 .nw-live { position: relative; z-index: 3; flex: none; display: flex; align-items: center; gap: 7px; height: 100%; padding: 0 14px 0 20px; background: #e10600; color: #fff; font: 600 13px/1 var(--font-c); letter-spacing: .12em; } /* yalnız CANLI rozeti: klasik canlı yayın kırmızısı */
 .nw-live i { width: 7px; height: 7px; border-radius: 50%; background: #fff; animation: nw-pulse 1.6s ease-in-out infinite; }
 @keyframes nw-pulse { 50% { opacity: .25; } }
 .nw-track { display: flex; width: max-content; animation: nw-scroll var(--nw-dur, 60s) linear infinite; }
-.nw-ticker:hover .nw-track, .nw-ticker:focus-within .nw-track { animation-play-state: paused; }
+.nw-view:hover .nw-track { animation-play-state: paused; }
+@media (hover: none) { .nw-view:hover .nw-track { animation-play-state: running; } }
 @keyframes nw-scroll { to { transform: translateX(-50%); } }
 .nw-tk { display: inline-flex; align-items: baseline; gap: 7px; padding: 0 18px; border-right: 1px solid var(--nw-band-line); color: inherit; text-decoration: none; white-space: nowrap; font: 500 14px var(--font-c); font-variant-numeric: tabular-nums; }
 .nw-tk b { font-weight: 600; }
@@ -267,7 +270,7 @@ function viewFront(st) {
   const kt = kose && dil(kose);
   const today = new Date().toLocaleDateString(LOCALE, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   return `
-    ${ticker.length ? `<div class="nw-ticker" role="marquee" aria-label="Borsa şeridi"><span class="nw-live"><i></i>CANLI</span><div class="nw-track" style="--nw-dur:${Math.max(40, ticker.length * 4.5)}s">${tk}${tk.replace(/class="nw-tk"/g, 'class="nw-tk" aria-hidden="true"')}</div></div>` : ''}
+    ${ticker.length ? `<div class="nw-ticker" role="marquee" aria-label="Borsa şeridi"><span class="nw-live"><i></i>CANLI</span><div class="nw-view"><div class="nw-track" style="--nw-dur:${Math.max(40, ticker.length * 4.5)}s">${tk}${tk.replace(/class="nw-tk"/g, 'class="nw-tk" aria-hidden="true"')}</div></div></div>` : ''}
     <header class="nw-mast">
       <div class="nw-logo">Dent<span>Simco</span><em>NEWS</em></div>
       <div class="nw-dateline"><b>${esc(today)}</b> · R${realm + 1}<br>Son baskı ${esc(fmtDateTime(news.t))}</div>
