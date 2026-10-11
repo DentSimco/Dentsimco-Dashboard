@@ -71,8 +71,8 @@ const CSS = `
 .nw-ticker::before, .nw-ticker::after { content: ""; position: absolute; top: 0; bottom: 0; width: 40px; z-index: 2; pointer-events: none; }
 .nw-ticker::before { left: 0; background: linear-gradient(90deg, var(--nw-band), transparent); }
 .nw-ticker::after { right: 0; background: linear-gradient(-90deg, var(--nw-band), transparent); }
-.nw-live { position: relative; z-index: 3; flex: none; display: flex; align-items: center; gap: 7px; height: 100%; padding: 0 14px 0 20px; background: #e8f2ff; color: #0a3d82; font: 600 13px/1 var(--font-c); letter-spacing: .12em; }
-.nw-live i { width: 7px; height: 7px; border-radius: 50%; background: #1f7ae0; animation: nw-pulse 1.6s ease-in-out infinite; }
+.nw-live { position: relative; z-index: 3; flex: none; display: flex; align-items: center; gap: 7px; height: 100%; padding: 0 14px 0 20px; background: #e10600; color: #fff; font: 600 13px/1 var(--font-c); letter-spacing: .12em; } /* yalnız CANLI rozeti: klasik canlı yayın kırmızısı */
+.nw-live i { width: 7px; height: 7px; border-radius: 50%; background: #fff; animation: nw-pulse 1.6s ease-in-out infinite; }
 @keyframes nw-pulse { 50% { opacity: .25; } }
 .nw-track { display: flex; width: max-content; animation: nw-scroll var(--nw-dur, 60s) linear infinite; }
 .nw-ticker:hover .nw-track, .nw-ticker:focus-within .nw-track { animation-play-state: paused; }
