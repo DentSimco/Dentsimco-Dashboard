@@ -1,0 +1,4 @@
+# Ansiklopedi > ürün > en altta "Restoran satışları" grafiği. Her satır bir gün, bir ürün.
+# Ürün adını oyundaki gibi yazın; kategoriler.json'daki adla aynı olmalı.
+tarih;urun;miktar
+2026-10-10;Portakal suyu;5.694.364

@@ -1,0 +1,4 @@
+{
+  "_not": "Menü kategorileri ve her kategorideki TÜM ürünler. Bir gün için kategorideki her ürün girilmişse o kategori 'tam' sayılır. Alt çizgiyle başlayan anahtarlar yok sayılır.",
+  "İçecek": ["Portakal suyu"]
+}
