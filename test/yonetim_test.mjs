@@ -1,7 +1,7 @@
 // DentSimco — Yönetim menü yönlendirme sınamaları (eski adresler yeni yerlerine gider).
 // Çalıştırma: node test/yonetim_test.mjs
 
-import { yonetimRota, puanMetni, etkiDegerleri } from '../public/yonetim.js';
+import { yonetimRota, puanMetni, etkiDegerleri, apiOku } from '../public/yonetim.js';
 import * as H from '../public/hesap.js';
 
 const results = [];
@@ -9,6 +9,7 @@ function test(name, fn) {
   try { fn(); results.push({ name, ok: true }); } catch (e) { results.push({ name, ok: false, error: e.message }); }
 }
 const eq = (a, b, label = '') => { if (JSON.stringify(a) !== JSON.stringify(b)) throw new Error(`${label} beklenen ${JSON.stringify(b)}, bulunan ${JSON.stringify(a)}`); };
+const ok = (v, label = 'koşul sağlanmadı') => { if (!v) throw new Error(label); };
 const rota = (hash, kayitli) => yonetimRota(hash.split('/'), kayitli);
 
 test('Yeni adresler olduğu gibi açılır', () => {
@@ -76,6 +77,35 @@ test('Bina seviyesi bilinmiyorsa yönetim gideri satırı hesaplanmaz (null), di
   const E = etkiDegerleri(H.teamEffects([{ position: 't', active: true, skills: { cto: 60 } }]), 0, 0);
   eq([E.brut, E.kazanc], [null, null]);
   eq(E.arastirma, 120);
+});
+
+test('Yönetici yapıştırma: kutuya adresin kendisi yapıştırılırsa adres tanınır ve açan bağlantı verilir', () => {
+  for (const t of ['www.simcompanies.com/api/v3/companies/4479420/executives', 'simcompanies.com/api/v3/companies/4479420/executives/',
+    'https://www.simcompanies.com/api/v3/companies/4479420/executives/', ' https://simcompanies.com/api/v3/companies/4479420/executives ']) {
+    const r = apiOku(t);
+    eq(r.link, 'https://www.simcompanies.com/api/v3/companies/4479420/executives/', t);
+    ok(r.error.startsWith('Bu adresin kendisi'), t);
+    ok(!r.parsed);
+  }
+});
+
+test('Yönetici yapıştırma: boş kutu, web sayfası, oyunun hata yanıtı ve bozuk metin ayrı mesaj verir', () => {
+  ok(apiOku('  ').error.startsWith('Kutu boş'));
+  ok(apiOku('<!DOCTYPE html><html><body>Giriş</body></html>').error.startsWith('Yapıştırdığınız şey bir web sayfası'));
+  ok(apiOku('{"detail":"Authentication credentials were not provided."}').error.startsWith('Oyun veri yerine hata'));
+  ok(apiOku('{"executives": [').error.startsWith('Metin okunamadı'));
+  ok(apiOku('merhaba').error.startsWith('Metin okunamadı'));
+  eq(apiOku('[]').error, 'Listede yönetici bulunamadı.');
+  ok(!apiOku('{"detail":"x"}').link);
+});
+
+test('Yönetici yapıştırma: gerçek biçimdeki liste okunur (dizi ve {executives: []} sarmalı)', () => {
+  const e = { id: 1, name: 'Ada', salary: 225000, currentWorkHistory: { position: 'o' }, skills: { coo: 60, cfo: 1, cmo: 2, cto: 3 } };
+  for (const t of [JSON.stringify([e]), JSON.stringify({ executives: [e] })]) {
+    const r = apiOku(t);
+    eq(r.parsed.length, 1);
+    eq([r.parsed[0].name, r.parsed[0].position, r.parsed[0].salary, r.parsed[0].skills.coo], ['Ada', 'o', 225000, 60]);
+  }
 });
 
 const failed = results.filter((r) => !r.ok);
