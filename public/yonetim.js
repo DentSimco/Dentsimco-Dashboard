@@ -369,7 +369,7 @@ export function mountYonetim(root, { realm = 0 } = {}) {
     const scores = H.teamScores(ex);
     return `<section class="ur-card" aria-labelledby="h-exec"><h2 id="h-exec">Yöneticiler</h2>
       <p class="ur-sub">Ekibiniz yalnız burada girilir; Üretim ve Perakende hesapları da buradan okur.</p>
-      <div class="ur-row"><button type="button" class="ur-btn tint grow" data-act="apiOpen">${icon('plus')}API'den yapıştır</button><button type="button" class="ur-btn grow" data-act="execNew">${icon('plus')}Elle ekle</button></div>
+      <div class="ur-row"><button type="button" class="ur-btn tint grow" data-act="apiOpen">${icon('plus')}JSON ekle</button><button type="button" class="ur-btn grow" data-act="execNew">${icon('plus')}Manuel giriş</button></div>
       ${ex.length ? `<div>${rows}</div>` : '<p class="ur-note">Henüz yönetici yok.</p>'}
       ${ex.length ? `<div class="ur-box"><span class="ur-note" style="font-weight:600">Ekip puanı (yalnız aktifler)</span><div class="ur-grid4" style="margin-top:6px">${SKILL_LABELS.map(([k, n]) => `<div class="ur-stat"><span>${n}</span><span>${puanHtml(scores[k])}</span></div>`).join('')}</div>
         <p class="ur-note" style="margin-top:6px">Okun sağındaki sayı etkili beceridir (oyunda "etkili yetenek"): 60'a kadar aynı, 60–80 arası her puan yarım, 80 üstü çeyrek sayılır. Etkiler bu sayıdan hesaplanır.</p></div>` : ''}</section>${ex.length ? etkiKarti(s) + sectorCard(s) : ''}

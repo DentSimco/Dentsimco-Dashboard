@@ -829,8 +829,8 @@ export default {
   // ---- Yönetim: Ekip ----
   'Yöneticiler': 'Executives',
   'Ekibiniz yalnız burada girilir; Üretim ve Perakende hesapları da buradan okur.': 'Your team is entered only here; the Production and Retail calculations read it from here.',
-  "API'den yapıştır": 'Paste from API',
-  'Elle ekle': 'Add manually',
+  'JSON ekle': 'Add JSON',
+  'Manuel giriş': 'Manual entry',
   'Henüz yönetici yok.': 'No executives yet.',
   'Aktif': 'Active',
   'Eğitimde': 'Training',
