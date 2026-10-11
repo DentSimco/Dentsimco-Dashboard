@@ -16,8 +16,8 @@ export const ID_ADLARI = {
   47: 'Yerleşik bilgisayar', 48: 'Elektrik motoru', 50: 'Temel iç kısım', 51: 'Oto karoseri', 52: 'Yanma motoru',
   53: 'Ekonomik elektrikli araba', 66: 'Tohum', 68: 'Altın cevheri', 69: 'Külçe altın', 72: 'Şekerkamışı', 73: 'Etanol',
   74: 'Metan', 75: 'Karbon fiber', 76: 'Karbon kompozit', 77: 'Uçak gövdesi', 79: 'Yüksek seviye e-bilgisayar', 81: 'Kokpit',
-  82: 'Tutum kontrolü', 83: 'Roket yakıtı', 84: 'İtici tankı', 86: 'Roket motoru', 87: 'Isı kalkanı', 92: 'Yörüngesel güçlendirici',
-  93: 'Yıldız gemisi', 94: 'BFR', 106: 'Odun', 107: 'Çelik kiriş', 108: 'Kereste', 109: 'Pencere', 110: 'Alet takımı',
+  82: 'Tutum kontrolü', 83: 'Roket yakıtı', 84: 'İtici tankı', 86: 'Roket motoru', 87: 'Isı kalkanı', 91: 'Alt yörüngesel roket',
+  92: 'Yörüngesel güçlendirici', 93: 'Yıldız gemisi', 94: 'BFR', 100: 'Havacılık araştırması', 106: 'Odun', 107: 'Çelik kiriş', 108: 'Kereste', 109: 'Pencere', 110: 'Alet takımı',
   111: 'İnşaat gereci', 112: 'Buldozer', 124: 'Portakal suyu', 135: 'Şeker',
 };
 

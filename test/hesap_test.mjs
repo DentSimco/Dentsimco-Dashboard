@@ -724,6 +724,238 @@ test('Otomatik kalite inşaattaki binayı girdi talebi saymaz', () => {
   eq(H.autoQuality(setup, DATA).buildings[1].quality, 0);
 });
 
+// =====================================================================================================
+// Fırlatma rampası (Havacılık araştırması, ASR)
+// Kurallar oyunun ansiklopedisinden: kaza Q0 %50 … her kalite yarıya; süre svy 1 128 sa … her seviye yarıya; verim
+// Alt yörüngesel roket 400, BFR 2.800; en yüksek seviye 10; maaş $518/saat (veride 1,5 × 345 = 517,5) × seviye.
+// Beklenen değerler bu kurallarla elle hesaplandı. Cooper's Tools ASR Sim ile verim, kaza, süre, saatlik ASR ve gelir
+// birebir aynı; maliyet satırı farklı (Cooper maaşı rokete göre 32 / 192 saat sayıyor, oyunda bina süre boyunca maaş öder).
+const ASR = 100;
+const SOR = H.SUBORBITAL_ROCKET_ID;
+const BFR = H.BFR_ID;
+const PAD = (o = {}) => ({ id: o.id ?? 'pad', type: 'l', product: ASR, level: o.level ?? 1, count: o.count ?? 1, rocket: o.rocket === undefined ? BFR : o.rocket,
+  rocketQuality: o.q ?? 5, rocketPrice: o.price, construction: !!o.construction, robots: !!o.robots });
+const ASR_MARKET = { [`${ASR}:0`]: 105 };
+// Yönetim gideri: varsayılan %0 tasarruf (seviyeden gelen brüt gider); net verilirse elle
+const padPlan = (list, o = {}) => H.evaluatePlan({
+  buildings: list, admin: o.net != null ? { mode: 'net', netPct: o.net } : { mode: 'savings', savingsPct: 0 },
+  economyPhase: o.phase ?? null, recreation: o.recreation, extraBonusPct: o.bonus ?? 0, substitution: o.substitution, keep: o.keep,
+}, DATA, { ...ASR_MARKET, ...(o.market || {}) }, { now: NOW, effects: { researchSpeedPct: o.research ?? 0 } });
+const perDay = (perLaunch, hours) => perLaunch * 24 / hours;
+
+section('Fırlatma rampası · oyun kuralları');
+test('Kaza olasılığı: Q0 %50, Q1 %25, Q2 %12,5, Q3 %6,25, Q4 %3,125, Q5 %1,5625 (ansiklopedi ve Cooper)', () => {
+  eq([0, 1, 2, 3, 4, 5].map((q) => H.crashChance(q) * 100), [50, 25, 12.5, 6.25, 3.125, 1.5625]);
+});
+test('Fırlatma süresi: svy 1 128 sa, 2 64, 3 32, 4 16, 5 8, 6 4 … svy 10 15 dk; 10 üstü 10 sayılır', () => {
+  eq([1, 2, 3, 4, 5, 6, 10].map(H.launchHours), [128, 64, 32, 16, 8, 4, 0.25]);
+  eq(H.launchHours(25), 0.25);
+  eq(H.launchHours(0), 128);
+});
+test('Verim: Alt yörüngesel roket 400, BFR 2.800', () => {
+  eq(H.LAUNCH_YIELD[SOR], 400);
+  eq(H.LAUNCH_YIELD[BFR], 2800);
+});
+test('Taban maaş $517,5/saat (oyunda $518): Fırlatma rampası maaş çarpanı 1,5 × 345', () => near(DATA.products[ASR].baseSalary, 517.5, 6));
+
+section('Fırlatma rampası · tek rampa');
+test('V1 · Alt yörüngesel Q5 $105.000, svy 1: verim 393,75, saatlik 3,08, maliyet $171.240/fırlatma (Cooper: verim 393,8, saatlik 3,08)', () => {
+  const r = padPlan([PAD({ rocket: SOR, price: 105000 })]);
+  const x = r.rows[0];
+  near(x.launch.hours, 128, 9);
+  near(x.launch.crash, 0.015625, 9);
+  near(x.launch.perLaunch, 393.75, 9);
+  near(x.launch.hourlyPerPad, 3.076171875, 9);
+  near(x.launch.wagePerLaunch, 66240, 6);
+  near(x.launch.launchesDay, 0.1875, 9);
+  near(x.daily, 73.828125, 9);
+  near(r.totals.rocketsDay, 0.1875 * 105000, 6);
+  near(r.pools[0].unitCost, 434.8952380952381, 6);
+  near(r.totals.profitContractDay, perDay(-129896.25, 128), 4);
+  near(r.totals.profitExchangeDay, perDay(-131550, 128), 4);
+});
+test('V1 · gelir Cooper ile aynı: fırlatma başına kontrat 393,75 × 105 = $41.343,75, borsa × 0,96 = $39.690', () => {
+  const s = padPlan([PAD({ rocket: SOR, price: 105000 })]).sales[0];
+  near(s.revenueContractDay * 128 / 24, 41343.75, 6);
+  near(s.revenueExchangeDay * 128 / 24, 39690, 6);
+});
+test('V2 · aynısı, araştırma +%120, yönetim %95: verim 866,25 (Cooper 866,3), maliyet $234.168, kâr −$143.211,75/fırlatma', () => {
+  const r = padPlan([PAD({ rocket: SOR, price: 105000 })], { research: 120, net: 95 });
+  near(r.rows[0].launch.perLaunch, 866.25, 9);
+  near(r.rows[0].launch.hourlyPerPad, 6.767578125, 9);
+  near(r.pools[0].unitCost, 270.3238095238095, 6);
+  near(r.totals.profitContractDay, perDay(-143211.75, 128), 4);
+});
+test('V4 · BFR Q5 $795.000, svy 1: verim 2.756,25, saatlik 21,53 (Cooper aynı), birim maliyet $312,47, kâr −$571.833,75/fırlatma', () => {
+  const r = padPlan([PAD({ price: 795000 })]);
+  near(r.rows[0].launch.perLaunch, 2756.25, 9);
+  near(r.rows[0].launch.hourlyPerPad, 21.533203125, 9);
+  near(r.pools[0].unitCost, 312.4680272108844, 6);
+  near(r.totals.profitContractDay, perDay(-571833.75, 128), 4);
+  near(r.totals.profitExchangeDay, perDay(-583410, 128), 4);
+});
+test('V3 · BFR Q5, svy 10, araştırma +%120, 10 rampa: 15 dk, %1,56, 24.255/saat/rampa, günde 960 fırlatma (rampa başına 96)', () => {
+  const r = padPlan([PAD({ level: 10, count: 10, price: 0 })], { research: 120 });
+  const L = r.rows[0].launch;
+  near(L.hours * 60, 15, 9);
+  near(L.crash * 100, 1.5625, 9);
+  near(L.hourlyPerPad, 24255, 6);
+  near(L.launchesDay, 960, 9);
+  near(L.launchesDayPerPad, 96, 9);
+  near(r.rows[0].hourly, 242550, 6);
+  near(L.wagePerLaunch, 1293.75, 9);
+});
+test('Maaş seviyeyle doğrusal, süre seviyeyle yarıya: günlük maaş 517,5 × 24 × seviye, fırlatma başı maaş 517,5 × seviye × süre', () => {
+  for (const level of [1, 2, 5, 10]) {
+    const x = padPlan([PAD({ level, price: 0 })], { net: 0 }).rows[0];
+    near(x.wageDayNet, 517.5 * 24 * level, 6, `svy ${level} günlük`);
+    near(x.launch.wagePerLaunch, 517.5 * level * 128 / 2 ** (level - 1), 6, `svy ${level} fırlatma başı`);
+  }
+});
+test('Adet: 3 rampa svy 4 = 1 rampanın üç katı üretim, fırlatma ve maaş; yönetim giderine 12 seviye girer', () => {
+  const one4 = padPlan([PAD({ level: 4, price: 0 })], { net: 0 }).rows[0];
+  const r = padPlan([PAD({ level: 4, count: 3, price: 0 })], { net: 0 });
+  const x = r.rows[0];
+  near(x.daily, 3 * one4.daily, 9);
+  near(x.launch.launchesDay, 3 * one4.launch.launchesDay, 9);
+  near(x.wageDayNet, 3 * one4.wageDayNet, 9);
+  eq(x.levels, 12);
+  eq(r.admin.totalLevels, 12);
+  eq(H.totalAdminLevels({ buildings: [PAD({ level: 4, count: 3 })] }, DATA), 12);
+});
+test('Seviye 10 üstü: 10 sayılır, not düşülür; yönetim giderine de 10 girer', () => {
+  const r = padPlan([PAD({ level: 14, price: 0 })]);
+  eq(r.rows[0].level, 10);
+  ok(r.rows[0].notes.some((n) => n.includes('en çok seviye 10')), 'not yok');
+  eq(r.admin.totalLevels, 10);
+});
+test('Ekonomi fazı, rekreasyon ve elle üretim hızı fırlatmayı değiştirmez', () => {
+  const base = padPlan([PAD({ level: 3, price: 0 })]).rows[0].hourly;
+  near(padPlan([PAD({ level: 3, price: 0 })], { phase: 2 }).rows[0].hourly, base, 9);
+  near(padPlan([PAD({ level: 3, price: 0 })], { recreation: REC9, bonus: 10 }).rows[0].hourly, base, 9);
+});
+test('Robot yok sayılır (araştırma binası), inşaattaki rampa üretmez ve maaş ödemez ama seviyesi × adedi yönetim giderine girer', () => {
+  const rb = padPlan([PAD({ robots: true, price: 0 })]).rows[0];
+  near(rb.wageHour, 517.5, 9);
+  ok(rb.notes.some((n) => n.includes('robot')), 'robot notu yok');
+  const r = padPlan([PAD({ level: 5, count: 2, construction: true, price: 1 })]);
+  eq(r.rows[0].hourly, 0);
+  eq(r.rows[0].wageDayNet, 0);
+  eq(r.totals.rocketsDay, 0);
+  eq(r.admin.totalLevels, 10);
+});
+
+section('Fırlatma rampası · Alım-Satım');
+test('Rampa girdisi Alışlar\'a girmez: yalnız seçilen roket, binadaki fiyatla "roket alımı" olur', () => {
+  const r = padPlan([PAD({ level: 10, price: 795000 })]);
+  eq(r.purchases.length, 0);
+  eq(r.launchBuys.length, 1);
+  eq([r.launchBuys[0].product, r.launchBuys[0].quality], [BFR, 5]);
+  near(r.launchBuys[0].qtyDay, 96, 9);
+  near(r.totals.rocketsDay, 96 * 795000, 4);
+  eq(r.totals.purchasesDay, 0);
+  near(r.totals.costDay, r.totals.rocketsDay + r.totals.wagesDayNet, 4);
+  ok(!r.demands.some((d) => d.product === SOR), 'seçilmeyen roket talep edilmemeli');
+});
+test('Satışta yalnız ASR: borsada %4 komisyon, kontratta komisyon yok (ASR taşıması 0)', () => {
+  const r = padPlan([PAD({ price: 0 })]);
+  eq(r.sales.length, 1);
+  eq(r.sales[0].product, ASR);
+  near(r.sales[0].exchangeUnit, 100.8, 9);
+  near(r.sales[0].contractUnit, 105, 9);
+});
+test('Roket fiyatı yoksa uyarı; maliyete 0 yazılır, üretim sürer', () => {
+  const r = padPlan([PAD({ price: undefined })]);
+  ok(r.warnings.some((w) => w.text.includes('roket fiyatı yok')), 'uyarı yok');
+  eq(r.totals.rocketsDay, 0);
+  ok(r.rows[0].daily > 0);
+});
+test('Roket seçilmemiş ya da fırlatılamayan roket: rampa hesaba girmez, hata gösterilir', () => {
+  const r = padPlan([PAD({ rocket: null, price: 1 })]);
+  eq(r.rows[0].ok, false);
+  eq(r.rows[0].errors[0], 'Roket seçilmedi');
+  eq(r.sales.length, 0);
+  eq(r.totals.costDay, 0);
+  const bad = padPlan([PAD({ rocket: 93, price: 1 })]);
+  eq(bad.rows[0].ok, false);
+});
+
+section('Fırlatma rampası · karma plan');
+// Roket motoru (86) svy 1: girdiler borsadan. Satış fiyatı ve girdi fiyatları sabit.
+const ENGINE_MARKET = { '86:0': 3000, '43:0': 1, '79:0': 100, '18:0': 1 };
+const ENGINE = { id: 'eng', type: 'D', product: 86, level: 1, quality: 0 };
+test('Rampa + Roket motoru: toplam kâr iki binanın ayrı kârlarının toplamı (yönetim gideri aynı tutulunca)', () => {
+  const net = (100 / 170) * 1; // iki bina, toplam 2 seviye: brüt (2 − 1) ÷ 170, tasarruf 0
+  const both = padPlan([PAD({ rocket: SOR, price: 105000 }), ENGINE], { market: ENGINE_MARKET });
+  near(both.admin.net * 100, net, 9);
+  const padOnly = padPlan([PAD({ rocket: SOR, price: 105000 })], { net, market: ENGINE_MARKET });
+  const engOnly = padPlan([ENGINE], { net, market: ENGINE_MARKET });
+  near(both.totals.profitContractDay, padOnly.totals.profitContractDay + engOnly.totals.profitContractDay, 6);
+  near(both.totals.profitExchangeDay, padOnly.totals.profitExchangeDay + engOnly.totals.profitExchangeDay, 6);
+  near(both.totals.costDay, padOnly.totals.costDay + engOnly.totals.costDay, 6);
+});
+test('Rampa + Roket motoru: elle hesap. Rampa maaşı 517,5 × 24 × (1 + 1/170), roket 0,1875 × 105.000, ASR 73,83 × 105; motor girdileri borsadan', () => {
+  const r = padPlan([PAD({ rocket: SOR, price: 105000 }), ENGINE], { market: ENGINE_MARKET });
+  const net = 1 / 170;
+  const padWage = 517.5 * 24 * (1 + net);
+  const eng = r.rows[1];
+  const engWage = 621 * 24 * (1 + net);
+  const engInputs = eng.daily * (20 * 1 + 8 * 100 + 10 * 1);
+  const revenueC = 73.828125 * 105 + eng.daily * 3000;
+  near(r.totals.costDay, padWage + 0.1875 * 105000 + engWage + engInputs, 6);
+  near(r.totals.profitContractDay, revenueC - (padWage + 0.1875 * 105000 + engWage + engInputs), 6);
+  eq(r.purchases.map((p) => p.product).sort((a, b) => a - b), [18, 43, 79]);
+});
+// BFR binası ('9'), Q5 üretir; girdileri (Yörüngesel güçlendirici 92, Yıldız gemisi 93) Q4 ve üstü borsadan
+const BFR_BUILDING = (level, q = 5) => ({ id: 'bfr', type: '9', product: BFR, level, quality: q });
+const BFR_MARKET = { '92:4': 200000, '93:4': 300000 };
+test('Rampa + roketi kendi üreten BFR binası: roket alınmaz, maliyeti zincirle ASR\'ye geçer; fazla BFR satışta kalır', () => {
+  const r = padPlan([PAD({ level: 10, price: 795000 }), BFR_BUILDING(17)], { market: BFR_MARKET });
+  const bfrDay = 0.2440456939515566 * 17 * 24; // 99,57: 96 fırlatmayı karşılar
+  const net = 26 / 170; // toplam 27 seviye
+  eq(r.launchBuys.length, 0);
+  eq(r.totals.rocketsDay, 0);
+  const bfrPool = r.pools.find((p) => p.product === BFR);
+  const bfrUnit = (759.0000000000001 * 17 * 24 * (1 + net) + bfrDay * 500000) / bfrDay;
+  near(bfrPool.unitCost, bfrUnit, 4);
+  near(bfrPool.usedDay, 96, 9);
+  const asrPool = r.pools.find((p) => p.product === ASR);
+  near(asrPool.unitCost, (517.5 * 10 * 24 * (1 + net) + 96 * bfrUnit) / (96 * 2756.25), 6);
+  eq(r.purchases.map((p) => p.product).sort((a, b) => a - b), [92, 93]);
+  ok(r.sales.some((s) => s.product === BFR && Math.abs(s.surplusDay - (bfrDay - 96)) < 1e-6), 'fazla BFR satışa çıkmalı');
+});
+test('Rampa + roketi kısmen üreten bina: eksik kısım binadaki fiyatla alınır, üretilen kısım üretim maliyetiyle', () => {
+  const r = padPlan([PAD({ level: 10, price: 795000 }), BFR_BUILDING(8)], { market: BFR_MARKET });
+  const own = 0.2440456939515566 * 8 * 24;
+  near(r.launchBuys[0].qtyDay, 96 - own, 6);
+  near(r.totals.rocketsDay, (96 - own) * 795000, 2);
+  const net = 17 / 170;
+  const bfrUnit = (759.0000000000001 * 8 * 24 * (1 + net) + own * 500000) / own;
+  const asrPool = r.pools.find((p) => p.product === ASR);
+  near(asrPool.unitCost, (517.5 * 10 * 24 * (1 + net) + own * bfrUnit + (96 - own) * 795000) / (96 * 2756.25), 6);
+});
+test('Roket kalitesi tam olmalı: Q6 BFR üretimi Q5 isteyen rampaya verilmez (kaza oranı değişirdi), ikame açık olsa da', () => {
+  const r = padPlan([PAD({ level: 10, price: 795000 }), BFR_BUILDING(17, 6)], { market: { '92:5': 200000, '93:5': 300000 } });
+  near(r.launchBuys[0].qtyDay, 96, 9);
+  ok(r.sales.some((s) => s.product === BFR && s.quality === 6), 'Q6 BFR satışa çıkmalı');
+});
+test('Rampa + araştırma binası (Bitki araştırma): araştırma hızı ikisine de uygulanır', () => {
+  const r = padPlan([PAD({ price: 0 }), { id: 'p', type: 'p', product: 29, level: 10 }], { research: 120, market: { '29:0': 50 } });
+  near(r.rows[0].teamFactor, 2.2, 9);
+  near(r.rows[1].teamFactor, 2.2, 9);
+  near(r.rows[0].launch.perLaunch, 2756.25 * 2.2, 9);
+});
+test('Hatalı rampa (roket yok) öteki binaları bozmaz, seviyesi yine yönetim giderine girer', () => {
+  const r = padPlan([PAD({ rocket: null }), ENGINE], { market: ENGINE_MARKET });
+  const engOnly = padPlan([ENGINE], { net: 100 / 170, market: ENGINE_MARKET });
+  eq(r.admin.totalLevels, 2);
+  near(r.totals.profitContractDay, engOnly.totals.profitContractDay, 6);
+});
+test('Otomatik kalite: BFR binası rampanın roket kalitesine (Q5) ayarlanır, bir altına değil', () => {
+  const s = H.autoQuality({ buildings: [PAD({ q: 5 }), BFR_BUILDING(5, 0)] }, DATA);
+  eq(s.buildings[1].quality, 5);
+});
+
 let failed = 0;
 let current = null;
 for (const r of results) {

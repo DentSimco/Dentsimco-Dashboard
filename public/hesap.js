@@ -12,6 +12,8 @@
 // {
 //   buildings: [{ id, type: 'L', product: 22, level: 10, quality: 0, robots: false,
 //                 efficiency: 100 }],             // verimlilik yalnız maden, petrol kuyusu ve taş ocağı bolluğu için
+//              // Fırlatma rampası ('l') ek alanları: rocket (91 Alt yörüngesel roket | 94 BFR), rocketQuality,
+//              // rocketPrice (elle; roketler borsada işlem görmez), count (aynı seviyedeki rampa adedi)
 //   recreation: { park: 3, temple: 3, lake: 3 },  // 0–3; seviye başına %1 hız (üretim ve araştırma binaları)
 //   economyPhase: 0,                              // 0 Durgunluk, 1 Normal, 2 Büyüme (null: verinin fazı)
 //   otherWagesDay: 0,                             // planda olmayan binaların günlük maaşı (yönetim dahil); yönetici analizi için
@@ -74,6 +76,30 @@ export const CONSTRUCTION_UNITS_ID = 111;
 export const NO_QUALITY_PRODUCTS = new Set([TRANSPORT_ID, CONSTRUCTION_UNITS_ID]);
 export const hasQuality = (product) => !!product && !product.research && !product.noQuality && !NO_QUALITY_PRODUCTS.has(product.id);
 const productQuality = (product, quality) => (product && !hasQuality(product) ? 0 : clampQuality(quality));
+
+// ---------------------------------------------------------------------------------------------------------------
+// Fırlatma rampası (Havacılık araştırması)
+// ---------------------------------------------------------------------------------------------------------------
+// Oyunun ansiklopedisinden (Ekim 2026): rampa bir fırlatmada TEK roket kullanır, Alt yörüngesel roket ya da BFR.
+//   • Verim: Alt yörüngesel roket 400, BFR 2.800 Havacılık araştırması (kaza olursa roket gider, araştırma gelmez).
+//   • Kaza olasılığı roketin kalitesine bağlı: Q0 %50, Q1 %25, Q2 %12,5, Q3 %6,25, Q4 %3,13 … (her kalite yarıya indirir).
+//   • Fırlatma süresi seviyeye bağlı: svy 1 128 sa, svy 2 64 sa … svy 10 15 dk. Ekonomi döngülerinden etkilenmez.
+//   • En yüksek seviye 10. Maaş öteki binalar gibi: taban maaş (oyunda $518/saat) × seviye, süre boyunca.
+// Araştırma hızı (CTO, bilim) verimi çarpar; süreyi ve maaşı değiştirmez (Cooper's Tools ASR Sim ile aynı).
+// Rekreasyon ve oyun olayları fırlatmaya uygulanmaz (oyunda doğrulanmadı).
+export const LAUNCH_PAD = 'l';
+export const LAUNCH_MAX_LEVEL = 10;
+export const LAUNCH_BASE_HOURS = 128;
+export const SUBORBITAL_ROCKET_ID = 91;
+export const BFR_ID = 94;
+export const LAUNCH_YIELD = { [SUBORBITAL_ROCKET_ID]: 400, [BFR_ID]: 2800 };
+export const LAUNCH_ROCKETS = [SUBORBITAL_ROCKET_ID, BFR_ID];
+export const launchLevel = (level) => clamp(Math.floor(num(level, 1)), 1, LAUNCH_MAX_LEVEL);
+export const launchHours = (level) => LAUNCH_BASE_HOURS / 2 ** (launchLevel(level) - 1);
+export const crashChance = (quality) => 0.5 / 2 ** clampQuality(quality);
+export const isLaunchPad = (building, data) => (building?.type || data?.products?.[building?.product]?.building) === LAUNCH_PAD;
+// Aynı seviyedeki rampa adedi (yalnız fırlatma rampasında; öteki binalar her kayıtta bir tanedir)
+export const buildingCount = (building, data) => (isLaunchPad(building, data) ? Math.max(1, Math.floor(num(building.count, 1))) : 1);
 
 // ---------------------------------------------------------------------------------------------------------------
 // Veri: Firestore'daki meta belgeleri (products_r{r}, buildings, core, modifiers_r{r}) tek biçime çevrilir.
@@ -178,12 +204,16 @@ export function activeEventPct(data, product, now = Date.now()) {
 
 export const grossOverhead = (totalLevels) => Math.max(0, (num(totalLevels, 0) - 1) / ADMIN_LEVELS_PER_UNIT);
 
+// Bir kaydın toplam seviyesi: seviye × adet (rampada seviye en çok 10)
+export const buildingLevels = (building, data) =>
+  (isLaunchPad(building, data) ? launchLevel(building.level) : toLevel(building.level)) * buildingCount(building, data);
+
 // Yönetim giderine giren toplam seviye: plandaki binalar (rekreasyon hariç) + akademi + planda olmayan binalar.
 export function totalAdminLevels(setup, data) {
   let total = 0;
   for (const b of setup.buildings || []) {
     const letter = b.type || data.products[b.product]?.building;
-    if (!NO_ADMIN_CATEGORIES.has(buildingCategory(data, letter))) total += toLevel(b.level);
+    if (!NO_ADMIN_CATEGORIES.has(buildingCategory(data, letter))) total += buildingLevels(b, data);
   }
   return total + toLevel(setup.academyLevel) + toLevel(setup.otherLevels);
 }
@@ -243,6 +273,7 @@ export function buildingRate(building, setup, data, admin, now = Date.now(), eff
   }
   const type = b.type || p.building;
   if (b.type && b.type !== p.building) errors.push(`${p.name} bu binada üretilmez`);
+  if (type === LAUNCH_PAD && p.building === LAUNCH_PAD) return launchRate(b, p, setup, data, admin, effects, errors, notes);
   const category = buildingCategory(data, type);
   const eventOn = b.event !== false && setup.events?.[p.id] !== false; // olay ürüne göre açılıp kapanır
   const eventPct = eventOn ? activeEventPct(data, p.id, now) : 0;
@@ -263,7 +294,7 @@ export function buildingRate(building, setup, data, admin, now = Date.now(), eff
   const wageHour = construction ? 0 : p.baseSalary * level * (robots ? ROBOT_WAGE_FACTOR : 1); // olay, bonus ve verimlilik maaşı değiştirmez
   const unitWorker = hourly > 0 ? wageHour / hourly : null;
   return {
-    id: b.id, ok, type, category, product: p.id, quality, level, robots, eventPct, efficiency, bonus, phaseFactor, teamFactor, construction,
+    id: b.id, ok, type, category, product: p.id, quality, level, count: 1, levels: level, robots, eventPct, efficiency, bonus, phaseFactor, teamFactor, construction,
     perLevelHour, hourly, daily: hourly * HOURS_PER_DAY,
     wageHour,
     wageDayGross: wageHour * HOURS_PER_DAY * (1 + admin.gross),
@@ -272,6 +303,55 @@ export function buildingRate(building, setup, data, admin, now = Date.now(), eff
     unitAdmin: unitWorker == null ? null : unitWorker * admin.net,
     unitLabor: unitWorker == null ? null : unitWorker * (1 + admin.net),
     hoursPerUnit: hourly > 0 ? 1 / hourly : null,
+    errors, notes,
+  };
+}
+
+// Fırlatma rampası: üretim = fırlatma başına beklenen araştırma ÷ fırlatma süresi; girdi seçilen tek roket.
+function launchRate(b, p, setup, data, admin, effects, errors, notes) {
+  const rawLevel = toLevel(b.level);
+  const level = launchLevel(b.level);
+  if (rawLevel > LAUNCH_MAX_LEVEL) notes.push(`Fırlatma rampası en çok seviye ${LAUNCH_MAX_LEVEL}; seviye ${LAUNCH_MAX_LEVEL} sayıldı`);
+  if (level < 3) notes.push('Oyunun ansiklopedisi bu araştırma için seviye 3 veya daha yüksek rampa gerektiğini yazıyor; hesap yine yapıldı');
+  const count = buildingCount(b, data);
+  const rocket = b.rocket != null && b.rocket !== '' ? Number(b.rocket) : null;
+  const rocketYield = LAUNCH_YIELD[rocket];
+  if (rocket == null) errors.push('Roket seçilmedi');
+  else if (!rocketYield) errors.push(`${data.products[rocket]?.name || `#${rocket}`} fırlatılamaz; Alt yörüngesel roket ya da BFR seçin`);
+  if (b.robots) notes.push('Araştırma binalarına robot kurulamaz; robot yok sayıldı');
+  const rocketQuality = clampQuality(b.rocketQuality);
+  const rocketPrice = b.rocketPrice != null && b.rocketPrice !== '' && Number.isFinite(Number(b.rocketPrice)) && Number(b.rocketPrice) >= 0
+    ? Number(b.rocketPrice) : null;
+  const category = buildingCategory(data, LAUNCH_PAD);
+  const teamFactor = researchFactor(category, effects || setupTeamEffects(setup));
+  const ok = errors.length === 0;
+  const construction = !!b.construction;
+  if (construction) notes.push('İnşaatta: üretmez ve maaş ödemez; seviyesi yönetim giderine girer');
+  const working = ok && !construction;
+  const hours = launchHours(level);
+  const crash = crashChance(rocketQuality);
+  const perLaunch = rocketYield ? rocketYield * (1 - crash) * teamFactor : 0; // beklenen araştırma (kazalar dahil ortalama)
+  const launchesDayPerPad = working ? HOURS_PER_DAY / hours : 0;
+  const hourlyPerPad = working ? perLaunch / hours : 0;
+  const hourly = hourlyPerPad * count;
+  const wageHour = construction ? 0 : p.baseSalary * level * count; // fırlatma süresince öteki binalar gibi
+  const unitWorker = hourly > 0 ? wageHour / hourly : null;
+  return {
+    id: b.id, ok, type: LAUNCH_PAD, category, product: p.id, quality: 0, level, count, levels: level * count, robots: false, eventPct: 0,
+    efficiency: 1, bonus: 0, phaseFactor: 1, teamFactor, construction,
+    perLevelHour: hourlyPerPad / level, hourly, daily: hourly * HOURS_PER_DAY,
+    wageHour,
+    wageDayGross: wageHour * HOURS_PER_DAY * (1 + admin.gross),
+    wageDayNet: wageHour * HOURS_PER_DAY * (1 + admin.net),
+    unitWorker,
+    unitAdmin: unitWorker == null ? null : unitWorker * admin.net,
+    unitLabor: unitWorker == null ? null : unitWorker * (1 + admin.net),
+    hoursPerUnit: hourly > 0 ? 1 / hourly : null,
+    launch: {
+      rocket, rocketQuality, rocketPrice, yield: rocketYield || 0, hours, crash, perLaunch, hourlyPerPad,
+      launchesDayPerPad, launchesDay: launchesDayPerPad * count,
+      wagePerLaunch: p.baseSalary * level * hours, // yönetim gideri hariç, bir rampa
+    },
     errors, notes,
   };
 }
@@ -342,6 +422,7 @@ export function topoOrder(ids, data) {
     if (s === 1) throw new Error(`Tariflerde döngü var (ürün ${id})`);
     state.set(id, 1);
     for (const [input] of data.products[id]?.inputs || []) visit(input);
+    if (data.products[id]?.building === LAUNCH_PAD) for (const rocket of LAUNCH_ROCKETS) visit(rocket); // tarifte olmasa da
     state.set(id, 2);
     out.push(id);
   };
@@ -386,6 +467,11 @@ export function autoQuality(setup, data) {
     for (const b of buildings) {
       const p = data.products[b.product];
       if (!p || b.construction) continue;
+      if (isLaunchPad(b, data)) { // rampa yalnız seçilen roketi, tam seçilen kalitede ister
+        const rocket = Number(b.rocket);
+        if (LAUNCH_YIELD[rocket]) need.set(rocket, Math.max(need.get(rocket) ?? 0, clampQuality(b.rocketQuality)));
+        continue;
+      }
       const q = minInputQuality(productQuality(p, b.quality));
       for (const [input] of p.inputs) need.set(input, Math.max(need.get(input) ?? 0, q));
     }
@@ -431,28 +517,35 @@ export function evaluatePlan(setup = {}, data, market = null, { now = Date.now()
       pools.set(key, pool);
     }
     pool.producedDay += r.daily;
-    pool.levels += r.level;
+    pool.levels += r.levels;
     pool.laborDay += r.wageDayNet;
     pool.rows.push(index);
   });
 
-  // 3) Girdi talepleri
+  // 3) Girdi talepleri. Fırlatma rampası tarifteki iki roketten yalnız seçileni, tam o kalitede ister
+  //    (kalite kaza olasılığını belirler; ikame yok). Eksiği borsadan değil, binada elle girilen fiyattan alınır.
   const demands = [];
   rows.forEach((r, index) => {
     if (!r.ok || !(r.daily > 0)) return;
+    if (r.launch) {
+      demands.push({ row: index, product: r.launch.rocket, minQuality: r.launch.rocketQuality, qty: r.launch.launchesDay, own: [], buyQty: 0,
+        launch: true, price: r.launch.rocketPrice });
+      return;
+    }
     for (const [input, amount] of data.products[r.product].inputs) {
       demands.push({ row: index, product: input, minQuality: minInputQuality(r.quality), qty: amount * r.daily, own: [], buyQty: 0 });
     }
   });
 
-  // 4) Kendi üretimini dağıt: en yüksek kalite isteyen önce, ona yeten en düşük kaliteden (ikame kapalıysa tam kalite)
+  // 4) Kendi üretimini dağıt: en yüksek kalite isteyen önce, ona yeten en düşük kaliteden (ikame kapalıysa tam kalite).
+  //    Fırlatmalar önce: kalite onlarda zorunlu, ötekiler üst kaliteyle de karşılanabilir.
   for (const [product, list] of groupBy(demands, (d) => d.product)) {
     const cap = [];
     for (let q = 0; q <= MAX_QUALITY; q++) cap.push(pools.get(qualityKey(product, q))?.producedDay || 0);
-    list.sort((a, b) => b.minQuality - a.minQuality);
+    list.sort((a, b) => (b.launch ? 1 : 0) - (a.launch ? 1 : 0) || b.minQuality - a.minQuality);
     for (const d of list) {
       let rest = d.qty;
-      const top = substitution ? MAX_QUALITY : d.minQuality;
+      const top = substitution && !d.launch ? MAX_QUALITY : d.minQuality;
       for (let q = d.minQuality; q <= top && rest > EPS; q++) {
         const take = Math.min(cap[q], rest);
         if (take > EPS) {
@@ -469,10 +562,22 @@ export function evaluatePlan(setup = {}, data, market = null, { now = Date.now()
     }
   }
 
-  // 5) Kalan ihtiyaç borsadan alınır (ürün ve alt kalite başına)
+  // 5) Kalan ihtiyaç borsadan alınır (ürün ve alt kalite başına). Rampanın roketi ayrı: Alışlar'a girmez,
+  //    binada girilen fiyatla "roket alımı" olarak maliyete yazılır.
+  const launchBuys = [];
+  for (const d of demands) {
+    if (!d.launch || !(d.buyQty > 0)) continue;
+    const r = rows[d.row];
+    if (d.price == null) {
+      warnings.push({ kind: 'price', product: d.product, quality: d.minQuality, building: r.id,
+        text: `Fırlatma rampası: ${nameOf(d.product)} Q${d.minQuality} için roket fiyatı yok; binada elle girin` });
+    }
+    launchBuys.push({ row: d.row, building: r.id, product: d.product, quality: d.minQuality, qtyDay: d.buyQty, price: d.price,
+      costDay: d.price == null ? 0 : d.price * d.buyQty });
+  }
   const purchaseMap = new Map();
   for (const d of demands) {
-    if (!(d.buyQty > 0)) continue;
+    if (d.launch || !(d.buyQty > 0)) continue;
     const key = qualityKey(d.product, d.minQuality);
     if (!purchaseMap.has(key)) purchaseMap.set(key, { key, product: d.product, minQuality: d.minQuality, qtyDay: 0 });
     purchaseMap.get(key).qtyDay += d.buyQty;
@@ -505,7 +610,7 @@ export function evaluatePlan(setup = {}, data, market = null, { now = Date.now()
       for (const rowIndex of pool.rows) {
         for (const d of demandsByRow.get(rowIndex) || []) {
           for (const part of d.own) inputCost += part.qty * pools.get(qualityKey(d.product, part.quality)).unitCost;
-          inputCost += d.buyQty * (buyPrice.get(qualityKey(d.product, d.minQuality)) ?? 0);
+          inputCost += d.buyQty * ((d.launch ? d.price : buyPrice.get(qualityKey(d.product, d.minQuality))) ?? 0);
         }
       }
       pool.inputCostDay = inputCost;
@@ -567,18 +672,19 @@ export function evaluatePlan(setup = {}, data, market = null, { now = Date.now()
   const executives = setup.executives || [];
   const executiveSalariesDay = executives.length ? sum(executives, (e) => num(e.salary, 0)) : num(setup.executiveSalaryDay, 0);
   const purchasesDay = sum(purchases, (p) => p.costDay);
+  const rocketsDay = sum(launchBuys, (p) => p.costDay);
   const wagesDayNet = sum(rows, (r) => (r.ok ? r.wageDayNet : 0));
   const wagesDayGross = sum(rows, (r) => (r.ok ? r.wageDayGross : 0));
   const wageBaseDay = sum(rows, (r) => (r.ok ? r.wageHour * HOURS_PER_DAY : 0));
-  const costDay = purchasesDay + wagesDayNet;
+  const costDay = purchasesDay + rocketsDay + wagesDayNet;
   const revenueExchangeDay = sum(sales, (s) => s.revenueExchangeDay);
   const revenueContractDay = sum(sales, (s) => s.revenueContractDay);
   const profitExchangeDay = revenueExchangeDay - costDay;
   const profitContractDay = revenueContractDay - costDay;
   return {
-    admin, rows, pools: [...pools.values()], demands, purchases, sales, kept, transportPrice, warnings,
+    admin, rows, pools: [...pools.values()], demands, purchases, launchBuys, sales, kept, transportPrice, warnings,
     totals: {
-      purchasesDay, wagesDayNet, wagesDayGross, wageBaseDay,
+      purchasesDay, rocketsDay, wagesDayNet, wagesDayGross, wageBaseDay,
       executiveSavingsDay: wagesDayGross - wagesDayNet, // yöneticilerin bu binaların maaşında kazandırdığı
       executiveSalariesDay, costDay,
       revenueExchangeDay, revenueContractDay,
