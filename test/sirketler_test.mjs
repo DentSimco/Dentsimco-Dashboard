@@ -9,8 +9,8 @@ const C = [3, 'Zeytin', 3, -1, 0, 700, 0, 0, 0, 0, 0, 0, 0]; // ayrıntısı gel
 const rows = [C, A, B];
 const ids = (list) => list.map((r) => r[0]);
 
-assert.deepEqual(ids(sirala(rows, 'rank', 1)), [1, 2, 3]);
-assert.deepEqual(ids(sirala(rows, 'rank', -1)), [3, 2, 1]);
+assert.ok(!SIRALAMA.some((s) => s[0] === 'rank'), '"Sıra" ölçütü yok (şirket değeriyle aynı)');
+assert.equal(SIRALAMA[0][0], 'value', 'varsayılan ölçüt şirket değeri');
 assert.deepEqual(ids(sirala(rows, 'value', -1)), [1, 2, 3]);
 assert.deepEqual(ids(sirala(rows, 'valueDiff', 1)), [2, 3, 1]);
 assert.deepEqual(ids(sirala(rows, 'name', 1)), [2, 1, 3], 'Türkçe sıra: arı, Çelik, Zeytin');
@@ -22,9 +22,10 @@ assert.deepEqual(ids(sirala(rows, 'eva', -1)), [1, 2, 3]);
 // EVA puanı 0 olan (ayrıntısı gelse bile) yön ne olursa olsun sonda
 const D = [4, 'Dört', 4, 0, 0, 10, 0, 0, 1, 1, 1, 1, 1];
 assert.deepEqual(ids(sirala([D, A, B], 'eva', -1)), [1, 2, 4]);
-assert.deepEqual(ids(sirala([D, A, B], 'eva', 1)), [2, 1, 4]);
-assert.equal(SIRALAMA.find((s) => s[0] === 'eva')[3], -1, 'EVA varsayılanı büyükten küçüğe');
-assert.deepEqual(ids(sirala(rows, 'bilinmeyen', 1)), [1, 2, 3], 'bilinmeyen ölçüt sıraya düşer');
+assert.deepEqual(ids(sirala([D, A, B], 'eva', 1)), [2, 1, 4], 'EVA sırası 1 en iyi: küçükten büyüğe');
+assert.equal(SIRALAMA.find((s) => s[0] === 'eva')[3], 1, 'EVA varsayılanı küçükten büyüğe (1 en iyi)');
+assert.equal(SIRALAMA.find((s) => s[0] === 'bonds')[1], 'Satılan bono');
+assert.deepEqual(ids(sirala(rows, 'bilinmeyen', -1)), [1, 2, 3], 'bilinmeyen ölçüt şirket değerine düşer');
 assert.deepEqual(ids(rows), [3, 1, 2], 'giriş listesi değişmez');
 // Eşit değerde sıra numarası belirler
 assert.deepEqual(ids(sirala([[9, 'x', 5, 0, 1, 10, 0, 0, 0, 0, 0, 0, 1], [8, 'y', 4, 0, 1, 10, 0, 0, 0, 0, 0, 0, 1]], 'value', -1)), [8, 9]);

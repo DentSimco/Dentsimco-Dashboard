@@ -15,6 +15,13 @@ assert.equal(by[2].fiyat, 5);
 assert.equal(by[2].degisim, null);
 assert.equal(tickerItems(fiyatlar, live, 1).length, 1, 'en çok n ürün');
 assert.deepEqual(tickerItems(null, null), []);
+// Sıra: en çok yükselen, en çok düşen, ikinci yükselen, ikinci düşen... sonra değişimi olmayanlar
+const fz = { 1: ['A', 10, 0], 2: ['B', 10, 0], 3: ['C', 10, 0], 4: ['D', 10, 0], 5: ['E', 10, 0], 6: ['F', 10, 0] };
+const lv = { 1: [0, { 0: [10.5] }], 2: [0, { 0: [12] }], 3: [0, { 0: [9] }], 4: [0, { 0: [9.9] }], 5: [0, { 0: [10] }] };
+const sira = tickerItems(fz, lv, 10, () => 0).map((x) => x.ad);
+assert.deepEqual(sira.slice(0, 4), ['B', 'C', 'A', 'D']);
+assert.deepEqual(sira.slice(4).sort(), ['E', 'F'], 'değişimi olmayanlar sonda');
+assert.deepEqual(tickerItems(fz, lv, 3, () => 0).map((x) => x.ad), ['B', 'C', 'A'], 'en çok n');
 
 // Grafik yolu: ilk nokta sol, son nokta sağ; en yüksek değer üstte (y küçük)
 const [line, area] = sparkPaths([['a', 1], ['b', 3], ['c', 2]], 100, 40, 0);

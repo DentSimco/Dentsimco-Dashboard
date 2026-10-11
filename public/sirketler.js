@@ -1,6 +1,7 @@
 // DentSimco — Şirketler: Simcotools şirket sıralamasının tamamı (bot günde bir kez yazar), menüden sıralanır.
 // Veri: meta/ranking_r{realm} (index) + meta/ranking_r{realm}_c{NN} (parçalar). Biçim için bot/ranking.mjs başına bak.
-//   satır = [id, ad, sıra, sıraFarkı, evaSırası, değer, değerFarkı, değerYüzde, bina, patent, işçi, tahvil, ayrıntıVar]
+//   satır = [id, ad, sıra, sıraFarkı, evaSırası (1 en iyi, 0 yok), değer, değerFarkı, değerYüzde, bina, patent, işçi, bono, ayrıntıVar]
+// "Sıra" ayrı bir ölçüt değildir: Simcotools sırası şirket değerine göredir (Şirket değeri ölçütüyle aynı).
 
 import { PATHS, readDocs, dataField, VeriHatasi } from './veri.js';
 import { LOCALE } from './i18n.js';
@@ -9,19 +10,18 @@ const PAGE = 50;
 
 // Sıralama ölçütleri: [anahtar, başlık, satırdaki sütun, varsayılan yön, ayrıntı gerekir mi]
 export const SIRALAMA = [
-  ['rank', 'Sıra', 2, 1, false],
   ['value', 'Şirket değeri', 5, -1, false],
   ['valueDiff', 'Değer değişimi', 6, -1, false],
   ['valuePct', 'Değer değişimi %', 7, -1, false],
-  ['eva', 'EVA puanı', 4, -1, true],
+  ['eva', 'EVA sırası', 4, 1, true],
   ['buildings', 'Bina değeri', 8, -1, true],
   ['patents', 'Patent değeri', 9, -1, true],
   ['workers', 'İşçi', 10, -1, true],
-  ['bonds', 'Satılan tahvil', 11, -1, true],
+  ['bonds', 'Satılan bono', 11, -1, true],
   ['name', 'Ad (A-Z)', 1, 1, false],
 ];
 
-// EVA puanında büyük olan iyidir; 0 = Simcotools'ta puan yok (ayrıntısı gelmemiş sayılır).
+// EVA sırasında 1 en iyidir (en çok değer katan); 0 = Simcotools'ta EVA yok (ayrıntısı gelmemiş sayılır).
 export const ayrintiVar = (row, key) => row[12] === 1 && (key !== 'eva' || row[4] > 0);
 
 // rows'u değiştirmez. dir: 1 artan, -1 azalan. Ayrıntısı henüz gelmemiş şirketler ayrıntı ölçütlerinde hep sonda kalır.
@@ -67,7 +67,8 @@ const CSS = `
 .sk-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); }
 .sk table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 .sk th, .sk td { padding: 9px 10px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--row-line); }
-.sk th { position: sticky; top: 0; background: var(--raise); color: var(--muted); font: 600 13px var(--font-c); letter-spacing: .03em; cursor: pointer; user-select: none; }
+.sk th { position: sticky; top: 0; background: var(--raise); color: var(--muted); font: 600 13px var(--font-c); letter-spacing: .03em; user-select: none; }
+.sk th[data-k] { cursor: pointer; }
 .sk th[aria-sort] { color: var(--accent); }
 .sk th:first-child, .sk td:first-child, .sk th.l, .sk td.l { text-align: left; }
 .sk tbody tr:hover { background: var(--hover); }
@@ -98,7 +99,7 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
   let alive = true;
   let token = 0;
   let data = null;
-  const state = { key: 'rank', dir: 1, q: '', page: 1 };
+  const state = { key: 'value', dir: -1, q: '', page: 1 };
   // #sirketler/value, #sirketler/eva gibi bağlantılar o ölçütle açılır (haber sayfasındaki sıralama kutuları)
   function keyFromHash() {
     const k = location.hash.slice(1).split('/')[1];
@@ -153,9 +154,9 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
     const pages = Math.max(1, Math.ceil(view.length / PAGE));
     state.page = Math.min(Math.max(1, state.page), pages);
     const from = (state.page - 1) * PAGE;
-    const cols = [['Sıra', 'rank', 'l'], ['Şirket', 'name', 'l'], ['Şirket değeri', 'value'], ['Değişim', 'valueDiff'], ['%', 'valuePct'],
-      ['EVA puanı', 'eva'], ['Bina değeri', 'buildings'], ['Patent değeri', 'patents'], ['İşçi', 'workers'], ['Tahvil', 'bonds']];
-    box.querySelector('thead').innerHTML = `<tr>${cols.map(([t, k, c]) => `<th data-k="${k}" class="${c || ''}" ${k === state.key ? `aria-sort="${state.dir > 0 ? 'ascending' : 'descending'}"` : ''}>${t}</th>`).join('')}</tr>`;
+    const cols = [['Sıra', null, 'l'], ['Şirket', 'name', 'l'], ['Şirket değeri', 'value'], ['Değişim', 'valueDiff'], ['%', 'valuePct'],
+      ['EVA sırası', 'eva'], ['Bina değeri', 'buildings'], ['Patent değeri', 'patents'], ['İşçi', 'workers'], ['Bono', 'bonds']];
+    box.querySelector('thead').innerHTML = `<tr>${cols.map(([t, k, c]) => `<th${k ? ` data-k="${k}"` : ''} class="${c || ''}" ${k && k === state.key ? `aria-sort="${state.dir > 0 ? 'ascending' : 'descending'}"` : ''}>${t}</th>`).join('')}</tr>`;
     box.querySelector('tbody').innerHTML = view.slice(from, from + PAGE).map((r) => {
       const d = r[12] === 1;
       const dim = (v) => (d ? v : '<span class="dim">—</span>');
@@ -165,7 +166,7 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
         <td>${r[4] > 0 ? dim(NUM.format(r[4])) : '<span class="dim">—</span>'}</td><td>${dim(usd(r[8]))}</td><td>${dim(usd(r[9]))}</td><td>${dim(NUM.format(r[10] / 100))}</td><td>${dim(usd(r[11]))}</td></tr>`;
     }).join('') || '<tr><td colspan="10" class="l dim">Eşleşen şirket yok.</td></tr>';
     box.querySelector('#sk-dir').textContent = state.dir > 0 ? '↑' : '↓';
-    box.querySelector('#sk-note').textContent = `${NUM.format(view.length)} şirket · Veri: Simcotools · ${data.date ? new Date(data.date).toLocaleDateString(LOCALE, { timeZone: 'UTC' }) : ''}. Ayrıntıları (EVA, bina, patent, işçi, tahvil) henüz gelmemiş şirketlerde "—" görünür.`;
+    box.querySelector('#sk-note').textContent = `${NUM.format(view.length)} şirket · Veri: Simcotools · ${data.date ? new Date(data.date).toLocaleDateString(LOCALE, { timeZone: 'UTC' }) : ''}. Ayrıntıları (EVA, bina, patent, işçi, bono) henüz gelmemiş şirketlerde "—" görünür.`;
     box.querySelector('.sk-pager').innerHTML = `<button type="button" data-p="-1" ${state.page <= 1 ? 'disabled' : ''}>‹ Önceki</button><span>${state.page} / ${pages}</span><button type="button" data-p="1" ${state.page >= pages ? 'disabled' : ''}>Sonraki ›</button>`;
   }
 
