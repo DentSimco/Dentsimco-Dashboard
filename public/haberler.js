@@ -11,10 +11,13 @@
 
 import { PATHS, readDocs, dataField, VeriHatasi, fmtPrice, fmtAgo, fmtDateTime } from './veri.js';
 import { DIL, LOCALE } from './i18n.js';
+import { urunAdi } from './urun-adlari.js';
 
 const TICKER_N = 18;
 
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// Ürün adı bot belgesinde tek dilde (Türkçe) gelir; şerit ve grafik başlığı bu işlevle seçili dile çevrilir.
+export const haberUrunAdi = (id, ad) => urunAdi(id, ad);
 const dil = (h) => (DIL === 'en' ? h?.en : h?.tr) || h?.tr || { baslik: '', spot: '', govde: [] };
 
 const KATEGORI_EN = { 'PİYASA': 'MARKETS', 'ÜRETİM': 'PRODUCTION', 'ŞİRKETLER': 'COMPANIES', 'EKONOMİ': 'ECONOMY', 'PERAKENDE': 'RETAIL', 'ANALİZ': 'ANALYSIS' };
@@ -232,7 +235,7 @@ function chartBox(g, { big = false } = {}) {
   const fmtD = (d) => new Date(`${d}T00:00:00Z`).toLocaleDateString(LOCALE, { day: 'numeric', month: 'short', timeZone: 'UTC' });
   const pctTxt = new Intl.NumberFormat(LOCALE, { style: 'percent', maximumFractionDigits: 1, signDisplay: 'exceptZero' }).format(ch);
   return `<figure class="nw-chart ${ch < 0 ? 'dn' : ''}">
-    <div class="nw-chart-h"><b><span data-no-t>${esc(g.ad)}</span> · Q${esc(g.q)} fiyatı</b><span style="color:var(--nw-${ch < 0 ? 'dn' : 'up'})"><small class="nw-per">${days} gün</small> ${pctTxt}</span></div>
+    <div class="nw-chart-h"><b><span data-no-t>${esc(haberUrunAdi(g.id, g.ad))}</span> · Q${esc(g.q)} fiyatı</b><span style="color:var(--nw-${ch < 0 ? 'dn' : 'up'})"><small class="nw-per">${days} gün</small> ${pctTxt}</span></div>
     <svg viewBox="0 0 300 ${big ? 120 : 110}" preserveAspectRatio="none" aria-hidden="true"><path class="ar" d="${paths[1]}"/><path class="ln" d="${paths[0]}"/></svg>
     <figcaption class="nw-chart-f"><span>${fmtD(seri[0][0])}</span><span>${hasLive ? `Günlük kapanış + bugün · ${fmtPrice(last)}` : `Günlük kapanış · ${fmtPrice(last)}`}</span><span>${hasLive ? 'Bugün' : fmtD(seri.at(-1)[0])}</span></figcaption>
   </figure>`;
@@ -270,7 +273,7 @@ function viewFront(st) {
   const tk = ticker.map((x) => {
     const cls = x.degisim == null || Math.abs(x.degisim) < 0.0005 ? 'f' : x.degisim > 0 ? 'u' : 'd';
     const arrow = cls === 'u' ? '▲' : cls === 'd' ? '▼' : '■';
-    return `<a class="nw-tk" href="#borsa" tabindex="-1"><span data-no-t>${esc(x.ad)}</span><i class="nw-q">Q${esc(x.q)}</i><b class="${cls === 'f' ? '' : cls}">${fmtPrice(x.fiyat)}</b><span class="${cls}">${arrow} ${x.degisim == null ? '' : pctF.format(x.degisim)}</span></a>`;
+    return `<a class="nw-tk" href="#borsa" tabindex="-1"><span data-no-t>${esc(haberUrunAdi(x.id, x.ad))}</span><i class="nw-q">Q${esc(x.q)}</i><b class="${cls === 'f' ? '' : cls}">${fmtPrice(x.fiyat)}</b><span class="${cls}">${arrow} ${x.degisim == null ? '' : pctF.format(x.degisim)}</span></a>`;
   }).join('');
   const lead = news.manset;
   const lt = dil(lead);
