@@ -1,11 +1,12 @@
 # DentSimco — Sinyal motoru
 # İki çalışma şekli:
 #   gece    Her gece 01:20 UTC'de (04:20 TR) botun gece özetinden sonra: tam hesap (sinyaller, karne, olay ve evre arşivi).
-#   gunici  Gün boyu iki saatte bir (03:20, 05:20 ... 23:20 UTC): yalnız meta/sinyal_r{0,1} yazılır. Likit ve son işlemi
-#           ≤6 saat önce olan ürün×kalitede canlı son işlem fiyatıyla yeniden hesaplanır.
+#   gunici  Gün boyu saatte bir (00:20, 02:20, 03:20 ... 23:20 UTC; 01:20 gece çalışmasınındır): meta/sinyal_r{0,1} ve gün içi
+#           karne kaydı yazılır. Likit ve son işlemi ≤6 saat önce olan ürün×kalitede canlı son işlem fiyatıyla yeniden hesaplanır.
+#           Fiyat hedefe ulaşır, 20 günlük tepeyi ya da dibi kırarsa sinyal beklemeden yenilenir (motor.mjs başı).
 # Her çalışma 1-2 dakika sürür. Sıra: sınamalar → sinyalleri hesapla → Firestore'a yalnız sonuçları yaz. Sınama geçmezse hiçbir şey yazılmaz.
 # Elle çalıştırmak için: Actions > DentSimco Sinyal > Run workflow (şekil seçilir; yeni sürümü ilk kurarken önce "gece" çalıştır).
-# Okuma maliyeti: her çalışma yaklaşık 600 Firestore belgesi okur (iki saatte bir ≈ 7 bin/gün).
+# Okuma maliyeti: her çalışma yaklaşık 600 Firestore belgesi okur (saatte bir ≈ 14 bin/gün).
 #
 # Güvenlik: yalnız FIREBASE_BOT_JSON kullanılır ("Cloud Datastore User" rolündeki hesap). Site yayın anahtarına
 # (FIREBASE_HOSTING_JSON) geri dönülmez. GitHub eylemleri değişmez commit numarasıyla (SHA) çağrılır.
@@ -14,7 +15,7 @@ name: DentSimco Sinyal
 on:
   schedule:
     - cron: '20 1 * * *'
-    - cron: '20 3-23/2 * * *'
+    - cron: '20 0,2-23 * * *'
   workflow_dispatch:
     inputs:
       mod:
@@ -49,7 +50,7 @@ jobs:
           node-version: 22
 
       - name: Sınamalar
-        run: node sinyal/motor.test.mjs
+        run: node sinyal/motor.test.mjs && node sinyal/motor_test.mjs
 
       - name: Sinyalleri hesapla ve yaz (${{ env.SINYAL_MOD }})
         run: node sinyal/motor.mjs

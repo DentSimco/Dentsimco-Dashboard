@@ -15,11 +15,18 @@
 //
 // İKİ ÇALIŞMA ŞEKLİ (SINYAL_MOD ortam değişkeni ya da --gunici):
 //   gece    (varsayılan) tam hesap: sinyaller + karne + olay/evre arşivi. Fiyat = son tam günün VWAP'ı.
-//   gunici  yalnız meta/sinyal_r{r} yazılır. Gece bayrağı LİKİT (7 günde ≥5 işlem günü ve günde ≥200 birim) ve
+//   gunici  (saatte bir) meta/sinyal_r{r} ve o günün gün içi karne kaydı (meta/sinyalgecmisgi_r{r}_{gün}) yazılır. Gece bayrağı LİKİT (7 günde ≥5 işlem günü ve günde ≥200 birim) ve
 //           son işlemi ≤6 saat önce olan ürün×kalitede fiyat olarak canlı son işlem fiyatı kullanılır (g=1).
 //           Diğerleri geceki hesapla aynıdır. Eylem yönü önceki yayından farklı çıkarsa, aynı yön iki ardışık
 //           çalışmada çıkana kadar eski sinyal korunur (titreşim önleme).
 //   Hedef fiyat = p × (1 + e/200). p her zaman beklentinin hesaplandığı fiyattır (g=1 ise canlı, değilse VWAP).
+//
+// GÜN İÇİ OLAYLAR (yalnız gunici, likit ve taze fiyatlı kayıtlarda). Olay çıkınca sinyal o çalışmada beklemeden yenilenir
+// (titreşim önleme atlanır) ve kayda v = [kod, zaman] yazılır; etiket OLAY_SURE boyunca kartta kalır:
+//   hd+ / hd-  gece hesabının hedef fiyatına (h) ulaşıldı (yükseliş / düşüş hedefi). Yeni hedef yeni hesaptan alınır.
+//   ky         canlı fiyat son 20 günün en yüksek günlük fiyatını %1'den fazla aştı (yukarı kırılım)
+//   ka         canlı fiyat son 20 günün en düşük günlük fiyatının %1'den fazla altına indi (yeni dip)
+//   h = [hedef fiyat, yön] gece hesabında |beklenti| ≥ %2 ise konur; gün içinde ulaşılana kadar taşınır.
 //
 // Model (2025-10 – 2026-10 verisiyle, yarı yarıya örneklem dışı sınandı):
 //   beklenen 14 günlük getiri = göreli kısım (ürünün kendi normaline ve maliyetine göre) + makro kısım
@@ -52,6 +59,9 @@ export const M = {
   likit: { pencere: 7, gun: 5, birim: 200 }, // gece bayrağı: son 7 günde ≥5 işlem günü ve günlük ortalama ≥200 birim
   taze: 6 * 3_600_000, // son işlem bundan eskiyse canlı fiyat kullanılmaz
   canliEsik: 45 * 60_000, // canlı belge bundan eskiyse (bot durduysa) gün içi hesap yapılmaz
+  hedefEnAz: 0.02, // gece hesabında bu beklentiden küçükse hedef (h) konmaz
+  kirilim: 0.01, // 20 günlük tepe/dip bu oranda aşılırsa kırılım sayılır
+  olaySure: 12 * 3_600_000, // olay etiketi bu kadar süre kartta kalır
 };
 
 // Örneklem dışı sınama sonuçları (14 gün, 131 ürün, 40.544 ürün-gün): [n, fiyatı yükselenlerin payı, ortalama gerçekleşen]
@@ -235,6 +245,7 @@ const canliTazeMi = (cl, simdi) => Boolean(cl) && cl[0] > 0 && cl[1] > 0 && simd
 // Yön aynıysa (yalnız güç ya da beklenti değiştiyse) yeni kayıt hemen geçer.
 export function titresimOnle(yeni, onceki) {
   if (!yeni?.g || !yeni.s || !yeni.a || !onceki?.s || !onceki?.a || !(onceki.p > 0)) return yeni;
+  if (yeni.v && yeni.v[1] !== onceki.v?.[1]) return yeni; // yeni gün içi olay (hedef, kırılım): sinyal hemen yenilenir
   if (onceki.s[0] === yeni.s[0] && onceki.a[0] === yeni.a[0]) return yeni;
   const b = onceki.b;
   if (b && b[0] === yeni.s[0] && b[1] === yeni.a[0]) return yeni; // ikinci ardışık çalışma: değişim onaylandı
@@ -429,6 +440,24 @@ function maliyetliMi(info, S) {
     && info.baseSalary > 0 && info.perHour > 0 && info.inputs.every(([j]) => S.P(j, 0) || S.P(j, 1));
 }
 
+// Gün içi olay: önceki yayın (once) ve canlı fiyat (p) ile. hi/lo = son 20 günün günlük fiyatlarının log tepe/dibi.
+// Aynı olay OLAY_SURE içinde tekrar üretilmez (her saat yeniden "kırıldı" denmesin).
+export function gunIciOlay({ p, once, hi, lo, nn, simdi }) {
+  if (!(p > 0)) return null;
+  const tekrar = (kod) => once?.v?.[0] === kod && simdi - once.v[1] < M.olaySure;
+  const h = once?.h;
+  if (Array.isArray(h) && h[0] > 0) {
+    if (h[1] > 0 && p >= h[0]) return 'hd+';
+    if (h[1] < 0 && p <= h[0]) return 'hd-';
+  }
+  if (nn >= 10) {
+    const lp = Math.log(p);
+    if (lp > hi + Math.log(1 + M.kirilim) && !tekrar('ky')) return 'ky';
+    if (lp < lo - Math.log(1 + M.kirilim) && !tekrar('ka')) return 'ka';
+  }
+  return null;
+}
+
 function dusur(sig, kod) {
   if (sig[1] > 1) sig[1] -= 1;
   return kod;
@@ -517,9 +546,10 @@ export function urunSinyali(ctx, id, q) {
   if (gunici) entry.g = 1;
 
   // Satıcı (elinde mal olan üretici): komisyon bugün de sonra da ödenir, karar yalnız fiyat beklentisine bağlı
-  const s = e14 >= 0.04 ? ['TUT', 3] : e14 >= 0.02 ? ['TUT', 2] : e14 <= -0.04 ? ['HSAT', 3] : e14 <= -0.02 ? ['HSAT', 2] : ['SAT', 0];
+  // +%2…+%4 yükseliş beklentisi geçmiş sınamada zayıftı (%57 isabet, ortalama +%1): eylem olarak nötr gösterilir.
+  const s = e14 >= 0.04 ? ['TUT', 3] : e14 <= -0.04 ? ['HSAT', 3] : e14 <= -0.02 ? ['HSAT', 2] : ['SAT', 0];
   // Alıcı (girdi alacak üretici)
-  const a = e14 <= -0.04 ? ['BEKLE', 3] : e14 <= -0.02 ? ['BEKLE', 2] : e14 >= 0.04 ? ['STOKLA', 2] : e14 >= 0.02 ? ['AL', 1] : ['AL', 0];
+  const a = e14 <= -0.04 ? ['BEKLE', 3] : e14 <= -0.02 ? ['BEKLE', 2] : e14 >= 0.04 ? ['STOKLA', 2] : ['AL', 0];
   entry.s = s;
   entry.a = a;
 
@@ -542,6 +572,24 @@ export function urunSinyali(ctx, id, q) {
   }
   let hi = -Infinity, lo = Infinity, nn = 0;
   for (let j = Math.max(0, ti - 20); j < ti; j++) if (P[j] > 0) { const l = Math.log(P[j]); hi = Math.max(hi, l); lo = Math.min(lo, l); nn++; }
+  // Gece hesabının hedefi (h): gün içinde ulaşılana kadar taşınır
+  const once = ctx.onceki?.[id]?.[q];
+  if (!gunici) {
+    if (Math.abs(e14) >= M.hedefEnAz) entry.h = [Math.round(p * (1 + e14) * 1e4) / 1e4, e14 > 0 ? 1 : -1];
+  } else {
+    const olay = gunIciOlay({ p, once, hi, lo, nn, simdi: ctx.simdi });
+    if (olay) {
+      entry.v = [olay, ctx.simdi];
+      r.unshift(olay);
+      // Hedefe ulaşıldıysa yeni hedef bu (canlı) hesaptan; değilse gece hedefi korunur
+      if (olay.startsWith('hd')) { if (Math.abs(e14) >= M.hedefEnAz) entry.h = [Math.round(p * (1 + e14) * 1e4) / 1e4, e14 > 0 ? 1 : -1]; }
+      else if (once?.h) entry.h = once.h;
+    } else {
+      if (once?.h) entry.h = once.h;
+      if (once?.v && ctx.simdi - once.v[1] < M.olaySure) { entry.v = once.v; r.unshift(once.v[0]); }
+    }
+  }
+
   const U = S.U(id, q);
   if (!gunici && nn >= 10 && U && U[ti] > 0) {
     const muU = logOrt(U, ti, 30, 15);
@@ -615,7 +663,7 @@ function kaliteOnerisi(S, info, Ti, tasima) {
 
 // ---- Bir realm için tüm hesap (saf işlev: okuma/yazma yapmaz, sınanabilir) ------------------------
 
-export function hesapla({ realm, simdi, products, ids, modifiers, phase, seed, daily, mevsimHazir, gecmisDocs, karneDoc, canli: canliFiyat = null, tn = null }) {
+export function hesapla({ realm, simdi, products, ids, modifiers, phase, seed, daily, mevsimHazir, gecmisDocs, gecmisGiDocs = null, karneDoc, canli: canliFiyat = null, tn = null, onceki = null }) {
   // Son tam gün: borsadaki ürünlerin en az %40'ında Q0 fiyatı olan en yeni gün
   const bugun = utcDay(simdi);
   const start = addDays(bugun, -430);
@@ -645,11 +693,12 @@ export function hesapla({ realm, simdi, products, ids, modifiers, phase, seed, d
     .filter((x) => fin(x.kind) && fin(x.s) && x.since && x.until && simdi - Date.parse(x.until) <= 7 * DAY);
 
   const tasimaSeri = S.P(M.tasimaId, 0);
-  const ctx = { S, Ti, products, m7, betalar, olaylar, mevsim, gun: bugun, simdi, canli: canliFiyat, tasimaFiyati: sonDeger(tasimaSeri, Ti, 7) };
+  const ctx = { S, Ti, products, m7, betalar, olaylar, mevsim, gun: bugun, simdi, canli: canliFiyat, onceki: onceki?.urun || null, tasimaFiyati: sonDeger(tasimaSeri, Ti, 7) };
 
   const urun = {};
   const gunluk = {};
   const kalite = {};
+  const gunIci = {}; // gün içi karne: canlı fiyatla hesaplanan kayıtlar {id: {q: [e, canlı fiyat]}}
   let sayac = 0;
   let canliSayi = 0;
   for (const id of ids) {
@@ -659,7 +708,7 @@ export function hesapla({ realm, simdi, products, ids, modifiers, phase, seed, d
       if (!e) continue;
       qs[q] = e;
       sayac++;
-      if (e.g) canliSayi++;
+      if (e.g) { canliSayi++; if (e.e != null) (gunIci[id] ||= {})[q] = [e.e, e.p]; }
       if (e.e != null) {
         const p = sonDeger(S.P(id, q), Ti);
         (gunluk[id] ||= {})[q] = [e.e, Math.round(p * 1e4) / 1e4];
@@ -675,32 +724,51 @@ export function hesapla({ realm, simdi, products, ids, modifiers, phase, seed, d
     }
   }
 
-  // Canlı karne: 14 gün önceki beklentiler bugün ne oldu
-  const karne = { gunler: { ...(karneDoc?.gunler || {}) } };
-  const gecmisDoc = gecmisDocs?.get(addDays(T, -14)) || null;
-  if (gecmisDoc?.items && gecmisDoc.d) {
+  // Canlı karne: 14 gün önceki beklentiler 14 gün sonra ne oldu. Bir gece çalışması kaçarsa o günün kaydı sonraki
+  // gecelerde (en çok 18 gün geriye) yine değerlendirilir; gerçekleşen fiyat kaydın gününden tam 14 gün sonrasıdır.
+  const degerlendir = (doc, gun) => {
+    const j = S.idx(gun) + 14;
+    if (j > Ti || !doc?.items) return null;
     const top = {};
-    for (const [idText, qs] of Object.entries(gecmisDoc.items)) {
-      for (const [qText, [eh, p0]] of Object.entries(qs)) {
-        const p1 = sonDeger(S.P(Number(idText), Number(qText)), Ti, 3);
-        if (!(p0 > 0 && p1 > 0)) continue;
-        const r = Math.log(p1 / p0);
-        const k = kova(eh / 200);
-        const c = (top[k] ||= [0, 0, 0]);
-        c[0]++; if (r > 0) c[1]++; c[2] += r;
+    const ekle = (items) => {
+      for (const [idText, qs] of Object.entries(items || {})) {
+        for (const [qText, [eh, p0]] of Object.entries(qs)) {
+          const p1 = sonDeger(S.P(Number(idText), Number(qText)), j, 3);
+          if (!(p0 > 0 && p1 > 0)) continue;
+          const r = Math.log(p1 / p0);
+          const c = (top[kova(eh / 200)] ||= [0, 0, 0]);
+          c[0]++; if (r > 0) c[1]++; c[2] += r;
+        }
+      }
+    };
+    if (doc.saat) for (const items of Object.values(doc.saat)) ekle(items); // gün içi belge: saat → kayıtlar
+    else ekle(doc.items);
+    return top;
+  };
+  const karne = { gunler: { ...(karneDoc?.gunler || {}) }, gunici: { ...(karneDoc?.gunici || {}) } };
+  for (const doc of gecmisDocs?.values() || []) {
+    if (!doc?.d || karne.gunler[doc.d]) continue;
+    const top = degerlendir(doc, doc.d);
+    if (top) karne.gunler[doc.d] = top;
+  }
+  for (const [gun, doc] of gecmisGiDocs || []) {
+    if (!doc || karne.gunici[gun]) continue;
+    const top = degerlendir({ ...doc, items: {} }, gun);
+    if (top) karne.gunici[gun] = top;
+  }
+  for (const grup of [karne.gunler, karne.gunici]) for (const d of Object.keys(grup)) if (diffDays(T, d) > M.karneGun) delete grup[d];
+  const topla = (grup) => {
+    const c = {};
+    for (const top of Object.values(grup)) {
+      for (const [k, [n, up, sum]] of Object.entries(top)) {
+        const x = (c[k] ||= [0, 0, 0]);
+        x[0] += n; x[1] += up; x[2] += sum;
       }
     }
-    karne.gunler[gecmisDoc.d] = top;
-  }
-  for (const d of Object.keys(karne.gunler)) if (diffDays(T, d) > M.karneGun) delete karne.gunler[d];
-  const canli = {};
-  for (const top of Object.values(karne.gunler)) {
-    for (const [k, [n, up, sum]] of Object.entries(top)) {
-      const c = (canli[k] ||= [0, 0, 0]);
-      c[0] += n; c[1] += up; c[2] += sum;
-    }
-  }
-  const canliOzet = Object.fromEntries(Object.entries(canli).map(([k, [n, up, sum]]) => [k, [n, Math.round((up / n) * 100) / 100, Math.round((sum / n) * 1e4) / 1e4]]));
+    return Object.fromEntries(Object.entries(c).map(([k, [n, up, sum]]) => [k, [n, Math.round((up / n) * 100) / 100, Math.round((sum / n) * 1e4) / 1e4]]));
+  };
+  const canliOzet = topla(karne.gunler);
+  const giOzet = topla(karne.gunici);
 
   const sezonListe = {};
   for (const [id, m] of Object.entries(mevsim)) {
@@ -719,10 +787,10 @@ export function hesapla({ realm, simdi, products, ids, modifiers, phase, seed, d
     olaylar: olaylar.map((x) => [x.kind, x.s, x.since, x.until, Date.parse(x.since) > simdi ? 'yakinda' : Date.parse(x.until) > simdi ? 'aktif' : 'bitti']),
     sezon: sezonListe,
     kalite,
-    karne: { onsel: ONSEL, canli: canliOzet },
+    karne: { onsel: ONSEL, canli: canliOzet, gunici: giOzet },
     urun,
   };
-  return { sinyal, gecmis: { t: simdi, d: T, items: gunluk }, karne, mevsim, T, canliSayi };
+  return { sinyal, gecmis: { t: simdi, d: T, items: gunluk }, gunIci, karne, mevsim, T, canliSayi };
 }
 
 // ---- Okuma / yazma ------------------------------------------------------------------------------
@@ -759,6 +827,7 @@ export async function main({
   db = new Firestore(process.env.FIREBASE_SERVICE_ACCOUNT_JSON),
   simdi = Date.now(),
   mod = process.env.SINYAL_MOD === 'gunici' || process.argv.includes('--gunici') ? 'gunici' : 'gece',
+  seedYukle = seedOku, // sınamada geçmiş dosyası kapatılabilir
 } = {}) {
   const t0 = simdi;
   const basla = Date.now();
@@ -778,7 +847,7 @@ export async function main({
   const ozet = [];
   for (const realm of realms) {
     const products = parseJSON(meta.get(`meta/products_r${realm}`)?.data) || {};
-    const seed = await seedOku(realm);
+    const seed = await seedYukle(realm);
     let ids = (tradable[realm] || []).map(Number).filter(fin);
     if (!ids.length && seed) ids = Object.keys(seed.p).map(Number);
     if (!ids.length) { ozet.push(`r${realm}: ürün listesi yok, atlandı`); continue; }
@@ -798,16 +867,25 @@ export async function main({
     // 14 gün önceki beklentiler (karne). Son tam gün botun gece özetine bağlı olduğundan birkaç aday gün okunur.
     // Gün içi çalışmada karne güncellenmez: yeni gün eklenmez, belgedeki karne olduğu gibi yayında kalır.
     let gecmisDocs = new Map();
+    let gecmisGiDocs = new Map();
     if (!gunici) {
       const adaylar = [15, 16, 17, 18].map((k) => addDays(bugun, -k));
-      const gDocs = await db.getMany(adaylar.map((d) => `meta/sinyalgecmis_r${realm}_${d}`));
+      const gDocs = await db.getMany(adaylar.flatMap((d) => [`meta/sinyalgecmis_r${realm}_${d}`, `meta/sinyalgecmisgi_r${realm}_${d}`]));
       gecmisDocs = new Map(adaylar.map((d) => [d, parseJSON(gDocs.get(`meta/sinyalgecmis_r${realm}_${d}`)?.data)]));
+      // Gün içi belge: her saat bir alan (sHH); karnede o günün tüm saatleri değerlendirilir
+      gecmisGiDocs = new Map(adaylar.map((d) => {
+        const f = gDocs.get(`meta/sinyalgecmisgi_r${realm}_${d}`);
+        if (!f) return [d, null];
+        const saat = {};
+        for (const [k, v] of Object.entries(f)) if (/^s\d\d$/.test(k)) { const x = parseJSON(v); if (x) saat[k] = x; }
+        return [d, Object.keys(saat).length ? { saat } : null];
+      }));
     }
 
     const sonuc = hesapla({
       realm, simdi: t0, products, ids, modifiers, phase: phaseDoc[`r${realm}`] || null, seed, daily,
-      mevsimHazir: realm === 0 ? null : mevsimR0, gecmisDocs, karneDoc,
-      canli, tn: gunici ? (onceki?.tn ?? onceki?.t ?? null) : null,
+      mevsimHazir: realm === 0 ? null : mevsimR0, gecmisDocs, gecmisGiDocs, karneDoc,
+      canli, tn: gunici ? (onceki?.tn ?? onceki?.t ?? null) : null, onceki,
     });
     if (realm === 0) mevsimR0 = sonuc.mevsim; // gün içi çalışmada atlanan realm 0 da hesaplanır: R2 mevsim takvimini ondan alır
 
@@ -818,7 +896,13 @@ export async function main({
       const metin = JSON.stringify(sonuc.sinyal);
       if (metin.length > 900_000) throw new Error(`sinyal belgesi çok büyük (${metin.length} karakter)`);
       writes.push({ type: 'set', path: `meta/sinyal_r${realm}`, data: { data: metin, u: t0 } });
-      ozet.push(`r${realm}: gün içi, canlı fiyatla ${sonuc.canliSayi} / ${sonuc.sinyal.sayi} sinyal, ${tutulan} yön değişimi bekletildi, ${Math.round(metin.length / 1024)} KB`);
+      // Gün içi karne: bu saatin canlı fiyatlı beklentileri (14 gün sonra gece çalışması değerlendirir)
+      if (Object.keys(sonuc.gunIci).length) {
+        const saat = `s${String(new Date(t0).getUTCHours()).padStart(2, '0')}`;
+        writes.push({ type: 'merge', path: `meta/sinyalgecmisgi_r${realm}_${bugun}`, data: { [saat]: JSON.stringify(sonuc.gunIci), u: t0 } });
+      }
+      const olaySay = Object.values(sonuc.sinyal.urun).reduce((n, qs) => n + Object.values(qs).filter((e) => e.v && e.v[1] === t0).length, 0);
+      ozet.push(`r${realm}: gün içi, canlı fiyatla ${sonuc.canliSayi} / ${sonuc.sinyal.sayi} sinyal, yeni olay ${olaySay}, ${tutulan} yön değişimi bekletildi, ${Math.round(metin.length / 1024)} KB`);
       continue;
     }
 
@@ -840,7 +924,7 @@ export async function main({
       { type: 'set', path: `meta/olaylar_r${realm}`, data: { data: JSON.stringify(arsiv), u: t0 } },
       { type: 'set', path: `meta/evreler_r${realm}`, data: { data: JSON.stringify(evreler), u: t0 } },
     );
-    ozet.push(`r${realm}: son gün ${sonuc.T}, ${sonuc.sinyal.sayi} sinyal, piyasa 7g ${sonuc.sinyal.makro.m7 ?? "yok"}%, mevsimsel ${Object.keys(sonuc.mevsim).length}, karne günü ${Object.keys(sonuc.karne.gunler).length}, ${Math.round(metin.length / 1024)} KB`);
+    ozet.push(`r${realm}: son gün ${sonuc.T}, ${sonuc.sinyal.sayi} sinyal, piyasa 7g ${sonuc.sinyal.makro.m7 ?? "yok"}%, mevsimsel ${Object.keys(sonuc.mevsim).length}, karne günü ${Object.keys(sonuc.karne.gunler).length} (gün içi ${Object.keys(sonuc.karne.gunici).length}), ${Math.round(metin.length / 1024)} KB`);
   }
   if (writes.length) await db.commit(writes);
   console.log(`DentSimco sinyal (${gunici ? 'gün içi' : 'gece'}) | ${ozet.join(' | ')} | ${((Date.now() - basla) / 1000).toFixed(1)} sn`);

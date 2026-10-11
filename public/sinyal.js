@@ -10,6 +10,8 @@
 //     e: 14 günlük beklenti, yarım yüzde adımı (e ÷ 200 = oran)
 //     p: hesap fiyatı (beklentinin hesaplandığı fiyat). Hedef fiyat = p × (1 + e ÷ 200)
 //     l: 1 = gece bayrağı likit | g: 1 = gün içi, canlı son işlem fiyatıyla hesaplandı | b: bekleyen eylem yönü (titreşim önleme)
+//     h: [hedef fiyat, yön] gece hesabının hedefi | v: [olay kodu, zaman] gün içi olay (hd+, hd-, ky, ka); olayda sinyal hemen yenilenir
+//   karne.gunici: gün içi (canlı fiyatlı) sinyallerin karnesi, canli ile aynı biçim
 
 import { readDocs, dataField, loadBasics, PATHS, fmtDate, fmtDateTime, fmtAgo, fmtPct, fmtPrice, HOUR } from './veri.js';
 import { loadPerakendeSinyal, karMi, zararMi } from './perakende-sinyal.js';
@@ -77,6 +79,10 @@ function gerekce(code) {
     'kr+': 'Yüksek hacimle 20 günlük zirve aşıldı: geçmişte vakaların ~%70\'i geri döndü',
     'kr-': 'Yüksek hacimle 20 günlük dip kırıldı: geçmişte vakaların ~%70\'i toparlandı',
     mc: 'Fiyat girdi + maaş maliyetinin altında',
+    'hd+': 'Yükseliş hedefine ulaştı: sinyal yeni fiyatla yenilendi',
+    'hd-': 'Düşüş hedefine ulaştı: sinyal yeni fiyatla yenilendi',
+    ky: 'Son 20 günün en yüksek fiyatının üstüne çıktı: sinyal yeni fiyatla yenilendi',
+    ka: 'Son 20 günün en düşük fiyatının altına indi: sinyal yeni fiyatla yenilendi',
     sz: 'Mevsim takvimine göre',
     bz: 'Ürün bozulabiliyor: uzun süre tutma',
   }[code] || null;
@@ -169,7 +175,7 @@ const eskiMi = (doc) => doc && Date.now() - (doc.tn ?? doc.t) > 36 * HOUR; // g�
 export const TAZE_SA = 6; // likit üründe son işlem bundan eskiyse fiyat "eski" sayılır
 export const ESKI_ESIK = 0.05; // canlı fiyat hesap fiyatından bu kadar oynadıysa sinyal "eski"
 export const GUNCEL_ESIK = 0.10; // likit ve taze üründe bu kadar oynadıysa "Güncelleniyor"
-const YENI_HESAP_SA = 3; // "Güncelleniyor" yalnız son hesap bu kadar yeniyse söylenir (gün içi çalışma duruyorsa söylenmez)
+const YENI_HESAP_SA = 2; // "Güncelleniyor" yalnız son hesap bu kadar yeniyse söylenir (gün içi çalışma duruyorsa söylenmez)
 
 // Hedef fiyat = hesap fiyatı × (1 + beklenti). Hesap fiyatı olmayan eski belgelerde null.
 export function hedefFiyat(e) {
@@ -204,6 +210,15 @@ function rozetHtml(tz, simdi) {
   else if (tz.tip === 'guncelleniyor') metin = `Fiyat, hesap fiyatının %${yuzde} ${yon}. Sinyal yeniden hesaplanıyor.`;
   else metin = `Fiyat, hesap fiyatının %${yuzde} ${yon}. Sinyal eski olabilir; ${tz.yeniden ? 'birkaç saat içinde' : 'gece'} yeniden hesaplanır.`;
   return `<p class="sg-rozet" data-tip="${tz.tip}" role="status">${esc(metin)}</p>`;
+}
+
+// Gün içi olay etiketi: "Yeni sinyal · Hedefe ulaştı · 14:20"
+const OLAY_AD = { 'hd+': 'Yükseliş hedefine ulaştı', 'hd-': 'Düşüş hedefine ulaştı', ky: 'Yukarı kırılım: 20 günün zirvesi aşıldı', ka: 'Yeni dip: 20 günün en düşüğü kırıldı' };
+function olayHtml(e) {
+  const v = e?.v;
+  if (!v || !OLAY_AD[v[0]]) return '';
+  const yon = v[0] === 'hd+' || v[0] === 'ky' ? 'up' : 'down';
+  return `<p class="sg-olay" data-yon="${yon}"><b>Yeni sinyal</b> · <span>${esc(OLAY_AD[v[0]])}</span> · <span>${esc(fmtAgo(v[1]))}</span></p>`;
 }
 
 // ---- Borsa ekranındaki kart ----
@@ -275,10 +290,11 @@ export function signalCard(doc, { id, q, products, realm = 0, noQuality = false,
   if (e.k != null) nedenler.push(esc(`Satıştaki arz yaklaşık ${Number(e.k).toLocaleString(LOCALE)} günlük satışa denk`));
   const liste = nedenler.length ? `<ul class="sg-why">${nedenler.map((x) => `<li>${x}</li>`).join('')}</ul>` : '';
 
-  return `<section class="sg"${tz ? ` data-eski="${tz.tip}"` : ''}>${head(when)}${rozetHtml(tz, now)}
+  const r2Not = realm === 1 && doc.makro?.m7 == null ? ' <span>R2 için geçmiş veri az: piyasa geneli hesaba katılmıyor, sinyaller sınırlı.</span>' : '';
+  return `<section class="sg"${tz ? ` data-eski="${tz.tip}"` : ''}>${head(when)}${olayHtml(e)}${rozetHtml(tz, now)}
     <div class="sg-roles"><p class="sg-sec">Fiyat yönü · 14 gün</p>${rol('Elinde mal varsa', sat)}${rol('Girdi alacaksan', al)}${tuccar}${uretim ? `<p class="sg-sec">Üretim marjı · bugün</p>${uretim}` : ''}</div>
     ${beklenti}${liste}
-    <p class="sg-foot">Sinyaller olasılık gösterir, kesinlik değil.${uretim ? ' Marj, tipik maliyetle ve komisyon ile taşıma düşülerek hesaplanır. Kendi marjın için Kâr Hesaplayıcı\'yı kullan.' : ''} <a href="#sinyal">Tüm sinyaller</a></p>
+    <p class="sg-foot">Sinyaller olasılık gösterir, kesinlik değil.${uretim ? ' Marj, tipik maliyetle ve komisyon ile taşıma düşülerek hesaplanır. Kendi marjın için Kâr Hesaplayıcı\'yı kullan.' : ''}${r2Not} <a href="#sinyal">Tüm sinyaller</a></p>
   </section>`;
 }
 
@@ -308,7 +324,7 @@ const SAYFA = `
   <div class="sy-quals" data-el="quals" role="radiogroup" aria-label="Kalite"></div>
   <div class="sy-body" data-el="body"></div>
   <label class="sy-opt"><input type="checkbox" data-el="tuccar"> Resell sinyallerini göster (al-sat; geçmişte zayıftı)</label>
-  <p class="sy-note">Hesap özel sunucuda her gece ve gün içinde iki saatte bir yapılır; bu sayfa yalnız sonuçları gösterir. Beklentiler 14 günlüktür ve olasılık bildirir. Hedef fiyat, hesap fiyatının beklenti kadar değişmiş hâlidir.
+  <p class="sy-note">Hesap özel sunucuda her gece ve gün içinde saatte bir yapılır; fiyat hedefe ulaşır ya da 20 günlük zirveyi veya dibi kırarsa sinyal o saatte yenilenir. Bu sayfa yalnız sonuçları gösterir. Beklentiler 14 günlüktür ve olasılık bildirir. Hedef fiyat, hesap fiyatının beklenti kadar değişmiş hâlidir.
     Komisyon, bugün de sonra da satsan ödendiği için Satış ve Alım sinyallerinde hesaba katılmaz; yalnız Resell sinyalinde düşülür.</p>
 </section>`;
 
@@ -367,6 +383,8 @@ export function mountSinyal(root, { realm = 0 } = {}) {
     if (!doc) { el.wind.innerHTML = ''; return; }
     const m = doc.makro || {};
     let ana;
+    const r2 = r === 1 && m.m7 == null
+      ? '<p class="sy-r2" role="note">R2 için geçmiş veri az: sinyal sayısı sınırlı ve piyasa geneli hesaba katılmıyor. Veri biriktikçe (yaklaşık 60 gün) tamamlanır.</p>' : '';
     if (m.m7 == null) ana = '<p class="sy-big">Piyasa yönü için henüz yeterli veri yok</p>';
     else {
       const yon = m.rejim < 0 ? 'Piyasa düşüşte' : m.rejim > 0 ? 'Piyasa yükselişte' : 'Piyasa yatay';
@@ -381,7 +399,7 @@ export function mountSinyal(root, { realm = 0 } = {}) {
       const ad = { recession: 'Resesyon', normal: 'Normal', boom: 'Boom' }[ev.ad] || ev.ad;
       satir.push(`Ekonomi evresi: ${ad}${ev.yeni ? ' (bu hafta değişti)' : ''}.`);
     }
-    el.wind.innerHTML = `${ana}${satir.map((s) => `<p class="sy-line">${esc(s)}</p>`).join('')}`;
+    el.wind.innerHTML = `${ana}${satir.map((s) => `<p class="sy-line">${esc(s)}</p>`).join('')}${r2}`;
   }
 
   function entries(filter) {
@@ -539,12 +557,12 @@ export function mountSinyal(root, { realm = 0 } = {}) {
         const fmt = (x) => (x && x[0]
           ? `<b class="${dusus ? 'down' : b === 'b3' ? '' : 'up'}">%${Math.round((dusus ? 1 - x[1] : x[1]) * 100)} ${dusus ? 'düştü' : 'yükseldi'}</b><span class="sy-sub">ortalama ${fmtPct(x[2])}, ${x[0].toLocaleString(LOCALE)} kayıt</span>`
           : '—');
-        const canli = c && c[0] >= 30 ? fmt(c) : `<span class="sy-dim">birikiyor${c ? ` (${c[0]} kayıt)` : ''}</span>`;
-        return `<tr><th scope="row">${KOVA_AD[b]}</th><td>${fmt(o)}</td><td>${canli}</td></tr>`;
+        const birik = (x) => (x && x[0] >= 30 ? fmt(x) : `<span class="sy-dim">birikiyor${x ? ` (${x[0]} kayıt)` : ''}</span>`);
+        return `<tr><th scope="row">${KOVA_AD[b]}</th><td>${fmt(o)}</td><td>${birik(c)}</td><td>${birik(k.gunici?.[b])}</td></tr>`;
       }).join('');
       html = `<section class="sy-block"><h2 class="sy-h2">Karne</h2>
-        <p class="sy-hint">14 günlük beklentiye göre gruplar: sonra fiyat gerçekte ne yaptı. Geçmiş sınama, bir yıllık verinin bir yarısıyla öğrenip diğer yarısında denenerek yapıldı. Canlı sütun bu motorun kendi sinyallerinden birikir.</p>
-        <div class="table-wrap"><table class="qt sy-karne"><thead><tr><th scope="col">Beklenti</th><th scope="col">Geçmiş sınama</th><th scope="col">Canlı</th></tr></thead><tbody>${satirlar}</tbody></table></div></section>`;
+        <p class="sy-hint">14 günlük beklentiye göre gruplar: sonra fiyat gerçekte ne yaptı. Geçmiş sınama, bir yıllık verinin bir yarısıyla öğrenip diğer yarısında denenerek yapıldı. Canlı sütun bu motorun gece sinyallerinden, Gün içi sütunu gün içinde canlı fiyatla yenilenen sinyallerden birikir (her saatin sinyali ayrı sayılır). İlk sonuçlar sinyalden 14 gün sonra gelir.</p>
+        <div class="table-wrap"><table class="qt sy-karne"><thead><tr><th scope="col">Beklenti</th><th scope="col">Geçmiş sınama</th><th scope="col">Canlı (gece)</th><th scope="col">Gün içi</th></tr></thead><tbody>${satirlar}</tbody></table></div></section>`;
     }
     el.body.innerHTML = html;
   }
