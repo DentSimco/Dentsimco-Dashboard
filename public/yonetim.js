@@ -83,6 +83,28 @@ const EXTRA_CSS = `
 
 // Ekip puanı: ham takım puanı ve oyundaki etkili beceri (60'a kadar aynı, 60–80 arası her puan yarım, 80 üstü çeyrek; tam sayıya iner).
 // Örnek: 66 → 63, 64 → 62, 80,50 → 70, 44,75 → 44. Etkiler (yönetim gideri, vergi, hız) etkili beceriden hesaplanır.
+// "Yöneticileri yapıştır" kutusundaki metni okur. Sonuç: { parsed } ya da { error, link? }.
+// Sık yanlış: kutuya sayfanın içeriği yerine adresin kendisi yapıştırılır; o zaman adresi açan bağlantı önerilir.
+export function apiOku(text) {
+  const t = String(text ?? '').trim();
+  if (!t) return { error: 'Kutu boş. Adresi açın, açılan sayfadaki metnin tamamını kopyalayıp yapıştırın.' };
+  const adres = /^(?:https?:\/\/)?(?:www\.)?simcompanies\.com\/api\/v\d+\/companies\/(\d+)\/executives\/?(?:\?\S*)?$/i.exec(t);
+  if (adres) {
+    return { error: 'Bu adresin kendisi, sayfanın içeriği değil. Adresi açın (oyuna girişli olmalısınız), açılan sayfadaki metnin tamamını seçip kopyalayın ve buraya yapıştırın.',
+      link: `https://www.simcompanies.com/api/v3/companies/${adres[1]}/executives/` };
+  }
+  if (/^<(!doctype|html|head|body)/i.test(t)) return { error: 'Yapıştırdığınız şey bir web sayfası, veri değil. Oyuna girişliyken adresi açın ve sayfadaki metni kopyalayın.' };
+  let obj;
+  try { obj = JSON.parse(t); } catch { return { error: 'Metin okunamadı. Sayfadaki metnin tamamını kopyaladığınızdan emin olun.' }; }
+  if (obj && !Array.isArray(obj) && !obj.executives && typeof obj.detail === 'string') {
+    return { error: 'Oyun veri yerine hata döndürdü. Oyuna girişli olduğunuzdan ve şirket numarasının sizin şirketinize ait olduğundan emin olun.' };
+  }
+  try {
+    const parsed = H.parseExecutives(obj);
+    return parsed.length ? { parsed } : { error: 'Listede yönetici bulunamadı.' };
+  } catch { return { error: 'Metin okunamadı. Sayfadaki metnin tamamını kopyaladığınızdan emin olun.' }; }
+}
+
 export function puanMetni(skor) {
   const etkili = H.effectiveSkill(skor);
   return { ham: num(skor, skor % 1 ? 2 : 0), etkili, farkli: Math.abs(etkili - skor) > 1e-9 };
@@ -289,9 +311,10 @@ export function mountYonetim(root, { realm = 0 } = {}) {
   function apiCard() {
     const p = api.parsed;
     return `<section class="ur-card" aria-labelledby="h-api"><h2 id="h-api">Yöneticileri yapıştır</h2>
-      <p class="ur-sub">Oyuna girişliyken <b>simcompanies.com/api/v3/companies/ŞİRKET_NO/executives/</b> adresini açın, metnin tamamını kopyalayıp buraya yapıştırın.</p>
+      <p class="ur-sub">Oyuna girişliyken <b>simcompanies.com/api/v3/companies/ŞİRKET_NO/executives/</b> adresini açın, açılan sayfadaki metnin tamamını kopyalayıp buraya yapıştırın (adresi değil).</p>
       <textarea data-api spellcheck="false" autocapitalize="off" aria-label="API çıktısı">${esc(api.text || '')}</textarea>
       ${api.error ? `<div class="ur-msg err" role="alert">${esc(api.error)}</div>` : ''}
+      ${api.link ? `<a class="ur-btn tint" href="${esc(api.link)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none">Adresi yeni sekmede aç</a>` : ''}
       ${p ? `<div class="ur-box">${kv('Bulunan yönetici', num(p.length))}${kv('Becerisi olan', num(p.filter((e) => e.skillsKnown).length))}${kv('Eğitimde ya da grevde', num(p.filter((e) => !e.active).length))}
         <p class="ur-note">Mevcut ${num(company.executives.length)} yöneticinin yerine geçer.</p></div>` : ''}
       <div class="ur-row"><button type="button" class="ur-btn grow" data-act="apiClose">Vazgeç</button>
@@ -417,10 +440,7 @@ export function mountYonetim(root, { realm = 0 } = {}) {
     if (act === 'apiClose') { api = null; return render(); }
     if (act === 'apiRead') {
       const text = root.querySelector('[data-api]')?.value || '';
-      try {
-        const parsed = H.parseExecutives(text);
-        api = parsed.length ? { text, parsed } : { text, error: 'Listede yönetici bulunamadı.' };
-      } catch { api = { text, error: 'Metin okunamadı. Sayfadaki metnin tamamını kopyaladığınızdan emin olun.' }; }
+      api = { text, ...apiOku(text) };
       return render();
     }
     if (act === 'apiApply') {
