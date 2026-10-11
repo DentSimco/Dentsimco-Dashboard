@@ -1,5 +1,5 @@
 // DentSimco — Sinyal motoru sınamaları (yapay veri; Firestore'a bağlanmaz)
-// Çalıştırma: node sinyal/motor.test.mjs   (sinyal.yml her çalışmada önce bunu koşar; hata varsa sinyal yazılmaz)
+// Çalıştırma: node sinyal/motor_test.mjs   (sinyal.yml her çalışmada önce bunu koşar; hata varsa sinyal yazılmaz)
 
 import { hesapla, seriKur, sezonFazi, addDays, diffDays, sonDeger, likitMi, canliHaritasi, titresimOnle, titresimUygula, gunIciOlay, main } from './motor.mjs';
 
