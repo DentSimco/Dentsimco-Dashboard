@@ -83,7 +83,7 @@ const EXTRA_CSS = `
 
 // Ekip puanı: ham takım puanı ve oyundaki etkili beceri (60'a kadar aynı, 60–80 arası her puan yarım, 80 üstü çeyrek; tam sayıya iner).
 // Örnek: 66 → 63, 64 → 62, 80,50 → 70, 44,75 → 44. Etkiler (yönetim gideri, vergi, hız) etkili beceriden hesaplanır.
-// "Yöneticileri yapıştır" kutusundaki metni okur. Sonuç: { parsed } ya da { error, link? }.
+// "JSON ekle" kutusundaki metni okur. Sonuç: { parsed } ya da { error, link? }.
 // Sık yanlış: kutuya sayfanın içeriği yerine adresin kendisi yapıştırılır; o zaman adresi açan bağlantı önerilir.
 export function apiOku(text) {
   const t = String(text ?? '').trim();
@@ -310,7 +310,7 @@ export function mountYonetim(root, { realm = 0 } = {}) {
   }
   function apiCard() {
     const p = api.parsed;
-    return `<section class="ur-card" aria-labelledby="h-api"><h2 id="h-api">Yöneticileri yapıştır</h2>
+    return `<section class="ur-card" aria-labelledby="h-api"><h2 id="h-api">JSON ekle</h2>
       <p class="ur-sub">Oyuna girişliyken <b>simcompanies.com/api/v3/companies/ŞİRKET_NO/executives/</b> adresini açın, açılan sayfadaki metnin tamamını kopyalayıp buraya yapıştırın (adresi değil).</p>
       <textarea data-api spellcheck="false" autocapitalize="off" aria-label="API çıktısı">${esc(api.text || '')}</textarea>
       ${api.error ? `<div class="ur-msg err" role="alert">${esc(api.error)}</div>` : ''}
@@ -369,7 +369,7 @@ export function mountYonetim(root, { realm = 0 } = {}) {
     const scores = H.teamScores(ex);
     return `<section class="ur-card" aria-labelledby="h-exec"><h2 id="h-exec">Yöneticiler</h2>
       <p class="ur-sub">Ekibiniz yalnız burada girilir; Üretim ve Perakende hesapları da buradan okur.</p>
-      <div class="ur-row"><button type="button" class="ur-btn tint grow" data-act="apiOpen">${icon('plus')}API'den yapıştır</button><button type="button" class="ur-btn grow" data-act="execNew">${icon('plus')}Elle ekle</button></div>
+      <div class="ur-row"><button type="button" class="ur-btn tint grow" data-act="apiOpen">${icon('plus')}JSON ekle</button><button type="button" class="ur-btn grow" data-act="execNew">${icon('plus')}Manuel giriş</button></div>
       ${ex.length ? `<div>${rows}</div>` : '<p class="ur-note">Henüz yönetici yok.</p>'}
       ${ex.length ? `<div class="ur-box"><span class="ur-note" style="font-weight:600">Ekip puanı (yalnız aktifler)</span><div class="ur-grid4" style="margin-top:6px">${SKILL_LABELS.map(([k, n]) => `<div class="ur-stat"><span>${n}</span><span>${puanHtml(scores[k])}</span></div>`).join('')}</div>
         <p class="ur-note" style="margin-top:6px">Okun sağındaki sayı etkili beceridir (oyunda "etkili yetenek"): 60'a kadar aynı, 60–80 arası her puan yarım, 80 üstü çeyrek sayılır. Etkiler bu sayıdan hesaplanır.</p></div>` : ''}</section>${ex.length ? etkiKarti(s) + sectorCard(s) : ''}

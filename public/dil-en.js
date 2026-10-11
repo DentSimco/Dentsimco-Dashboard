@@ -829,8 +829,8 @@ export default {
   // ---- Yönetim: Ekip ----
   'Yöneticiler': 'Executives',
   'Ekibiniz yalnız burada girilir; Üretim ve Perakende hesapları da buradan okur.': 'Your team is entered only here; the Production and Retail calculations read it from here.',
-  "API'den yapıştır": 'Paste from API',
-  'Elle ekle': 'Add manually',
+  'JSON ekle': 'Add JSON',
+  'Manuel giriş': 'Manual entry',
   'Henüz yönetici yok.': 'No executives yet.',
   'Aktif': 'Active',
   'Eğitimde': 'Training',
@@ -872,7 +872,6 @@ export default {
   'Beceriler': 'Skills',
   'Günlük maaş': 'Daily salary',
   'Eğitimde, yerleşmekte ya da grevde olan yönetici etki etmez, maaşı yine ödenir.': 'An executive in training, settling in or on strike has no effect, but the salary is still paid.',
-  'Yöneticileri yapıştır': 'Paste executives',
   'Oyuna girişliyken': 'While logged in to the game, open',
   'adresini açın, açılan sayfadaki metnin tamamını kopyalayıp buraya yapıştırın (adresi değil).': ', copy all the text on the page that opens and paste it here (not the address).',
   'API çıktısı': 'API output',
