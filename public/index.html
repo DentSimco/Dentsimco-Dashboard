@@ -521,6 +521,7 @@
   <a href="#yonetim/ekip" data-sub="yonetim">Yönetim</a>
   <a href="#uretim" data-sub="uretim">Üretim</a>
   <a href="#perakende" data-sub="perakende">Perakende</a>
+  <a href="#xp" data-sub="xp">Tecrübe</a>
 </nav>
 <main id="app"></main>
 <noscript><p style="padding:20px">DentSimco için JavaScript açık olmalı. · DentSimco needs JavaScript to be enabled.</p></noscript>
@@ -583,7 +584,7 @@
   import('./tema.js').then((m) => m.dugmeyiBagla(document.getElementById('theme-btn'))).catch(() => { /* tema düğmesi yüklenemezse site yine çalışır */ });
   import('./girdi.js').then((m) => m.girdiyiBagla()).catch(() => { /* yüklenemezse sayı kutuları eskisi gibi çalışır */ });
   import('./acilir.js').then((m) => m.acilirlariBagla()).catch(() => { /* yüklenemezse tarayıcının kendi listesi kullanılır */ });
-  const CALC = new Set(['uretim', 'perakende', 'yonetim']); // Kâr Hesaplayıcı'nın bölümleri
+  const CALC = new Set(['uretim', 'perakende', 'yonetim', 'xp']); // Kâr Hesaplayıcı'nın bölümleri
   const PIYASA = new Set(['borsa', 'sinyal']); // Piyasa'nın bölümleri
 
   const MODULES = {
@@ -592,6 +593,7 @@
     uretim: () => import('./uretim.js').then((m) => m.mountUretim),
     yonetim: () => import('./yonetim.js').then((m) => m.mountYonetim),
     perakende: () => import('./perakende.js').then((m) => m.mountPerakende),
+    xp: () => import('./xp.js').then((m) => m.mountXp),
     sirketler: () => import('./sirketler.js').then((m) => m.mountSirketler),
     haberler: () => import('./haberler.js').then((m) => m.mountHaberler),
     hakkinda: () => import('./hakkinda.js').then((m) => m.mountHakkinda),

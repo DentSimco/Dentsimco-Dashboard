@@ -10,6 +10,7 @@ export const UPDATES = [
   {
     date: '11 Ekim 2026',
     items: [
+      'Kâr Hesaplayıcı: yeni Tecrübe (XP) bölümü eklendi. Mevcut seviye, ilerleme ve bina sayılarınızdan hedef seviyeye kaç gün kaldığını ve tahmini tarihi hesaplar.',
       'Haberler: İngilizce dilde canlı şeritteki ve grafik başlığındaki ürün adları artık İngilizce görünüyor (önceden Türkçe kalıyordu).',
       'Yönetim: Ekip listesinin altına Tümünü sil düğmesi eklendi; tüm yöneticileri tek dokunuşla siler. Yanlışlıkla basarsanız 8 saniye içinde Geri al ile listeyi geri getirebilirsiniz.',
       'Şirketler: şirket numarası (ID) tabloda adın altında görünür. Bir şirkete dokununca ayrıntı paneli açılır (sıra, EVA, değer, günlük değişim, bina, patent, işçi, bono) ve numara kopyalanabilir.',
