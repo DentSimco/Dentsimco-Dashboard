@@ -188,6 +188,22 @@ export function buildSeries(product, range, q, now) {
   return { ...dailySeries(rows, q), daily: true, dayStarts: new Set() };
 }
 
+// Canlı ölçüm (5 dk) gün içi noktalardan (10 dk) yenidir. Başlıktaki fiyat canlıdan, grafik ve gün en düşük/yüksek
+// noktalardan okunursa ikisi ayrışır. Canlı ölçümü yalnız fiyatla son nokta olarak ekler (satış adedi sonraki
+// gün içi noktaya zaten birikir, burada tekrar sayılmaz). byDay'i değiştirmez.
+export function withLive(byDay, snap) {
+  if (!snap?.t || !snap.qs) return byDay;
+  const day = utcDay(snap.t);
+  const points = byDay.get(day);
+  if (!points || (points.length && points[points.length - 1].t >= snap.t)) return byDay;
+  const qs = {};
+  for (const [q, m] of Object.entries(snap.qs)) if (m?.[0] != null) qs[q] = [m[0], m[1] ?? null, null, null];
+  if (!Object.keys(qs).length) return byDay;
+  const out = new Map(byDay);
+  out.set(day, [...points, { t: snap.t, qs }]);
+  return out;
+}
+
 function snapshotOf(basics, product, id) {
   const live = basics?.live?.items?.[id];
   if (live) return { t: live[0], qs: live[1] || {} };
@@ -449,8 +465,9 @@ export function mountBorsa(root, { realm = 0 } = {}) {
     const now = Date.now();
     const { id, q } = pick();
     snap = snapshotOf(basics, product, id);
-    todaySum = summarizeDay(product.byDay.get(utcDay(now)) || []);
-    shown = buildSeries(product, range(), q, now);
+    const view = { ...product, byDay: withLive(product.byDay, snap) };
+    todaySum = summarizeDay(view.byDay.get(utcDay(now)) || []);
+    shown = buildSeries(view, range(), q, now);
     chart.setData(shown.xs.length ? shown : null, transition);
     chart.setMessage(shown.xs.length ? null : emptyMessage());
     chart.setLabel(chartLabel());
