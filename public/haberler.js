@@ -333,6 +333,55 @@ function viewArticle(st, id) {
   </article>`;
 }
 
+// ---- Güncel baskı: yalnız bugünün haberleri, elle yazılan manşet ----------------------------------
+
+// Elle yazılan manşetler. Yalnız yazıldığı gün (cihazın takvim günü) görünür; ertesi gün kendiliğinden kalkar ve bot
+// sabah kendi manşetini yazar. realm: hangi realmde gösterileceği (0 = R1, 1 = R2). Yeni manşet için bu listeye ekle.
+export const OZEL_MANSETLER = [
+  {
+    id: 'ozel-zeus-20261012', realm: 0, t: Date.parse('2026-10-12T14:55:00Z'), kategori: 'ŞİRKETLER', grafik: null,
+    tr: {
+      baslik: 'Zeus Space Orbital bir günde 69 milyon doların üzerinde değer kazandı; en değerli şirket Dibbler\'in artışını fazlasıyla geride bıraktı',
+      spot: 'Günlük değer artışında Zeus Space Orbital\'in 69 milyon doları aşan kazancı, en değerli şirket Dibbler\'in 61 milyon doları aşan artışını açık farkla geçti.',
+      govde: [
+        'Zeus Space Orbital, günlük şirket değeri artışında 69 milyon doların üzerine çıkarak günün en büyük yükselişini kaydetti.',
+        'Sıralamanın en değerli şirketi Dibbler de aynı günde 61 milyon doların üzerinde değer kazandı; ancak bu artış, Zeus Space Orbital\'in kazancının belirgin biçimde gerisinde kaldı.',
+        'Günlük değer artışı sıralamasının tamamını Şirketler bölümündeki "En iyi EVA" tablosundan inceleyebilirsin.',
+      ],
+    },
+    en: {
+      baslik: 'Zeus Space Orbital gains more than $69 million in a day, far outpacing the gain of top-valued Dibbler',
+      spot: 'Zeus Space Orbital\'s daily value gain of more than $69 million clearly exceeded the more than $61 million added by the most valuable company, Dibbler.',
+      govde: [
+        'Zeus Space Orbital added more than $69 million in company value in a single day, the largest daily gain on the board.',
+        'Dibbler, the most valuable company in the ranking, also gained more than $61 million the same day, but its increase fell well short of Zeus Space Orbital\'s.',
+        'You can see the full daily value-gain ranking in the "Best EVA" table in the Companies section.',
+      ],
+    },
+  },
+];
+
+const localDayStart = (now) => { const d = new Date(now); d.setHours(0, 0, 0, 0); return d.getTime(); };
+
+// Haber belgesini güncel baskıya çevirir (belgeyi değiştirmez):
+//  - elle yazılmış bugünkü manşet varsa manşet olur, önceki manşet haberlerin başına geçer;
+//  - geçmiş günün haberleri ayıklanır; manşet eskiyse ve bugünkü haber varsa ilk bugünkü haber manşet olur.
+//  Bugün hiç haber yoksa eski manşet yine de kalır (sayfa boş kalmasın).
+export function guncelBaski(news, realm, now = Date.now(), ozeller = OZEL_MANSETLER) {
+  const start = localDayStart(now);
+  const fresh = (h) => h && h.t >= start;
+  const ozel = ozeller.find((o) => o.realm === realm && o.t >= start && o.t <= now + DAY_MS);
+  const list = [news?.manset, ...(news?.haberler || [])].filter(Boolean);
+  let rest = list.filter(fresh);
+  let manset;
+  if (ozel) manset = ozel;
+  else if (rest.length) manset = rest.shift();
+  else return news; // bugün haber yok: olduğu gibi
+  if (ozel) rest = rest.filter((h) => h.id !== ozel.id);
+  return { ...(news || {}), manset, haberler: rest };
+}
+const DAY_MS = 864e5;
+
 async function load(realm) {
   const P = { news: PATHS.meta(`news_r${realm}`), top: PATHS.meta(`ranking_top_r${realm}`), live: PATHS.live(realm) };
   const docs = await readDocs(Object.values(P));
@@ -370,7 +419,7 @@ export function mountHaberler(root, { realm: startRealm = 0 } = {}) {
     try {
       const got = await load(realm);
       if (!alive || my !== token) return;
-      st = { ...got, realm };
+      st = { ...got, news: guncelBaski(got.news, realm), realm };
       render();
     } catch (e) {
       if (!alive || my !== token) return;

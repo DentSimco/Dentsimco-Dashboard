@@ -1,6 +1,6 @@
 // node test/haberler_test.mjs — Haberler sayfasının saf yardımcıları (ağ ve tarayıcı kullanmaz)
 import assert from 'node:assert/strict';
-import { tickerItems, sparkPaths, splitColumns, compactUsd, chartSeries } from '../public/haberler.js';
+import { tickerItems, sparkPaths, splitColumns, compactUsd, chartSeries, guncelBaski, OZEL_MANSETLER } from '../public/haberler.js';
 
 // Şerit: canlı fiyat ana kaliteden, değişim dünkü kapanışa göre; canlı yoksa kapanış, değişim boş; fiyatsız ürün atlanır
 const fiyatlar = { 1: ['Elma', 10, 1], 2: ['Su', 5, 0], 3: ['Yok', null, 0] };
@@ -41,4 +41,27 @@ assert.deepEqual(chartSeries(g, '2026-10-11').at(-1), ['2026-10-11', 11]);
 assert.equal(chartSeries(g, '2026-10-10').length, 2);
 assert.equal(chartSeries({ seri: [['2026-10-10', 9]] }, '2026-10-11').length, 1, 'canlı fiyat yoksa eklenmez');
 assert.deepEqual(chartSeries(null), []);
+
+// Güncel baskı: geçmiş günün haberleri ayıklanır, bugünkü elle yazılmış manşet öne geçer, eski manşet haberlerin başına iner
+const NOW = new Date(2026, 9, 12, 18, 0).getTime(); // yerel 12 Ekim 18:00
+const dun = new Date(2026, 9, 11, 20, 0).getTime();
+const bugun = new Date(2026, 9, 12, 8, 0).getTime();
+const H = (id, t) => ({ id, t, kategori: 'PİYASA', tr: { baslik: id, spot: '', govde: ['x'] }, en: null });
+const belge = { manset: H('m', bugun), haberler: [H('a', bugun), H('eski', dun), H('b', bugun)], fiyatlar: { 1: ['x', 1, 0] } };
+const ozel = [{ id: 'oz', realm: 0, t: new Date(2026, 9, 12, 17, 55).getTime() }];
+const g1 = guncelBaski(belge, 0, NOW, ozel);
+assert.equal(g1.manset.id, 'oz');
+assert.deepEqual(g1.haberler.map((h) => h.id), ['m', 'a', 'b'], 'önceki manşet altta, dünkü haber yok');
+assert.equal(g1.fiyatlar, belge.fiyatlar, 'diğer alanlar korunur');
+assert.equal(belge.haberler.length, 3, 'belge değişmez');
+assert.equal(guncelBaski(belge, 1, NOW, ozel).manset.id, 'm', 'başka realmde elle manşet çıkmaz');
+assert.deepEqual(guncelBaski(belge, 1, NOW, ozel).haberler.map((h) => h.id), ['a', 'b']);
+const ertesi = new Date(2026, 9, 13, 9, 0).getTime();
+assert.equal(guncelBaski(belge, 0, ertesi, ozel).manset.id, 'm', 'ertesi gün elle manşet kalkar; haberin kendisi de eskidiği için eski manşet kalır');
+const eskiBelge = { manset: H('m', dun), haberler: [H('a', dun), H('b', bugun)] };
+assert.equal(guncelBaski(eskiBelge, 0, NOW, []).manset.id, 'b', 'manşet eskiyse bugünkü haber manşet olur');
+assert.equal(guncelBaski({ manset: H('m', dun), haberler: [H('a', dun)] }, 0, NOW, []).manset.id, 'm', 'bugün hiç haber yoksa eski manşet kalır');
+assert.equal(guncelBaski(null, 0, NOW, ozel).manset.id, 'oz', 'haber belgesi yokken de elle manşet çıkar');
+assert.equal(guncelBaski(null, 0, NOW, []), null);
+assert.ok(OZEL_MANSETLER.every((o) => o.tr?.baslik && o.en?.baslik && o.tr.govde.length && o.en.govde.length), 'elle manşetlerin iki dili de dolu');
 console.log('haberler_test: tamam');
