@@ -142,6 +142,15 @@ const CSS = `
 .nw-spark { margin-left: auto; width: 84px; height: 22px; }
 .nw-spark .ln { fill: none; stroke: var(--nw-up); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
 .nw-spark.dn .ln { stroke: var(--nw-dn); }
+.nw-co { display: flex; flex-direction: column; gap: 12px; }
+.nw-co-i { display: flex; align-items: center; gap: 14px; padding: 14px 16px; background: var(--surface); border: 1px solid var(--line); border-radius: 4px; }
+.nw-logo-w { position: relative; flex: none; width: 56px; height: 56px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: var(--raise-2); border: 1px solid var(--line-2); }
+.nw-logo-w b { font: 600 24px var(--font-c); color: var(--nw-acc); }
+.nw-logo-img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; background: #fff; }
+.nw-co-t { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.nw-co-t b { font: 600 18px/1.2 var(--font-c); color: var(--text); overflow-wrap: anywhere; }
+.nw-co-t small, .nw-co-v small { color: var(--faint); font-size: 12px; }
+.nw-co-v { display: flex; flex-direction: column; align-items: flex-end; font: 600 24px var(--font-c); font-variant-numeric: tabular-nums; color: var(--nw-up); white-space: nowrap; }
 .nw-typo { min-height: 220px; display: flex; flex-direction: column; justify-content: flex-end; padding: 18px; border-radius: 4px; background: linear-gradient(135deg, var(--raise-2), var(--surface)); border: 1px solid var(--line); }
 .nw-typo b { font: 600 46px/1 var(--font-c); color: var(--nw-acc); letter-spacing: -.02em; }
 .nw-typo span { color: var(--muted); font-size: 13px; letter-spacing: .1em; margin-top: 8px; }
@@ -249,6 +258,15 @@ function spark(g) {
   return `<svg class="nw-spark ${dn ? 'dn' : ''}" viewBox="0 0 84 22" preserveAspectRatio="none" aria-hidden="true"><path class="ln" d="${paths[0]}"/></svg>`;
 }
 
+// Elle manşetteki şirket kartları: logo (yoksa ya da yüklenemezse baş harf), ad, etiket, günlük değer artışı
+function companyChips(list) {
+  const lbl = DIL === 'en' ? 'Daily value gain' : 'Günlük değer artışı';
+  return `<div class="nw-co" aria-label="${esc(lbl)}">${list.map((c) => `<div class="nw-co-i">
+    <span class="nw-logo-w"><b aria-hidden="true">${esc([...c.ad][0] || '?')}</b>${c.logo ? `<img class="nw-logo-img" src="${esc(c.logo)}" alt="" width="56" height="56" loading="lazy" referrerpolicy="no-referrer">` : ''}</span>
+    <span class="nw-co-t"><b data-no-t>${esc(c.ad)}</b><small data-no-t>${esc((DIL === 'en' ? c.etiket?.en : c.etiket?.tr) || '')}</small></span>
+    <span class="nw-co-v" data-no-t><small>${esc(lbl)}</small>+${esc(c.artis)}</span></div>`).join('')}</div>`;
+}
+
 const kicker = (h, extra = '') => `<div class="nw-kicker"><span data-no-t>${esc(kategori(h.kategori))}</span>${extra}</div>`;
 
 function card(h, big) {
@@ -291,7 +309,7 @@ function viewFront(st) {
       <section class="nw-lead" aria-label="Manşet">
         <div><a class="nw-h" href="#haberler/${esc(lead.id)}">${kicker(lead)}<h2 data-no-t>${esc(lt.baslik)}</h2></a>
           ${lt.spot ? `<p class="nw-spot" data-no-t>${esc(lt.spot)}</p>` : ''}<div class="nw-meta">${esc(fmtAgo(lead.t))}</div></div>
-        <div>${lead.grafik ? chartBox(lead.grafik) : `<div class="nw-typo"><b data-no-t>${esc(kategori(lead.kategori))}</b><span>DENTSIMCO NEWS</span></div>`}</div>
+        <div>${lead.grafik ? chartBox(lead.grafik) : lead.sirketler?.length ? companyChips(lead.sirketler) : `<div class="nw-typo"><b data-no-t>${esc(kategori(lead.kategori))}</b><span>DENTSIMCO NEWS</span></div>`}</div>
       </section>
       <div class="nw-pair">
         <div class="nw-col">${c1.map((h, i) => card(h, i === 0)).join('')}</div>
@@ -340,6 +358,11 @@ function viewArticle(st, id) {
 export const OZEL_MANSETLER = [
   {
     id: 'ozel-zeus-20261012', realm: 0, t: Date.parse('2026-10-12T14:55:00Z'), kategori: 'ŞİRKETLER', grafik: null,
+    // Logolar Simcotools şirket verisinden (api.simcotools.com/v1/realms/0/companies). logo null: şirketin özel logosu yok, baş harf gösterilir.
+    sirketler: [
+      { ad: 'Zeus Space Orbital', logo: null, artis: '$69M+', etiket: { tr: 'Günün en büyük artışı', en: 'Biggest gain of the day' } },
+      { ad: 'Dibbler', logo: 'https://d1fxy698ilbz6u.cloudfront.net/logo/4ef1d659eaab326f55e8153ad086eb9149877529.png', artis: '$61M+', etiket: { tr: 'En değerli şirket', en: 'Most valuable company' } },
+    ],
     tr: {
       baslik: 'Zeus Space Orbital bir günde 69 milyon doların üzerinde değer kazandı; en değerli şirket Dibbler\'in artışını fazlasıyla geride bıraktı',
       spot: 'Günlük değer artışında Zeus Space Orbital\'in 69 milyon doları aşan kazancı, en değerli şirket Dibbler\'in 61 milyon doları aşan artışını açık farkla geçti.',
@@ -410,6 +433,8 @@ export function mountHaberler(root, { realm: startRealm = 0 } = {}) {
     }
     const id = sub();
     box.innerHTML = id ? viewArticle(st, id) : viewFront(st);
+    // Logo yüklenemezse (ağ, engelleyici) görsel gizlenir; altındaki baş harf görünür kalır
+    box.querySelectorAll('img.nw-logo-img').forEach((img) => img.addEventListener('error', () => { img.hidden = true; }));
   }
 
   async function reload() {
