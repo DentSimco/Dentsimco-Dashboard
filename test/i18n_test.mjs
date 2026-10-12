@@ -133,6 +133,12 @@ test('İnşaat: malzeme adları ve iç içe kalıplar', () => {
   eq(en('Alınacak = gerekli − depo stoğu − hurdadan gelen. Kalite fark etmez, Q0 yeterlidir.'), 'To buy = required − warehouse stock − from scrap. Quality does not matter; Q0 is enough.');
 });
 
+test('Ürün seçici seçeneği: ürün adı ve talep düzeyi birlikte çevrilir', () => {
+  eq(en('Elma suyu — Düşük talep'), 'Elma suyu — Low demand');
+  eq(en('Elma suyu — Çok düşük talep'), 'Elma suyu — Very low demand');
+  eq(en('Elma suyu — talep verisi yok'), 'Elma suyu — no demand data');
+});
+
 const failed = results.filter((r) => !r.ok);
 for (const r of results) console.log(`  ${r.ok ? '✓' : '✗'} ${r.name}${r.ok ? '' : `\n      ${r.error}`}`);
 console.log(failed.length ? `\n${failed.length} test başarısız.` : `\n${results.length}/${results.length} test geçti.`);
