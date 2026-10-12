@@ -1,5 +1,6 @@
 // DentSimco — sinyal kartı gösterim sınamaları. Çalıştırma: node test/sinyal_test.mjs
-import { signalCard, hedefFiyat, tazelik } from '../public/sinyal.js';
+import { signalCard, hedefFiyat, tazelik, sinyalsizMi, SINYALSIZ } from '../public/sinyal.js';
+import { SINYALSIZ as MOTOR_SINYALSIZ } from '../sinyal/motor.mjs';
 
 const results = [];
 function test(name, fn) { try { fn(); results.push({ name, ok: true }); } catch (e) { results.push({ name, ok: false, error: e.message }); } }
@@ -89,6 +90,17 @@ test('tazelik: canlı kayıt yoksa ya da mevsimsel kayıtta (e yok) rozet yok', 
   ok(tazelik({ e: 19, p: 900, l: 1 }, undefined, simdi) === null, 'canlı yok');
   ok(tazelik({ e: 19, p: 900, l: 1 }, [900, null, 0, 0, null], simdi) === null, 'son işlem zamanı yok');
   ok(tazelik({ e: null, p: 900, l: 1 }, canli(2000, 0.1), simdi) === null, 'mevsimsel kayıt');
+});
+
+test('Enerji, Su ve Tohum Q12 için sinyal yok: eski belgede kayıt kalsa da kart göstermez', () => {
+  const eski = { ...doc, urun: { 1: { 12: { s: ['SAT', 3], a: ['AL', 3], m: 90 } } } };
+  const h = signalCard(eski, { id: 1, q: 12, products: { 1: { id: 1, name: 'Enerji' } }, realm: 0 });
+  ok(/sinyal verilmiyor/.test(h), 'açıklama gösterilir');
+  ok(!/data-guc/.test(h), 'AL/SAT kartı yok');
+  ok(sinyalsizMi(66, 12) && sinyalsizMi('2', '12') && !sinyalsizMi(66, 11) && !sinyalsizMi(3, 12));
+});
+test('Motor ve site aynı sinyalsiz listeyi kullanır', () => {
+  ok([...SINYALSIZ].sort().join() === [...MOTOR_SINYALSIZ].sort().join(), 'listeler aynı olmalı');
 });
 
 const failed = results.filter((r) => !r.ok);

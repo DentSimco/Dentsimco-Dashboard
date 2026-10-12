@@ -64,6 +64,10 @@ export const M = {
   olaySure: 12 * 3_600_000, // olay etiketi bu kadar süre kartta kalır
 };
 
+// Hiçbir zaman sinyal verilmeyen ürün ve kalite çiftleri ("ürün:kalite"): Enerji Q12, Su Q12, Tohum Q12.
+// Dashboard'daki public/sinyal.js SINYALSIZ listesiyle aynı olmalı (test/sinyal_test.mjs ikisini karşılaştırır).
+export const SINYALSIZ = new Set(['1:12', '2:12', '66:12']);
+
 // Örneklem dışı sınama sonuçları (14 gün, 131 ürün, 40.544 ürün-gün): [n, fiyatı yükselenlerin payı, ortalama gerçekleşen]
 export const ONSEL = {
   b1: [1241, 0.15, -0.0957], // beklenti ≤ −%4
@@ -704,6 +708,7 @@ export function hesapla({ realm, simdi, products, ids, modifiers, phase, seed, d
   for (const id of ids) {
     const qs = {};
     for (let q = 0; q <= 12; q++) {
+      if (SINYALSIZ.has(`${id}:${q}`)) continue;
       const e = urunSinyali(ctx, id, q);
       if (!e) continue;
       qs[q] = e;
