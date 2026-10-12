@@ -488,6 +488,11 @@
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
   }
+  /* Geri bildirim şeridi: tüm sayfaların altında sabit; Sim Companies'taki şirket profiline gider */
+  .fb-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: flex; justify-content: center; align-items: center; min-height: 34px; padding: 6px 16px calc(6px + env(safe-area-inset-bottom)); background: var(--surface); border-top: 1px solid var(--line-2); font-size: 13px; color: var(--muted); }
+  .fb-bar a { color: var(--accent); text-decoration: none; font-weight: 500; }
+  .fb-bar a:hover, .fb-bar a:focus-visible { text-decoration: underline; text-underline-offset: 3px; }
+  body { padding-bottom: calc(46px + env(safe-area-inset-bottom)); }
 </style>
 </head>
 <body>
@@ -523,6 +528,9 @@
   <a href="#perakende" data-sub="perakende">Perakende</a>
 </nav>
 <main id="app"></main>
+<footer class="fb-bar" data-no-t>
+  <span>Feedback:&nbsp;</span><a href="https://www.simcompanies.com/company/0/4479420/Dentium-Citrosuco/" target="_blank" rel="noopener noreferrer">Dentium Citrosuco</a>
+</footer>
 <noscript><p style="padding:20px">DentSimco için JavaScript açık olmalı. · DentSimco needs JavaScript to be enabled.</p></noscript>
 
 <script>
