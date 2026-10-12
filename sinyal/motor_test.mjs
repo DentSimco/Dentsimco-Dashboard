@@ -1,7 +1,7 @@
 // DentSimco — Sinyal motoru sınamaları (yapay veri; Firestore'a bağlanmaz)
 // Çalıştırma: node sinyal/motor_test.mjs   (sinyal.yml her çalışmada önce bunu koşar; hata varsa sinyal yazılmaz)
 
-import { hesapla, seriKur, sezonFazi, addDays, diffDays, sonDeger, likitMi, canliHaritasi, titresimOnle, titresimUygula, gunIciOlay, main } from './motor.mjs';
+import { SINYALSIZ, hesapla, seriKur, sezonFazi, addDays, diffDays, sonDeger, likitMi, canliHaritasi, titresimOnle, titresimUygula, gunIciOlay, main } from './motor.mjs';
 
 let pass = 0;
 let fail = 0;
@@ -293,6 +293,31 @@ ok(b1 && b1[0] === 1 && b1[1] === 0, 'karne: ≤ −%4 beklentisi sonrası fiyat
   ok(r.sinyal.karne.gunici?.b5?.[0] === 2, 'gün içi karne özeti yayında');
   const r2 = hesapla({ ...girdi(null), gecmisDocs, karneDoc: { gunler: { [d15]: { b1: [9, 9, 9] } } } });
   ok(r2.karne.gunler[d15].b1[0] === 9, 'karnede olan gün yeniden sayılmaz');
+}
+
+// 5) Sinyal verilmeyen çiftler: Enerji Q12, Su Q12, Tohum Q12 hiçbir zaman üretilmez; aynı ürünlerin diğer kaliteleri üretilir
+{
+  const ids = [1, 2, 66];
+  const prod = { ...products };
+  const piyasa = new Map(yapay);
+  for (const id of ids) {
+    prod[id] = { id, name: `Ürün ${id}`, inputs: [[900, 1]], baseSalary: 100, perHour: 100, transport: 1 };
+    const g = new Map();
+    for (let i = 0; i < N; i++) {
+      const day = addDays(start, i);
+      const p = (10 * wave(i, 1) + 2) * 1.05 * wave(i, id);
+      const row = [p, p, p, p, 100, 1000, p * 1000];
+      g.set(day, { 0: row, 12: row });
+    }
+    piyasa.set(id, g);
+  }
+  const r = hesapla({ ...girdi(null), products: prod, ids: [13, 900, 901, 902, 903, ...ids], daily: piyasa });
+  for (const id of ids) {
+    ok(r.sinyal.urun[id]?.[0], `ürün ${id} Q0 için sinyal üretilir`);
+    ok(r.sinyal.urun[id]?.[12] === undefined, `ürün ${id} Q12 için sinyal üretilmez`);
+    ok(r.gecmis.items[id]?.[12] === undefined, `ürün ${id} Q12 karneye girmez`);
+  }
+  ok(SINYALSIZ.size === 3 && SINYALSIZ.has('1:12') && SINYALSIZ.has('2:12') && SINYALSIZ.has('66:12'), 'sinyalsiz liste');
 }
 
 console.log(`${pass}/${pass + fail} test geçti`);

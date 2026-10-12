@@ -223,6 +223,11 @@ function olayHtml(e) {
 
 // ---- Borsa ekranındaki kart ----
 
+// Hiçbir zaman sinyal verilmeyen ürün ve kalite çiftleri ("ürün:kalite"): Enerji Q12, Su Q12, Tohum Q12.
+// sinyal/motor.mjs SINYALSIZ listesiyle aynı olmalı. Motor bunları üretmez; bu liste, eski belgede kalmış kayıtları da gizler.
+export const SINYALSIZ = new Set(['1:12', '2:12', '66:12']);
+export const sinyalsizMi = (id, q) => SINYALSIZ.has(`${Number(id)}:${Number(q)}`);
+
 // doc: undefined = yükleniyor, null = belge yok
 export function signalCard(doc, { id, q, products, realm = 0, noQuality = false, live, now = Date.now() } = {}) {
   const head = (extra = '') => `<div class="sg-head"><h2 class="sg-title">Sinyal${noQuality ? '' : ` <span class="qtag">Q${esc(q)}</span>`}</h2>${extra}</div>`;
@@ -231,6 +236,7 @@ export function signalCard(doc, { id, q, products, realm = 0, noQuality = false,
     return `<section class="sg">${head()}<p class="sg-empty">Sinyaller henüz hesaplanmadı. Motor her gece 04:20'de (TR) çalışır; ilk çalışmadan sonra burada görünür.</p></section>`;
   }
   const when = `<span class="sg-when${eskiMi(doc) ? ' stale' : ''}">${esc(veriZamani(doc))}</span>`;
+  if (sinyalsizMi(id, q)) return `<section class="sg">${head(when)}<p class="sg-empty">Bu ürünün bu kalitesi için sinyal verilmiyor.</p></section>`;
   const e = doc.urun?.[id]?.[q];
   if (!e) {
     const baska = noQuality ? [] : Object.keys(doc.urun?.[id] || {}).map((x) => `Q${x}`);
@@ -407,6 +413,7 @@ export function mountSinyal(root, { realm = 0 } = {}) {
     for (const [idText, qs] of Object.entries(doc?.urun || {})) {
       for (const [qText, e] of Object.entries(qs)) {
         if (prefs.q !== 'tum' && Number(qText) !== prefs.q) continue;
+        if (sinyalsizMi(idText, qText)) continue;
         if (filter(e)) out.push({ id: Number(idText), q: Number(qText), e });
       }
     }
