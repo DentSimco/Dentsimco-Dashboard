@@ -163,8 +163,8 @@ export function agaciCevir(kok) {
   }
 }
 // Sim Companies şirket profili: oyun dil önekini adresin başına koyar (Türkçede /tr/, İngilizcede önek yok).
-// Yeni dil eklenince buraya oyundaki öneki yaz (Lehçe /pl/ gibi).
-const PROFIL_ONEKI = { tr: '/tr', en: '' };
+// Yeni dil eklenince buraya oyundaki öneki yaz (Almanca ve İngilizcede önek yok, Lehçe /pl/).
+const PROFIL_ONEKI = { tr: '/tr', en: '', de: '', pl: '/pl' };
 export const profilAdresi = (dil = DIL, sirket = 'Dentium-Citrosuco') => `https://www.simcompanies.com${PROFIL_ONEKI[dil] ?? ''}/company/0/${sirket}/`;
 
 export function izle(kok = document.documentElement) {
