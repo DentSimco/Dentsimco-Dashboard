@@ -353,8 +353,7 @@ function viewArticle(st, id) {
 
 // ---- Güncel baskı: yalnız bugünün haberleri, elle yazılan manşet ----------------------------------
 
-// Elle yazılan manşetler. Yalnız yazıldığı gün (cihazın takvim günü) görünür; ertesi gün kendiliğinden kalkar ve bot
-// sabah kendi manşetini yazar. realm: hangi realmde gösterileceği (0 = R1, 1 = R2). Yeni manşet için bu listeye ekle.
+// Elle yazılan manşetler. Bot yeni baskı yazana kadar (en çok 2 gün) görünür; sonra kendiliğinden kalkar. realm: hangi realmde gösterileceği (0 = R1, 1 = R2). Yeni manşet için bu listeye ekle.
 export const OZEL_MANSETLER = [
   {
     id: 'ozel-zeus-20261012', realm: 0, t: Date.parse('2026-10-12T14:55:00Z'), kategori: 'ŞİRKETLER', grafik: null,
@@ -384,26 +383,29 @@ export const OZEL_MANSETLER = [
   },
 ];
 
-const localDayStart = (now) => { const d = new Date(now); d.setHours(0, 0, 0, 0); return d.getTime(); };
+const localDayStart = (ms) => { const d = new Date(ms); d.setHours(0, 0, 0, 0); return d.getTime(); };
+const DAY_MS = 864e5;
+const OZEL_OMUR = 2 * DAY_MS; // bot hiç yazmazsa elle manşet en çok bu kadar kalır
 
-// Haber belgesini güncel baskıya çevirir (belgeyi değiştirmez):
-//  - elle yazılmış bugünkü manşet varsa manşet olur, önceki manşet haberlerin başına geçer;
-//  - geçmiş günün haberleri ayıklanır; manşet eskiyse ve bugünkü haber varsa ilk bugünkü haber manşet olur.
-//  Bugün hiç haber yoksa eski manşet yine de kalır (sayfa boş kalmasın).
+// Haber belgesini güncel baskıya çevirir (belgeyi değiştirmez). "Gün" takvim gününe değil, son baskının gününe bağlıdır:
+// gece yarısı geçse de yeni baskı gelene kadar sayfa değişmez; yeni baskı (sabah 08:00) gelince önceki günlerin haberleri gider.
+//  - son baskıdan sonra yazılmış elle manşet varsa manşet o olur, önceki manşet haberlerin başına geçer; bot yeni baskı
+//    yazınca elle manşet kendiliğinden kalkar;
+//  - son baskının gününden önceki haberler ayıklanır; manşet eskiyse ilk güncel haber manşet olur.
+//  Güncel haber hiç yoksa eski manşet yine de kalır (sayfa boş kalmasın).
 export function guncelBaski(news, realm, now = Date.now(), ozeller = OZEL_MANSETLER) {
-  const start = localDayStart(now);
+  const start = localDayStart(news?.t || news?.manset?.t || now);
   const fresh = (h) => h && h.t >= start;
-  const ozel = ozeller.find((o) => o.realm === realm && o.t >= start && o.t <= now + DAY_MS);
+  const ozel = ozeller.find((o) => o.realm === realm && o.t <= now && now - o.t < OZEL_OMUR && !(news?.t >= o.t));
   const list = [news?.manset, ...(news?.haberler || [])].filter(Boolean);
   let rest = list.filter(fresh);
   let manset;
   if (ozel) manset = ozel;
   else if (rest.length) manset = rest.shift();
-  else return news; // bugün haber yok: olduğu gibi
+  else return news; // güncel haber yok: olduğu gibi
   if (ozel) rest = rest.filter((h) => h.id !== ozel.id);
   return { ...(news || {}), manset, haberler: rest };
 }
-const DAY_MS = 864e5;
 
 async function load(realm) {
   const P = { news: PATHS.meta(`news_r${realm}`), top: PATHS.meta(`ranking_top_r${realm}`), live: PATHS.live(realm) };
