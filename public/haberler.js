@@ -76,9 +76,9 @@ export const compactUsd = (x) => (Number.isFinite(x)
 // ---- Görünüm ----------------------------------------------------------------------------------
 
 const CSS = `
-.nw { --nw-acc: #6cc4ff; --nw-up: #8fd4ff; --nw-dn: #9fb0c8; --nw-band: #03070d; --nw-band-text: #e6edf7; --nw-band-line: #18263b; --nw-serif: "Source Serif 4", Georgia, "Times New Roman", serif;
+.nw { --nw-acc: #6cc4ff; --nw-up: #3d9bff; --nw-dn: #ff5468; --nw-band: #03070d; --nw-band-text: #e6edf7; --nw-band-line: #18263b; --nw-serif: "Source Serif 4", Georgia, "Times New Roman", serif;
   max-width: 1240px; margin: 0 auto; padding: 0 20px 48px; }
-:root[data-theme="light"] .nw { --nw-acc: #0a4fa8; --nw-up: #0a4fa8; --nw-dn: #6a7b96; --nw-band: #0e1b30; --nw-band-text: #f3f6fb; --nw-band-line: #22324d; }
+:root[data-theme="light"] .nw { --nw-acc: #0a4fa8; --nw-up: #0b5fe0; --nw-dn: #d92d3f; --nw-band: #0e1b30; --nw-band-text: #f3f6fb; --nw-band-line: #22324d; }
 .nw-ticker { position: relative; margin: 0 -20px; background: var(--nw-band); color: var(--nw-band-text); border-bottom: 1px solid var(--nw-band-line); overflow: hidden; height: 40px; display: flex; align-items: stretch; }
 /* CANLI rozeti sabit durur; yalnız sağındaki pencere kayar. Pencere elle kaydırılamaz (dokunmatikte de), dikey sayfa kaydırma serbest. */
 .nw-view { position: relative; flex: 1 1 auto; min-width: 0; overflow: hidden; display: flex; align-items: center; touch-action: pan-y; overscroll-behavior-x: none; }
@@ -135,12 +135,12 @@ const CSS = `
 .nw-chart { margin: 0; }
 .nw-chart svg { display: block; width: 100%; height: 170px; }
 .nw-art .nw-chart svg { height: 230px; }
-.nw-chart .ln { fill: none; stroke: var(--price); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
-.nw-chart .ar { fill: var(--price); opacity: .12; }
+.nw-chart .ln { fill: none; stroke: var(--nw-up); stroke-width: 1.6; vector-effect: non-scaling-stroke; }
+.nw-chart .ar { fill: var(--nw-up); opacity: .14; }
 .nw-chart.dn .ln { stroke: var(--nw-dn); } .nw-chart.dn .ar { fill: var(--nw-dn); }
 .nw-chart-f { display: flex; justify-content: space-between; color: var(--faint); font-size: 12px; margin-top: 6px; }
 .nw-spark { margin-left: auto; width: 84px; height: 22px; }
-.nw-spark .ln { fill: none; stroke: var(--price); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
+.nw-spark .ln { fill: none; stroke: var(--nw-up); stroke-width: 1.5; vector-effect: non-scaling-stroke; }
 .nw-spark.dn .ln { stroke: var(--nw-dn); }
 .nw-typo { min-height: 220px; display: flex; flex-direction: column; justify-content: flex-end; padding: 18px; border-radius: 4px; background: linear-gradient(135deg, var(--raise-2), var(--surface)); border: 1px solid var(--line); }
 .nw-typo b { font: 600 46px/1 var(--font-c); color: var(--nw-acc); letter-spacing: -.02em; }
