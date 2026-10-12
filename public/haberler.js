@@ -291,7 +291,7 @@ function viewFront(st) {
   const tk = ticker.map((x) => {
     const cls = x.degisim == null || Math.abs(x.degisim) < 0.0005 ? 'f' : x.degisim > 0 ? 'u' : 'd';
     const arrow = cls === 'u' ? '▲' : cls === 'd' ? '▼' : '■';
-    return `<a class="nw-tk" href="#borsa" tabindex="-1"><span data-no-t>${esc(haberUrunAdi(x.id, x.ad))}</span><i class="nw-q">Q${esc(x.q)}</i><b class="${cls === 'f' ? '' : cls}">${fmtPrice(x.fiyat)}</b><span class="${cls}">${arrow} ${x.degisim == null ? '' : pctF.format(x.degisim)}</span></a>`;
+    return `<a class="nw-tk" href="#borsa/${esc(x.id)}/${esc(x.q)}" tabindex="-1"><span data-no-t>${esc(haberUrunAdi(x.id, x.ad))}</span><i class="nw-q">Q${esc(x.q)}</i><b class="${cls === 'f' ? '' : cls}">${fmtPrice(x.fiyat)}</b><span class="${cls}">${arrow} ${x.degisim == null ? '' : pctF.format(x.degisim)}</span></a>`;
   }).join('');
   const lead = news.manset;
   const lt = dil(lead);
