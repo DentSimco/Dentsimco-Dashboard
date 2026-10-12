@@ -1,6 +1,5 @@
 // DentSimco — sinyal kartı gösterim sınamaları. Çalıştırma: node test/sinyal_test.mjs
 import { signalCard, hedefFiyat, tazelik, sinyalsizMi, SINYALSIZ } from '../public/sinyal.js';
-import { SINYALSIZ as MOTOR_SINYALSIZ } from '../sinyal/motor.mjs';
 
 const results = [];
 function test(name, fn) { try { fn(); results.push({ name, ok: true }); } catch (e) { results.push({ name, ok: false, error: e.message }); } }
@@ -99,8 +98,8 @@ test('Enerji, Su ve Tohum Q12 için sinyal yok: eski belgede kayıt kalsa da kar
   ok(!/data-guc/.test(h), 'AL/SAT kartı yok');
   ok(sinyalsizMi(66, 12) && sinyalsizMi('2', '12') && !sinyalsizMi(66, 11) && !sinyalsizMi(3, 12));
 });
-test('Motor ve site aynı sinyalsiz listeyi kullanır', () => {
-  ok([...SINYALSIZ].sort().join() === [...MOTOR_SINYALSIZ].sort().join(), 'listeler aynı olmalı');
+test('Sinyalsiz liste: Enerji, Su, Tohum Q12 (sinyal/motor_test.mjs aynı listeyi sınar; iki klasör ayrı çalıştığı için birbirini içe aktaramaz)', () => {
+  ok([...SINYALSIZ].sort().join() === '1:12,2:12,66:12', 'liste değişmemeli');
 });
 
 const failed = results.filter((r) => !r.ok);

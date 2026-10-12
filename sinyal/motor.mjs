@@ -65,7 +65,8 @@ export const M = {
 };
 
 // Hiçbir zaman sinyal verilmeyen ürün ve kalite çiftleri ("ürün:kalite"): Enerji Q12, Su Q12, Tohum Q12.
-// Dashboard'daki public/sinyal.js SINYALSIZ listesiyle aynı olmalı (test/sinyal_test.mjs ikisini karşılaştırır).
+// Dashboard'daki public/sinyal.js SINYALSIZ listesiyle aynı olmalı (iki klasör ayrı iş akışlarında çalıştığı için
+// birbirini içe aktaramaz; sinyal/motor_test.mjs ve test/sinyal_test.mjs aynı üç çifti ayrı ayrı sınar).
 export const SINYALSIZ = new Set(['1:12', '2:12', '66:12']);
 
 // Örneklem dışı sınama sonuçları (14 gün, 131 ürün, 40.544 ürün-gün): [n, fiyatı yükselenlerin payı, ortalama gerçekleşen]
