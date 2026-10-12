@@ -358,9 +358,9 @@ function viewArticle(st, id) {
 export const OZEL_MANSETLER = [
   {
     id: 'ozel-zeus-20261012', realm: 0, t: Date.parse('2026-10-12T14:55:00Z'), kategori: 'ŞİRKETLER', grafik: null,
-    // Logolar Simcotools şirket verisinden (api.simcotools.com/v1/realms/0/companies). logo null: şirketin özel logosu yok, baş harf gösterilir.
+    // Logolar Simcotools şirket verisinden (api.simcotools.com/v1/realms/0/companies). Zeus Space Orbital'in özel logosu yok; yerine DentSimco'nun çizdiği amblem (public/gorsel) kullanılır. Logo yüklenemezse baş harf gösterilir.
     sirketler: [
-      { ad: 'Zeus Space Orbital', logo: null, artis: '$69M+', etiket: { tr: 'Günün en büyük artışı', en: 'Biggest gain of the day' } },
+      { ad: 'Zeus Space Orbital', logo: 'gorsel/zeus-orbital.svg', artis: '$69M+', etiket: { tr: 'Günün en büyük artışı', en: 'Biggest gain of the day' } },
       { ad: 'Dibbler', logo: 'https://d1fxy698ilbz6u.cloudfront.net/logo/4ef1d659eaab326f55e8153ad086eb9149877529.png', artis: '$61M+', etiket: { tr: 'En değerli şirket', en: 'Most valuable company' } },
     ],
     tr: {
