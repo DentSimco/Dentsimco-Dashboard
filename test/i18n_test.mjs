@@ -2,7 +2,7 @@
 // Çalıştırma: node test/i18n_test.mjs
 
 import EN from '../public/dil-en.js';
-import { sozlukDerle, cevirMetin, DIL, LOCALE, DILLER } from '../public/i18n.js';
+import { sozlukDerle, cevirMetin, DIL, LOCALE, DILLER, profilAdresi } from '../public/i18n.js';
 import { signalCard } from '../public/sinyal.js';
 import { BINA_ADLARI, BINA_ADLARI_EN, binaAdi } from '../public/adlar.js';
 import { UPDATES } from '../public/hakkinda.js';
@@ -137,6 +137,11 @@ test('Ürün seçici seçeneği: ürün adı ve talep düzeyi birlikte çevrilir
   eq(en('Elma suyu — Düşük talep'), 'Elma suyu — Low demand');
   eq(en('Elma suyu — Çok düşük talep'), 'Elma suyu — Very low demand');
   eq(en('Elma suyu — talep verisi yok'), 'Elma suyu — no demand data');
+});
+
+test('Şirket profili bağlantısı dile göre: Türkçede /tr/ öneki, İngilizcede önek yok', () => {
+  eq(profilAdresi('tr'), 'https://www.simcompanies.com/tr/company/0/Dentium-Citrosuco/');
+  eq(profilAdresi('en'), 'https://www.simcompanies.com/company/0/Dentium-Citrosuco/');
 });
 
 const failed = results.filter((r) => !r.ok);
