@@ -806,6 +806,7 @@ export default {
   'fiyat {0}': 'price {0}',
   'talep verisi yok': 'no demand data',
   '{0} talep': '{0} demand',
+  '{0} — {1} talep': '{0} — {1} demand', // ürün seçici: "Elma — Düşük talep" ({0} ürün adı, {1} talep düzeyi ayrı çevrilir)
   'Doygunluk {0}': 'Saturation {0}',
   'Bu bina için kâr getiren ürün yok.': 'No product is profitable for this building.',
   'En kârlı 10 ürün': 'Top 10 most profitable products',
