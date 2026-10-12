@@ -356,6 +356,15 @@ function readPrefs() {
   };
 }
 
+// #borsa/{ürün}/{kalite} bağlantısı (kayan şerit gibi yerlerden): açılacak ürün ve kalite. Başka biçim için null.
+export function borsaHedefi(hash) {
+  const [head, a, b] = String(hash || '').replace(/^#/, '').split('/');
+  if (head !== 'borsa' || a == null || a === '') return null;
+  const id = Number(a);
+  const q = b == null || b === '' ? 0 : Number(b);
+  return Number.isInteger(id) && id > 0 && Number.isInteger(q) && q >= 0 && q <= 12 ? { id, q } : null;
+}
+
 export function mountBorsa(root, { realm = 0 } = {}) {
   root.innerHTML = TEMPLATE;
   const el = {};
@@ -802,6 +811,25 @@ export function mountBorsa(root, { realm = 0 } = {}) {
   const onVisible = () => { if (document.visibilityState === 'visible') tick(); };
   document.addEventListener('visibilitychange', onVisible);
 
+  // Şeritten gelen bağlantı: ürünü ve kaliteyi seçer, adresi sade #borsa'ya çevirir (yenilemede tekrar uygulanmaz)
+  function applyHash() {
+    const t = borsaHedefi(location.hash);
+    if (!t) return false;
+    prefs.picks[r] = { id: t.id, q: t.q };
+    prefs.recent[r] = [t.id, ...(prefs.recent[r] || []).filter((x) => x !== t.id)].slice(0, RECENT_MAX);
+    save();
+    try { history.replaceState(null, '', '#borsa'); } catch { /* yok */ }
+    return true;
+  }
+  const onHash = () => {
+    if (!applyHash()) return;
+    hoverIndex = null;
+    closePicker(false);
+    refresh({ transition: 'sweep' });
+  };
+  window.addEventListener('hashchange', onHash);
+
+  applyHash();
   renderRanges();
   renderLegend();
   refresh({ transition: 'sweep' });
@@ -826,6 +854,7 @@ export function mountBorsa(root, { realm = 0 } = {}) {
       signalToken++;
       clearInterval(clock);
       document.removeEventListener('visibilitychange', onVisible);
+      window.removeEventListener('hashchange', onHash);
       document.removeEventListener('pointerdown', outsidePicker, true);
       chart.destroy();
       root.replaceChildren();

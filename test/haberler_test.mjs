@@ -64,4 +64,13 @@ assert.equal(guncelBaski({ manset: H('m', dun), haberler: [H('a', dun)] }, 0, NO
 assert.equal(guncelBaski(null, 0, NOW, ozel).manset.id, 'oz', 'haber belgesi yokken de elle manşet çıkar');
 assert.equal(guncelBaski(null, 0, NOW, []), null);
 assert.ok(OZEL_MANSETLER.every((o) => o.tr?.baslik && o.en?.baslik && o.tr.govde.length && o.en.govde.length), 'elle manşetlerin iki dili de dolu');
+
+// Şerit bağlantısı: #borsa/ürün/kalite
+import { borsaHedefi } from '../public/borsa.js';
+assert.deepEqual(borsaHedefi('#borsa/12/4'), { id: 12, q: 4 });
+assert.deepEqual(borsaHedefi('#borsa/12'), { id: 12, q: 0 });
+assert.equal(borsaHedefi('#borsa'), null);
+assert.equal(borsaHedefi('#sinyal/12/4'), null);
+assert.equal(borsaHedefi('#borsa/abc/1'), null);
+assert.equal(borsaHedefi('#borsa/12/99'), null);
 console.log('haberler_test: tamam');
