@@ -654,8 +654,8 @@ test('Tüm Ürün sekmesi: sayfa durumu bina listesi, ürün listesi, seçici ve
     if (b.sinir === 'pazar') throw new Error('pazar sınırı olmamalı');
     eq(b.kontrat, null);
   }
-  anahtarlar(s.tum.hesap, ['harf', 'id', 'q', 'L', 'kar', 'sinir', 'yari', 'buyuk', 'kaliteler', 'ayni', 'toplamSonra'], 'hesap');
-  for (const y of s.tum.hesap.kaliteler) anahtarlar(y, ['q', 'L', 'kar'], 'kalite');
+  anahtarlar(s.tum.hesap, ['harf', 'id', 'q', 'L', 'kar', 'sinir', 'son', 'yari', 'buyuk', 'kaliteler', 'ayni', 'toplamSonra'], 'hesap');
+  for (const y of s.tum.hesap.kaliteler) anahtarlar(y, ['q', 'L', 'kar', 'son'], 'kalite');
   for (const e of s.tum.secenek) { anahtarlar(e, ['harf', 'urunler'], 'seçenek'); for (const u of e.urunler) anahtarlar(u, ['id', 'kaliteler', 'ana'], 'ürün'); }
   // özet yoksa boş ama çökmez
   const bos = st({ prefs: PREFS_TUM, ozet: null });
@@ -710,6 +710,45 @@ test('Tüm Ürün sekmesi: Üretim\'e eklenen ama şirket kaydına işlenmemiş 
   if (!(b.tum.hesap.L < L)) throw new Error('eklenen seviye ikinci önerideki seviyeyi azaltmalı');
   const c = stT({ prefs: { ...PREFS_TUM, hesap: sec }, ekler: [{ id: 2, L: 'x' }, { id: 99999, L: 3 }, null] });
   eq(c.sirket.toplamSeviye, a.sirket.toplamSeviye + 3, 'bozuk ek yok sayılır, bilinmeyen ürün yalnız seviye ekler');
+});
+
+
+test('Son işlem fiyatı: 28 günlük ortalaması olmayan kalite, son işlemi 28 günden yeniyse son işlem fiyatıyla fiyatlanır; yoksa fiyatsız kalır', () => {
+  const oz = O.ozetOku(DOC);
+  const live = { t: NOW, items: { 2: [NOW, { 6: [0.77, null, 0, 0, NOW - 2 * 24 * SAAT], 7: [0.88, null, 0, 0, NOW - 40 * 24 * SAAT], 5: [0.95, null, 0, 0, NOW - SAAT], 3: [1.1, null, 0, 0, NOW - SAAT] }] } };
+  const f = O.sonFiyat(oz, live, NOW);
+  eqj(f(2, 6), { p: 0.77, kaynak: 'son' }, 'özette yok, son işlem 2 gün önce');
+  eq(f(2, 7), null, 'son işlem 40 gün önce');
+  eqj(f(2, 3), { p: 0.9, kaynak: 'ort' }, 'özette var: 28 günlük ortalama öncelikli');
+  eqj(f(2, 5), { p: 0.77 - 0.77 + 0.95, kaynak: 'son' }, 'özette seyrek (10 gün): son işlem');
+  eq(f(2, 11), null);
+  eq(O.sonFiyat(oz, null, NOW)(2, 6), null, 'canlı belge yoksa');
+});
+
+test('Tüm kaliteler: seçici özette olmayan kaliteleri de (son işlem fiyatıyla) içerir; listeler yalnız yeterli işlem gören kalitelerle kalır', () => {
+  // Su Q1 ve Q2 özette yok (girdisi Enerji Q0 – Q3 var); Q5'in girdisi (Enerji Q4+) fiyatsız olduğundan hiç satır olmaz
+  const live = { t: NOW, items: { 2: [NOW, { 1: [0.6, null, 0, 0, NOW - 2 * 24 * SAAT], 2: [0.7, null, 0, 0, NOW - 3 * 24 * SAAT], 5: [0.95, null, 0, 0, NOW - SAAT] }] } };
+  const s = stT({ live, prefs: { ...PREFS_TUM, hesap: { harf: 'W', id: 2, q: 2 } } });
+  const u = s.tum.secenek.find((e) => e.harf === 'W').urunler.find((e) => e.id === 2);
+  for (const q of [0, 1, 2, 3]) if (!u.kaliteler.includes(q)) throw new Error(`Q${q} seçicide yok: ${u.kaliteler}`);
+  eq(s.tum.secim.q, 2, 'son işlemli kalite seçilebilir');
+  eq(s.tum.hesap.son, true);
+  eq(s.tum.hesap.kaliteler.find((k) => k.q === 2).son, true);
+  eq(s.tum.hesap.kaliteler.find((k) => k.q === 1).son, true);
+  eq(s.tum.hesap.kaliteler.find((k) => k.q === 0).son, false);
+  eq(s.tum.hesap.kaliteler.find((k) => k.q === 3).son, false);
+  // listeler eskisi gibi: özette yeterli işlemi olmayan Q1 ve Q2 listelerde yok
+  const sirali = s.tum.binalar.find((b) => b.harf === 'W');
+  for (const y of sirali.secenekler) if (y.id === 2 && (y.q === 1 || y.q === 2)) throw new Error('listede seyrek kalite olmamalı');
+  // canlı belge yoksa seçici özetteki kalitelerle sınırlı
+  const sade = stT({ live: null }).tum.secenek.find((e) => e.harf === 'W').urunler.find((e) => e.id === 2);
+  if (sade.kaliteler.includes(2) || sade.kaliteler.includes(1)) throw new Error('son işlemi olmayan kalite seçicide olmamalı');
+  // son işlem satırı: pazar büyüklüğü bilinmez (0), kaynağı 'son'
+  const oz = O.ozetOku(DOC);
+  const x = O.satirlar({ data, oz, fiyat: O.ortFiyat(oz), satisFiyat: O.sonFiyat(oz, live, NOW), tumKaliteler: true, mevsimlik: MEVSIM, faz: 0 }).find((r) => r.id === 2 && r.q === 2);
+  if (!x || x.kaynak !== 'son' || x.pazar !== 0) throw new Error('son işlem satırı yok');
+  // tumKaliteler kapalıyken satır oluşmaz (28 günlük sayfa değişmez)
+  eq(O.satirlar({ data, oz, fiyat: O.ortFiyat(oz), mevsimlik: MEVSIM, faz: 0 }).some((r) => r.id === 2 && r.q === 2), false);
 });
 
 test('binaEkle: yeni satır, mevcut binaya ekleme (robotsuz önce), eşleşme yoksa yeni satır, bozuk kayıt ve seviye', () => {
@@ -800,7 +839,8 @@ test('Tüm Ürün hesap kartı: kalite seçici yalnız kaliteli üründe; "Mevcu
 test('Tüm Ürün sayfası İngilizcede tamamen çevrilir (şirketli ve şirketsiz, her seçim, ekleme iletileri, özet yok)', () => {
   const htmls = [];
   for (const c of [{}, { company: COMPANY, kurulum: KURULUM }]) {
-    for (const v of [{ ozet: DOC }, { ozet: { ...DOC, t: NOW - 50 * SAAT } }, { ozet: null }]) {
+    const sonLive = { t: NOW, items: { 2: [NOW, { 1: [0.6, null, 0, 0, NOW - 2 * 24 * SAAT], 2: [0.7, null, 0, 0, NOW - 3 * 24 * SAAT] }] } };
+    for (const v of [{ ozet: DOC }, { ozet: DOC, live: sonLive }, { ozet: { ...DOC, t: NOW - 50 * SAAT } }, { ozet: null }]) {
       const ilk = stT({ ...c, ...v });
       htmls.push(sayfaHtml(ilk, ad));
       for (const e of ilk.tum.secenek.slice(0, 3)) {

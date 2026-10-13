@@ -399,7 +399,7 @@ function hesapKarti(st, ad, k) {
       <tr><th scope="row">1,5 katı</th><td>${NF0.format(hs.buyuk.L)}</td><td>${para(hs.buyuk.kar)}</td></tr></tbody></table></div>` : '';
   const kalite = hs.kaliteler.length > 1 ? `<details data-ac="${k.acKey}"${st.acik?.has(k.acKey) ? ' open' : ''}><summary>Kaliteleri karşılaştır</summary>
       <div class="table-wrap"><table class="op-table"><thead><tr><th scope="col">Kalite</th><th scope="col">Seviye</th><th scope="col">Günlük kâr</th></tr></thead><tbody>${hs.kaliteler.map((k) =>
-        `<tr${k.q === secim.q ? ' class="on"' : ''}><th scope="row">Q${k.q}</th><td>${NF0.format(k.L)}</td><td class="${k.kar > 0 ? 'up' : ''}">${para(k.kar)}</td></tr>`).join('')}</tbody></table></div></details>` : '';
+        `<tr${k.q === secim.q ? ' class="on"' : ''}><th scope="row">Q${k.q}${k.son ? ` ${chip('Son işlem', 'muted')}` : ''}</th><td>${NF0.format(k.L)}</td><td class="${k.kar > 0 ? 'up' : ''}">${para(k.kar)}</td></tr>`).join('')}</tbody></table></div></details>` : '';
   const var_ = hs.L >= 1;
   const mevcutVar = hs.ayni > 0;
   const son = k.son;
