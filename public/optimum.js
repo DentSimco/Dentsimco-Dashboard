@@ -19,6 +19,7 @@ import * as O from './optimum-hesap.js';
 import * as Y from './yonetici.js';
 import { binaAdi } from './adlar.js';
 import { LOCALE } from './i18n.js';
+import { parseNum } from './sayi.js';
 
 const PREFS_KEY = 'dentsimco.optimum.v1';
 const URETIM_KEY = (r) => `dentsimco.uretim.r${r}`;
@@ -36,6 +37,8 @@ const pct = (x) => `%${NF0.format(Math.round(x * 100))}`;
 const isaretli = (n) => (n > 0 ? `+${NF0.format(n)}` : n < 0 ? `−${NF0.format(-n)}` : '0');
 
 // ---- tercihler ----
+// Pazar payı: hazır seçenekler ya da kullanıcının yazdığı oran (%1 – %100)
+export const okuPay = (x) => (Number.isFinite(Number(x)) && Number(x) >= 0.01 && Number(x) <= 1 ? Number(x) : O.VARSAYILAN_PAY);
 // Kayıtlı kontrat satırları: { id, q, adet: 'metin', fiyat: 'metin' }; bozuk kayıt atılır, metinler kısaltılır
 const KONTRAT_METIN = 24;
 export function okuKontrat(x) {
@@ -51,7 +54,7 @@ function readPrefs() {
   return {
     tab: SEKMELER.some(([k]) => k === p.tab) ? p.tab : 'ay',
     faz: [0, 1, 2].includes(p.faz) ? p.faz : 'auto',
-    pay: O.PAYLAR.includes(p.pay) ? p.pay : O.VARSAYILAN_PAY,
+    pay: okuPay(p.pay),
     kontrat: okuKontrat(p.kontrat),
   };
 }
@@ -146,6 +149,14 @@ export function sirketSatiri(st) {
   return parcalar.length ? `<p class="op-line">${parcalar.map((p) => `<span>${esc(p)}</span>`).join(' ')}</p>` : '';
 }
 
+// Hazır pay düğmeleri ve elle yazılan oran kutusu (hazır olmayan bir oran seçiliyse kutuda görünür, düğmeler basılı olmaz)
+function payKutusu(st) {
+  const hazir = O.PAYLAR.some((p) => p === st.prefs.pay);
+  const dugmeler = O.PAYLAR.map((p) => `<button type="button" data-act="pay" data-v="${p}" aria-pressed="${p === st.prefs.pay}">${esc(pct(p))}</button>`).join('');
+  const deger = hazir ? '' : NF1.format(st.prefs.pay * 100);
+  return `<div class="op-seg op-seg-pay" role="group">${dugmeler}<input class="op-in op-pay-ozel${hazir ? '' : ' on'}" type="text" inputmode="decimal" autocomplete="off" autocapitalize="off" spellcheck="false" data-pay="ozel" value="${esc(deger)}" placeholder="%35" aria-label="Özel pay yüzdesi"></div>`;
+}
+
 export function ayarlarHtml(st) {
   const fazlar = [['auto', 'Otomatik'], ...O.FAZ_ADLARI.map((ad, i) => [String(i), ad])];
   const secili = String(st.prefs.faz);
@@ -159,8 +170,9 @@ export function ayarlarHtml(st) {
   const seg = (act, list, cur) => `<div class="op-seg op-seg-${act}" role="group">${list.map(([v, t]) => `<button type="button" data-act="${act}" data-v="${esc(v)}" aria-pressed="${v === cur}">${esc(t)}</button>`).join('')}</div>`;
   return `<section class="op-set" aria-label="Ayarlar">
     <div class="op-field"><span>Ekonomi fazı (üretim hızı)</span>${seg('faz', fazlar, secili)}${fazNot ? `<p class="op-note">${esc(fazNot)}</p>` : ''}</div>
-    <div class="op-field"><span>Pazar payı</span>${seg('pay', O.PAYLAR.map((p) => [String(p), pct(p)]), String(st.prefs.pay))}
-      <p class="op-note">Borsadaki günlük satışın en çok bu kadarını satabileceğiniz varsayılır; daha fazlası fiyatı düşürür. Emin değilseniz %10 daha temkinli.</p></div>
+    <div class="op-field"><span>Pazar payı</span>${payKutusu(st)}
+      ${st.payHata ? `<p class="op-warn" role="alert">${esc('Pay 1 ile 100 arasında olmalı.')}</p>` : ''}
+      <p class="op-note">Borsadaki günlük satışın en çok bu kadarını satabileceğiniz varsayılır; daha fazlası fiyatı düşürür. %100: borsanın tüm günlük satışı. Emin değilseniz %10 daha temkinli; kendi oranınızı da yazabilirsiniz.</p></div>
   </section>`;
 }
 
@@ -341,7 +353,9 @@ export const CSS = `
 .op-seg button { flex: 1 1 0; min-width: 64px; min-height: 40px; padding: 0 10px; border-radius: 10px; background: var(--raise); color: var(--muted); border: 1px solid var(--line-2);
   font: 600 15px var(--font-c); white-space: nowrap; }
 .op-seg button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
-@media (max-width: 520px) { .op-seg-faz { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.op-pay-ozel { flex: 1 1 0; min-width: 84px; height: 40px; text-align: center; }
+.op-pay-ozel.on { border-color: var(--accent); }
+@media (max-width: 520px) { .op-seg-faz { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); } .op-seg-pay { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); } .op-seg-pay button { min-width: 0; padding: 0 4px; } .op-pay-ozel { grid-column: 1 / -1; } }
 .op-note { margin: 0; font-size: 13px; line-height: 1.45; color: var(--muted); max-width: 80ch; }
 .op-tabs { display: flex; gap: 2px; padding: 3px; border: 1px solid var(--line); border-radius: 11px; background: var(--bg); }
 .op-tabs button { flex: 1 1 0; height: 40px; padding: 0 12px; border-radius: 8px; color: var(--muted); font: 600 16px/1 var(--font-c); white-space: nowrap; }
@@ -451,6 +465,7 @@ export function mountOptimum(root, { realm = 0 } = {}) {
   const taslakBos = () => ({ id: '', q: '', adet: '', fiyat: '' });
   let taslak = taslakBos(); // "Kontrat ekle" formunda yazılanlar (ekran yeniden çizilince kaybolmasın)
   let taslakHata = '';
+  let payHata = false;
 
   const style = document.createElement('style');
   style.dataset.module = 'optimum';
@@ -478,6 +493,7 @@ export function mountOptimum(root, { realm = 0 } = {}) {
     st.urunlerAcik = urunlerAcik;
     st.taslak = taslak;
     st.taslakHata = taslakHata;
+    st.payHata = payHata;
     const scroll = window.scrollY;
     root.innerHTML = sayfaHtml(st, ad);
     window.scrollTo(0, scroll);
@@ -531,7 +547,7 @@ export function mountOptimum(root, { realm = 0 } = {}) {
     if (!b) return;
     const act = b.dataset.act;
     if (act === 'faz') { prefs.faz = b.dataset.v === 'auto' ? 'auto' : Number(b.dataset.v); savePrefs(prefs); render(); }
-    else if (act === 'pay') { prefs.pay = Number(b.dataset.v); savePrefs(prefs); render(); }
+    else if (act === 'pay') { prefs.pay = Number(b.dataset.v); payHata = false; savePrefs(prefs); render(); }
     else if (act === 'urunler') { urunlerAcik = true; render(); }
     else if (act === 'yenile') yukle({ taze: true });
     else if (act === 'kontratEkle') kontratEkle();
@@ -562,7 +578,13 @@ export function mountOptimum(root, { realm = 0 } = {}) {
   }
   function onChange(e) {
     const t = e.target;
-    if (t.dataset?.kd === 'id') { taslak = { ...taslak, id: t.value, q: '' }; taslakHata = ''; render(); }
+    if (t.dataset?.pay === 'ozel') {
+      const v = parseNum(t.value);
+      if (t.value.trim() === '') payHata = false;
+      else if (v == null || v < 1 || v > 100) payHata = true;
+      else { prefs.pay = Math.round(v * 10) / 1000; payHata = false; savePrefs(prefs); }
+      render();
+    } else if (t.dataset?.kd === 'id') { taslak = { ...taslak, id: t.value, q: '' }; taslakHata = ''; render(); }
     else if (t.dataset?.kd === 'q') taslak.q = t.value;
     else if (t.dataset?.kd) taslak[t.dataset.kd] = t.value;
     else if (t.dataset?.kf) {

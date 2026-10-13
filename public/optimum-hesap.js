@@ -33,7 +33,7 @@
 import * as H from './hesap.js';
 import { parseNum, parsePrice } from './sayi.js';
 
-export const PAYLAR = [0.1, 0.25, 0.4];
+export const PAYLAR = [0.1, 0.25, 0.5, 1]; // hazır seçenekler; kullanıcı 1 – 100 arası kendi oranını da yazabilir
 export const VARSAYILAN_PAY = 0.25;
 const GUN_PAYI = 0.5; // kalite, pencerenin en az yarısında işlem görmeli (seyrek işlemin fiyatı yanıltır)
 const UC_FIYAT_KAT = 5; // kalitenin fiyatı Q0'ın bu katını aşıyorsa (birkaç uç işlem) satır kullanılmaz
