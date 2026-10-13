@@ -274,12 +274,13 @@ function binaKarti(b, st, ad, onek = '') {
   </article>`;
 }
 
-function urunlerBlogu(liste, st, ad) {
+function urunlerBlogu(liste, st, ad, baslik = 'Tüm ürünler', sade = false) {
   const hepsi = st.urunlerAcik ? liste : liste.slice(0, LIST_MAX);
-  const satir = (u) => `<tr><th scope="row">${esc(ad.urun(u.id))} ${qChip(ad, u)}${u.kontrat ? chip('Kontrat', 'muted') : ''}</th><td class="op-b">${esc(ad.bina(u.harf))}</td><td>${NF0.format(u.L)}</td><td class="${u.kar > 0 ? 'up' : ''}">${para(u.kar)}</td><td>${esc(SINIR[u.sinir]?.[0] || '')}</td></tr>`;
+  // sade: tek bina için; bina ve sınır sütunları hep aynı olduğundan gösterilmez (telefonda yana taşmaz)
+  const satir = (u) => `<tr><th scope="row">${esc(ad.urun(u.id))} ${qChip(ad, u)}${u.kontrat ? chip('Kontrat', 'muted') : ''}</th>${sade ? '' : `<td class="op-b">${esc(ad.bina(u.harf))}</td>`}<td>${NF0.format(u.L)}</td><td class="${u.kar > 0 ? 'up' : ''}">${para(u.kar)}</td>${sade ? '' : `<td>${esc(SINIR[u.sinir]?.[0] || '')}</td>`}</tr>`;
   const daha = liste.length > hepsi.length ? `<button type="button" class="op-more" data-act="urunler">${esc(`Tümünü göster (${liste.length})`)}</button>` : '';
-  return `<section class="op-block"><h2>Tüm ürünler</h2><p class="op-note">Her ürünün en kârlı kalitesi ve o ürün için önerilen seviye.</p>
-      <div class="table-wrap"><table class="op-table"><thead><tr><th scope="col">Ürün</th><th scope="col">Bina</th><th scope="col">Seviye</th><th scope="col">Günlük kâr</th><th scope="col">Sınır</th></tr></thead><tbody>${hepsi.map(satir).join('')}</tbody></table></div>${daha}</section>`;
+  return `<section class="op-block"><h2>${esc(baslik)}</h2><p class="op-note">Her ürünün en kârlı kalitesi ve o ürün için önerilen seviye.</p>
+      <div class="table-wrap"><table class="op-table"><thead><tr><th scope="col">Ürün</th>${sade ? '' : '<th scope="col">Bina</th>'}<th scope="col">Seviye</th><th scope="col">Günlük kâr</th>${sade ? '' : '<th scope="col">Sınır</th>'}</tr></thead><tbody>${hepsi.map(satir).join('')}</tbody></table></div>${daha}</section>`;
 }
 
 export function ayHtml(st, ad) {
@@ -409,9 +410,9 @@ export function tumHtml(st, ad) {
   return `<section class="op-set op-set-tek" aria-label="Ayarlar">${fazAlani(st)}</section>
     <p class="op-warn" role="note">${esc('Satışın sınırsız ve fiyatın sabit olduğu varsayılır; büyük seviyelerde gerçekte fiyat düşer. Bu sekme üst sınırı gösterir; borsadaki gerçek satışınız için Borsa Satışına Göre sekmesine bakın.')}</p>
     ${hesapHtml(st, ad)}
-    <section class="op-block"><h2>Bina türüne göre en kârlı</h2><p class="op-note">${esc('Her bina için 28 günlük fiyatlarla, satış sınırı olmadan en kârlı ürün, kalite ve seviye. Tavanı yalnızca maaş ve yönetim gideri belirler.')}</p>
-      <div class="op-grid">${t.binalar.map((b) => binaKarti(b, st, ad, 't:')).join('')}</div></section>
-    ${urunlerBlogu(t.urunler, st, ad)}
+    <section class="op-block"><h2>Seçilen binada en kârlı</h2><p class="op-note">${esc('Seçtiğiniz bina için 28 günlük fiyatlarla, satış sınırı olmadan en kârlı ürün, kalite ve seviye. Tavanı yalnızca maaş ve yönetim gideri belirler.')}</p>
+      <div class="op-grid op-grid-tek">${t.binalar.filter((b) => b.harf === t.secim?.harf).map((b) => binaKarti(b, st, ad, 't:')).join('')}</div></section>
+    ${urunlerBlogu(t.urunler.filter((u) => u.harf === t.secim?.harf), st, ad, 'Bu binadaki ürünler', true)}
     <p class="op-foot">${esc('Öneriler DentSimco formülüyle hesaplanır. İnşaat maliyeti, kalite üretebilme (araştırma, patent) ve kendi ürettiğiniz girdiler hesaba katılmaz. Mevsimlik ürünler ve borsada satışı olmayan ürünler gösterilmez.')}</p>`;
 }
 
@@ -558,6 +559,8 @@ select.op-in { appearance: none; padding-right: 36px; background-image: linear-g
 .op-kon-add .op-btn, .op-kon-add .op-warn { grid-column: 1 / -1; }
 .op-main button { height: auto; min-height: 46px; padding: 6px 8px; white-space: normal; line-height: 1.15; }
 .op-set-tek { grid-template-columns: minmax(0, 1fr); }
+.op-grid-tek { grid-template-columns: minmax(0, 1fr); }
+@media (min-width: 760px) { .op-grid-tek { grid-template-columns: minmax(0, 1fr); max-width: 520px; } }
 .op-calc .op-kon-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @media (max-width: 520px) { .op-calc .op-kon-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); } .op-calc .op-kon-fields .op-f:first-child { grid-column: 1 / -1; } }
 .op-res { background: var(--bg); }
