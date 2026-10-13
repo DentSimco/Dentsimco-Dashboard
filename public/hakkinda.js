@@ -8,6 +8,14 @@ const TABS = [['nedir', 'Nedir'], ['guncellemeler', 'Güncellemeler'], ['kaynakc
 // En yeni en üstte. { date: 'gün ay yıl', items: ['...', '...'] }
 export const UPDATES = [
   {
+    date: '13 Ekim 2026',
+    items: [
+      'Optimum Seviye sayfası eklendi (Piyasa ile Kâr Hesaplayıcı arasında; şimdilik R1 üretim binaları): her bina için son 28 günün borsa fiyatı ve satışıyla en kârlı ürün, kalite ve seviye. Güncel sekmesi, seviyeniz sabitken canlı fiyatla şu an en kârlı ürünü gösterir.',
+      'Optimum Seviye önerileri şirketinize göre hesaplanır: doğru sonuç için Yönetim › Ekip ve Üretim bölümlerini doldurun. Pazarı küçük ürünlerde öneri "Pazar sınırlı" uyarısıyla gösterilir.',
+      'Optimum Seviye › Kontratlarım: kontratla sattığınız ürünün günlük adedini ve fiyatını yazın (sayı ya da yüzde, dolar ya da borsadan indirim yüzdesi). Öneriler kontrat ve borsa satışını birlikte hesaplar; kontratlar yalnız bu tarayıcıda saklanır.',
+    ],
+  },
+  {
     date: '11 Ekim 2026',
     items: [
       'Haberler: İngilizce dilde canlı şeritteki ve grafik başlığındaki ürün adları artık İngilizce görünüyor (önceden Türkçe kalıyordu).',
@@ -127,6 +135,7 @@ function viewKaynakca() {
     <section class="hk-card"><dl>
       <div><dt>Canlı borsa veri kaynağı</dt><dd>Açık kaynak olarak paylaşılan Simcotools API · <a class="hk-link" href="https://simcotools.com" target="_blank" rel="noopener noreferrer">simcotools.com</a></dd></div>
       <div><dt>Sinyaller</dt><dd>DentSimco formülü ile hesaplanır.</dd></div>
+      <div><dt>Optimum Seviye</dt><dd>DentSimco formülü ile hesaplanır.</dd></div>
       <div><dt>Kâr Hesaplayıcı</dt><dd>Sim Companies API verileriyle tarafımızca hesaplanır.</dd></div>
     </dl></section>`;
 }

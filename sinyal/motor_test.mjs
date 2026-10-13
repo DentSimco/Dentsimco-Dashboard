@@ -205,6 +205,10 @@ ok(b1 && b1[0] === 1 && b1[1] === 0, 'karne: ≤ −%4 beklentisi sonrası fiyat
   uygula(d0);
   const gece = sinyalOku();
   ok(d0.yazilan.some((w) => w.path === 'meta/sinyal_karne_r0') && d0.yazilan.some((w) => w.path === 'meta/olaylar_r0'), 'gece çalışması karne ve arşivi de yazar');
+  const optYaz = d0.yazilan.find((w) => w.path === 'meta/optimum_r0');
+  const opt = optYaz && JSON.parse(optYaz.data.data);
+  ok(opt && opt.k >= 20 && opt.n === 28 && opt.u[901]?.[0]?.length === 3, 'gece çalışması Realm 0 için optimum özetini yazar');
+  ok(!d0.yazilan.some((w) => w.path.startsWith('meta/optimum_r1')), 'Realm 1 için optimum özeti yazılmaz');
   ok(gece.tn === simdi0 && gece.urun[901][0].s[0] === 'HSAT', 'gece: tn yazıldı, sıçrayan ürün SAT (hemen sat)');
 
   const canliFiyat = Math.round((gece.urun[901][0].p / 1.12) * 100) / 100;

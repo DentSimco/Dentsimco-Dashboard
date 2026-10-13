@@ -4,6 +4,8 @@
 #   gunici  Gün boyu saatte bir (00:20, 02:20, 03:20 ... 23:20 UTC; 01:20 gece çalışmasınındır): meta/sinyal_r{0,1} ve gün içi
 #           karne kaydı yazılır. Likit ve son işlemi ≤6 saat önce olan ürün×kalitede canlı son işlem fiyatıyla yeniden hesaplanır.
 #           Fiyat hedefe ulaşır, 20 günlük tepeyi ya da dibi kırarsa sinyal beklemeden yenilenir (motor.mjs başı).
+#           Gece çalışması ayrıca Optimum Seviye sayfası için meta/optimum_r0 belgesini (son 28 günün borsa özeti, yalnız
+#           Realm 0; sinyal/optimum.mjs) yazar. Özet hesaplanamazsa sinyaller yine yazılır, son iyi özet yayında kalır.
 # Her çalışma 1-2 dakika sürür. Sıra: sınamalar → sinyalleri hesapla → Firestore'a yalnız sonuçları yaz. Sınama geçmezse hiçbir şey yazılmaz.
 # Elle çalıştırmak için: Actions > DentSimco Sinyal > Run workflow (şekil seçilir; yeni sürümü ilk kurarken önce "gece" çalıştır).
 # Okuma maliyeti: her çalışma yaklaşık 600 Firestore belgesi okur (saatte bir ≈ 14 bin/gün).
@@ -52,6 +54,7 @@ jobs:
       - name: Sınamalar
         run: |
           node sinyal/motor_test.mjs
+          node sinyal/optimum_test.mjs
           node sinyal/firestore_test.mjs
 
       - name: Sinyalleri hesapla ve yaz (${{ env.SINYAL_MOD }})
