@@ -177,6 +177,7 @@ const TASLAK_HATA = {
   dolu: `En çok ${O.KONTRAT_EN_COK} kontrat yazılabilir.`,
 };
 const ADET_ORNEK = () => `${NF0.format(250000)} · %50`;
+const FIYAT_ORNEK = '$50 · %3'; // boş bırakılırsa %3 alınır
 
 function kontratSatiri(k, g, ad) {
   const hata = k.durum !== 'ok';
@@ -187,7 +188,7 @@ function kontratSatiri(k, g, ad) {
   return `<div class="op-kon-row${hata ? ' err' : ''}">
     <div class="op-kon-head"><span class="op-name">${esc(ad.urun(k.id))}</span>${qChip(ad, k)}
       <button type="button" class="op-x" data-act="kontratSil" data-i="${k.i}" aria-label="Kontratı sil" title="Kontratı sil">×</button></div>
-    <div class="op-kon-fields">${alan('adet', 'Adet / gün', g?.adet ?? '', ADET_ORNEK())}${alan('fiyat', 'Fiyat', g?.fiyat ?? '', '%3')}</div>
+    <div class="op-kon-fields">${alan('adet', 'Adet / gün', g?.adet ?? '', ADET_ORNEK())}${alan('fiyat', 'Fiyat', g?.fiyat ?? '', FIYAT_ORNEK)}</div>
     ${sonuc}
   </div>`;
 }
@@ -212,7 +213,7 @@ export function kontratHtml(st, ad) {
       <label class="op-f urun${kaliteli ? ' kaliteli' : ''}"><span>Ürün</span><select class="op-in" data-kd="id"><option value="">Ürün seç</option>${urunler.map((u) => `<option value="${u.id}"${String(u.id) === String(t.id) ? ' selected' : ''}>${esc(ad.urun(u.id))}</option>`).join('')}</select></label>
       ${kaliteli ? `<label class="op-f kal"><span>Kalite</span><select class="op-in" data-kd="q">${secili.kaliteler.map((k) => `<option value="${k}"${k === q ? ' selected' : ''}>Q${k}</option>`).join('')}</select></label>` : ''}
       <label class="op-f adet"><span>Adet / gün</span><input class="op-in" type="text" inputmode="decimal" autocomplete="off" autocapitalize="off" spellcheck="false" data-kd="adet" value="${esc(t.adet)}" placeholder="${esc(ADET_ORNEK())}"></label>
-      <label class="op-f fiyat"><span>Fiyat</span><input class="op-in" type="text" inputmode="decimal" autocomplete="off" autocapitalize="off" spellcheck="false" data-kd="fiyat" value="${esc(t.fiyat)}" placeholder="%3"></label>
+      <label class="op-f fiyat"><span>Fiyat</span><input class="op-in" type="text" inputmode="decimal" autocomplete="off" autocapitalize="off" spellcheck="false" data-kd="fiyat" value="${esc(t.fiyat)}" placeholder="${esc(FIYAT_ORNEK)}"></label>
       <button type="button" class="op-btn primary" data-act="kontratEkle">Ekle</button>
       ${hataMetni ? `<p class="op-warn" role="alert">${esc(hataMetni)}</p>` : ''}
     </div>
