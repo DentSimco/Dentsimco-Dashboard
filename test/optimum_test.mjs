@@ -5,7 +5,7 @@
 import { readFileSync } from 'node:fs';
 import * as H from '../public/hesap.js';
 import * as O from '../public/optimum-hesap.js';
-import { sayfaHtml, uyarilarHtml, R2_HTML } from '../public/optimum.js';
+import { sayfaHtml, uyarilarHtml, kontratHtml, okuKontrat, R2_HTML } from '../public/optimum.js';
 import EN from '../public/dil-en.js';
 import { sozlukDerle, cevirMetin } from '../public/i18n.js';
 import { BINA_ADLARI_EN } from '../public/adlar.js';
@@ -76,6 +76,57 @@ test('Sınır: pazar, yönetim gideri ya da zarar', () => {
 });
 
 // ---- Veri ----
+// ---- Kontrat: iki satış kanalı ----
+// ph = 1 → seviye başına günlük 24 adet. K = 480 adet/gün = 20 seviye; borsa payı = 0,25 × 40 = 10 seviye.
+const xk = (net, K = 480) => ({ a: 1000, b: 400, w: 100, pazar: 40, ph: 1, kontrat: { K, pc: net, net, sv: K / 24 } });
+
+test('Kontrat: gelir iki kanaldan, net geliri yüksek olandan başlayarak doldurulur; satılamayan seviye boşta kalır', () => {
+  const k = 1 / 170;
+  const o = { s: 0, pay: 0.25 };
+  // kontrat daha kârlı (a = 1100 > 1000): önce kontrat 20 seviye, sonra borsa 10 seviye
+  near(O.gunlukKar(25, xk(1100), o), 24 * (1100 * 20 + 1000 * 5 - 400 * 25 - 25 * 100 * (1 + 24 * k)));
+  near(O.gunlukKar(40, xk(1100), o), 24 * (1100 * 20 + 1000 * 10 - 400 * 30 - 30 * 100 * (1 + 39 * k)), 'toplamı (30 sv) aşan seviye boşta');
+  // borsa daha kârlı (a = 1000 > 900): önce borsa 10 seviye, sonra kontrat
+  near(O.gunlukKar(25, xk(900), o), 24 * (1000 * 10 + 900 * 15 - 400 * 25 - 25 * 100 * (1 + 24 * k)));
+  // kontratsız aynı satır: yalnız borsa payı (10 seviye)
+  near(O.gunlukKar(25, { ...xk(1100), kontrat: null }, o), 24 * (1000 * 10 - 400 * 10 - 10 * 100 * (1 + 24 * k)));
+});
+
+test('Kontratlı en iyi seviye, tüm tam sayı seviyeler taranarak bulunanla aynı (3000 rastgele durum, iki kanal sırası)', () => {
+  let seed = 20261014;
+  const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+  let hata = 0;
+  let ornek = '';
+  for (let i = 0; i < 3000; i++) {
+    const ph = 0.5 + rnd() * 50;
+    const net = 1 + rnd() * 100;
+    const a = ph * net;
+    const K = 24 * ph * (0.3 + rnd() * 300);
+    const kontrat = i % 4 === 0 ? null : { K, pc: 0, net: net * (0.8 + rnd() * 0.45), sv: K / (24 * ph) };
+    const x = { a, b: rnd() * a, w: 50 + rnd() * 2000, ph, pazar: 1 + rnd() * 400, kontrat };
+    const o = { s: [0, 0.3, 0.62, 0.9][i % 4], pay: O.PAYLAR[i % 3], Lo: i % 2 ? Math.floor(rnd() * 600) : 0, Wo: i % 2 ? rnd() * 300000 : 0 };
+    const r = O.optimum(x, o);
+    const P = o.pay * x.pazar + (kontrat ? kontrat.sv : 0);
+    let bK = 0;
+    for (let L = 0; L <= Math.ceil(P) + 5; L++) bK = Math.max(bK, O.gunlukKar(L, x, o));
+    if (Math.abs(r.kar - bK) > 1e-6 * Math.max(1, bK) || r.L > Math.ceil(P)) { hata++; ornek ||= `${JSON.stringify({ x, o })} → ${r.L} / ${r.kar} (tarama ${bK})`; }
+  }
+  eq(hata, 0, `uyuşmayan durum (ilk: ${ornek})`);
+});
+
+test('Kontrat sınırı: toplam satış (borsa payı + kontrat) bağlıyorsa pazar sınırlı; yönetim gideri bağlıyorsa yönetim sınırlı', () => {
+  const o = { s: 0, pay: 0.25 };
+  const dar = O.optimum(xk(1100, 24 * 5), o); // kontrat 5 sv + borsa 10 sv = 15
+  eq(dar.sinir, 'pazar');
+  if (dar.L < 14 || dar.L > 15) throw new Error(`toplam satış 15 sv: ${dar.L}`);
+  const genis = O.optimum(xk(1100, 24 * 5000), { ...o }); // kontrat 5000 sv: yönetim gideri bağlar
+  eq(genis.sinir, 'yonetim');
+  if (!(genis.L > 100 && genis.L < 5000)) throw new Error(`yönetim sınırlı seviye: ${genis.L}`);
+  const yok = O.optimum({ ...xk(1100), kontrat: null }, o);
+  eq(yok.L, 10);
+  if (!(O.optimum(xk(1100), o).kar > yok.kar)) throw new Error('kontrat kârı artırmalı');
+});
+
 const DOC = {
   v: 1, t: NOW - 2 * SAAT, r: 0, gun: '2026-09-28', bas: '2026-09-01', n: 28, k: 28,
   u: {
@@ -150,6 +201,45 @@ test('Satırlar: ekonomi fazı, rekreasyon ve (yalnız Güncel) üretim olayı h
   const oj = g.find((r) => r.id === 124);
   eq(oj.olay, 27);
   near(oj.ph / row(124, 0).ph, 1.27);
+});
+
+test('Satırlar: kontrat kancası satıra kontrat net gelirini ve seviye karşılığını yazar; kontratı olan ürün pazar < 1 olsa da kalır', () => {
+  const oz = O.ozetOku(DOC);
+  const f = O.ortFiyat(oz);
+  const kontrat = (id, q) => ({ '2:0': { K: 1e6, pc: 0.6 }, '3:0': { K: 100, pc: 2 }, '66:0': { K: 1000, pc: 0.19 } })[`${id}:${q}`] || null;
+  const r = O.satirlar({ data, oz, fiyat: f, mevsimlik: MEVSIM, faz: 0, kontrat });
+  const su = r.find((x) => x.id === 2 && x.q === 0);
+  near(su.kontrat.net, 0.6, 'Su taşımasız: net = fiyat (komisyon yok)');
+  near(su.kontrat.sv, 1e6 / 24 / su.ph, 'kontratın karşıladığı seviye');
+  eq(su.kontrat.K, 1e6);
+  eq(su.kontrat.pc, 0.6);
+  eq(r.find((x) => x.id === 2 && x.q === 3).kontrat, null, 'başka kalite etkilenmez');
+  near(r.find((x) => x.id === 66).kontrat.net, 0.19 - 0.5 * 0.1 * 0.25, 'Tohum: taşıma yarı (0,1 × 0,25 ÷ 2)');
+  if (!r.find((x) => x.id === 3 && x.q === 0)) throw new Error('kontratlı ürün pazar < 1 diye atılmamalı');
+  if (rows.find((x) => x.id === 3)) throw new Error('kontratsız aynı ürün pazar < 1 diye atılır');
+  eq(rows.every((x) => x.kontrat === null), true, 'kontratsız satırlarda kontrat yok');
+  // olaysız üretim hızı: Güncel'de olay hızı değiştirir, "mevcut üretim" yüzdesi olaysız hıza göre çevrilir
+  const g = O.satirlar({ data, oz, fiyat: f, mevsimlik: MEVSIM, olaylar: true, simdi: NOW });
+  const oj = g.find((x) => x.id === 124);
+  near(oj.ph / oj.phTaban, 1.27);
+  near(row(124, 0).phTaban, row(124, 0).ph);
+});
+
+test('Kontrat satırı okuma: adet sayı ya da yüzde, fiyat dolar ya da indirim yüzdesi; boş fiyat %3', () => {
+  const c = (g, ctx) => O.kontratCoz(g, { uretim: 0, ref: 50, ...ctx });
+  for (const [adet, beklenen] of [['250000', 250000], ['250.000', 250000], ['250,000', 250000], ['250k', 250000], ['1,5m', 1500000], [' 42 ', 42]]) eq(c({ adet }).K, beklenen, `adet "${adet}"`);
+  near(c({ adet: '%50' }, { uretim: 500000 }).K, 250000);
+  eq(c({ adet: '%50' }, { uretim: 500000 }).yuzde, 50);
+  eq(c({ adet: '%50' }).hata, 'uretimYok', 'Üretim kurulumunda ürün yoksa yüzde çevrilemez');
+  eq(c({ adet: '%150' }, { uretim: 1000 }).hata, 'adet');
+  for (const adet of ['', 'abc', '0', '-5', '%0', '1e99']) eq(c({ adet }).ok, false, `adet "${adet}"`);
+  near(c({ adet: '10', fiyat: '48' }).pc, 48);
+  near(c({ adet: '10', fiyat: '$48,5' }).pc, 48.5);
+  near(c({ adet: '10', fiyat: '%4' }).pc, 48, 'borsa 50, %4 indirim → 48');
+  near(c({ adet: '10', fiyat: '%-2' }).pc, 51, 'eksi indirim: borsadan pahalı');
+  near(c({ adet: '10' }).pc, 48.5, 'fiyat boş: %3 indirim');
+  near(c({ adet: '10', fiyat: '  ' }).pc, 48.5);
+  for (const fiyat of ['abc', '0', '%120', '%-60', '-3']) eq(c({ adet: '10', fiyat }).hata, 'fiyat', `fiyat "${fiyat}"`);
 });
 
 // ---- Şirket ----
@@ -267,6 +357,75 @@ test('Borsada satışı olmayan ürün ve mevsimlik ürün sayfada yok; sizin bi
   eq(s.guncel[0].L, 50);
 });
 
+// Kontratlı sayfa durumu: yazılanlar hem kontratlar (ham metin, prefs içinde) hem sayfaDurumu girdisi olarak verilir
+const stK = (kontratlar, o = {}) => st({ kontratlar, prefs: { ...PREFS, kontrat: kontratlar }, ...o });
+const bina = (s, harf) => s.binalar.find((b) => b.harf === harf);
+const secenek = (s, harf, id, q) => bina(s, harf).secenekler.find((y) => y.id === id && y.q === q);
+
+test('Kontrat: yazılan adet ve fiyat sonuca girer (seviye ve kâr artar, kart bilgisi ve satır durumu)', () => {
+  const bos = secenek(st(), 'W', 2, 0);
+  const s = stK([{ id: 2, q: 0, adet: '1000000', fiyat: '0,6' }]);
+  const y = secenek(s, 'W', 2, 0);
+  if (!(y.L > bos.L && y.kar > bos.kar)) throw new Error(`kontrat seviyeyi ve kârı artırmalı: ${bos.L} → ${y.L}`);
+  eq(bos.kontrat, null);
+  eq(y.kontrat.adet, 1e6);
+  eq(y.kontrat.fiyat, 0.6);
+  near(y.kontrat.fark, 0.2, 'kontrat fiyatı borsa fiyatından %20 yüksek (0,6 ÷ 0,5)');
+  near(y.kontrat.kontratSv + y.kontrat.borsaSv, Math.min(y.L, y.kontrat.kontratSv + y.kontrat.borsaSv), 'karşılanan seviye, seviyeyi aşmaz');
+  eq(secenek(s, 'W', 2, 3).kontrat, null, 'başka kalite kontrattan etkilenmez');
+  eqj(s.kontratlar.map((k) => [k.i, k.id, k.q, k.durum]), [[0, 2, 0, 'ok']]);
+  eq(s.kontratlar[0].adet, 1e6);
+  near(s.kontratlar[0].fark, 0.2);
+});
+
+test('Kontrat: aynı ürün × kalite için birden çok satır adetçe toplanır, fiyat adetle ağırlıklı ortalama olur', () => {
+  const s = stK([{ id: 2, q: 0, adet: '600000', fiyat: '0,6' }, { id: 2, q: 0, adet: '400000', fiyat: '0,5' }]);
+  const k = secenek(s, 'W', 2, 0).kontrat;
+  eq(k.adet, 1e6);
+  near(k.fiyat, 0.56);
+  eqj(s.kontratlar.map((x) => x.durum), ['ok', 'ok']);
+  const tek = stK([{ id: 2, q: 0, adet: '1000000', fiyat: '0,56' }]);
+  near(secenek(tek, 'W', 2, 0).kar, secenek(s, 'W', 2, 0).kar, 'iki satır = tek satır (toplam adet, ortalama fiyat)');
+});
+
+test('Kontrat: adete yüzde yazılırsa Üretim kurulumundaki mevcut üretimin yüzdesi sabit adede çevrilir', () => {
+  const kur = { buildings: [{ type: 'W', product: 2, level: 100 }, { type: 'W', product: 2, level: 40, construction: true }], recreation: {} };
+  const s = stK([{ id: 2, q: 0, adet: '%50', fiyat: '' }], { kurulum: kur });
+  const beklenen = 0.5 * 100 * data.products[2].perHour * 24; // inşaattaki bina üretmez
+  near(s.kontratlar[0].adet, beklenen);
+  eq(s.kontratlar[0].yuzde, 50);
+  const yarim = stK([{ id: 2, q: 0, adet: '%50', fiyat: '' }], { kurulum: { ...kur, buildings: [{ type: 'W', product: 2, level: 200 }] } });
+  near(yarim.kontratlar[0].adet, 2 * beklenen, 'üretim iki katına çıkınca çevrilen adet de iki katı');
+  // çevrilen adet sabittir: önerilen seviye değişse de kontrat adedi aynı kalır
+  near(secenek(s, 'W', 2, 0).kontrat.adet, beklenen);
+});
+
+test('Kontrat: okunamayan satır hata durumu verir ve sonucu değiştirmez', () => {
+  const bos = JSON.stringify(st().binalar);
+  const durum = (g) => stK([{ id: 2, q: 0, ...g }]).kontratlar[0].durum;
+  eq(durum({ adet: '%50' }), 'uretimYok');
+  eq(durum({ adet: 'abc' }), 'adet');
+  eq(durum({ adet: '1000', fiyat: '%120' }), 'fiyat');
+  eq(stK([{ id: 2, q: 12, adet: '1000', fiyat: '' }]).kontratlar[0].durum, 'veri', 'olmayan kalite');
+  eq(stK([{ id: 999, q: 0, adet: '1000', fiyat: '' }]).kontratlar[0].durum, 'veri', 'olmayan ürün');
+  eq(JSON.stringify(stK([{ id: 2, q: 0, adet: 'abc' }, { id: 2, q: 0, adet: '1000', fiyat: 'x' }, { id: 999, q: 0, adet: '1' }]).binalar), bos, 'hatalı satırlar hesaba girmez');
+});
+
+test('Kontrat: Güncel sekmesi de kontratı kullanır; ürün seçeneklerinde yalnız sayfadaki ürün ve kaliteler var', () => {
+  const live = { t: NOW, items: {} };
+  const s = stK([{ id: 2, q: 0, adet: '5000000', fiyat: '2' }], { live });
+  const g = s.guncel.find((x) => x.harf === 'W');
+  eqj([g.id, g.q], [2, 0]);
+  eq(g.kontrat.adet, 5e6);
+  eq(typeof g.pazarAsimi, 'boolean');
+  eq(s.guncel.every((x) => x.harf === 'W' || x.kontrat === null), true);
+  const u = Object.fromEntries(s.urunSecenek.map((x) => [x.id, x]));
+  eqj(u[2].kaliteler, [0, 3]);
+  eq(u[2].ana, 0, 'ana: en çok işlem gören kalite');
+  for (const id of [4, 13, 100]) if (u[id]) throw new Error(`ürün ${id} seçilemez olmalı`);
+  eq(u[3], undefined, 'pazar < 1 olan ürün kontratsızken listede yok');
+});
+
 test('Özet yoksa sayfa açılır ve gece hesabını bekler; R2 geliştirme aşamasında', () => {
   const s = st({ ozet: null });
   eq(s.binalar.length, 0);
@@ -283,21 +442,31 @@ test('Ekran yalnız sonucu görür: sayfa durumunda fiyat, girdi, saatlik üreti
   const live = { t: NOW, items: { 2: [NOW, { 0: [0.6, null, 0, 0, NOW - SAAT] }] } };
   for (const c of [{}, { company: COMPANY, kurulum: KURULUM }]) {
     const s = st({ ...c, live });
-    anahtarlar(s, ['oz', 'eski', 'sirket', 'faz', 'gamePhase', 'prefs', 'simdi', 'liveT', 'binalar', 'urunler', 'guncel', 'acik'], 'durum');
+    anahtarlar(s, ['oz', 'eski', 'sirket', 'faz', 'gamePhase', 'prefs', 'simdi', 'liveT', 'binalar', 'urunler', 'guncel', 'kontratlar', 'urunSecenek', 'acik'], 'durum');
     anahtarlar(s.oz, ['t', 'gun', 'bas'], 'özet');
     anahtarlar(s.sirket, ['s', 'ekipVar', 'sirketVar', 'toplamSeviye', 'kendi'], 'şirket');
     for (const v of Object.values(s.sirket.kendi)) eq(typeof v, 'number', 'kendi binalar yalnız seviye');
     if (!s.binalar.length || !s.guncel.length) throw new Error('örnek boş');
     for (const b of s.binalar) {
-      anahtarlar(b, ['harf', 'id', 'q', 'L', 'kar', 'sinir', 'secenekler'], 'bina');
-      for (const y of b.secenekler) anahtarlar(y, ['id', 'q', 'L', 'kar', 'sinir'], 'seçenek');
+      anahtarlar(b, ['harf', 'id', 'q', 'L', 'kar', 'sinir', 'kontrat', 'secenekler'], 'bina');
+      for (const y of b.secenekler) anahtarlar(y, ['id', 'q', 'L', 'kar', 'sinir', 'kontrat'], 'seçenek');
     }
-    for (const u of s.urunler) anahtarlar(u, ['harf', 'id', 'q', 'L', 'kar', 'sinir'], 'ürün');
+    for (const u of s.urunler) anahtarlar(u, ['harf', 'id', 'q', 'L', 'kar', 'sinir', 'kontrat'], 'ürün');
     for (const g of s.guncel) {
-      anahtarlar(g, ['harf', 'L', 'hesapL', 'kaynak', 'id', 'q', 'kar', 'canli', 'girdiOrt', 'olay', 'onerilen', 'fark', 'durum', 'pazarAsimi'], 'güncel');
+      anahtarlar(g, ['harf', 'L', 'hesapL', 'kaynak', 'id', 'q', 'kar', 'canli', 'girdiOrt', 'olay', 'kontrat', 'onerilen', 'fark', 'durum', 'pazarAsimi'], 'güncel');
       if (g.onerilen) anahtarlar(g.onerilen, ['id', 'q', 'kar'], 'güncel öneri');
     }
+    for (const u of s.urunSecenek) anahtarlar(u, ['id', 'kaliteler', 'ana'], 'ürün seçeneği');
   }
+  // Kontratlı durumda da yalnız kullanıcının yazdığı değerler ve sonuçlar var (borsa hacmi, seviye başına üretim vb. yok)
+  const k = stK([{ id: 2, q: 0, adet: '1000000', fiyat: '0,6' }, { id: 2, q: 3, adet: '%50', fiyat: '' }, { id: 5, q: 0, adet: '1' }], { live });
+  let kontratli = 0;
+  const kontratKontrol = (x) => { if (x) { kontratli++; anahtarlar(x, ['adet', 'fiyat', 'fark', 'kontratSv', 'borsaSv'], 'kontrat'); } };
+  for (const b of k.binalar) { kontratKontrol(b.kontrat); for (const y of b.secenekler) kontratKontrol(y.kontrat); }
+  for (const u of k.urunler) kontratKontrol(u.kontrat);
+  for (const g of k.guncel) kontratKontrol(g.kontrat);
+  if (!kontratli) throw new Error('kontratlı sonuç yok');
+  for (const x of k.kontratlar) anahtarlar(x, ['i', 'id', 'q', 'durum', 'adet', 'fiyat', 'yuzde', 'fark'], 'kontrat satırı');
 });
 
 test('Formül dosyası yayında en güçlü ayarla gizlenir; ekran dosyası yalnız sonucu ister; katsayılar dışa açılmaz', () => {
@@ -312,22 +481,58 @@ test('Formül dosyası yayında en güçlü ayarla gizlenir; ekran dosyası yaln
   const ekran = readFileSync(new URL('../public/optimum.js', import.meta.url), 'utf8');
   if (ekran.includes("import * as O from './optimum-hesap.js';")) {
     const kullanilan = [...new Set([...ekran.matchAll(/\bO\.([A-Za-z_]+)/g)].map((m) => m[1]))].sort();
-    eqj(kullanilan, ['FAZ_ADLARI', 'HACIM_OYNAKLIK_PCT', 'PAYLAR', 'VARSAYILAN_PAY', 'mevsimlikUrunler', 'sayfaDurumu']);
+    eqj(kullanilan, ['FAZ_ADLARI', 'HACIM_OYNAKLIK_PCT', 'KONTRAT_EN_COK', 'PAYLAR', 'VARSAYILAN_PAY', 'mevsimlikUrunler', 'sayfaDurumu']);
   }
 });
 
 test('Sayfa yöntemi ya da ara değeri yazmaz (yalnız "DentSimco formülü")', () => {
   const live = { t: NOW, items: { 2: [NOW, { 0: [0.6, null, 0, 0, NOW - SAAT] }] } };
-  const yasak = ['adet/saat', 'seviye başına', 'VWAP', 'komisyon', 'adet/gün', 'Kâr yalnız', 'maaşlarına', 'maaşını', '6 saat', 'en ucuz kalite'];
+  const yasak = ['adet/saat', 'seviye başına', 'VWAP', 'komisyon', 'yarım taşıma', 'Kâr yalnız', 'maaşlarına', 'maaşını', '6 saat', 'en ucuz kalite'];
+  // "adet/gün" yalnız kullanıcının kendi yazdığı kontratta (etiket ve satır özeti) görünebilir; borsa hacmi hiçbir yerde yazılmaz
+  const kontratsiz = (html) => html.replace(/<p class="op-sonuc">[\s\S]*?<\/p>/g, '').replace(/<span class="op-chip muted">Kontrat: [^<]*<\/span>/g, '');
   for (const tab of ['ay', 'guncel']) {
     for (const c of [{}, { company: COMPANY, kurulum: KURULUM }]) {
-      const s = st({ ...c, live, prefs: { ...PREFS, tab } });
-      s.acik = new Set(s.binalar.map((b) => b.harf));
-      const html = sayfaHtml(s, ad);
-      for (const y of yasak) if (html.includes(y)) throw new Error(`sayfada "${y}" geçiyor`);
+      for (const yazilan of [[], [{ id: 2, q: 0, adet: '1000000', fiyat: '0,6' }, { id: 2, q: 3, adet: '%50', fiyat: '' }]]) {
+        const s = stK(yazilan, { ...c, live, prefs: { ...PREFS, tab, kontrat: yazilan } });
+        s.acik = new Set([...s.binalar.map((b) => b.harf), 'kon']);
+        const html = sayfaHtml(s, ad);
+        for (const y of yasak) if (html.includes(y)) throw new Error(`sayfada "${y}" geçiyor`);
+        if (kontratsiz(html).includes('adet/gün')) throw new Error('kontrat dışında "adet/gün" geçiyor (borsa hacmi yazılmamalı)');
+      }
     }
   }
   if (!sayfaHtml(st(), ad).includes('DentSimco formülüyle hesaplanır')) throw new Error('dipnot yok');
+});
+
+test('Kayıtlı kontrat satırları temizlenir: bozuk kayıt atılır, kalite ve metin sınırlanır, en çok 30 satır', () => {
+  eqj(okuKontrat(null), []);
+  const l = okuKontrat([null, 5, { id: 'x' }, { id: '124', q: 99, adet: 250000, fiyat: '%4' }, { id: 2, q: -3, adet: 'a'.repeat(100) }]);
+  eq(l.length, 2);
+  eqj(l[0], { id: 124, q: 12, adet: '250000', fiyat: '%4' });
+  eq(l[1].q, 0);
+  eq(l[1].adet.length, 24);
+  eq(okuKontrat(Array.from({ length: 50 }, (_, i) => ({ id: i }))).length, O.KONTRAT_EN_COK);
+});
+
+const YAZILAN = [{ id: 2, q: 0, adet: '1000000', fiyat: '0,6' }, { id: 2, q: 3, adet: '%50', fiyat: '' }, { id: 999, q: 0, adet: '"><img src=x onerror=alert(1)>', fiyat: '' }];
+test('Kontratlarım: yazılanlar kutularda, hata satırda, ekleme formunda yalnız sayfadaki ürünler; yazılar kaçışlı', () => {
+  const s = stK(YAZILAN);
+  s.taslak = { id: '2', q: '3', adet: '12', fiyat: '' };
+  s.taslakHata = 'adet';
+  s.acik = new Set(['kon']);
+  const h = kontratHtml(s, ad);
+  if (!/<details class="op-kon" data-ac="kon" open>/.test(h)) throw new Error('bölüm açık olmalı');
+  if (!h.includes('data-kf="adet" data-i="0" value="1000000"') || !h.includes('data-kf="fiyat" data-i="0" value="0,6"')) throw new Error('yazılanlar kutularda değil');
+  eq(h.split('class="op-kon-row err"').length - 1, 2, 'iki satır hatalı (Üretim yok, veri yok)');
+  eq(h.split('data-act="kontratSil"').length - 1, 3, 'her satırda sil düğmesi');
+  if (h.includes('<img')) throw new Error('yazılan metin kaçışsız basıldı');
+  eq(h.split('<option').length - 1, 1 + s.urunSecenek.length + s.urunSecenek.find((u) => u.id === 2).kaliteler.length, 'ürün + kalite seçenekleri');
+  if (!/<option value="2" selected>/.test(h) || !/<option value="3" selected>/.test(h)) throw new Error('taslakta seçili ürün ve kalite işaretli değil');
+  if (!/data-kd="adet" value="12"/.test(h)) throw new Error('taslak adet yok');
+  if (!/class="op-warn" role="alert"/.test(h)) throw new Error('form uyarısı yok');
+  // ürün seçilmediyse kalite kutusu yok, kapalıyken details açık değil
+  const k = kontratHtml({ ...stK([]), taslak: { id: '', q: '', adet: '', fiyat: '' }, acik: new Set() }, ad);
+  if (k.includes('data-kd="q"') || /<details[^>]* open/.test(k)) throw new Error('boş formda kalite kutusu ya da açık bölüm var');
 });
 
 // Sayfanın her hâlindeki bütün yazılar (metin, title, aria-label) İngilizceye çevrilmeli
@@ -341,17 +546,22 @@ const parcalar = (html) => {
   for (const s of html.replace(/<[^>]*>/g, '\n').split('\n')) if (s.trim()) out.push(s.replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&').trim());
   return out;
 };
-test('Sayfa İngilizcede tamamen çevrilir (iki sekme, uyarılar, eski özet, canlı fiyat, R2)', () => {
+test('Sayfa İngilizcede tamamen çevrilir (iki sekme, uyarılar, eski özet, canlı fiyat, kontratlar ve hataları, R2)', () => {
   const live = { t: NOW - 3 * 60_000, items: { 2: [NOW, { 0: [0.6, null, 0, 0, NOW - SAAT] }], 66: [NOW, { 0: [0.3, null, 0, 0, NOW - SAAT] }] } };
   const htmls = [R2_HTML];
+  const taslaklar = [[{ id: '', q: '', adet: '', fiyat: '' }, ''], [{ id: '2', q: '3', adet: '12', fiyat: '' }, 'adet'], [{ id: '', q: '', adet: '', fiyat: '' }, 'urun'], [{ id: '2', q: '', adet: '', fiyat: '' }, 'dolu']];
+  const yazilanlar = [[], YAZILAN, [{ id: 2, q: 0, adet: '1000000', fiyat: '%4' }, { id: 66, q: 0, adet: '1000', fiyat: '0,19' }, { id: 2, q: 3, adet: '%50', fiyat: '' }, { id: 2, q: 0, adet: '250000', fiyat: '5' }]];
   for (const c of [{}, { company: COMPANY, kurulum: KURULUM }]) {
     for (const gamePhase of [null, { index: 0, expired: true }, { index: 1, expired: false }]) {
       for (const faz of ['auto', 2]) {
         for (const tab of ['ay', 'guncel']) {
           for (const v of [{ ozet: DOC, live }, { ozet: DOC, live: null }, { ozet: { ...DOC, t: NOW - 50 * SAAT } }, { ozet: null }]) {
-            const s = st({ ...c, ...v, gamePhase, prefs: { tab, faz, pay: 0.1 } });
-            s.acik = new Set(s.binalar.map((b) => b.harf));
-            htmls.push(sayfaHtml(s, ad));
+            for (const [i, yazilan] of yazilanlar.entries()) {
+              const s = stK(yazilan, { ...c, ...v, gamePhase, prefs: { tab, faz, pay: 0.1, kontrat: yazilan } });
+              s.acik = new Set([...s.binalar.map((b) => b.harf), 'kon']);
+              [s.taslak, s.taslakHata] = taslaklar[i % taslaklar.length];
+              htmls.push(sayfaHtml(s, ad));
+            }
           }
         }
       }

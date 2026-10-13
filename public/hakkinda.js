@@ -12,6 +12,7 @@ export const UPDATES = [
     items: [
       'Optimum Seviye sayfası eklendi (Piyasa ile Kâr Hesaplayıcı arasında; şimdilik R1 üretim binaları): her bina için son 28 günün borsa fiyatı ve satışıyla en kârlı ürün, kalite ve seviye. Güncel sekmesi, seviyeniz sabitken canlı fiyatla şu an en kârlı ürünü gösterir.',
       'Optimum Seviye önerileri şirketinize göre hesaplanır: doğru sonuç için Yönetim › Ekip ve Üretim bölümlerini doldurun. Pazarı küçük ürünlerde öneri "Pazar sınırlı" uyarısıyla gösterilir.',
+      'Optimum Seviye › Kontratlarım: kontratla sattığınız ürünün günlük adedini ve fiyatını yazın (sayı ya da yüzde, dolar ya da borsadan indirim yüzdesi). Öneriler kontrat ve borsa satışını birlikte hesaplar; kontratlar yalnız bu tarayıcıda saklanır.',
     ],
   },
   {
