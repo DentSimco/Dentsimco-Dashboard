@@ -365,7 +365,8 @@ export function mountYonetim(root, { realm = 0 } = {}) {
         ${satir('Restoran derecesi', '+0', `+${NF[3].format(E.restoran)}`)}
         ${satir('Patent olasılığı', `${NF[2].format(E.patentTaban)}%`, `+${NF[2].format(E.patent)}%`)}
         ${satir('Araştırma üretim hızı artışı', '', `${NF[1].format(E.arastirma)}%`)}
-        ${kv('Toplam maaş', money(E.maas))}</div>
+        ${kv('Toplam maaş', money(E.maas))}
+        ${c.admin.totalLevels > 0 ? kv('Yönetim giderine giren seviye', `${num(c.admin.totalLevels)} <span class="c-muted">(Üretim ${num(c.parts?.uretim?.levels || 0)} · Perakende ${num(c.parts?.perakende?.levels || 0)} · Akademi ${num(Math.max(c.parts?.uretim?.academy || 0, c.parts?.perakende?.academy || 0))})</span>`) : ''}</div>
       ${pasif ? '<p class="ur-note">Bazı yöneticiler eğitim görüyor, yerleşiyor veya grev yapıyor ve şu anda katkıda bulunmuyor.</p>' : ''}
       <p class="ur-note">Yönetim giderleri yalnız Üretim ve Perakende'ye girdiğiniz binalardan hesaplanır; oyundaki değer tüm binalarınızı içerir.</p></section>`;
   }
