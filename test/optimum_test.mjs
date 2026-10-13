@@ -485,6 +485,18 @@ test('Formül dosyası yayında en güçlü ayarla gizlenir; ekran dosyası yaln
   }
 });
 
+test('Güçlü gizlenen formül dosyalarında isteğe bağlı fonksiyon çağrısı (f?.(x)) yok: gizleme aracı ?. kısmını düşürüyor', () => {
+  const gizle = readFileSync(new URL('../araclar/gizle.mjs', import.meta.url), 'utf8');
+  const dosyalar = [...(/const FORMUL = new Set\(\[([^\]]*)\]\)/.exec(gizle)?.[1] || '').matchAll(/'([^']+)'/g)].map((m) => m[1]);
+  if (!dosyalar.includes('optimum-hesap.js')) throw new Error('FORMUL listesi okunamadı');
+  for (const f of dosyalar) {
+    const kaynak = readFileSync(new URL(`../public/${f}`, import.meta.url), 'utf8');
+    if (kaynak.includes('_0x')) continue; // gizlenmiş kopya (site.yml ikinci tur): yalnız okunur kodda denetlenir
+    const kotu = kaynak.split('\n').map((s, i) => [i + 1, s]).filter(([, s]) => /\?\.\(/.test(s.replace(/\/\/.*$/, '')));
+    if (kotu.length) throw new Error(`${f}: ?.( kullanımı (satır ${kotu.map(([i]) => i).join(', ')}); f ? f(x) : null yazın`);
+  }
+});
+
 test('Sayfa yöntemi ya da ara değeri yazmaz (yalnız "DentSimco formülü")', () => {
   const live = { t: NOW, items: { 2: [NOW, { 0: [0.6, null, 0, 0, NOW - SAAT] }] } };
   const yasak = ['adet/saat', 'seviye başına', 'VWAP', 'komisyon', 'yarım taşıma', 'Kâr yalnız', 'maaşlarına', 'maaşını', '6 saat', 'en ucuz kalite'];
