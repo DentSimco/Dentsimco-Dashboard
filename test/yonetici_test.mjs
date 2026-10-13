@@ -203,6 +203,10 @@ test('Pay yoksa eski elle girilen değer yedek olarak kalır', () => {
   eq(c.admin.totalLevels, 80);
   eq(c.admin.wagesDay, 40000);
 });
+test('Akademi silinip pay 0 olunca eski yedek değer geri gelmez', () => {
+  const c = Y.sanitizeCompany({ admin: { totalLevels: 20, wagesDay: 0 }, parts: { uretim: { levels: 0, academy: 0, wagesDay: 0 }, perakende: { levels: 0, academy: 0, wagesDay: 0 } } });
+  eq(c.admin.totalLevels, 0);
+});
 test('Diğer bölümün seviyeleri ve akademisi ayrı okunur', () => {
   const c = Y.sanitizeCompany({ parts: { uretim: { levels: 100, academy: 12, wagesDay: 1 }, perakende: { levels: 40, academy: 0, wagesDay: 1 } } });
   eq(Y.otherAdminLevels(c, 'uretim').levels, 40);

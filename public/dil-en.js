@@ -465,6 +465,8 @@ export default {
   'Rekreasyon {0}': 'Recreation {0}',
   'Diğer binalar': 'Other buildings',
   'Akademi seviyesi': 'Academy level',
+  'Yönetim giderine giren seviye': 'Levels counted in admin costs',
+  '(Üretim {0} · Perakende {1} · Akademi {2})': '(Production {0} · Retail {1} · Academy {2})',
   'Banka seviyesi': 'Bank level',
   'Bankanız yoksa 0. Seviye başı, muhasebe puanı başı +$50k vergi eşiği (en çok 40).': 'Enter 0 if you have no bank. Per level, +$50k tax threshold per accounting point (at most 40).',
   'Bankanız yoksa 0. Seviye başı, muhasebe puanı başı +$50k vergi eşiği (en çok 40). Üretim ve Yönetim ile ortaktır.': 'Enter 0 if you have no bank. Per level, +$50k tax threshold per accounting point (at most 40). Shared with Production and Management.',

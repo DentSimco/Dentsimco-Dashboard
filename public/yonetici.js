@@ -92,7 +92,9 @@ export function sanitizeCompany(raw) {
   const part = (x) => ({ levels: Math.floor(pos(x?.levels)), academy: Math.floor(pos(x?.academy)), wagesDay: pos(x?.wagesDay), researchDay: pos(x?.researchDay) });
   c.parts = { uretim: part(raw.parts?.uretim), perakende: part(raw.parts?.perakende) };
   const fromParts = adminFromParts(c.parts);
-  if (fromParts.totalLevels > 0 || fromParts.wagesDay > 0) c.admin = fromParts; // Üretim/Perakende verisi varsa elle girişin yerine geçer
+  // Üretim/Perakende bir kez kaydettiyse (parts var) elle girişin yerine geçer; hepsi 0'a inse bile eski değer geri gelmez
+  if (['uretim', 'perakende'].some((k) => raw.parts?.[k] && raw.parts[k].levels != null)) c.admin = fromParts;
+  else if (fromParts.totalLevels > 0 || fromParts.wagesDay > 0) c.admin = fromParts;
   const r = raw.retail || {};
   c.retail = { marginDay: num(r.marginDay, 0), otherSpeedPct: pos(r.otherSpeedPct) };
   const s = raw.research || {};
