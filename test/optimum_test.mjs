@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import * as H from '../public/hesap.js';
 import * as O from '../public/optimum-hesap.js';
 import * as RP from '../public/hesap-perakende.js';
-import { sayfaHtml, uyarilarHtml, kontratHtml, ayarlarHtml, okuKontrat, okuPay, okuHesap, binaEkle, pkBinaEkle, perakendeOku, tumHtml, hesapHtml, pkHtml, R2_HTML } from '../public/optimum.js';
+import { sayfaHtml, uyarilarHtml, okuHesap, binaEkle, pkBinaEkle, perakendeOku, tumHtml, hesapHtml, pkHtml, uretimIslemNotu, pkIslemNotu, R2_HTML } from '../public/optimum.js';
 import EN from '../public/dil-en.js';
 import { sozlukDerle, cevirMetin } from '../public/i18n.js';
 import { BINA_ADLARI_EN } from '../public/adlar.js';
@@ -81,52 +81,8 @@ test('Sınır: pazar, yönetim gideri ya da zarar', () => {
 // ph = 1 → seviye başına günlük 24 adet. K = 480 adet/gün = 20 seviye; borsa payı = 0,25 × 40 = 10 seviye.
 const xk = (net, K = 480) => ({ a: 1000, b: 400, w: 100, pazar: 40, ph: 1, kontrat: { K, pc: net, net, sv: K / 24 } });
 
-test('Kontrat: gelir iki kanaldan, net geliri yüksek olandan başlayarak doldurulur; satılamayan seviye boşta kalır', () => {
-  const k = 1 / 170;
-  const o = { s: 0, pay: 0.25 };
-  // kontrat daha kârlı (a = 1100 > 1000): önce kontrat 20 seviye, sonra borsa 10 seviye
-  near(O.gunlukKar(25, xk(1100), o), 24 * (1100 * 20 + 1000 * 5 - 400 * 25 - 25 * 100 * (1 + 24 * k)));
-  near(O.gunlukKar(40, xk(1100), o), 24 * (1100 * 20 + 1000 * 10 - 400 * 30 - 30 * 100 * (1 + 39 * k)), 'toplamı (30 sv) aşan seviye boşta');
-  // borsa daha kârlı (a = 1000 > 900): önce borsa 10 seviye, sonra kontrat
-  near(O.gunlukKar(25, xk(900), o), 24 * (1000 * 10 + 900 * 15 - 400 * 25 - 25 * 100 * (1 + 24 * k)));
-  // kontratsız aynı satır: yalnız borsa payı (10 seviye)
-  near(O.gunlukKar(25, { ...xk(1100), kontrat: null }, o), 24 * (1000 * 10 - 400 * 10 - 10 * 100 * (1 + 24 * k)));
-});
 
-test('Kontratlı en iyi seviye, tüm tam sayı seviyeler taranarak bulunanla aynı (3000 rastgele durum, iki kanal sırası)', () => {
-  let seed = 20261014;
-  const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
-  let hata = 0;
-  let ornek = '';
-  for (let i = 0; i < 3000; i++) {
-    const ph = 0.5 + rnd() * 50;
-    const net = 1 + rnd() * 100;
-    const a = ph * net;
-    const K = 24 * ph * (0.3 + rnd() * 300);
-    const kontrat = i % 4 === 0 ? null : { K, pc: 0, net: net * (0.8 + rnd() * 0.45), sv: K / (24 * ph) };
-    const x = { a, b: rnd() * a, w: 50 + rnd() * 2000, ph, pazar: 1 + rnd() * 400, kontrat };
-    const o = { s: [0, 0.3, 0.62, 0.9][i % 4], pay: O.PAYLAR[(i >> 2) % 4], Lo: i % 2 ? Math.floor(rnd() * 600) : 0, Wo: i % 2 ? rnd() * 300000 : 0 };
-    const r = O.optimum(x, o);
-    const P = o.pay * x.pazar + (kontrat ? kontrat.sv : 0);
-    let bK = 0;
-    for (let L = 0; L <= Math.ceil(P) + 5; L++) bK = Math.max(bK, O.gunlukKar(L, x, o));
-    if (Math.abs(r.kar - bK) > 1e-6 * Math.max(1, bK) || r.L > Math.ceil(P)) { hata++; ornek ||= `${JSON.stringify({ x, o })} → ${r.L} / ${r.kar} (tarama ${bK})`; }
-  }
-  eq(hata, 0, `uyuşmayan durum (ilk: ${ornek})`);
-});
 
-test('Kontrat sınırı: toplam satış (borsa payı + kontrat) bağlıyorsa pazar sınırlı; yönetim gideri bağlıyorsa yönetim sınırlı', () => {
-  const o = { s: 0, pay: 0.25 };
-  const dar = O.optimum(xk(1100, 24 * 5), o); // kontrat 5 sv + borsa 10 sv = 15
-  eq(dar.sinir, 'pazar');
-  if (dar.L < 14 || dar.L > 15) throw new Error(`toplam satış 15 sv: ${dar.L}`);
-  const genis = O.optimum(xk(1100, 24 * 5000), { ...o }); // kontrat 5000 sv: yönetim gideri bağlar
-  eq(genis.sinir, 'yonetim');
-  if (!(genis.L > 100 && genis.L < 5000)) throw new Error(`yönetim sınırlı seviye: ${genis.L}`);
-  const yok = O.optimum({ ...xk(1100), kontrat: null }, o);
-  eq(yok.L, 10);
-  if (!(O.optimum(xk(1100), o).kar > yok.kar)) throw new Error('kontrat kârı artırmalı');
-});
 
 const DOC = {
   v: 1, t: NOW - 2 * SAAT, r: 0, gun: '2026-09-28', bas: '2026-09-01', n: 28, k: 28,
@@ -155,15 +111,6 @@ test('Özet okuyucu: pencerenin yarısından azında işlem gören ya da fiyats�
   eq(O.ozetOku({ k: 0, u: {} }), null);
 });
 
-test('Güncel fiyat: son işlemi 6 saatten yeni canlı fiyat, yoksa 28 günlük ortalama; özette olmayan kalite hiç fiyatlanmaz', () => {
-  const oz = O.ozetOku(DOC);
-  const live = { t: NOW, items: { 2: [NOW, { 0: [0.45, null, 0, 0, NOW - SAAT], 3: [1.2, null, 0, 0, NOW - 7 * SAAT], 5: [1, null, 0, 0, NOW] }] } };
-  const f = O.canliFiyat(oz, live, NOW);
-  eqj(f(2, 0), { p: 0.45, kaynak: 'canli', lt: NOW - SAAT });
-  eqj(f(2, 3), { p: 0.9, kaynak: 'ort' });
-  eq(f(2, 5), null);
-  eqj(O.ortFiyat(oz)(2, 0), { p: 0.5, kaynak: 'ort' });
-});
 
 test('Mevsimlik ürünler: sezonu olanlar ve mevsimlik pazarlarda satılanlar', () => {
   const raw = { 4: { id: 4, productionSeason: 'autumn' }, 5: { id: 5 }, 6: { id: 6, retailSeason: { from: 1 } }, 7: { id: 7 } };
@@ -189,7 +136,7 @@ test('Satırlar: girdi izin verilen en ucuz kaliteden; satış komisyon ve taş�
   eq(su.w, data.products[2].baseSalary);
 });
 
-test('Satırlar: ekonomi fazı, rekreasyon ve (yalnız Güncel) üretim olayı hızı değiştirir', () => {
+test('Satırlar: ekonomi fazı ve rekreasyon hızı değiştirir', () => {
   const oz = O.ozetOku(DOC);
   const f = O.ortFiyat(oz);
   const boom = O.satirlar({ data, oz, fiyat: f, mevsimlik: MEVSIM, faz: 2 });
@@ -197,51 +144,9 @@ test('Satırlar: ekonomi fazı, rekreasyon ve (yalnız Güncel) üretim olayı h
   near(b2.ph / row(2, 0).ph, Math.pow(745 / 655, -(data.products[2].baseSalary / data.averageSalary)));
   const rek = O.satirlar({ data, oz, fiyat: f, mevsimlik: MEVSIM, kurulum: { recreation: { park: 2 } } });
   near(rek.find((r) => r.id === 2 && r.q === 0).ph / row(2, 0).ph, 1 / (1 - H.recreationBonus({ park: 2 })));
-  eq(row(124, 0).olay, 0, '28 günlükte olay yok');
-  const g = O.satirlar({ data, oz, fiyat: f, mevsimlik: MEVSIM, olaylar: true, simdi: NOW });
-  const oj = g.find((r) => r.id === 124);
-  eq(oj.olay, 27);
-  near(oj.ph / row(124, 0).ph, 1.27);
 });
 
-test('Satırlar: kontrat kancası satıra kontrat net gelirini ve seviye karşılığını yazar; kontratı olan ürün pazar < 1 olsa da kalır', () => {
-  const oz = O.ozetOku(DOC);
-  const f = O.ortFiyat(oz);
-  const kontrat = (id, q) => ({ '2:0': { K: 1e6, pc: 0.6 }, '3:0': { K: 100, pc: 2 }, '66:0': { K: 1000, pc: 0.19 } })[`${id}:${q}`] || null;
-  const r = O.satirlar({ data, oz, fiyat: f, mevsimlik: MEVSIM, faz: 0, kontrat });
-  const su = r.find((x) => x.id === 2 && x.q === 0);
-  near(su.kontrat.net, 0.6, 'Su taşımasız: net = fiyat (komisyon yok)');
-  near(su.kontrat.sv, 1e6 / 24 / su.ph, 'kontratın karşıladığı seviye');
-  eq(su.kontrat.K, 1e6);
-  eq(su.kontrat.pc, 0.6);
-  eq(r.find((x) => x.id === 2 && x.q === 3).kontrat, null, 'başka kalite etkilenmez');
-  near(r.find((x) => x.id === 66).kontrat.net, 0.19 - 0.5 * 0.1 * 0.25, 'Tohum: taşıma yarı (0,1 × 0,25 ÷ 2)');
-  if (!r.find((x) => x.id === 3 && x.q === 0)) throw new Error('kontratlı ürün pazar < 1 diye atılmamalı');
-  if (rows.find((x) => x.id === 3)) throw new Error('kontratsız aynı ürün pazar < 1 diye atılır');
-  eq(rows.every((x) => x.kontrat === null), true, 'kontratsız satırlarda kontrat yok');
-  // olaysız üretim hızı: Güncel'de olay hızı değiştirir, "mevcut üretim" yüzdesi olaysız hıza göre çevrilir
-  const g = O.satirlar({ data, oz, fiyat: f, mevsimlik: MEVSIM, olaylar: true, simdi: NOW });
-  const oj = g.find((x) => x.id === 124);
-  near(oj.ph / oj.phTaban, 1.27);
-  near(row(124, 0).phTaban, row(124, 0).ph);
-});
 
-test('Kontrat satırı okuma: adet sayı ya da yüzde, fiyat dolar ya da indirim yüzdesi; boş fiyat %3', () => {
-  const c = (g, ctx) => O.kontratCoz(g, { uretim: 0, ref: 50, ...ctx });
-  for (const [adet, beklenen] of [['250000', 250000], ['250.000', 250000], ['250,000', 250000], ['250k', 250000], ['1,5m', 1500000], [' 42 ', 42]]) eq(c({ adet }).K, beklenen, `adet "${adet}"`);
-  near(c({ adet: '%50' }, { uretim: 500000 }).K, 250000);
-  eq(c({ adet: '%50' }, { uretim: 500000 }).yuzde, 50);
-  eq(c({ adet: '%50' }).hata, 'uretimYok', 'Üretim kurulumunda ürün yoksa yüzde çevrilemez');
-  eq(c({ adet: '%150' }, { uretim: 1000 }).hata, 'adet');
-  for (const adet of ['', 'abc', '0', '-5', '%0', '1e99']) eq(c({ adet }).ok, false, `adet "${adet}"`);
-  near(c({ adet: '10', fiyat: '48' }).pc, 48);
-  near(c({ adet: '10', fiyat: '$48,5' }).pc, 48.5);
-  near(c({ adet: '10', fiyat: '%4' }).pc, 48, 'borsa 50, %4 indirim → 48');
-  near(c({ adet: '10', fiyat: '%-2' }).pc, 51, 'eksi indirim: borsadan pahalı');
-  near(c({ adet: '10' }).pc, 48.5, 'fiyat boş: %3 indirim');
-  near(c({ adet: '10', fiyat: '  ' }).pc, 48.5);
-  for (const fiyat of ['abc', '0', '%120', '%-60', '-3']) eq(c({ adet: '10', fiyat }).hata, 'fiyat', `fiyat "${fiyat}"`);
-});
 
 // ---- Şirket ----
 const EKIP = [{ name: 'A', position: 'o', salary: 200000, skills: { coo: 70, cfo: 10, cmo: 10, cto: 10 }, active: true }];
@@ -297,23 +202,6 @@ test('Bina önerileri: her bina türünde en kârlı ürün, kâra göre sıral�
   eqj(u.map((x) => x.id), [2, 1]);
 });
 
-test('Güncel: 28 günlük öneriye göre aynı, değiştir (belirgin fark) ya da yakın (küçük fark)', () => {
-  const o = (L) => ({ s: 0, pay: 1, seviye: () => ({ L, kaynak: 'oneri' }), oneri: () => ({ id: 1, q: 0 }) });
-  const ayni = O.guncelOneriler([R(1, 'W', 1000)], o(10))[0];
-  eq(ayni.durum, 'ayni');
-  const yakin = O.guncelOneriler([R(1, 'W', 1000), R(2, 'W', 1010)], o(10))[0]; // fark 24 × 10 × 10 = $2.400 < %5
-  eq(yakin.en.x.id, 2);
-  near(yakin.fark, 2400, 'fark', 1e-6);
-  eq(yakin.durum, 'yakin');
-  const degistir = O.guncelOneriler([R(1, 'W', 1000), R(3, 'W', 1100)], o(10))[0]; // fark $24.000 > %5
-  eq(degistir.durum, 'degistir');
-  const kucuk = O.guncelOneriler([R(1, 'W', 10), R(2, 'W', 13)], o(10))[0]; // fark $720 < $1.000
-  eq(kucuk.durum, 'yakin', 'küçük binada $1.000 alt sınırı');
-  const bir = O.guncelOneriler([R(1, 'W', 1000)], o(0))[0];
-  eq(bir.hesapL, 1, 'önerilmeyen bina bir seviye için gösterilir');
-  eq(O.guncelOneriler([R(1, 'W', 1000, 20)], { ...o(10), pay: 0.25 })[0].pazarAsimi, true, 'seviye pazar payından büyük');
-  eq(O.guncelOneriler([R(1, 'W', 1000, 38)], { ...o(10), pay: 0.25 })[0].pazarAsimi, false, 'yukarı yuvarlanmış pazar sınırı (9,5 → 10) uyarı vermez');
-});
 
 test('Faz seçimi ve özetin yaşı', () => {
   eq(O.fazSec('auto', { index: 2 }), 2);
@@ -324,7 +212,8 @@ test('Faz seçimi ve özetin yaşı', () => {
 });
 
 // ---- Sayfa ----
-const PREFS = { tab: 'ay', faz: 'auto', pay: 0.25 };
+const PREFS = { ana: 'tum', faz: 'auto' };
+const PREFS_TUM = PREFS;
 const st = (o = {}) => {
   const s = O.sayfaDurumu({ data, mevsimlik: MEVSIM, ozet: DOC, live: null, company: null, kurulum: null, gamePhase: { index: 0, expired: false }, prefs: PREFS, simdi: NOW, ...o });
   s.acik = new Set();
@@ -341,21 +230,12 @@ test('Yönetici girilmemişse sayfa Yönetim › Ekip uyarısı verir; şirket g
   if (yalnizEkip.includes('#yonetim/ekip') || !yalnizEkip.includes('#uretim/binalar')) throw new Error('yalnız ekip girilince yalnız binalar uyarısı kalmalı');
 });
 
-test('Pazar sınırlı her önerinin kartında güvenilirlik uyarısı var', () => {
-  const s = st();
-  const n = s.binalar.filter((b) => b.sinir === 'pazar' && b.L > 0).length;
-  if (!n) throw new Error('örnekte pazar sınırlı bina yok');
-  eq(sayfaHtml(s, ad).split('Pazar sınırlı: bu öneriyi borsadaki satış hacmi belirliyor').length - 1, n);
-});
 
 test('Borsada satışı olmayan ürün ve mevsimlik ürün sayfada yok; sizin binalarınız önde', () => {
-  const s = st({ company: COMPANY, kurulum: KURULUM });
-  const ids = new Set(s.urunler.map((u) => u.id));
+  const s = st({ company: COMPANY, kurulum: KURULUM, prefs: { ...PREFS_TUM } });
+  const ids = new Set(s.tum.urunler.map((u) => u.id));
   for (const id of [3, 4, 13, 100, 135]) if (ids.has(id)) throw new Error(`ürün ${id} gösterilmemeli`);
-  eq(s.binalar[0].harf, 'W');
-  eq(s.guncel[0].harf, 'W');
-  eq(s.guncel[0].kaynak, 'sizin');
-  eq(s.guncel[0].L, 50);
+  eq(s.tum.binalar[0].harf, 'W', 'sizin binanız önde');
 });
 
 // Kontratlı sayfa durumu: yazılanlar hem kontratlar (ham metin, prefs içinde) hem sayfaDurumu girdisi olarak verilir
@@ -363,74 +243,15 @@ const stK = (kontratlar, o = {}) => st({ kontratlar, prefs: { ...PREFS, kontrat:
 const bina = (s, harf) => s.binalar.find((b) => b.harf === harf);
 const secenek = (s, harf, id, q) => bina(s, harf).secenekler.find((y) => y.id === id && y.q === q);
 
-test('Kontrat: yazılan adet ve fiyat sonuca girer (seviye ve kâr artar, kart bilgisi ve satır durumu)', () => {
-  const bos = secenek(st(), 'W', 2, 0);
-  const s = stK([{ id: 2, q: 0, adet: '1000000', fiyat: '0,6' }]);
-  const y = secenek(s, 'W', 2, 0);
-  if (!(y.L > bos.L && y.kar > bos.kar)) throw new Error(`kontrat seviyeyi ve kârı artırmalı: ${bos.L} → ${y.L}`);
-  eq(bos.kontrat, null);
-  eq(y.kontrat.adet, 1e6);
-  eq(y.kontrat.fiyat, 0.6);
-  near(y.kontrat.fark, 0.2, 'kontrat fiyatı borsa fiyatından %20 yüksek (0,6 ÷ 0,5)');
-  near(y.kontrat.kontratSv + y.kontrat.borsaSv, Math.min(y.L, y.kontrat.kontratSv + y.kontrat.borsaSv), 'karşılanan seviye, seviyeyi aşmaz');
-  eq(secenek(s, 'W', 2, 3).kontrat, null, 'başka kalite kontrattan etkilenmez');
-  eqj(s.kontratlar.map((k) => [k.i, k.id, k.q, k.durum]), [[0, 2, 0, 'ok']]);
-  eq(s.kontratlar[0].adet, 1e6);
-  near(s.kontratlar[0].fark, 0.2);
-});
 
-test('Kontrat: aynı ürün × kalite için birden çok satır adetçe toplanır, fiyat adetle ağırlıklı ortalama olur', () => {
-  const s = stK([{ id: 2, q: 0, adet: '600000', fiyat: '0,6' }, { id: 2, q: 0, adet: '400000', fiyat: '0,5' }]);
-  const k = secenek(s, 'W', 2, 0).kontrat;
-  eq(k.adet, 1e6);
-  near(k.fiyat, 0.56);
-  eqj(s.kontratlar.map((x) => x.durum), ['ok', 'ok']);
-  const tek = stK([{ id: 2, q: 0, adet: '1000000', fiyat: '0,56' }]);
-  near(secenek(tek, 'W', 2, 0).kar, secenek(s, 'W', 2, 0).kar, 'iki satır = tek satır (toplam adet, ortalama fiyat)');
-});
 
-test('Kontrat: adete yüzde yazılırsa Üretim kurulumundaki mevcut üretimin yüzdesi sabit adede çevrilir', () => {
-  const kur = { buildings: [{ type: 'W', product: 2, level: 100 }, { type: 'W', product: 2, level: 40, construction: true }], recreation: {} };
-  const s = stK([{ id: 2, q: 0, adet: '%50', fiyat: '' }], { kurulum: kur });
-  const beklenen = 0.5 * 100 * data.products[2].perHour * 24; // inşaattaki bina üretmez
-  near(s.kontratlar[0].adet, beklenen);
-  eq(s.kontratlar[0].yuzde, 50);
-  const yarim = stK([{ id: 2, q: 0, adet: '%50', fiyat: '' }], { kurulum: { ...kur, buildings: [{ type: 'W', product: 2, level: 200 }] } });
-  near(yarim.kontratlar[0].adet, 2 * beklenen, 'üretim iki katına çıkınca çevrilen adet de iki katı');
-  // çevrilen adet sabittir: önerilen seviye değişse de kontrat adedi aynı kalır
-  near(secenek(s, 'W', 2, 0).kontrat.adet, beklenen);
-});
 
-test('Kontrat: okunamayan satır hata durumu verir ve sonucu değiştirmez', () => {
-  const bos = JSON.stringify(st().binalar);
-  const durum = (g) => stK([{ id: 2, q: 0, ...g }]).kontratlar[0].durum;
-  eq(durum({ adet: '%50' }), 'uretimYok');
-  eq(durum({ adet: 'abc' }), 'adet');
-  eq(durum({ adet: '1000', fiyat: '%120' }), 'fiyat');
-  eq(stK([{ id: 2, q: 12, adet: '1000', fiyat: '' }]).kontratlar[0].durum, 'veri', 'olmayan kalite');
-  eq(stK([{ id: 999, q: 0, adet: '1000', fiyat: '' }]).kontratlar[0].durum, 'veri', 'olmayan ürün');
-  eq(JSON.stringify(stK([{ id: 2, q: 0, adet: 'abc' }, { id: 2, q: 0, adet: '1000', fiyat: 'x' }, { id: 999, q: 0, adet: '1' }]).binalar), bos, 'hatalı satırlar hesaba girmez');
-});
 
-test('Kontrat: Güncel sekmesi de kontratı kullanır; ürün seçeneklerinde yalnız sayfadaki ürün ve kaliteler var', () => {
-  const live = { t: NOW, items: {} };
-  const s = stK([{ id: 2, q: 0, adet: '5000000', fiyat: '2' }], { live });
-  const g = s.guncel.find((x) => x.harf === 'W');
-  eqj([g.id, g.q], [2, 0]);
-  eq(g.kontrat.adet, 5e6);
-  eq(typeof g.pazarAsimi, 'boolean');
-  eq(s.guncel.every((x) => x.harf === 'W' || x.kontrat === null), true);
-  const u = Object.fromEntries(s.urunSecenek.map((x) => [x.id, x]));
-  eqj(u[2].kaliteler, [0, 3]);
-  eq(u[2].ana, 0, 'ana: en çok işlem gören kalite');
-  for (const id of [4, 13, 100]) if (u[id]) throw new Error(`ürün ${id} seçilemez olmalı`);
-  eq(u[3], undefined, 'pazar < 1 olan ürün kontratsızken listede yok');
-});
 
 test('Özet yoksa sayfa açılır ve gece hesabını bekler; R2 geliştirme aşamasında', () => {
   const s = st({ ozet: null });
-  eq(s.binalar.length, 0);
-  if (!sayfaHtml(s, ad).includes('28 günlük özet henüz hesaplanmadı')) throw new Error('bekleme mesajı yok');
+  eq(s.tum.binalar.length, 0);
+  if (!sayfaHtml({ ...s, prefs: PREFS_TUM }, ad).includes('28 günlük özet henüz hesaplanmadı')) throw new Error('bekleme mesajı yok');
   if (!R2_HTML.includes('geliştirme aşamasında')) throw new Error('R2 mesajı yok');
 });
 
@@ -443,31 +264,17 @@ test('Ekran yalnız sonucu görür: sayfa durumunda fiyat, girdi, saatlik üreti
   const live = { t: NOW, items: { 2: [NOW, { 0: [0.6, null, 0, 0, NOW - SAAT] }] } };
   for (const c of [{}, { company: COMPANY, kurulum: KURULUM }]) {
     const s = st({ ...c, live });
-    anahtarlar(s, ['oz', 'eski', 'sirket', 'faz', 'gamePhase', 'prefs', 'simdi', 'liveT', 'binalar', 'urunler', 'guncel', 'kontratlar', 'urunSecenek', 'tum', 'pk', 'acik'], 'durum');
+    anahtarlar(s, ['oz', 'eski', 'sirket', 'faz', 'gamePhase', 'prefs', 'simdi', 'liveT', 'tum', 'pk', 'acik'], 'durum');
     anahtarlar(s.oz, ['t', 'gun', 'bas'], 'özet');
     anahtarlar(s.sirket, ['s', 'ekipVar', 'sirketVar', 'toplamSeviye', 'kendi'], 'şirket');
     for (const v of Object.values(s.sirket.kendi)) eq(typeof v, 'number', 'kendi binalar yalnız seviye');
-    if (!s.binalar.length || !s.guncel.length) throw new Error('örnek boş');
-    for (const b of s.binalar) {
-      anahtarlar(b, ['harf', 'id', 'q', 'L', 'kar', 'sinir', 'kontrat', 'secenekler'], 'bina');
-      for (const y of b.secenekler) anahtarlar(y, ['id', 'q', 'L', 'kar', 'sinir', 'kontrat'], 'seçenek');
+    if (!s.tum.binalar.length) throw new Error('örnek boş');
+    for (const b of s.tum.binalar) {
+      anahtarlar(b, ['harf', 'id', 'q', 'L', 'kar', 'sinir', 'secenekler'], 'bina');
+      for (const y of b.secenekler) anahtarlar(y, ['id', 'q', 'L', 'kar', 'sinir'], 'seçenek');
     }
-    for (const u of s.urunler) anahtarlar(u, ['harf', 'id', 'q', 'L', 'kar', 'sinir', 'kontrat'], 'ürün');
-    for (const g of s.guncel) {
-      anahtarlar(g, ['harf', 'L', 'hesapL', 'kaynak', 'id', 'q', 'kar', 'canli', 'girdiOrt', 'olay', 'kontrat', 'onerilen', 'fark', 'durum', 'pazarAsimi'], 'güncel');
-      if (g.onerilen) anahtarlar(g.onerilen, ['id', 'q', 'kar'], 'güncel öneri');
-    }
-    for (const u of s.urunSecenek) anahtarlar(u, ['id', 'kaliteler', 'ana'], 'ürün seçeneği');
+    for (const u of s.tum.urunler) anahtarlar(u, ['harf', 'id', 'q', 'L', 'kar', 'sinir'], 'ürün');
   }
-  // Kontratlı durumda da yalnız kullanıcının yazdığı değerler ve sonuçlar var (borsa hacmi, seviye başına üretim vb. yok)
-  const k = stK([{ id: 2, q: 0, adet: '1000000', fiyat: '0,6' }, { id: 2, q: 3, adet: '%50', fiyat: '' }, { id: 5, q: 0, adet: '1' }], { live });
-  let kontratli = 0;
-  const kontratKontrol = (x) => { if (x) { kontratli++; anahtarlar(x, ['adet', 'fiyat', 'fark', 'kontratSv', 'borsaSv'], 'kontrat'); } };
-  for (const b of k.binalar) { kontratKontrol(b.kontrat); for (const y of b.secenekler) kontratKontrol(y.kontrat); }
-  for (const u of k.urunler) kontratKontrol(u.kontrat);
-  for (const g of k.guncel) kontratKontrol(g.kontrat);
-  if (!kontratli) throw new Error('kontratlı sonuç yok');
-  for (const x of k.kontratlar) anahtarlar(x, ['i', 'id', 'q', 'durum', 'adet', 'fiyat', 'yuzde', 'fark'], 'kontrat satırı');
 });
 
 test('Formül dosyası yayında en güçlü ayarla gizlenir; ekran dosyası yalnız sonucu ister; katsayılar dışa açılmaz', () => {
@@ -482,7 +289,7 @@ test('Formül dosyası yayında en güçlü ayarla gizlenir; ekran dosyası yaln
   const ekran = readFileSync(new URL('../public/optimum.js', import.meta.url), 'utf8');
   if (ekran.includes("import * as O from './optimum-hesap.js';")) {
     const kullanilan = [...new Set([...ekran.matchAll(/\bO\.([A-Za-z_]+)/g)].map((m) => m[1]))].sort();
-    eqj(kullanilan, ['FAZ_ADLARI', 'HACIM_OYNAKLIK_PCT', 'KONTRAT_EN_COK', 'PAYLAR', 'VARSAYILAN_PAY', 'mevsimlikUrunler', 'sayfaDurumu']);
+    eqj(kullanilan, ['FAZ_ADLARI', 'mevsimlikUrunler', 'sayfaDurumu']);
   }
 });
 
@@ -498,78 +305,11 @@ test('Güçlü gizlenen formül dosyalarında isteğe bağlı fonksiyon çağrı
   }
 });
 
-test('Sayfa yöntemi ya da ara değeri yazmaz (yalnız "DentSimco formülü")', () => {
-  const live = { t: NOW, items: { 2: [NOW, { 0: [0.6, null, 0, 0, NOW - SAAT] }] } };
-  const yasak = ['adet/saat', 'seviye başına', 'VWAP', 'komisyon', 'yarım taşıma', 'Kâr yalnız', 'maaşlarına', 'maaşını', '6 saat', 'en ucuz kalite'];
-  // "adet/gün" yalnız kullanıcının kendi yazdığı kontratta (etiket ve satır özeti) görünebilir; borsa hacmi hiçbir yerde yazılmaz
-  const kontratsiz = (html) => html.replace(/<p class="op-sonuc">[\s\S]*?<\/p>/g, '').replace(/<span class="op-chip muted">Kontrat: [^<]*<\/span>/g, '');
-  for (const tab of ['ay', 'guncel']) {
-    for (const c of [{}, { company: COMPANY, kurulum: KURULUM }]) {
-      for (const yazilan of [[], [{ id: 2, q: 0, adet: '1000000', fiyat: '0,6' }, { id: 2, q: 3, adet: '%50', fiyat: '' }]]) {
-        const s = stK(yazilan, { ...c, live, prefs: { ...PREFS, tab, kontrat: yazilan } });
-        s.acik = new Set([...s.binalar.map((b) => b.harf), 'kon']);
-        const html = sayfaHtml(s, ad);
-        for (const y of yasak) if (html.includes(y)) throw new Error(`sayfada "${y}" geçiyor`);
-        if (kontratsiz(html).includes('adet/gün')) throw new Error('kontrat dışında "adet/gün" geçiyor (borsa hacmi yazılmamalı)');
-      }
-    }
-  }
-  if (!sayfaHtml(st(), ad).includes('DentSimco formülüyle hesaplanır')) throw new Error('dipnot yok');
-});
 
-test('Pazar payı: hazır seçenekler %10, %25, %50, %100; yazılan oran %1 – %100 arası her değer olabilir, bozuk değer varsayılana döner', () => {
-  eqj(O.PAYLAR, [0.1, 0.25, 0.5, 1]);
-  for (const x of [0.01, 0.1, 0.355, 0.4, 0.5, 1]) eq(okuPay(x), x, `pay ${x}`);
-  for (const x of [0, 0.009, 1.01, 2, -1, null, undefined, 'x', NaN]) eq(okuPay(x), O.VARSAYILAN_PAY, `bozuk pay ${x}`);
-});
 
-test('Pazar payı kutusu: hazır oran seçiliyse düğme basılı ve kutu boş; özel oranda düğme basılı değil ve kutuda oran; hata uyarısı', () => {
-  const pay = (s) => /<div class="op-seg op-seg-pay"[\s\S]*?<\/div>/.exec(ayarlarHtml(s))[0];
-  const hazir = pay(st());
-  eq(hazir.split('data-act="pay"').length - 1, 4, 'dört hazır düğme');
-  eq(hazir.split('aria-pressed="true"').length - 1, 1, '%25 basılı');
-  if (!/data-v="0\.25" aria-pressed="true"/.test(hazir) || !/data-pay="ozel" value=""/.test(hazir)) throw new Error('hazır oranda kutu boş olmalı');
-  const yuz = pay(st({ prefs: { ...PREFS, pay: 1 } }));
-  if (!/data-v="1" aria-pressed="true"/.test(yuz)) throw new Error('%100 basılı değil');
-  const ozel = pay(st({ prefs: { ...PREFS, pay: 0.355 } }));
-  eq(ozel.split('aria-pressed="true"').length - 1, 0, 'özel oranda hazır düğme basılı olmamalı');
-  if (!/data-pay="ozel" value="35,5"/.test(ozel) || !ozel.includes('op-pay-ozel on')) throw new Error('özel oran kutuda görünmeli');
-  const hata = st();
-  hata.payHata = true;
-  if (!/class="op-warn" role="alert">Pay 1 ile 100 arasında olmalı\./.test(ayarlarHtml(hata))) throw new Error('pay hata uyarısı yok');
-  if (ayarlarHtml(st()).includes('Pay 1 ile 100')) throw new Error('hata yokken uyarı görünmemeli');
-});
 
-test('Kayıtlı kontrat satırları temizlenir: bozuk kayıt atılır, kalite ve metin sınırlanır, en çok 30 satır', () => {
-  eqj(okuKontrat(null), []);
-  const l = okuKontrat([null, 5, { id: 'x' }, { id: '124', q: 99, adet: 250000, fiyat: '%4' }, { id: 2, q: -3, adet: 'a'.repeat(100) }]);
-  eq(l.length, 2);
-  eqj(l[0], { id: 124, q: 12, adet: '250000', fiyat: '%4' });
-  eq(l[1].q, 0);
-  eq(l[1].adet.length, 24);
-  eq(okuKontrat(Array.from({ length: 50 }, (_, i) => ({ id: i }))).length, O.KONTRAT_EN_COK);
-});
 
 const YAZILAN = [{ id: 2, q: 0, adet: '1000000', fiyat: '0,6' }, { id: 2, q: 3, adet: '%50', fiyat: '' }, { id: 999, q: 0, adet: '"><img src=x onerror=alert(1)>', fiyat: '' }];
-test('Kontratlarım: yazılanlar kutularda, hata satırda, ekleme formunda yalnız sayfadaki ürünler; yazılar kaçışlı', () => {
-  const s = stK(YAZILAN);
-  s.taslak = { id: '2', q: '3', adet: '12', fiyat: '' };
-  s.taslakHata = 'adet';
-  s.acik = new Set(['kon']);
-  const h = kontratHtml(s, ad);
-  if (!/<details class="op-kon" data-ac="kon" open>/.test(h)) throw new Error('bölüm açık olmalı');
-  if (!h.includes('data-kf="adet" data-i="0" value="1000000"') || !h.includes('data-kf="fiyat" data-i="0" value="0,6"')) throw new Error('yazılanlar kutularda değil');
-  eq(h.split('class="op-kon-row err"').length - 1, 2, 'iki satır hatalı (Üretim yok, veri yok)');
-  eq(h.split('data-act="kontratSil"').length - 1, 3, 'her satırda sil düğmesi');
-  if (h.includes('<img')) throw new Error('yazılan metin kaçışsız basıldı');
-  eq(h.split('<option').length - 1, 1 + s.urunSecenek.length + s.urunSecenek.find((u) => u.id === 2).kaliteler.length, 'ürün + kalite seçenekleri');
-  if (!/<option value="2" selected>/.test(h) || !/<option value="3" selected>/.test(h)) throw new Error('taslakta seçili ürün ve kalite işaretli değil');
-  if (!/data-kd="adet" value="12"/.test(h)) throw new Error('taslak adet yok');
-  if (!/class="op-warn" role="alert"/.test(h)) throw new Error('form uyarısı yok');
-  // ürün seçilmediyse kalite kutusu yok, kapalıyken details açık değil
-  const k = kontratHtml({ ...stK([]), taslak: { id: '', q: '', adet: '', fiyat: '' }, acik: new Set() }, ad);
-  if (k.includes('data-kd="q"') || /<details[^>]* open/.test(k)) throw new Error('boş formda kalite kutusu ya da açık bölüm var');
-});
 
 // Sayfanın her hâlindeki bütün yazılar (metin, title, aria-label) İngilizceye çevrilmeli
 const d = sozlukDerle(EN);
@@ -582,42 +322,9 @@ const parcalar = (html) => {
   for (const s of html.replace(/<[^>]*>/g, '\n').split('\n')) if (s.trim()) out.push(s.replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/&amp;/g, '&').trim());
   return out;
 };
-test('Sayfa İngilizcede tamamen çevrilir (iki sekme, uyarılar, eski özet, canlı fiyat, kontratlar ve hataları, R2)', () => {
-  const live = { t: NOW - 3 * 60_000, items: { 2: [NOW, { 0: [0.6, null, 0, 0, NOW - SAAT] }], 66: [NOW, { 0: [0.3, null, 0, 0, NOW - SAAT] }] } };
-  const htmls = [R2_HTML];
-  const taslaklar = [[{ id: '', q: '', adet: '', fiyat: '' }, ''], [{ id: '2', q: '3', adet: '12', fiyat: '' }, 'adet'], [{ id: '', q: '', adet: '', fiyat: '' }, 'urun'], [{ id: '2', q: '', adet: '', fiyat: '' }, 'dolu']];
-  const yazilanlar = [[], YAZILAN, [{ id: 2, q: 0, adet: '1000000', fiyat: '%4' }, { id: 66, q: 0, adet: '1000', fiyat: '0,19' }, { id: 2, q: 3, adet: '%50', fiyat: '' }, { id: 2, q: 0, adet: '250000', fiyat: '5' }]];
-  for (const c of [{}, { company: COMPANY, kurulum: KURULUM }]) {
-    for (const gamePhase of [null, { index: 0, expired: true }, { index: 1, expired: false }]) {
-      for (const faz of ['auto', 2]) {
-        for (const tab of ['ay', 'guncel']) {
-          for (const v of [{ ozet: DOC, live }, { ozet: DOC, live: null }, { ozet: { ...DOC, t: NOW - 50 * SAAT } }, { ozet: null }]) {
-            for (const [i, yazilan] of yazilanlar.entries()) {
-              const s = stK(yazilan, { ...c, ...v, gamePhase, prefs: { tab, faz, pay: i === 1 ? 0.355 : 0.1, kontrat: yazilan } });
-              s.payHata = i === 2;
-              s.acik = new Set([...s.binalar.map((b) => b.harf), 'kon']);
-              [s.taslak, s.taslakHata] = taslaklar[i % taslaklar.length];
-              htmls.push(sayfaHtml(s, ad));
-            }
-          }
-        }
-      }
-    }
-  }
-  const kalan = new Set();
-  for (const h of htmls) {
-    for (const p of parcalar(h)) {
-      const t = en(p);
-      const harfli = /[A-Za-zÇĞİÖŞÜçğıöşü]{2,}/.test(p.replace(/Riser|Q\d+/g, ''));
-      if (TR.test(t) || (t === p && harfli && !ADLAR.has(p) && EN[p] !== p)) kalan.add(p);
-    }
-  }
-  if (kalan.size) throw new Error(`çevrilmeyen: ${[...kalan].slice(0, 5).join(' | ')}`);
-});
 
 
 // ---- Tüm Ürün Satışına Göre (pazar sınırı yok) ----
-const PREFS_TUM = { ana: 'tum', tab: 'ay', faz: 0, pay: 0.25 };
 const stT = (o = {}) => st({ prefs: PREFS_TUM, company: COMPANY, kurulum: KURULUM, ...o });
 
 test('Sınırsız satış: en iyi seviye, tüm tam sayı seviyeler taranarak bulunanla aynı; yalnız yönetim gideri bağlar', () => {
@@ -652,10 +359,10 @@ test('Tüm Ürün sekmesi: sayfa durumu bina listesi, ürün listesi, seçici ve
   for (const b of s.tum.binalar) {
     anahtarlar(b, ['harf', 'id', 'q', 'L', 'kar', 'sinir', 'kontrat', 'secenekler'], 'bina');
     if (b.sinir === 'pazar') throw new Error('pazar sınırı olmamalı');
-    eq(b.kontrat, null);
   }
-  anahtarlar(s.tum.hesap, ['harf', 'id', 'q', 'L', 'kar', 'sinir', 'yari', 'buyuk', 'kaliteler', 'ayni', 'toplamSonra'], 'hesap');
-  for (const y of s.tum.hesap.kaliteler) anahtarlar(y, ['q', 'L', 'kar'], 'kalite');
+  anahtarlar(s.tum.hesap, ['harf', 'id', 'q', 'L', 'kar', 'sinir', 'son', 'yari', 'buyuk', 'kaliteler', 'islem', 'yalniz', 'ayni', 'toplamSonra'], 'hesap');
+  for (const y of s.tum.hesap.kaliteler) anahtarlar(y, ['q', 'L', 'kar', 'son', 'gun'], 'kalite');
+  anahtarlar(s.tum.hesap.islem, ['gun', 'pencere', 'sonT'], 'işlem');
   for (const e of s.tum.secenek) { anahtarlar(e, ['harf', 'urunler'], 'seçenek'); for (const u of e.urunler) anahtarlar(u, ['id', 'kaliteler', 'ana'], 'ürün'); }
   // özet yoksa boş ama çökmez
   const bos = st({ prefs: PREFS_TUM, ozet: null });
@@ -712,6 +419,45 @@ test('Tüm Ürün sekmesi: Üretim\'e eklenen ama şirket kaydına işlenmemiş 
   eq(c.sirket.toplamSeviye, a.sirket.toplamSeviye + 3, 'bozuk ek yok sayılır, bilinmeyen ürün yalnız seviye ekler');
 });
 
+
+test('Son işlem fiyatı: 28 günlük ortalaması olmayan kalite, son işlemi 28 günden yeniyse son işlem fiyatıyla fiyatlanır; yoksa fiyatsız kalır', () => {
+  const oz = O.ozetOku(DOC);
+  const live = { t: NOW, items: { 2: [NOW, { 6: [0.77, null, 0, 0, NOW - 2 * 24 * SAAT], 7: [0.88, null, 0, 0, NOW - 40 * 24 * SAAT], 5: [0.95, null, 0, 0, NOW - SAAT], 3: [1.1, null, 0, 0, NOW - SAAT] }] } };
+  const f = O.sonFiyat(oz, live, NOW);
+  eqj(f(2, 6), { p: 0.77, kaynak: 'son', lt: NOW - 2 * 24 * SAAT }, 'özette yok, son işlem 2 gün önce');
+  eq(f(2, 7), null, 'son işlem 40 gün önce');
+  eqj(f(2, 3), { p: 0.9, kaynak: 'ort' }, 'özette var: 28 günlük ortalama öncelikli');
+  eqj(f(2, 5), { p: 0.95, kaynak: 'son', lt: NOW - SAAT }, 'özette seyrek (10 gün): son işlem');
+  eq(f(2, 11), null);
+  eq(O.sonFiyat(oz, null, NOW)(2, 6), null, 'canlı belge yoksa');
+});
+
+test('Tüm kaliteler: seçici özette olmayan kaliteleri de (son işlem fiyatıyla) içerir; listeler yalnız yeterli işlem gören kalitelerle kalır', () => {
+  // Su Q1 ve Q2 özette yok (girdisi Enerji Q0 – Q3 var); Q5'in girdisi (Enerji Q4+) fiyatsız olduğundan hiç satır olmaz
+  const live = { t: NOW, items: { 2: [NOW, { 1: [0.6, null, 0, 0, NOW - 2 * 24 * SAAT], 2: [0.7, null, 0, 0, NOW - 3 * 24 * SAAT], 5: [0.95, null, 0, 0, NOW - SAAT] }] } };
+  const s = stT({ live, prefs: { ...PREFS_TUM, hesap: { harf: 'W', id: 2, q: 2 } } });
+  const u = s.tum.secenek.find((e) => e.harf === 'W').urunler.find((e) => e.id === 2);
+  for (const q of [0, 1, 2, 3]) if (!u.kaliteler.includes(q)) throw new Error(`Q${q} seçicide yok: ${u.kaliteler}`);
+  eq(s.tum.secim.q, 2, 'son işlemli kalite seçilebilir');
+  eq(s.tum.hesap.son, true);
+  eq(s.tum.hesap.kaliteler.find((k) => k.q === 2).son, true);
+  eq(s.tum.hesap.kaliteler.find((k) => k.q === 1).son, true);
+  eq(s.tum.hesap.kaliteler.find((k) => k.q === 0).son, false);
+  eq(s.tum.hesap.kaliteler.find((k) => k.q === 3).son, false);
+  // listeler eskisi gibi: özette yeterli işlemi olmayan Q1 ve Q2 listelerde yok
+  const sirali = s.tum.binalar.find((b) => b.harf === 'W');
+  for (const y of sirali.secenekler) if (y.id === 2 && (y.q === 1 || y.q === 2)) throw new Error('listede seyrek kalite olmamalı');
+  // canlı belge yoksa seçici özetteki kalitelerle sınırlı
+  const sade = stT({ live: null }).tum.secenek.find((e) => e.harf === 'W').urunler.find((e) => e.id === 2);
+  if (sade.kaliteler.includes(2) || sade.kaliteler.includes(1)) throw new Error('son işlemi olmayan kalite seçicide olmamalı');
+  // son işlem satırı: pazar büyüklüğü bilinmez (0), kaynağı 'son'
+  const oz = O.ozetOku(DOC);
+  const x = O.satirlar({ data, oz, fiyat: O.ortFiyat(oz), satisFiyat: O.sonFiyat(oz, live, NOW), tumKaliteler: true, mevsimlik: MEVSIM, faz: 0 }).find((r) => r.id === 2 && r.q === 2);
+  if (!x || x.kaynak !== 'son' || x.pazar !== 0) throw new Error('son işlem satırı yok');
+  // tumKaliteler kapalıyken satır oluşmaz (28 günlük sayfa değişmez)
+  eq(O.satirlar({ data, oz, fiyat: O.ortFiyat(oz), mevsimlik: MEVSIM, faz: 0 }).some((r) => r.id === 2 && r.q === 2), false);
+});
+
 test('binaEkle: yeni satır, mevcut binaya ekleme (robotsuz önce), eşleşme yoksa yeni satır, bozuk kayıt ve seviye', () => {
   const raw = { v: 1, recreation: { park: 3 }, buildings: [
     { id: 'a', type: 'W', product: 2, quality: 0, level: 10, robots: true },
@@ -750,20 +496,17 @@ test('Hesap seçimi kaydı temizlenir', () => {
   eqj(okuHesap({ harf: 5, id: null, q: '' }), {});
 });
 
-test('Tüm Ürün sayfası: iki üst sekme; solda sınırsız hesap (pazar payı ve kontrat yok), sağda önceki sayfa aynen', () => {
+test('Üretim sayfası: iki üst sekme (Üretim, Perakende); borsa sekmesi, pazar payı ve kontrat yok; sınırsız hesap, bina kartı, ürün listesi var', () => {
   const tum = sayfaHtml(stT(), ad);
-  const borsa = sayfaHtml(st({ prefs: { ...PREFS_TUM, ana: 'borsa' }, company: COMPANY, kurulum: KURULUM }), ad);
-  const eski = sayfaHtml(st({ company: COMPANY, kurulum: KURULUM }), ad); // ana yok: önceki sayfa
-  for (const h of [tum, borsa, eski]) {
-    if (!h.includes('data-ana="tum"') || !h.includes('data-ana="borsa"')) throw new Error('üst sekmeler yok');
-    if (h.indexOf('Tüm Ürün Satışına Göre') > h.indexOf('Borsa Satışına Göre')) throw new Error('Tüm Ürün solda olmalı');
+  const eski = sayfaHtml(st({ company: COMPANY, kurulum: KURULUM, prefs: { ana: 'borsa', faz: 'auto' } }), ad); // eski kayıtlı "borsa" tercihi Üretim'e döner
+  for (const h of [tum, eski]) {
+    if (!h.includes('data-ana="tum"') || !h.includes('data-ana="pk"')) throw new Error('üst sekmeler yok');
+    if (h.includes('data-ana="borsa"') || h.includes('Borsa Satışına Göre') || h.includes('Tüm Ürün Satışına Göre')) throw new Error('eski sekme adları kalmamalı');
+    if (h.indexOf('>Üretim<') > h.indexOf('>Perakende<')) throw new Error('Üretim solda olmalı');
+    if (!h.includes('data-ana="tum" aria-selected="true"')) throw new Error('Üretim seçili olmalı');
+    for (const x of ['Pazar payı', 'Kontratlarım', 'data-tab=', 'data-act="pay"', 'data-pay=', 'Güncel', '28 Günlük']) if (h.includes(x)) throw new Error(`sayfada ${x} olmamalı`);
   }
-  if (!tum.includes('data-ana="tum" aria-selected="true"') || !borsa.includes('data-ana="borsa" aria-selected="true"') || !eski.includes('data-ana="borsa" aria-selected="true"')) throw new Error('seçili sekme');
-  // sağ sekme = önceki sayfa: pazar payı, kontrat, 28 Günlük | Güncel
-  for (const h of [borsa, eski]) for (const t of ['Pazar payı', 'Kontratlarım', 'data-tab="ay"', 'data-tab="guncel"', 'data-act="pay"']) if (!h.includes(t)) throw new Error(`borsa sekmesinde ${t} yok`);
-  // sol sekme: pazar payı, kontrat ve alt sekmeler yok; sınırsız uyarısı, hesap, bina kartları, ürün listesi var
-  for (const t of ['Pazar payı', 'Kontratlarım', 'data-tab=', 'data-act="pay"', 'data-pay=']) if (tum.includes(t)) throw new Error(`tüm ürün sekmesinde ${t} olmamalı`);
-  for (const t of ['Satışın sınırsız ve fiyatın sabit olduğu varsayılır', 'Seviye hesapla', 'data-hs="harf"', 'data-hs="id"', 'data-act="ekle"', 'data-v="yeni"', 'data-v="mevcut"', 'Seçilen binada en kârlı', 'Bu binadaki ürünler', 'Ekonomi fazı']) if (!tum.includes(t)) throw new Error(`tüm ürün sekmesinde ${t} yok`);
+  for (const x of ['Satışın sınırsız ve fiyatın sabit olduğu varsayılır', 'Seviye hesapla', 'data-hs="harf"', 'data-hs="id"', 'data-act="ekle"', 'data-v="yeni"', 'data-v="mevcut"', 'Seçilen binada en kârlı', 'Bu binadaki ürünler', 'Ekonomi fazı']) if (!tum.includes(x)) throw new Error(`üretim sekmesinde ${x} yok`);
   // yalnız seçilen binanın kartı ve ürünleri listelenir
   const sT = stT();
   const harfSayisi = (h) => h.split('<article class="op-card"').length - 1 - (h.includes('class="op-card op-res"') ? 1 : 0);
@@ -800,7 +543,8 @@ test('Tüm Ürün hesap kartı: kalite seçici yalnız kaliteli üründe; "Mevcu
 test('Tüm Ürün sayfası İngilizcede tamamen çevrilir (şirketli ve şirketsiz, her seçim, ekleme iletileri, özet yok)', () => {
   const htmls = [];
   for (const c of [{}, { company: COMPANY, kurulum: KURULUM }]) {
-    for (const v of [{ ozet: DOC }, { ozet: { ...DOC, t: NOW - 50 * SAAT } }, { ozet: null }]) {
+    const sonLive = { t: NOW, items: { 2: [NOW, { 1: [0.6, null, 0, 0, NOW - 2 * 24 * SAAT], 2: [0.7, null, 0, 0, NOW - 3 * 24 * SAAT] }] } };
+    for (const v of [{ ozet: DOC }, { ozet: DOC, live: sonLive }, { ozet: { ...DOC, t: NOW - 50 * SAAT } }, { ozet: null }]) {
       const ilk = stT({ ...c, ...v });
       htmls.push(sayfaHtml(ilk, ad));
       for (const e of ilk.tum.secenek.slice(0, 3)) {
@@ -830,7 +574,7 @@ test('Tüm Ürün sayfası İngilizcede tamamen çevrilir (şirketli ve şirkets
 
 
 // ---- Perakende: mağaza × ürün × kalite için ideal seviye (satış ve alım sınırsız) ----
-const PREFS_PK = { ana: 'pk', tab: 'ay', faz: 0, pay: 0.25 };
+const PREFS_PK = { ana: 'pk', faz: 0 };
 const PK_HARFLER = RP.retailLetters().filter((h) => !['r', 'B'].includes(h) && RP.buildingProducts(h, 0).length);
 const PK_SAT = {};
 const PK_LIVE = { t: NOW, items: {} };
@@ -873,7 +617,7 @@ test('Perakende: sayfa durumu yalnız sonuç verir; seçici, liste, ürünler ve
   eq(s.pk.veriYok, false);
   for (const e of s.pk.liste) anahtarlar(e, ['harf', 'id', 'q', 'L', 'kar', 'sinir', 'fiyat'], 'liste');
   for (const e of s.pk.urunler) anahtarlar(e, ['harf', 'id', 'q', 'L', 'kar', 'sinir', 'fiyat'], 'ürün');
-  anahtarlar(s.pk.hesap, ['harf', 'id', 'q', 'L', 'kar', 'sinir', 'fiyat', 'maliyet', 'yari', 'buyuk', 'kaliteler', 'ayni', 'toplamSonra'], 'hesap');
+  anahtarlar(s.pk.hesap, ['harf', 'id', 'q', 'L', 'kar', 'sinir', 'fiyat', 'maliyet', 'sonT', 'yalniz', 'yari', 'buyuk', 'kaliteler', 'ayni', 'toplamSonra'], 'hesap');
   for (const y of s.pk.hesap.kaliteler) anahtarlar(y, ['q', 'L', 'kar'], 'kalite');
   for (const e of s.pk.secenek) { anahtarlar(e, ['harf', 'urunler'], 'seçenek'); for (const u of e.urunler) anahtarlar(u, ['id', 'kaliteler', 'ana'], 'ürün seçeneği'); }
   // en kârlı mağaza başta; restoran ve satış ofisi yok
@@ -965,9 +709,10 @@ test('Hesap kartı: kurulu seviye ve şirket seviyesi etiketleri bir kez görün
   eq((h.match(/Şirketiniz: [\d.]+ → [\d.]+ seviye/g) || []).length, 1, 'perakende: şirket etiketi');
 });
 
-test('Perakende sayfası: üç üst sekme; mağaza seçici, sınırsız uyarısı, Ekle düğmeleri; pazar payı ve kontrat yok', () => {
+test('Perakende sayfası: iki üst sekme; mağaza seçici, sınırsız uyarısı, Ekle düğmeleri; pazar payı ve kontrat yok', () => {
   const h = sayfaHtml(stP(), ad);
-  for (const t of ['data-ana="tum"', 'data-ana="borsa"', 'data-ana="pk"']) if (!h.includes(t)) throw new Error(`üst sekme yok ${t}`);
+  for (const t of ['data-ana="tum"', 'data-ana="pk"']) if (!h.includes(t)) throw new Error(`üst sekme yok ${t}`);
+  if (h.includes('data-ana="borsa"')) throw new Error('borsa sekmesi olmamalı');
   if (!h.includes('data-ana="pk" aria-selected="true"')) throw new Error('Perakende seçili olmalı');
   for (const t of ['Seviye hesapla', 'data-pk="harf"', 'data-pk="id"', 'data-act="pkEkle"', 'data-v="yeni"', 'data-v="mevcut"', 'Yeni mağaza olarak ekle', 'Mevcut mağazaya ekle', 'Bu mağazadaki ürünler', 'Satışın ve alımın sınırsız', 'Satış fiyatı', 'Birim maliyet', 'Ekonomi fazı', 'Toplam satış bonusu']) if (!h.includes(t)) throw new Error(`perakende sekmesinde ${t} yok`);
   for (const t of ['Pazar payı', 'Kontratlarım', 'data-tab=', 'data-hs=', 'data-act="ekle"']) if (h.includes(t)) throw new Error(`perakende sekmesinde ${t} olmamalı`);
@@ -1017,6 +762,112 @@ test('Perakende sayfası İngilizcede tamamen çevrilir (şirketli ve şirketsiz
     }
   }
   if (kalan.size) throw new Error(`çevrilmeyen: ${[...kalan].slice(0, 5).join(' | ')}`);
+});
+
+test('Sayfa yöntemi ya da ara değeri yazmaz (yalnız "DentSimco formülü")', () => {
+  const live = { t: NOW, items: { 2: [NOW, { 0: [0.6, null, 0, 0, NOW - SAAT] }] } };
+  const yasak = ['adet/saat', 'adet/gün', 'VWAP', 'komisyon', 'yarım taşıma', 'Kâr yalnız', 'maaşlarına', 'maaşını', '6 saat', 'en ucuz kalite', 'pazar payı', 'Pazar payı', 'Kontrat'];
+  for (const ana of ['tum', 'pk']) {
+    for (const c of [{}, { company: COMPANY, kurulum: KURULUM }]) {
+      const s = ana === 'pk' ? stP({ ...c, live }) : st({ ...c, live, prefs: PREFS_TUM });
+      s.acik = new Set(['tumq', 'pkq', ...(s.tum.binalar || []).map((b) => `t:${b.harf}`)]);
+      const html = sayfaHtml(s, ad);
+      for (const y of yasak) if (html.includes(y)) throw new Error(`sayfada "${y}" geçiyor`);
+    }
+  }
+  if (!sayfaHtml(st({ prefs: PREFS_TUM }), ad).includes('DentSimco formülüyle hesaplanır')) throw new Error('dipnot yok');
+});
+
+test('En kârlı kalite yıldızla (★) önerilir: Üretim ve Perakende, ürün seçilince kalite seçicide ve karşılaştırma tablosunda; varsayılan seçim de odur', () => {
+  const yildizli = (h) => [...h.matchAll(/<option value="(\d+)"[^>]*>Q\d+( ★)?<\/option>/g)].filter((m) => m[2]).map((m) => Number(m[1]));
+  const kontrol = (s, t, ad_, ad2) => {
+    const hs = t.hesap;
+    const h = t.secenek.find((e) => e.harf === t.secim.harf);
+    const u = h.urunler.find((e) => e.id === t.secim.id);
+    const guvenilir = hs.kaliteler.filter((k) => !k.son);
+    const enIyi = (guvenilir.length ? guvenilir : hs.kaliteler).reduce((a, b) => (b.kar > a.kar + 1e-9 ? b : a));
+    eq(u.ana, enIyi.q, `${ad2}: ana kalite en kârlı kalite olmalı`);
+    const html = sayfaHtml(s, ad_);
+    eqj(yildizli(html), [u.ana], `${ad2}: seçicide tek yıldız, en kârlı kalitede`);
+    if (hs.kaliteler.length > 1) eq((html.match(/<th scope="row">Q\d+ ★/g) || []).length, 1, `${ad2}: karşılaştırma tablosunda tek yıldız`);
+    return u;
+  };
+  // Üretim: varsayılan seçim ve elle seçilen ürün (kalitesi seçilmemiş)
+  for (const hesap of [{}, { harf: 'W', id: 2 }, { harf: 'W', id: 2, q: 0 }]) {
+    const s = stT({ prefs: { ...PREFS_TUM, hesap } });
+    const u = kontrol(s, s.tum, ad, 'üretim');
+    if (hesap.q == null) eq(s.tum.secim.q, u.ana, 'kalite seçilmediyse en kârlısı seçilir');
+  }
+  // Perakende
+  for (const pk of [{}, { harf: PK_HARFLER[0], id: RP.buildingProducts(PK_HARFLER[0], 0)[0] }]) {
+    const s = stP({ prefs: { ...PREFS_PK, pk } });
+    const u = kontrol(s, s.pk, { ...ad, kaliteli: () => true }, 'perakende'); // örnek veride perakende ürünleri yok: kalite seçici açık sayılır
+    eq(s.pk.secim.q, u.ana, 'perakende: kalite seçilmediyse en kârlısı seçilir');
+  }
+  // kalitesiz üründe kalite seçici de yıldız da yok
+  const kalitesiz = stT({ prefs: { ...PREFS_TUM, hesap: { harf: 'P', id: 66 } } });
+  if (!sayfaHtml(kalitesiz, { ...ad, kaliteli: () => false }).includes('data-hs="id"')) throw new Error('örnek yok');
+  if (yildizli(sayfaHtml(kalitesiz, { ...ad, kaliteli: () => false })).length) throw new Error('kalitesiz üründe yıldız olmamalı');
+});
+
+test('★ önerisi: yalnız son işlemden fiyatlanan (seyrek) kalite, güvenilir fiyatlı kalite varken önerilmez', () => {
+  const live = { t: NOW, items: { 2: [NOW, { 2: [2.2, null, 0, 0, NOW - SAAT] }] } }; // Su Q2: özette yok, son işlem çok yüksek fiyatlı
+  const s = stT({ live, prefs: { ...PREFS_TUM, hesap: { harf: 'W', id: 2 } } });
+  const u = s.tum.secenek.find((e) => e.harf === 'W').urunler.find((e) => e.id === 2);
+  if (!u.kaliteler.includes(2)) throw new Error('Q2 seçilebilir olmalı');
+  const k2 = s.tum.hesap.kaliteler.find((k) => k.q === 2);
+  eq(k2.son, true);
+  if (!(k2.kar > Math.max(...s.tum.hesap.kaliteler.filter((k) => !k.son).map((k) => k.kar)))) throw new Error('örnekte Q2 en kârlı olmalı');
+  if (u.ana === 2 || s.tum.secim.q === 2) throw new Error('seyrek kalite önerilmemeli');
+  // elle seçilebilir
+  eq(stT({ live, prefs: { ...PREFS_TUM, hesap: { harf: 'W', id: 2, q: 2 } } }).tum.secim.q, 2);
+});
+
+test('İşlem sıklığı ve güvenilirlik notu: 28 günde ≥ 21 gün güvenilir, 14 – 20 orta, daha azı seyrek (uyarı), hiç yoksa son işlemden; son işlem zamanı yazılır', () => {
+  const stx = { simdi: NOW };
+  const not = (gun, sonT = null) => uretimIslemNotu({ islem: { gun, pencere: 28, sonT } }, stx);
+  if (!not(28).includes('28 günün 28 gününde işlem gördü: fiyat güvenilir.') || not(28).includes('op-warn')) throw new Error('güvenilir');
+  if (!not(21).includes('fiyat güvenilir.')) throw new Error('21 gün güvenilir');
+  if (!not(20).includes('orta güvenilirlikte') || not(20).includes('op-warn')) throw new Error('20 gün orta');
+  if (!not(14).includes('orta güvenilirlikte')) throw new Error('14 gün orta');
+  const az = not(8, NOW - 2 * 24 * SAAT);
+  if (!az.includes('yalnız 8 gününde') || !az.includes('seyrek işlem, fiyat güvenilir değil') || !az.includes('op-warn') || !az.includes('Son işlem 2 gün önce.')) throw new Error(`seyrek: ${az}`);
+  const yok = not(0, NOW - 3 * SAAT);
+  if (!yok.includes('işlem yok; fiyat son işlemden: güvenilir değil.') || !yok.includes('op-warn') || !yok.includes('Son işlem 3 sa önce.')) throw new Error('hiç işlem yok');
+  eq(uretimIslemNotu({ islem: { gun: 5, pencere: 0, sonT: null } }, stx), '');
+  // sayfada: seçilen kalitenin notu ve karşılaştırma tablosunda işlem günü
+  const s = stT({ prefs: { ...PREFS_TUM, hesap: { harf: 'W', id: 2, q: 0 } } });
+  const h = sayfaHtml({ ...s, acik: new Set(['tumq']) }, ad);
+  if (!h.includes('Borsada son 28 günün 28 gününde işlem gördü: fiyat güvenilir.')) throw new Error('sayfada işlem notu yok');
+  if (!h.includes('<th scope="col">İşlem günü</th>') || !h.includes('<td>28/28</td>')) throw new Error('işlem günü sütunu yok');
+  eqj([s.tum.hesap.islem.gun, s.tum.hesap.islem.pencere, s.tum.hesap.islem.sonT], [28, 28, null]);
+  // son işlemden fiyatlanan kalite: günü ve son işlem zamanı
+  const live = { t: NOW, items: { 2: [NOW, { 2: [0.7, null, 0, 0, NOW - 3 * 24 * SAAT] }] } };
+  const s2 = stT({ live, prefs: { ...PREFS_TUM, hesap: { harf: 'W', id: 2, q: 2 } } });
+  eqj([s2.tum.hesap.islem.gun, s2.tum.hesap.islem.sonT], [0, NOW - 3 * 24 * SAAT]);
+});
+
+test('Perakende maliyet notu: son işlem 24 saatten yeniyse bilgi, eskiyse uyarı; zaman yoksa not yok', () => {
+  const stx = { simdi: NOW };
+  const yeni = pkIslemNotu({ sonT: NOW - 3 * SAAT }, stx);
+  if (!yeni.includes('Maliyet, borsanın güncel fiyatıdır; son işlem 3 sa önce.') || yeni.includes('op-warn')) throw new Error(`yeni: ${yeni}`);
+  const eski = pkIslemNotu({ sonT: NOW - 30 * SAAT }, stx);
+  if (!eski.includes('Borsada son işlem 1 gün önce: maliyet fiyatı güncel olmayabilir.') || !eski.includes('op-warn')) throw new Error(`eski: ${eski}`);
+  eq(pkIslemNotu({ sonT: null }, stx), '');
+  const s = stP();
+  if (!sayfaHtml(s, ad).includes('Maliyet, borsanın güncel fiyatıdır; son işlem 1 sa önce.')) throw new Error('sayfada maliyet notu yok');
+});
+
+test('Ek seviye 0 ise neden ve (başka binası olmayan şirket için) en kârlı seviye yazılır; hiçbir seviye kâr getirmiyorsa o söylenir', () => {
+  // büyük şirket: ek seviye kâr getirmez ama yalnız başına kârlı
+  const buyuk = { ...COMPANY, admin: { totalLevels: 3000, wagesDay: 90_000_000 } };
+  const s = stT({ company: buyuk, prefs: { ...PREFS_TUM, hesap: { harf: 'W', id: 2, q: 0 } } });
+  eq(s.tum.hesap.L, 0);
+  if (!(s.tum.hesap.yalniz.L > 0)) throw new Error('yalnız başına seviye bulunmalı');
+  const h = sayfaHtml(s, ad);
+  if (!h.includes('Şirketinizin bugünkü yönetim gideriyle ek seviye kâr getirmiyor.') || !h.includes(`Başka binanız olmasaydı en kârlı seviye ${s.tum.hesap.yalniz.L}`)) throw new Error('yalnız başına bilgisi yok');
+  // L > 0 iken yalniz null
+  eq(stT({ prefs: { ...PREFS_TUM, hesap: { harf: 'W', id: 2, q: 0 } } }).tum.hesap.yalniz, null);
 });
 
 test('Menü: Optimum Seviye, Piyasa ile Kâr Hesaplayıcı arasında; modül tanımlı', () => {
