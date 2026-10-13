@@ -1,6 +1,9 @@
 // DentSimco — Optimum Seviye hesap motoru
 //
 // Arayüzsüz, saf fonksiyonlar: tarayıcıda ve Node'da aynen çalışır; DOM, ağ ya da Firestore bilgisi içermez.
+// Formüller yalnız bu dosyadadır ve yayın kopyasında en güçlü ayarla gizlenir (araclar/gizle.mjs, FORMUL).
+// Ekran dosyası (optimum.js) yalnız sayfaDurumu() sonucunu görür: ürün, kalite, seviye, kâr ve sınır; formül,
+// katsayı ya da ara değer (fiyat, girdi maliyeti, saatlik üretim, pazar büyüklüğü) ekrana gitmez.
 // Soru: bir üretim binası kaç seviye olsun ve ne üretsin? Yanıt iki sınırın küçüğüdür:
 //   • Yönetim gideri sınırı: ek seviyenin kârı, kendi maaşına ve şirketin TÜM maaşlarına eklediği yönetim giderine eşitlenir.
 //   • Pazar sınırı: borsadaki günlük satışın en çok "pazar payı" kadarı satılır (daha fazlası fiyatı bozar).
@@ -22,15 +25,15 @@ import * as H from './hesap.js';
 
 export const PAYLAR = [0.1, 0.25, 0.4];
 export const VARSAYILAN_PAY = 0.25;
-export const GUN_PAYI = 0.5; // kalite, pencerenin en az yarısında işlem görmeli (seyrek işlemin fiyatı yanıltır)
-export const UC_FIYAT_KAT = 5; // kalitenin fiyatı Q0'ın bu katını aşıyorsa (birkaç uç işlem) satır kullanılmaz
-export const TAZE_SA = 6; // Güncel: son işlemi bundan eski fiyat yerine 28 günlük ortalama kullanılır
-export const ESKI_SA = 36; // 28 günlük özet bundan eskiyse sayfa uyarır
+const GUN_PAYI = 0.5; // kalite, pencerenin en az yarısında işlem görmeli (seyrek işlemin fiyatı yanıltır)
+const UC_FIYAT_KAT = 5; // kalitenin fiyatı Q0'ın bu katını aşıyorsa (birkaç uç işlem) satır kullanılmaz
+const TAZE_SA = 6; // Güncel: son işlemi bundan eski fiyat yerine 28 günlük ortalama kullanılır
+const ESKI_SA = 36; // 28 günlük özet bundan eskiyse sayfa uyarır
 // 2025-10 – 2026-10 geçmişi: 28 günlük ortalama satış hacmi aydan aya medyanda ±%32 değişti (pazar sınırlı uyarısında)
 export const HACIM_OYNAKLIK_PCT = 32;
 // Güncel: başka ürün en az bu kadar daha kârlıysa "ürünü değiştir" denir (günlük $ ve 28 günlük önerinin kârına oran)
-export const DEGISIM_ESIGI_USD = 1000;
-export const DEGISIM_ESIGI_PAY = 0.05;
+const DEGISIM_ESIGI_USD = 1000;
+const DEGISIM_ESIGI_PAY = 0.05;
 export const FAZ_ADLARI = ['Resesyon', 'Normal', 'Boom'];
 const MEVSIM_BINALARI = ['t', 'u', 'z', 'I']; // mevsimlik pazarlar: burada satılan ürünler mevsimliktir
 const SAAT_MS = 3_600_000;
@@ -84,7 +87,7 @@ export function mevsimlikUrunler(rawProducts, core) {
 }
 
 /** Sayfada gösterilen ürün: üretim binasında üretilir, borsada işlem görür, araştırma ya da mevsimlik değildir */
-export function uygunMu(data, p, mevsimlik = new Set()) {
+function uygunMu(data, p, mevsimlik = new Set()) {
   return Boolean(p) && !p.research && p.tradable !== false && p.perHour > 0 && Boolean(p.building)
     && p.building !== H.LAUNCH_PAD && H.buildingCategory(data, p.building) === 'production' && !mevsimlik.has(p.id);
 }
@@ -193,7 +196,7 @@ export function digerleri(sirket, harf) {
 // Seviye ve kâr
 // ---------------------------------------------------------------------------------------------------------------
 
-export const kOf = (s) => Math.max(0, 1 - num(s, 0)) / H.ADMIN_LEVELS_PER_UNIT;
+const kOf = (s) => Math.max(0, 1 - num(s, 0)) / H.ADMIN_LEVELS_PER_UNIT;
 
 /** Seviye L'de günlük kâr ($). x: satirlar() satırı; o: { s, pay, Lo, Wo }. Pazarı aşan seviye boşta kalır. */
 export function gunlukKar(L, x, { s = 0, pay = VARSAYILAN_PAY, Lo = 0, Wo = 0 } = {}) {
@@ -302,8 +305,55 @@ export function fazSec(secim, oyun) {
 }
 
 /** 28 günlük özet ne kadar eski (saat) ve uyarı gerekir mi */
-export const ozetYasi = (oz, simdi = Date.now()) => (oz?.t ? (simdi - oz.t) / SAAT_MS : null);
+const ozetYasi = (oz, simdi = Date.now()) => (oz?.t ? (simdi - oz.t) / SAAT_MS : null);
 export const ozetEskiMi = (oz, simdi = Date.now()) => {
   const y = ozetYasi(oz, simdi);
   return y != null && y > ESKI_SA;
 };
+
+// ---------------------------------------------------------------------------------------------------------------
+// Sayfa durumu: ekran yalnız sonucu görür
+// ---------------------------------------------------------------------------------------------------------------
+
+const KARSILASTIRMA = 6; // "Diğer seçenekler" tablosundaki satır
+const sonuc = (e) => ({ id: e.x.id, q: e.x.q, L: e.L, kar: e.kar, sinir: e.sinir });
+
+/**
+ * Yüklenen veri + tercihler + tarayıcı kayıtları → ekranın göstereceği sonuç.
+ * Dönüş yalnız gösterilecek alanları taşır (ürün, kalite, seviye, kâr, sınır, durum); ara değer yoktur.
+ *   binalar: [{ harf, id, q, L, kar, sinir, secenekler: [{ id, q, L, kar, sinir }] }]  sizin binalarınız önde
+ *   urunler: [{ harf, id, q, L, kar, sinir }]
+ *   guncel:  [{ harf, L, hesapL, kaynak, id, q, kar, canli, girdiOrt, olay, onerilen: { id, q, kar } | null, fark, durum, pazarAsimi }]
+ */
+export function sayfaDurumu({ data, mevsimlik, ozet, live, company, kurulum, gamePhase, prefs, simdi = Date.now() }) {
+  const oz = ozetOku(ozet);
+  const sirket = sirketOzeti({ company, kurulum, data });
+  const faz = fazSec(prefs.faz, gamePhase);
+  const kendi = Object.fromEntries(Object.entries(sirket.kendi).map(([h, x]) => [h, x.seviye]));
+  const st = {
+    oz: oz ? { t: oz.t, gun: oz.gun, bas: oz.bas } : null, eski: ozetEskiMi(oz, simdi),
+    sirket: { s: sirket.s, ekipVar: sirket.ekipVar, sirketVar: sirket.sirketVar, toplamSeviye: sirket.toplamSeviye, kendi },
+    faz, gamePhase, prefs, simdi, liveT: live?.t ?? null, binalar: [], urunler: [], guncel: [],
+  };
+  if (!oz || !data) return st;
+  const ortak = { data, oz, mevsimlik, faz, kurulum };
+  const opt = { s: sirket.s, pay: prefs.pay, sirket };
+  const sizde = (h) => (kendi[h] > 0 ? 1 : 0);
+  const satir28 = satirlar({ ...ortak, fiyat: ortFiyat(oz) });
+  const binalar = binaOnerileri(satir28, opt).sort((a, b) => sizde(b.harf) - sizde(a.harf)); // sort kararlı: kâr sırası korunur
+  const oneri = new Map(binalar.map((b) => [b.harf, b.en]));
+  st.binalar = binalar.map((b) => ({ harf: b.harf, ...sonuc(b.en), secenekler: b.secenekler.slice(0, KARSILASTIRMA).map(sonuc) }));
+  st.urunler = urunOnerileri(satir28, opt).map((u) => ({ harf: u.harf, ...sonuc(u.en) }));
+  const satirG = satirlar({ ...ortak, fiyat: canliFiyat(oz, live, simdi), olaylar: true, simdi });
+  st.guncel = guncelOneriler(satirG, {
+    ...opt,
+    seviye: (h) => (kendi[h] > 0 ? { L: kendi[h], kaynak: 'sizin' } : { L: oneri.get(h)?.L || 0, kaynak: 'oneri' }),
+    oneri: (h) => (oneri.get(h) ? { id: oneri.get(h).x.id, q: oneri.get(h).x.q } : null),
+  }).sort((a, b) => sizde(b.harf) - sizde(a.harf)).map((g) => ({
+    harf: g.harf, L: g.L, hesapL: g.hesapL, kaynak: g.kaynak,
+    id: g.en.x.id, q: g.en.x.q, kar: g.en.kar, canli: g.en.x.kaynak === 'canli', girdiOrt: g.en.x.girdiOrt, olay: g.en.x.olay,
+    onerilen: g.onerilen ? { id: g.onerilen.x.id, q: g.onerilen.x.q, kar: g.onerilen.kar } : null,
+    fark: g.fark, durum: g.durum, pazarAsimi: g.pazarAsimi,
+  }));
+  return st;
+}

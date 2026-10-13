@@ -1,6 +1,8 @@
-// DentSimco — Optimum Seviye (arayüz)
+// DentSimco — Optimum Seviye (yalnız gösterim)
 //
-// Hesapların hepsi optimum-hesap.js'te; burada yalnız veri yükleme, ekran ve tarayıcı tercihleri var.
+// Hesap ve sayfa durumu optimum-hesap.js'te (sayfaDurumu; yayında en güçlü ayarla gizlenir). Bu dosya veriyi yükler,
+// sonucu gösterir ve tarayıcı tercihlerini tutar; formül, katsayı ya da ara değer içermez. Sayfada da yalnız sonuç
+// görünür: ürün, kalite, seviye, günlük kâr ve sınır (fiyat, girdi maliyeti, saatlik üretim ya da pazar büyüklüğü değil).
 // İki sekme:
 //   • 28 Günlük: her üretim binası için önerilen seviye, ürün ve kalite. Veri: meta/optimum_r0 (son 28 günün borsa
 //     özeti, sinyal motorunun gece çalışması yazar). Seviye kararları içindir; gece yenilenir.
@@ -9,7 +11,7 @@
 // Şirkete özgü her şey bu tarayıcıdaki kayıtlardan okunur: yöneticiler (Yönetim › Ekip, dentsimco.sirket.r{r}) ve
 // binalar ile rekreasyon (Üretim kurulumu, dentsimco.uretim.r{r}). Yalnız R1 (realm 0); R2 geliştirme aşamasında.
 
-import { readDocs, PATHS, dataField, loadGamePhase, fmtAgo, fmtDate, fmtDateTime, fmtPrice, MIN } from './veri.js';
+import { readDocs, PATHS, dataField, loadGamePhase, fmtAgo, fmtDate, fmtDateTime, MIN } from './veri.js';
 import * as H from './hesap.js';
 import * as O from './optimum-hesap.js';
 import * as Y from './yonetici.js';
@@ -24,11 +26,9 @@ export const DESTEKLENEN_REALM = 0;
 
 // ---- biçimlendirme ----
 const NF0 = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 0 });
-const NF1 = new Intl.NumberFormat(LOCALE, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const fin = (x) => x != null && Number.isFinite(x);
 export const para = (x) => (fin(x) ? `${x < 0 ? '−' : ''}$${NF0.format(Math.abs(Math.round(x)))}` : '—');
-const adet = (x) => (!fin(x) ? '—' : Math.abs(x) >= 100 ? NF0.format(x) : NF1.format(x));
 const pct = (x) => `%${NF0.format(Math.round(x * 100))}`;
 const isaretli = (n) => (n > 0 ? `+${NF0.format(n)}` : n < 0 ? `−${NF0.format(-n)}` : '0');
 
@@ -79,30 +79,6 @@ async function canliYukle(r) {
   return dataField(docs.get(path)) || null;
 }
 
-// ---- hesap (saf): yüklenen veri + tercihler + tarayıcı kayıtları → ekran durumu ----
-export function durumHesapla({ data, mevsimlik, ozet, live, company, kurulum, gamePhase, prefs, simdi = Date.now() }) {
-  const oz = O.ozetOku(ozet);
-  const sirket = O.sirketOzeti({ company, kurulum, data });
-  const faz = O.fazSec(prefs.faz, gamePhase);
-  const st = { oz, sirket, faz, gamePhase, prefs, simdi, liveT: live?.t ?? null, binalar: [], urunler: [], guncel: [] };
-  if (!oz || !data) return st;
-  const ortak = { data, oz, mevsimlik, faz, kurulum };
-  const opt = { s: sirket.s, pay: prefs.pay, sirket };
-  const satir28 = O.satirlar({ ...ortak, fiyat: O.ortFiyat(oz) });
-  // Sizin binalarınız önde, sonra günlük kâra göre (sort kararlı: kâr sırası korunur)
-  const sizde = (h) => (sirket.kendi[h]?.seviye > 0 ? 1 : 0);
-  st.binalar = O.binaOnerileri(satir28, opt).sort((a, b) => sizde(b.harf) - sizde(a.harf));
-  st.urunler = O.urunOnerileri(satir28, opt);
-  const oneri = new Map(st.binalar.map((b) => [b.harf, b.en]));
-  const satirG = O.satirlar({ ...ortak, fiyat: O.canliFiyat(oz, live, simdi), olaylar: true, simdi });
-  st.guncel = O.guncelOneriler(satirG, {
-    ...opt,
-    seviye: (h) => (sirket.kendi[h]?.seviye > 0 ? { L: sirket.kendi[h].seviye, kaynak: 'sizin' } : { L: oneri.get(h)?.L || 0, kaynak: 'oneri' }),
-    oneri: (h) => (oneri.get(h) ? { id: oneri.get(h).x.id, q: oneri.get(h).x.q } : null),
-  }).sort((a, b) => sizde(b.harf) - sizde(a.harf));
-  return st;
-}
-
 // ---- ekran parçaları (saf: yalnız metin üretir, sınamada İngilizce çeviri de denetlenir) ----
 const SINIR = {
   pazar: ['Pazar sınırlı', 'warn'],
@@ -112,9 +88,7 @@ const SINIR = {
 const chip = (text, kind = '') => `<span class="op-chip ${kind}">${esc(text)}</span>`;
 const qChip = (ad, x) => (ad.kaliteli(x.id) ? chip(`Q${x.q}`, 'q') : '');
 
-function pazarUyarisi(e, pay) {
-  return `<p class="op-warn" role="note">${esc(`Pazar sınırlı: öneriyi borsadaki günlük satış belirliyor (${adet(e.x.adet)} adet/gün, pazar payı ${pct(pay)}). Satış hacmi aydan aya ±%${O.HACIM_OYNAKLIK_PCT} değişebildiği için bu öneri güvenilir değil; seviye artırmadan önce Güncel sekmesine ve hacme bakın.`)}</p>`;
-}
+const pazarUyarisi = () => `<p class="op-warn" role="note">${esc(`Pazar sınırlı: bu öneriyi borsadaki satış hacmi belirliyor. Hacim aydan aya ±%${O.HACIM_OYNAKLIK_PCT} değişebildiği için öneri güvenilir değil; seviye artırmadan önce Güncel sekmesine ve borsadaki hacme bakın.`)}</p>`;
 
 export function uyarilarHtml(st) {
   const out = [];
@@ -129,7 +103,7 @@ export function uyarilarHtml(st) {
   if (!s?.sirketVar) {
     out.push(`<section class="op-alert soft" role="note">
       <h2>Binalarınızı girin</h2>
-      <p>${esc('Binalarınız girilmedi: öneriler tek binalı bir şirket için hesaplandı. Her ek seviye şirketin bütün maaşlarına yönetim gideri eklediği için büyük bir şirkette öneriler çok daha düşük çıkar. Binalarınızı Üretim sekmesine girin.')}</p>
+      <p>${esc('Binalarınız girilmedi: öneriler tek binalı bir şirket için hesaplandı. Şirketiniz büyüdükçe öneriler çok daha düşük çıkar. Binalarınızı Üretim sekmesine girin.')}</p>
       <a class="op-btn" href="#uretim/binalar">Üretim Binalara Git</a>
     </section>`);
   }
@@ -163,26 +137,23 @@ export function ayarlarHtml(st) {
 }
 
 function binaKarti(b, st, ad) {
-  const e = b.en;
-  const x = e.x;
-  const kendi = st.sirket?.kendi?.[b.harf]?.seviye || 0;
-  const [sinirAd, sinirTur] = SINIR[e.sinir] || ['', ''];
-  const fark = kendi > 0 ? e.L - kendi : null;
+  const kendi = st.sirket?.kendi?.[b.harf] || 0;
+  const [sinirAd, sinirTur] = SINIR[b.sinir] || ['', ''];
+  const fark = kendi > 0 ? b.L - kendi : null;
   const sizde = kendi > 0 ? `<span class="op-mine">${esc(`Sizde: ${NF0.format(kendi)} seviye`)}${fark ? ` ${chip(isaretli(fark), fark > 0 ? 'up' : 'down')}` : ''}</span>` : '';
-  const urun = e.L > 0 || e.sinir !== 'zarar'
-    ? `<div class="op-prod"><span class="op-name">${esc(ad.urun(x.id))}</span>${qChip(ad, x)}<span class="op-kar ${e.kar > 0 ? 'up' : ''}">${para(e.kar)}</span><span class="op-unit">/ gün</span></div>`
+  const urun = b.L > 0 || b.sinir !== 'zarar'
+    ? `<div class="op-prod"><span class="op-name">${esc(ad.urun(b.id))}</span>${qChip(ad, b)}<span class="op-kar ${b.kar > 0 ? 'up' : ''}">${para(b.kar)}</span><span class="op-unit">/ gün</span></div>`
     : '';
   let not = '';
-  if (e.sinir === 'pazar' && e.L > 0) not = pazarUyarisi(e, st.prefs.pay);
-  else if (e.sinir === 'zarar') not = `<p class="op-note">${esc('Bu binada hiçbir ürün, bir seviyenin maaşını ve eklediği yönetim giderini karşılamıyor.')}</p>`;
-  const alt = b.secenekler.slice(0, 6).map((y) => `<tr><th scope="row">${esc(ad.urun(y.x.id))} ${qChip(ad, y.x)}</th><td>${NF0.format(y.L)}</td><td class="${y.kar > 0 ? 'up' : ''}">${para(y.kar)}</td><td>${esc(SINIR[y.sinir]?.[0] || '')}</td></tr>`).join('');
-  const ayrinti = `<p class="op-note">${esc(`Fiyat ${fmtPrice(x.fiyat)} · girdi ${fmtPrice(x.girdi)} · seviye başına ${adet(x.ph)} adet/saat · pazar ${adet(x.pazar)} seviye`)}</p>`;
+  if (b.sinir === 'pazar' && b.L > 0) not = pazarUyarisi();
+  else if (b.sinir === 'zarar') not = `<p class="op-note">${esc('Bu binada 28 günlük verilerle kâr eden ürün yok.')}</p>`;
+  const alt = b.secenekler.map((y) => `<tr><th scope="row">${esc(ad.urun(y.id))} ${qChip(ad, y)}</th><td>${NF0.format(y.L)}</td><td class="${y.kar > 0 ? 'up' : ''}">${para(y.kar)}</td><td>${esc(SINIR[y.sinir]?.[0] || '')}</td></tr>`).join('');
   return `<article class="op-card" data-harf="${esc(b.harf)}">
-    <div class="op-top"><h3>${esc(ad.bina(b.harf))}</h3><span class="op-level"><b>${NF0.format(e.L)}</b><small>seviye</small></span></div>
+    <div class="op-top"><h3>${esc(ad.bina(b.harf))}</h3><span class="op-level"><b>${NF0.format(b.L)}</b><small>seviye</small></span></div>
     ${urun}
     <div class="op-chips">${sinirAd ? chip(sinirAd, sinirTur) : ''}${sizde}</div>
     ${not}
-    <details data-ac="${esc(b.harf)}"${st.acik?.has(b.harf) ? ' open' : ''}><summary>Diğer seçenekler</summary>${ayrinti}
+    <details data-ac="${esc(b.harf)}"${st.acik?.has(b.harf) ? ' open' : ''}><summary>Diğer seçenekler</summary>
       <div class="table-wrap"><table class="op-table"><thead><tr><th scope="col">Ürün</th><th scope="col">Seviye</th><th scope="col">Günlük kâr</th><th scope="col">Sınır</th></tr></thead><tbody>${alt}</tbody></table></div>
     </details>
   </article>`;
@@ -193,28 +164,24 @@ export function ayHtml(st, ad) {
   if (!st.binalar.length) return `<p class="op-empty">${esc('Bu ayarlarla gösterilecek bina yok.')}</p>`;
   const kartlar = st.binalar.map((b) => binaKarti(b, st, ad)).join('');
   const hepsi = st.urunlerAcik ? st.urunler : st.urunler.slice(0, LIST_MAX);
-  const satir = (u) => {
-    const e = u.en;
-    return `<tr><th scope="row">${esc(ad.urun(u.id))} ${qChip(ad, e.x)}</th><td class="op-b">${esc(ad.bina(u.harf))}</td><td>${NF0.format(e.L)}</td><td class="${e.kar > 0 ? 'up' : ''}">${para(e.kar)}</td><td>${esc(SINIR[e.sinir]?.[0] || '')}</td></tr>`;
-  };
+  const satir = (u) => `<tr><th scope="row">${esc(ad.urun(u.id))} ${qChip(ad, u)}</th><td class="op-b">${esc(ad.bina(u.harf))}</td><td>${NF0.format(u.L)}</td><td class="${u.kar > 0 ? 'up' : ''}">${para(u.kar)}</td><td>${esc(SINIR[u.sinir]?.[0] || '')}</td></tr>`;
   const daha = st.urunler.length > hepsi.length ? `<button type="button" class="op-more" data-act="urunler">${esc(`Tümünü göster (${st.urunler.length})`)}</button>` : '';
   return `<p class="op-lead">Her bina için 28 günlük fiyat ve satışla en kârlı ürün, kalite ve seviye. Seviye kararları için bu sekmeyi kullanın; ne üreteceğinizi Güncel sekmesi söyler.</p>
     <div class="op-grid">${kartlar}</div>
     <section class="op-block"><h2>Tüm ürünler</h2><p class="op-note">Her ürünün en kârlı kalitesi ve o ürün için önerilen seviye.</p>
       <div class="table-wrap"><table class="op-table"><thead><tr><th scope="col">Ürün</th><th scope="col">Bina</th><th scope="col">Seviye</th><th scope="col">Günlük kâr</th><th scope="col">Sınır</th></tr></thead><tbody>${hepsi.map(satir).join('')}</tbody></table></div>${daha}</section>
-    <p class="op-foot">Hesap: 28 günlük ortalama işlem fiyatı (VWAP) ve günlük satış; girdiler borsadan alınır (izin verilen en ucuz kalite); maaş, yönetim gideri, %4 komisyon ve taşıma düşülür. İnşaat maliyeti, kalite üretebilme (araştırma, patent) ve kendi ürettiğiniz girdiler hesaba katılmaz. Mevsimlik ürünler ve borsada satışı olmayan ürünler gösterilmez.</p>`;
+    <p class="op-foot">Öneriler DentSimco formülüyle hesaplanır. İnşaat maliyeti, kalite üretebilme (araştırma, patent) ve kendi ürettiğiniz girdiler hesaba katılmaz. Mevsimlik ürünler ve borsada satışı olmayan ürünler gösterilmez.</p>`;
 }
 
 function guncelKarti(g, st, ad) {
-  const x = g.en.x;
   const kaynakAd = g.kaynak === 'sizin' ? 'Sizin seviyeniz' : g.L > 0 ? '28 günlük öneri' : '1 seviye için';
   const chips = [chip(kaynakAd, 'muted')];
-  if (x.kaynak !== 'canli') chips.push(chip('28 günlük ortalama fiyat (yakın zamanda işlem yok)', 'warn'));
-  else if (x.girdiOrt) chips.push(chip('Girdi fiyatı 28 günlük ortalama (yakın zamanda işlem yok)', 'warn'));
-  if (x.olay) chips.push(chip(`Üretim olayı ${x.olay > 0 ? '+' : '−'}%${NF0.format(Math.abs(x.olay))}`, x.olay > 0 ? 'up' : 'down'));
-  // Ürünü değiştirmek ancak fark belirginse önerilir (O.DEGISIM_ESIGI_*); küçük farkta iki ürün de olur
+  if (!g.canli) chips.push(chip('28 günlük ortalama fiyat (yakın zamanda işlem yok)', 'warn'));
+  else if (g.girdiOrt) chips.push(chip('Girdi fiyatı 28 günlük ortalama (yakın zamanda işlem yok)', 'warn'));
+  if (g.olay) chips.push(chip(`Üretim olayı ${g.olay > 0 ? '+' : '−'}%${NF0.format(Math.abs(g.olay))}`, g.olay > 0 ? 'up' : 'down'));
+  // durum optimum-hesap.js'ten: ürünü değiştirmek ancak fark belirginse önerilir; küçük farkta iki ürün de olur
   let kiyas = '';
-  const onerilenAd = g.onerilen ? `${ad.urun(g.onerilen.x.id)}${ad.kaliteli(g.onerilen.x.id) ? ` Q${g.onerilen.x.q}` : ''}` : '';
+  const onerilenAd = g.onerilen ? `${ad.urun(g.onerilen.id)}${ad.kaliteli(g.onerilen.id) ? ` Q${g.onerilen.q}` : ''}` : '';
   if (g.durum === 'degistir') {
     kiyas = `<p class="op-switch">${esc(`28 günlük önerideki ${onerilenAd} şu an ${para(g.onerilen.kar)} / gün; bu ürün günde ${para(g.fark)} daha kârlı.`)}</p>`;
   } else if (g.durum === 'yakin') {
@@ -222,10 +189,10 @@ function guncelKarti(g, st, ad) {
   } else if (g.onerilen) {
     kiyas = `<p class="op-note">${esc('28 günlük öneriyle aynı ürün.')}</p>`;
   }
-  const asim = g.pazarAsimi ? `<p class="op-warn" role="note">${esc('Bu seviye, ürünün pazar payından büyük: fazla üretim fiyatı düşürmeden satılamayabilir. Kâr yalnız pazar payı kadar satışla hesaplandı.')}</p>` : '';
+  const asim = g.pazarAsimi ? `<p class="op-warn" role="note">${esc('Bu seviye, ürünün pazar payından büyük: fazla üretim fiyatı düşürmeden satılamayabilir.')}</p>` : '';
   return `<article class="op-card">
     <div class="op-top"><h3>${esc(ad.bina(g.harf))}</h3><span class="op-level"><b>${NF0.format(g.hesapL)}</b><small>seviye</small></span></div>
-    <div class="op-prod"><span class="op-name">${esc(ad.urun(x.id))}</span>${qChip(ad, x)}<span class="op-kar ${g.en.kar > 0 ? 'up' : 'down'}">${para(g.en.kar)}</span><span class="op-unit">/ gün</span></div>
+    <div class="op-prod"><span class="op-name">${esc(ad.urun(g.id))}</span>${qChip(ad, g)}<span class="op-kar ${g.kar > 0 ? 'up' : 'down'}">${para(g.kar)}</span><span class="op-unit">/ gün</span></div>
     <div class="op-chips">${chips.join('')}</div>
     ${kiyas}${asim}
   </article>`;
@@ -238,13 +205,13 @@ export function guncelHtml(st, ad) {
   return `<p class="op-lead">Seviyeniz sabitken canlı borsa fiyatıyla şu an en kârlı ürün ve kalite. Bu sekme seviye önermez: seviyeyi sık değiştirmek geçmiş sınamada kazandırmadı, ürünü değiştirmek kazandırdı.</p>
     <p class="op-line">${esc(canli)}</p>
     <div class="op-grid">${st.guncel.map((g) => guncelKarti(g, st, ad)).join('')}</div>
-    <p class="op-foot">Pazar büyüklüğü 28 günlük satıştan, fiyatlar canlı borsadan. Son işlemi 6 saatten eski fiyatların yerine 28 günlük ortalama kullanılır. Etkin üretim hızı olayları üretime eklenir.</p>`;
+    <p class="op-foot">Fiyatlar canlı borsadan alınır; yakın zamanda işlem görmeyen ürünlerde 28 günlük ortalama kullanılır. Etkin üretim olayları hesaba katılır.</p>`;
 }
 
 export function basHtml(st) {
   const oz = st.oz;
   const zaman = oz ? `${fmtDate(Date.parse(`${oz.bas}T12:00:00Z`))} – ${fmtDate(Date.parse(`${oz.gun}T12:00:00Z`))} verisiyle · ${fmtAgo(oz.t, st.simdi)}` : 'Özet yok';
-  const eski = oz && O.ozetEskiMi(oz, st.simdi);
+  const eski = Boolean(oz && st.eski);
   return `<div class="op-head"><div><h1>Optimum Seviye</h1><p class="op-when${eski ? ' stale' : ''}">${esc(zaman)}</p></div>
     <button type="button" class="icon-btn" data-act="yenile" aria-label="Yenile" title="Yenile"><svg viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M16.2 10a6.2 6.2 0 1 1-1.9-4.5M16.4 3.4v3.4H13" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button></div>
     ${eski ? `<p class="op-warn" role="alert">${esc(`28 günlük özet güncel değil: son hesap ${fmtDateTime(oz.t)}. Öneriler bu tarihin verisiyle.`)}</p>` : ''}`;
@@ -370,7 +337,7 @@ export function mountOptimum(root, { realm = 0 } = {}) {
       return;
     }
     if (!yuklenen) { root.innerHTML = '<section class="op" aria-busy="true"><div class="op-head"><div><h1>Optimum Seviye</h1><p class="op-when">Yükleniyor</p></div></div></section>'; return; }
-    const st = durumHesapla({
+    const st = O.sayfaDurumu({
       ...yuklenen, company: Y.loadCompanyRecord(r).company, kurulum: kurulumOku(r), gamePhase, prefs, simdi: Date.now(),
     });
     st.acik = acik;

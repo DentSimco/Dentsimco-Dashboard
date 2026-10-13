@@ -5,7 +5,7 @@
 import { readFileSync } from 'node:fs';
 import * as H from '../public/hesap.js';
 import * as O from '../public/optimum-hesap.js';
-import { durumHesapla, sayfaHtml, uyarilarHtml, R2_HTML } from '../public/optimum.js';
+import { sayfaHtml, uyarilarHtml, R2_HTML } from '../public/optimum.js';
 import EN from '../public/dil-en.js';
 import { sozlukDerle, cevirMetin } from '../public/i18n.js';
 import { BINA_ADLARI_EN } from '../public/adlar.js';
@@ -235,7 +235,7 @@ test('Faz seçimi ve özetin yaşı', () => {
 // ---- Sayfa ----
 const PREFS = { tab: 'ay', faz: 'auto', pay: 0.25 };
 const st = (o = {}) => {
-  const s = durumHesapla({ data, mevsimlik: MEVSIM, ozet: DOC, live: null, company: null, kurulum: null, gamePhase: { index: 0, expired: false }, prefs: PREFS, simdi: NOW, ...o });
+  const s = O.sayfaDurumu({ data, mevsimlik: MEVSIM, ozet: DOC, live: null, company: null, kurulum: null, gamePhase: { index: 0, expired: false }, prefs: PREFS, simdi: NOW, ...o });
   s.acik = new Set();
   return s;
 };
@@ -252,9 +252,9 @@ test('Yönetici girilmemişse sayfa Yönetim › Ekip uyarısı verir; şirket g
 
 test('Pazar sınırlı her önerinin kartında güvenilirlik uyarısı var', () => {
   const s = st();
-  const n = s.binalar.filter((b) => b.en.sinir === 'pazar' && b.en.L > 0).length;
+  const n = s.binalar.filter((b) => b.sinir === 'pazar' && b.L > 0).length;
   if (!n) throw new Error('örnekte pazar sınırlı bina yok');
-  eq(sayfaHtml(s, ad).split('Pazar sınırlı: öneriyi borsadaki günlük satış belirliyor').length - 1, n);
+  eq(sayfaHtml(s, ad).split('Pazar sınırlı: bu öneriyi borsadaki satış hacmi belirliyor').length - 1, n);
 });
 
 test('Borsada satışı olmayan ürün ve mevsimlik ürün sayfada yok; sizin binalarınız önde', () => {
@@ -272,6 +272,62 @@ test('Özet yoksa sayfa açılır ve gece hesabını bekler; R2 geliştirme aşa
   eq(s.binalar.length, 0);
   if (!sayfaHtml(s, ad).includes('28 günlük özet henüz hesaplanmadı')) throw new Error('bekleme mesajı yok');
   if (!R2_HTML.includes('geliştirme aşamasında')) throw new Error('R2 mesajı yok');
+});
+
+// ---- Formüller gizli: hesap yalnız güçlü gizlenen dosyada, ekran yalnız sonucu görür ----
+const anahtarlar = (o, izin, ad) => {
+  const fazla = Object.keys(o).filter((k) => !izin.includes(k));
+  if (fazla.length) throw new Error(`${ad}: ekrana ara değer gidiyor (${fazla.join(', ')})`);
+};
+test('Ekran yalnız sonucu görür: sayfa durumunda fiyat, girdi, saatlik üretim, pazar büyüklüğü ya da katsayı yok', () => {
+  const live = { t: NOW, items: { 2: [NOW, { 0: [0.6, null, 0, 0, NOW - SAAT] }] } };
+  for (const c of [{}, { company: COMPANY, kurulum: KURULUM }]) {
+    const s = st({ ...c, live });
+    anahtarlar(s, ['oz', 'eski', 'sirket', 'faz', 'gamePhase', 'prefs', 'simdi', 'liveT', 'binalar', 'urunler', 'guncel', 'acik'], 'durum');
+    anahtarlar(s.oz, ['t', 'gun', 'bas'], 'özet');
+    anahtarlar(s.sirket, ['s', 'ekipVar', 'sirketVar', 'toplamSeviye', 'kendi'], 'şirket');
+    for (const v of Object.values(s.sirket.kendi)) eq(typeof v, 'number', 'kendi binalar yalnız seviye');
+    if (!s.binalar.length || !s.guncel.length) throw new Error('örnek boş');
+    for (const b of s.binalar) {
+      anahtarlar(b, ['harf', 'id', 'q', 'L', 'kar', 'sinir', 'secenekler'], 'bina');
+      for (const y of b.secenekler) anahtarlar(y, ['id', 'q', 'L', 'kar', 'sinir'], 'seçenek');
+    }
+    for (const u of s.urunler) anahtarlar(u, ['harf', 'id', 'q', 'L', 'kar', 'sinir'], 'ürün');
+    for (const g of s.guncel) {
+      anahtarlar(g, ['harf', 'L', 'hesapL', 'kaynak', 'id', 'q', 'kar', 'canli', 'girdiOrt', 'olay', 'onerilen', 'fark', 'durum', 'pazarAsimi'], 'güncel');
+      if (g.onerilen) anahtarlar(g.onerilen, ['id', 'q', 'kar'], 'güncel öneri');
+    }
+  }
+});
+
+test('Formül dosyası yayında en güçlü ayarla gizlenir; ekran dosyası yalnız sonucu ister; katsayılar dışa açılmaz', () => {
+  const gizle = readFileSync(new URL('../araclar/gizle.mjs', import.meta.url), 'utf8');
+  const formul = /const FORMUL = new Set\(\[([^\]]*)\]\)/.exec(gizle)?.[1] || '';
+  if (!formul.includes("'optimum-hesap.js'")) throw new Error('optimum-hesap.js FORMUL listesinde değil');
+  for (const k of ['GUN_PAYI', 'UC_FIYAT_KAT', 'TAZE_SA', 'ESKI_SA', 'DEGISIM_ESIGI_USD', 'DEGISIM_ESIGI_PAY', 'kOf', 'uygunMu', 'ozetYasi']) {
+    if (k in O) throw new Error(`${k} dışa açık`);
+  }
+  // Ekran dosyası hesap motorundan yalnız sonucu ve gösterim sabitlerini ister. Kaynak metne bakar: site.yml testleri
+  // gizlenmiş kopyayla da çalıştırır, orada adlar karıştığı için bu bölüm yalnız okunur kodda (ilk test turunda) denetlenir.
+  const ekran = readFileSync(new URL('../public/optimum.js', import.meta.url), 'utf8');
+  if (ekran.includes("import * as O from './optimum-hesap.js';")) {
+    const kullanilan = [...new Set([...ekran.matchAll(/\bO\.([A-Za-z_]+)/g)].map((m) => m[1]))].sort();
+    eqj(kullanilan, ['FAZ_ADLARI', 'HACIM_OYNAKLIK_PCT', 'PAYLAR', 'VARSAYILAN_PAY', 'mevsimlikUrunler', 'sayfaDurumu']);
+  }
+});
+
+test('Sayfa yöntemi ya da ara değeri yazmaz (yalnız "DentSimco formülü")', () => {
+  const live = { t: NOW, items: { 2: [NOW, { 0: [0.6, null, 0, 0, NOW - SAAT] }] } };
+  const yasak = ['adet/saat', 'seviye başına', 'VWAP', 'komisyon', 'adet/gün', 'Kâr yalnız', 'maaşlarına', 'maaşını', '6 saat', 'en ucuz kalite'];
+  for (const tab of ['ay', 'guncel']) {
+    for (const c of [{}, { company: COMPANY, kurulum: KURULUM }]) {
+      const s = st({ ...c, live, prefs: { ...PREFS, tab } });
+      s.acik = new Set(s.binalar.map((b) => b.harf));
+      const html = sayfaHtml(s, ad);
+      for (const y of yasak) if (html.includes(y)) throw new Error(`sayfada "${y}" geçiyor`);
+    }
+  }
+  if (!sayfaHtml(st(), ad).includes('DentSimco formülüyle hesaplanır')) throw new Error('dipnot yok');
 });
 
 // Sayfanın her hâlindeki bütün yazılar (metin, title, aria-label) İngilizceye çevrilmeli
