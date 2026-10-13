@@ -10,11 +10,9 @@ export const UPDATES = [
   {
     date: '13 Ekim 2026',
     items: [
-      "Optimum Seviye › Perakende: mağaza, ürün ve kalite seçince ideal seviye çıkar (satış ve alım sınırsız varsayılır; en kârlı fiyat ve borsanın güncel maliyeti kullanılır). Şirketinizin bugünkü binalarının üstüne eklenir; Yeni mağaza olarak ekle ya da Mevcut mağazaya ekle ile doğrudan Perakende'ye yazılır.",
-      "Optimum Seviye iki sekmeye ayrıldı: Tüm Ürün Satışına Göre (yeni; satış sınırsız sayılır) ve Borsa Satışına Göre (önceki sayfa, değişmedi). Yeni sekmede bina, ürün ve kalite seçince şirketinizin bugünkü binalarının üstüne eklenecek en kârlı seviye çıkar; Yeni bina olarak ekle ya da Mevcut binaya ekle ile doğrudan Üretim'e yazılır.",
-      'Optimum Seviye sayfası eklendi (Piyasa ile Kâr Hesaplayıcı arasında; şimdilik R1 üretim binaları): her bina için son 28 günün borsa fiyatı ve satışıyla en kârlı ürün, kalite ve seviye. Güncel sekmesi, seviyeniz sabitken canlı fiyatla şu an en kârlı ürünü gösterir.',
-      'Optimum Seviye önerileri şirketinize göre hesaplanır: doğru sonuç için Yönetim › Ekip ve Üretim bölümlerini doldurun. Pazarı küçük ürünlerde öneri "Pazar sınırlı" uyarısıyla gösterilir.',
-      'Optimum Seviye › Kontratlarım: kontratla sattığınız ürünün günlük adedini ve fiyatını yazın (sayı ya da yüzde, dolar ya da borsadan indirim yüzdesi). Öneriler kontrat ve borsa satışını birlikte hesaplar; kontratlar yalnız bu tarayıcıda saklanır.',
+      "Optimum Seviye sayfası eklendi (Piyasa ile Kâr Hesaplayıcı arasında; şimdilik R1): iki sekmesi var, Üretim ve Perakende. Öneriler şirketinize göre hesaplanır: doğru sonuç için Yönetim › Ekip ve Üretim bölümlerini doldurun.",
+      "Optimum Seviye › Üretim: bina, ürün ve kalite seçince şirketinizin bugünkü binalarının üstüne eklenecek en kârlı seviye çıkar (satış sınırsız, 28 günlük borsa fiyatıyla). Seçili ürünün en kârlı kalitesi yıldızla (★) işaretlenir. Yeni bina olarak ekle ya da Mevcut binaya ekle ile doğrudan Üretim'e yazılır.",
+      "Optimum Seviye › Perakende: mağaza, ürün ve kalite seçince ideal seviye çıkar (satış ve alım sınırsız; en kârlı fiyat ve borsanın güncel maliyeti kullanılır). En kârlı kalite yıldızla işaretlenir; Yeni mağaza olarak ekle ya da Mevcut mağazaya ekle ile doğrudan Perakende'ye yazılır.",
     ],
   },
   {

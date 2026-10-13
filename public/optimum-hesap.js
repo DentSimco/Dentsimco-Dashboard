@@ -8,7 +8,7 @@
 // Soru: bir üretim binası kaç seviye olsun ve ne üretsin? Yanıt iki sınırın küçüğüdür:
 //   • Yönetim gideri sınırı: ek seviyenin kârı, kendi maaşına ve şirketin TÜM maaşlarına eklediği yönetim giderine eşitlenir.
 //   • Pazar sınırı: borsadaki günlük satışın en çok "pazar payı" kadarı satılır (daha fazlası fiyatı bozar).
-// Veri: meta/optimum_r0 (son 28 günün borsa özeti; gece sinyal/optimum.mjs yazar) ve Güncel için canlı borsa (live/r0).
+// Veri: meta/optimum_r0 (son 28 günün borsa özeti; gece sinyal/optimum.mjs yazar) ve canlı borsa (live/r0).
 // Formüller hesap.js ile aynı: yönetim gideri = (toplam seviye − 1) ÷ 170, net = brüt × (1 − yönetici tasarrufu),
 // maaş = taban maaş × seviye × (1 + net), borsa komisyonu %4, taşıma = taşıma birimi × taşıma fiyatı, faz ve rekreasyon hızı.
 //
@@ -22,17 +22,8 @@
 //   Sınırsız en iyi seviye L* = (a − b − w − k · (w · (Lo − 1) + Wo)) ÷ (2 · w · k);  öneri = L* ile P'nin küçüğü (tam sayı)
 // Pazar (seviye) = günlük satış ÷ 24 ÷ seviye başına saatlik üretim: o kalitenin bütün pazarını tek başına beslemek kaç seviye eder.
 //
-// Kontrat (isteğe bağlı; kullanıcı yazar): bir ürün × kalite için günlük adet K ve fiyat pc. Kullanıcının bildiği gerçek bir sayıdır
-// (piyasada ölçülemez), seviyeyle büyümez. İki satış kanalı birim net gelire göre büyükten küçüğe doldurulur:
-//   kontrat K adede kadar (net = pc − yarım taşıma; komisyon yok), borsa pazar payı kadar; üstü boşta kalır.
-//   Gelir parçalı doğrusal ve içbükeydir, kâr hâlâ tek tepelidir: aday seviyeler kanal sınırları ve her kanalın kendi L*'ıdır.
-//   Adet "%50" yazılırsa Üretim kurulumundaki mevcut üretimin yarısına çevrilir ve sabit sayı olarak kullanılır.
-//   Fiyat dolar ("48") ya da borsa fiyatından indirim ("%4") yazılır; boşsa %3 indirim varsayılır. Aynı ürün × kalite için
-//   birden çok satır adetçe toplanır, fiyat adetle ağırlıklı ortalamadır.
-
 import * as H from './hesap.js';
 import * as R from './hesap-perakende.js';
-import { parseNum, parsePrice } from './sayi.js';
 
 export const PAYLAR = [0.1, 0.25, 0.5, 1]; // hazır seçenekler; kullanıcı 1 – 100 arası kendi oranını da yazabilir
 export const VARSAYILAN_PAY = 0.25;
@@ -40,20 +31,10 @@ export const SINIRSIZ = Infinity; // "Tüm Ürün Satışına Göre": pazar sın
 const SEVIYE_TAVAN = 100000; // sınırsız satışta, yönetim gideri hiç bağlamıyorsa (tasarruf %100) en çok bu seviye aranır
 const GUN_PAYI = 0.5; // kalite, pencerenin en az yarısında işlem görmeli (seyrek işlemin fiyatı yanıltır)
 const UC_FIYAT_KAT = 5; // kalitenin fiyatı Q0'ın bu katını aşıyorsa (birkaç uç işlem) satır kullanılmaz
-const TAZE_SA = 6; // Güncel: son işlemi bundan eski fiyat yerine 28 günlük ortalama kullanılır
 const SON_ISLEM_GUN = 28; // son işlem fiyatı en çok bu kadar gün eskiyse kullanılır
 const ESKI_SA = 36; // 28 günlük özet bundan eskiyse sayfa uyarır
-// 2025-10 – 2026-10 geçmişi: 28 günlük ortalama satış hacmi aydan aya medyanda ±%32 değişti (pazar sınırlı uyarısında)
-export const HACIM_OYNAKLIK_PCT = 32;
-// Güncel: başka ürün en az bu kadar daha kârlıysa "ürünü değiştir" denir (günlük $ ve 28 günlük önerinin kârına oran)
-const DEGISIM_ESIGI_USD = 1000;
-const DEGISIM_ESIGI_PAY = 0.05;
 export const FAZ_ADLARI = ['Resesyon', 'Normal', 'Boom'];
 const MEVSIM_BINALARI = ['t', 'u', 'z', 'I']; // mevsimlik pazarlar: burada satılan ürünler mevsimliktir
-const KONTRAT_INDIRIM = 3; // kontrat fiyatı boş bırakılırsa borsa fiyatının bu kadar yüzde altı (oyuncular çoğunlukla böyle yapıyor)
-const KONTRAT_INDIRIM_ARALIK = [-50, 90]; // yazılan indirim yüzdesi bu aralıkta olmalı (eksi: borsadan pahalı)
-const KONTRAT_EN_COK_ADET = 1e10;
-export const KONTRAT_EN_COK = 30; // kayıtlı kontrat satırı sayısı
 const SAAT_MS = 3_600_000;
 
 const num = (x, d = 0) => (x !== null && x !== '' && x !== undefined && Number.isFinite(Number(x)) ? Number(x) : d);
@@ -98,16 +79,6 @@ export const sonFiyat = (oz, live, simdi = Date.now()) => (id, q) => {
   return p > 0 && lt > 0 && simdi - lt <= SON_ISLEM_GUN * 24 * SAAT_MS ? { p, kaynak: 'son' } : null;
 };
 
-export const canliFiyat = (oz, live, simdi = Date.now()) => (id, q) => {
-  const x = oz.kayit(id, q);
-  if (!x) return null;
-  const v = live?.items?.[id]?.[1]?.[q];
-  const p = Number(v?.[0]);
-  const lt = Number(v?.[4]);
-  if (p > 0 && lt > 0 && simdi - lt <= TAZE_SA * SAAT_MS) return { p, kaynak: 'canli', lt };
-  return { p: x[0], kaynak: 'ort' };
-};
-
 /** Mevsimlik ürünler: oyun verisinde sezonu olanlar ve mevsimlik pazarlarda satılanlar (Noel ağacı, Cadı kostümü …) */
 export function mevsimlikUrunler(rawProducts, core) {
   const out = new Set();
@@ -131,16 +102,14 @@ function uygunMu(data, p, mevsimlik = new Set()) {
 /**
  * @param o.data      hesap.js normalizeData çıktısı
  * @param o.oz        ozetOku çıktısı (pazar büyüklüğü her zaman 28 günlük satıştan)
- * @param o.fiyat     ortFiyat(oz) ya da canliFiyat(oz, live, simdi)
+ * @param o.fiyat     ortFiyat(oz) ya da sonFiyat(oz, live, simdi)
  * @param o.faz       0 Resesyon, 1 Normal, 2 Boom (üretim hızı)
  * @param o.kurulum   Üretim kurulumundan { recreation, extraBonusPct } (rekreasyon ve elle hız bonusu)
- * @param o.olaylar   true: etkin üretim hızı olayları uygulanır (yalnız Güncel)
- * @param o.kontrat   (ürün, kalite, { phTaban, ref }) → { K, pc } | null: kullanıcının kontratı (adet/gün, fiyat)
  * @param o.satisFiyat ürünün KENDİ satış fiyatı (varsayılan fiyat); girdiler her zaman fiyat ile fiyatlanır
  * @param o.tumKaliteler true: özette olmayan kaliteler de (satisFiyat bir fiyat verirse) satır olur; pazar büyüklüğü bilinmez,
  *                       bir seviyeyi beslemese de satır kalır (yalnız pazar sınırsız hesapta kullanılır)
  */
-export function satirlar({ data, oz, fiyat, mevsimlik, faz = 0, kurulum, olaylar = false, simdi = Date.now(), kontrat, satisFiyat, tumKaliteler = false }) {
+export function satirlar({ data, oz, fiyat, mevsimlik, faz = 0, kurulum, satisFiyat, tumKaliteler = false }) {
   const out = [];
   if (!data || !oz) return out;
   const tp = fiyat(H.TRANSPORT_ID, 0)?.p ?? 0;
@@ -150,10 +119,8 @@ export function satirlar({ data, oz, fiyat, mevsimlik, faz = 0, kurulum, olaylar
     if (!uygunMu(data, p, mev)) continue;
     const bonus = H.speedBonus(ayar, H.buildingCategory(data, p.building));
     if (bonus >= 1) continue;
-    const olay = olaylar ? H.activeEventPct(data, p.id, simdi) : 0;
-    const ph = (p.perHour * H.phaseSpeedFactor(data, ayar, p) * (1 + olay / 100)) / (1 - bonus);
+    const ph = (p.perHour * H.phaseSpeedFactor(data, ayar, p)) / (1 - bonus);
     if (!(ph > 0)) continue;
-    const phTaban = olay ? (p.perHour * H.phaseSpeedFactor(data, ayar, p)) / (1 - bonus) : ph; // olaysız: "mevcut üretim" yüzdesi buna göre çevrilir
     const sat = satisFiyat || fiyat;
     const q0 = sat(p.id, 0)?.p ?? null;
     const kaliteler = H.hasQuality(p) ? (tumKaliteler ? Array.from({ length: H.MAX_QUALITY + 1 }, (_, i) => i) : oz.kaliteler(p.id)) : [0];
@@ -180,70 +147,14 @@ export function satirlar({ data, oz, fiyat, mevsimlik, faz = 0, kurulum, olaylar
       if (eksik) continue;
       const net = H.saleUnitNet(f.p, p.transport, tp, 'exchange');
       const pazar = k ? k[1] / 24 / ph : 0;
-      const kt = (kontrat ? kontrat(p.id, q, { phTaban, ref: f.p }) : null) || null;
-      if (pazar < 1 && !kt && !tumKaliteler) continue; // bütün pazar bir seviyeyi bile beslemiyor (kontratı olan ürün kalır)
+      if (pazar < 1 && !tumKaliteler) continue; // bütün pazar bir seviyeyi bile beslemiyor
       out.push({
-        id: p.id, q, harf: p.building, fiyat: f.p, kaynak: f.kaynak, girdi, girdiOrt, net, ph, phTaban,
-        a: ph * net, b: ph * girdi, g: ph * (net - girdi), w: p.baseSalary, adet: k ? k[1] : 0, gun: k ? k[2] : 0, pazar, olay,
-        // sv: kontratın kaç seviyenin üretimini karşıladığı
-        kontrat: kt ? { K: kt.K, pc: kt.pc, net: H.saleUnitNet(kt.pc, p.transport, tp, 'contract'), sv: kt.K / (H.HOURS_PER_DAY * ph) } : null,
+        id: p.id, q, harf: p.building, fiyat: f.p, kaynak: f.kaynak, girdi, girdiOrt, net, ph,
+        a: ph * net, b: ph * girdi, g: ph * (net - girdi), w: p.baseSalary, adet: k ? k[1] : 0, gun: k ? k[2] : 0, pazar,
       });
     }
   }
   return out;
-}
-
-// ---------------------------------------------------------------------------------------------------------------
-// Kontrat: kullanıcının yazdığı adet ve fiyat
-// ---------------------------------------------------------------------------------------------------------------
-
-/**
- * Bir kontrat satırını sayıya çevirir. g: { adet, fiyat } (kutuya yazılan metinler)
- *   adet:  "250000" (adet/gün) ya da "%50" (Üretim kurulumundaki mevcut üretimin yüzdesi; sabit adede çevrilir)
- *   fiyat: "48" (dolar) ya da "%4" (borsa fiyatından indirim; eksi: borsadan pahalı); boşsa %3 indirim
- * ctx: { uretim: bu ürünün Üretim kurulumundaki günlük üretimi (adet/gün), ref: borsa fiyatı }
- * Dönüş: { ok: true, K, pc, yuzde } | { ok: false, hata: 'adet' | 'uretimYok' | 'fiyat' }
- */
-export function kontratCoz(g, { uretim = 0, ref = 0 } = {}) {
-  const adetMetin = String(g?.adet ?? '').trim();
-  const yuzdeAdet = adetMetin.includes('%');
-  const v = yuzdeAdet ? parseNum(adetMetin) : parsePrice(adetMetin);
-  if (!(v > 0)) return { ok: false, hata: 'adet' };
-  let K;
-  if (yuzdeAdet) {
-    if (v > 100) return { ok: false, hata: 'adet' };
-    if (!(uretim > 0)) return { ok: false, hata: 'uretimYok' };
-    K = (uretim * v) / 100;
-  } else {
-    K = v;
-  }
-  if (!(K > 0) || K > KONTRAT_EN_COK_ADET) return { ok: false, hata: 'adet' };
-  const fiyatMetin = String(g?.fiyat ?? '').trim();
-  let pc;
-  if (!fiyatMetin) {
-    pc = ref * (1 - KONTRAT_INDIRIM / 100);
-  } else if (fiyatMetin.includes('%')) {
-    const d = parseNum(fiyatMetin);
-    if (d == null || d < KONTRAT_INDIRIM_ARALIK[0] || d > KONTRAT_INDIRIM_ARALIK[1]) return { ok: false, hata: 'fiyat' };
-    pc = ref * (1 - d / 100);
-  } else {
-    pc = parsePrice(fiyatMetin, { ref });
-  }
-  if (!(pc > 0) || pc > 1e9) return { ok: false, hata: 'fiyat' };
-  return { ok: true, K, pc, yuzde: yuzdeAdet ? v : null };
-}
-
-// Aynı ürün × kalite için çözülmüş satırlar tek kontrata birleşir: adet toplanır, fiyat adetle ağırlıklı ortalama olur
-const kontratBirlestir = (liste) => {
-  const K = liste.reduce((t, r) => t + r.K, 0);
-  return { K, pc: liste.reduce((t, r) => t + r.K * r.pc, 0) / K };
-};
-
-// Üretim kurulumundaki binaların bu ürünü günde kaç adet ürettiği (inşaattaki bina üretmez)
-function uretimGunluk(kurulum, data, id, phTaban) {
-  let sv = 0;
-  for (const b of kurulum?.buildings || []) if (Number(b?.product) === id && !b.construction) sv += H.buildingLevels(b, data);
-  return sv * phTaban * H.HOURS_PER_DAY;
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -295,21 +206,12 @@ export function digerleri(sirket, harf) {
 const kOf = (s) => Math.max(0, 1 - num(s, 0)) / H.ADMIN_LEVELS_PER_UNIT;
 
 /**
- * Satış kanalları, birim net gelirden (seviye başına saatlik a) büyükten küçüğe, seviye cinsinden aralıklarla:
- * borsa [0, pay × pazar] ve varsa kontrat [sv]. Eşitlikte kontrat önce. Her kanal: { kont, a, sv, lo, hi }.
+ * Satış kanalı: borsa [0, pay × pazar] seviye aralığı (sınırsızda en çok SEVIYE_TAVAN); birim net gelir seviye başına saatlik a.
+ * Her kanal: { a, sv, lo, hi }. (Tek kanal; hesap kanal listesi üzerinden yazıldığı için liste döner.)
  */
 function kanallar(x, pay) {
-  const liste = [{ kont: false, a: x.a, sv: pay === SINIRSIZ ? SEVIYE_TAVAN : pay * x.pazar }];
-  if (x.kontrat) liste.push({ kont: true, a: x.ph * x.kontrat.net, sv: x.kontrat.sv });
-  liste.sort((p, q) => q.a - p.a || (q.kont ? 1 : 0) - (p.kont ? 1 : 0));
-  let kum = 0;
-  return liste.map((c) => {
-    const lo = kum;
-    kum += c.sv;
-    return { ...c, lo, hi: kum };
-  });
+  return [{ a: x.a, sv: pay === SINIRSIZ ? SEVIYE_TAVAN : pay * x.pazar, lo: 0, hi: pay === SINIRSIZ ? SEVIYE_TAVAN : pay * x.pazar }];
 }
-const satilabilirSv = (x, pay) => (x.kontrat ? pay * x.pazar + x.kontrat.sv : pay * x.pazar);
 
 /** Seviye L'de günlük kâr ($). x: satirlar() satırı; o: { s, pay, Lo, Wo }. Satılamayan seviye boşta kalır. */
 export function gunlukKar(L, x, { s = 0, pay = VARSAYILAN_PAY, Lo = 0, Wo = 0 } = {}) {
@@ -330,7 +232,7 @@ export function optimum(x, o = {}) {
   const { s = 0, pay = VARSAYILAN_PAY, Lo = 0, Wo = 0 } = o;
   const k = kOf(s);
   const ch = kanallar(x, pay);
-  const P = ch[ch.length - 1].hi; // satılabilen toplam (seviye): borsa payı + kontrat
+  const P = ch[ch.length - 1].hi; // satılabilen toplam (seviye): borsa payı
   // Birim geliri a olan kanalda sınırsız en iyi seviye
   const yonetimSv = (a) => {
     const g = a - x.b;
@@ -389,36 +291,6 @@ export function urunOnerileri(rows, o = {}) {
   return out.sort((a, b) => sirala(a.en, b.en));
 }
 
-/**
- * Güncel: seviye sabitken (sizin seviyeniz, yoksa 28 günlük öneri) canlı fiyatla en kârlı ürün ve kalite.
- * Seviye önermez; seviyeyi haftalık değiştirmek geçmiş sınamada kazandırmadı, ürün seçimini değiştirmek kazandırdı.
- * o: { s, pay, sirket, seviye: (harf) => { L, kaynak: 'sizin' | 'oneri' }, oneri: (harf) => { id, q } | null }
- * Dönüş: [{ harf, L, kaynak, en: {x, kar}, onerilen: {x, kar} | null, fark, pazarAsimi }]
- */
-export function guncelOneriler(rows, o = {}) {
-  const out = [];
-  for (const [harf, list] of grupla(rows, (x) => x.harf)) {
-    const ref = (o.seviye ? o.seviye(harf) : null) || { L: 0, kaynak: 'oneri' };
-    const L = Math.max(0, Math.floor(num(ref.L, 0)));
-    const hesapL = L > 0 ? L : 1; // önerilmeyen bina: bir seviye için en iyisi gösterilir
-    const d = digerleri(o.sirket, harf);
-    const sec = list.map((x) => ({ x, kar: gunlukKar(hesapL, x, { ...o, ...d }) })).sort((a, b) => b.kar - a.kar);
-    const en = sec[0];
-    const hedef = o.oneri ? o.oneri(harf) : null;
-    const onerilen = hedef ? sec.find((y) => y.x.id === hedef.id && y.x.q === hedef.q) || null : null;
-    const fark = onerilen ? en.kar - onerilen.kar : null;
-    const ayni = !onerilen || (onerilen.x.id === en.x.id && onerilen.x.q === en.x.q);
-    out.push({
-      harf, L, hesapL, kaynak: ref.kaynak, en, onerilen, fark,
-      // 'ayni': 28 günlük öneri hâlâ en iyisi | 'degistir': başka ürün belirgin daha kârlı | 'yakin': fark küçük
-      durum: ayni ? 'ayni' : fark >= Math.max(DEGISIM_ESIGI_USD, DEGISIM_ESIGI_PAY * Math.abs(onerilen.kar)) ? 'degistir' : 'yakin',
-      // 28 günlük öneri pazar sınırını yukarı yuvarlar (son seviye kısmen boşta); uyarı ancak bundan fazlasında çıkar
-      pazarAsimi: hesapL > Math.ceil(satilabilirSv(en.x, o.pay ?? VARSAYILAN_PAY)),
-    });
-  }
-  return out.sort((a, b) => b.en.kar - a.en.kar);
-}
-
 /** Fazı seç: kullanıcının seçimi ('auto' | 0 | 1 | 2) ve oyunun güncel evresi (loadGamePhase) → 0–2 */
 export function fazSec(secim, oyun) {
   if (secim === 0 || secim === 1 || secim === 2) return secim;
@@ -438,24 +310,7 @@ export const ozetEskiMi = (oz, simdi = Date.now()) => {
 
 const KARSILASTIRMA = 6; // "Diğer seçenekler" tablosundaki satır
 
-// Seviye L'de satışın kaç seviyesi kontrattan, kaçı borsadan karşılanıyor
-function dagitim(x, pay, L) {
-  const ch = kanallar(x, pay);
-  const A = Math.min(L, ch[ch.length - 1].hi);
-  let kontratSv = 0;
-  let borsaSv = 0;
-  for (const c of ch) {
-    const v = Math.max(0, Math.min(A, c.hi) - c.lo);
-    if (c.kont) kontratSv += v; else borsaSv += v;
-  }
-  return { kontratSv, borsaSv };
-}
-const kontratBilgi = (x, L, pay) => {
-  if (!x.kontrat) return null;
-  const d = dagitim(x, pay, L);
-  return { adet: x.kontrat.K, fiyat: x.kontrat.pc, fark: x.kontrat.pc / x.fiyat - 1, kontratSv: d.kontratSv, borsaSv: d.borsaSv };
-};
-const sonuc = (e, pay) => ({ id: e.x.id, q: e.x.q, L: e.L, kar: e.kar, sinir: e.sinir, kontrat: kontratBilgi(e.x, e.L, pay) });
+const sonuc = (e) => ({ id: e.x.id, q: e.x.q, L: e.L, kar: e.kar, sinir: e.sinir });
 
 /**
  * Perakende: mağaza (bina) × ürün × kalite için ideal seviye; satış ve alım sınırsız (mağazanın seviye başına saatlik satışı
@@ -576,7 +431,7 @@ function tumDurumu({ ortak, oz, sirket, kurulum, data, secim, live, simdi }) {
   const satirH = satirlar({ ...ortak, fiyat: sonF, satisFiyat: sonF, tumKaliteler: true, simdi });
   const opt = { s: sirket.s, pay: SINIRSIZ, sirket };
   const kendi = (h) => (sirket.kendi?.[h]?.seviye > 0 ? 1 : 0);
-  const sonucT = (e) => { const r = sonuc(e, SINIRSIZ); return { ...r, sinir: r.sinir === 'pazar' ? 'yonetim' : r.sinir }; };
+  const sonucT = (e) => { const r = sonuc(e); return { ...r, sinir: r.sinir === 'pazar' ? 'yonetim' : r.sinir }; };
   const binalar = binaOnerileri(satirT, opt).sort((a, b) => kendi(b.harf) - kendi(a.harf));
   const out = {
     binalar: binalar.map((b) => ({ harf: b.harf, ...sonucT(b.en), secenekler: b.secenekler.slice(0, KARSILASTIRMA).map(sonucT) })),
@@ -586,19 +441,22 @@ function tumDurumu({ ortak, oz, sirket, kurulum, data, secim, live, simdi }) {
   const enIyi = new Map(binalar.map((b) => [b.harf, b.en.x]));
   const tumu = new Map(binaOnerileri(satirH, opt).map((b) => [b.harf, b.secenekler]));
   out.secenek = binalar.map((b) => b.harf).concat([...tumu.keys()].filter((h) => !enIyi.has(h))).map((harf) => {
+    // ana: önerilen (★) kalite = en kârlı kalite; yalnız son işlemden fiyatlanan (seyrek) kaliteler, güvenilir fiyatlı kalite varken önerilmez
     const m = new Map();
     for (const e of tumu.get(harf) || []) {
-      const u = m.get(e.x.id) || { id: e.x.id, kaliteler: [], ana: e.x.q };
+      const u = m.get(e.x.id) || { id: e.x.id, kaliteler: [], ana: null, ilk: e.x.q };
       u.kaliteler.push(e.x.q);
+      if (u.ana == null && e.x.kaynak !== 'son') u.ana = e.x.q;
       m.set(e.x.id, u);
     }
-    return { harf, urunler: [...m.values()].map((u) => ({ ...u, kaliteler: u.kaliteler.sort((a, c) => a - c) })) };
+    for (const u of m.values()) if (u.ana == null) u.ana = u.ilk;
+    return { harf, urunler: [...m.values()].map(({ ilk, ...u }) => ({ ...u, kaliteler: u.kaliteler.sort((a, c) => a - c) })) };
   }).filter((e) => e.urunler.length);
   if (!out.secenek.length) return out;
   const h = out.secenek.find((e) => e.harf === secim?.harf) || out.secenek[0];
-  const oneri = enIyi.get(h.harf); // listedeki en kârlı ürün × kalite: seçim yapılmadıysa o gösterilir
+  const oneri = enIyi.get(h.harf); // listedeki en kârlı ürün: ürün seçilmediyse o gösterilir
   const u = h.urunler.find((e) => e.id === Number(secim?.id)) || h.urunler.find((e) => e.id === oneri?.id) || h.urunler[0];
-  const q = u.kaliteler.includes(Number(secim?.q)) ? Number(secim.q) : (u.id === oneri?.id && u.kaliteler.includes(oneri.q) ? oneri.q : u.ana);
+  const q = u.kaliteler.includes(Number(secim?.q)) ? Number(secim.q) : u.ana; // kalite seçilmediyse önerilen (★) kalite
   out.secim = { harf: h.harf, id: u.id, q };
   const diger = { s: sirket.s, pay: SINIRSIZ, Lo: sirket.sirketVar ? sirket.toplamSeviye : 0, Wo: sirket.sirketVar ? sirket.tabanMaasSaat : 0 };
   const hesapla = (x) => {
@@ -624,16 +482,12 @@ function tumDurumu({ ortak, oz, sirket, kurulum, data, secim, live, simdi }) {
 
 /**
  * Yüklenen veri + tercihler + tarayıcı kayıtları → ekranın göstereceği sonuç.
- * Dönüş yalnız gösterilecek alanları taşır (ürün, kalite, seviye, kâr, sınır, durum); ara değer yoktur.
- *   binalar: [{ harf, id, q, L, kar, sinir, kontrat, secenekler: [{ id, q, L, kar, sinir, kontrat }] }]  sizin binalarınız önde
- *   urunler: [{ harf, id, q, L, kar, sinir, kontrat }]
- *   guncel:  [{ harf, L, hesapL, kaynak, id, q, kar, canli, girdiOrt, olay, kontrat, onerilen: { id, q, kar } | null, fark, durum, pazarAsimi }]
- *   kontrat: { adet, fiyat, fark (kontrat fiyatı ÷ borsa fiyatı − 1), kontratSv, borsaSv } | null  (yalnız kullanıcının yazdığı kontrat)
- *   kontratlar: [{ i, id, q, durum: 'ok' | 'adet' | 'uretimYok' | 'fiyat' | 'veri', adet, fiyat, yuzde, fark }]  yazılan her satırın durumu
- *   urunSecenek: [{ id, kaliteler: [q], ana }]  kontrat eklerken seçilebilen ürün ve kaliteler (ana: en çok işlem gören)
- * kontratlar (girdi): [{ id, q, adet: 'metin', fiyat: 'metin' }] kullanıcının yazdıkları (en çok KONTRAT_EN_COK)
+ * Dönüş yalnız gösterilecek alanları taşır (ürün, kalite, seviye, kâr, sınır); ara değer yoktur.
+ *   tum: Üretim sekmesi (tumDurumu), pk: Perakende sekmesi (pkDurumu)
+ * ekler: Üretim ya da Perakende'ye bu sayfadan eklenen, şirket kaydına henüz işlenmemiş binalar [{ id, L, pk?, harf? }]
+ * pk: Perakende girdileri { kurulum, saturation, qualityWeight }
  */
-export function sayfaDurumu({ data, mevsimlik, ozet, live, company, kurulum, gamePhase, prefs, kontratlar, ekler, pk, simdi = Date.now() }) {
+export function sayfaDurumu({ data, mevsimlik, ozet, live, company, kurulum, gamePhase, prefs, ekler, pk, simdi = Date.now() }) {
   const oz = ozetOku(ozet);
   const sirket = sirketOzeti({ company, kurulum, data, ek: ekToplami(data, ekler) });
   const faz = fazSec(prefs.faz, gamePhase);
@@ -641,56 +495,13 @@ export function sayfaDurumu({ data, mevsimlik, ozet, live, company, kurulum, gam
   const st = {
     oz: oz ? { t: oz.t, gun: oz.gun, bas: oz.bas } : null, eski: ozetEskiMi(oz, simdi),
     sirket: { s: sirket.s, ekipVar: sirket.ekipVar, sirketVar: sirket.sirketVar, toplamSeviye: sirket.toplamSeviye, kendi },
-    faz, gamePhase, prefs, simdi, liveT: live?.t ?? null, binalar: [], urunler: [], guncel: [], kontratlar: [], urunSecenek: [],
+    faz, gamePhase, prefs, simdi, liveT: live?.t ?? null,
     tum: { binalar: [], urunler: [], secenek: [], secim: null, hesap: null },
     pk: { liste: [], secenek: [], secim: null, hesap: null, bonus: 0, veriYok: false },
   };
   // Perakende bölümü özet olmadan da çalışır (canlı fiyat ve doygunluk yeter)
   if (data && pk) st.pk = pkDurumu({ data, live, company, sirket, faz, pk, secim: prefs?.pk });
   if (!oz || !data) return st;
-  const ortak = { data, oz, mevsimlik, faz, kurulum };
-  const opt = { s: sirket.s, pay: prefs.pay, sirket };
-  const sizde = (h) => (kendi[h] > 0 ? 1 : 0);
-  const giris = (Array.isArray(kontratlar) ? kontratlar : []).slice(0, KONTRAT_EN_COK)
-    .map((g) => ({ id: Number(g?.id), q: Number(g?.q) || 0, adet: g?.adet, fiyat: g?.fiyat }));
-  const kontratFn = (id, q, { phTaban, ref }) => {
-    const r = giris.filter((g) => g.id === id && g.q === q)
-      .map((g) => kontratCoz(g, { uretim: uretimGunluk(kurulum, data, id, phTaban), ref })).filter((x) => x.ok);
-    return r.length ? kontratBirlestir(r) : null;
-  };
-  const satir28 = satirlar({ ...ortak, fiyat: ortFiyat(oz), kontrat: kontratFn });
-  const binalar = binaOnerileri(satir28, opt).sort((a, b) => sizde(b.harf) - sizde(a.harf)); // sort kararlı: kâr sırası korunur
-  const oneri = new Map(binalar.map((b) => [b.harf, b.en]));
-  st.binalar = binalar.map((b) => ({ harf: b.harf, ...sonuc(b.en, opt.pay), secenekler: b.secenekler.slice(0, KARSILASTIRMA).map((e) => sonuc(e, opt.pay)) }));
-  st.urunler = urunOnerileri(satir28, opt).map((u) => ({ harf: u.harf, ...sonuc(u.en, opt.pay) }));
-  // Yazılan her kontrat satırının durumu (hatalar satır yanında gösterilir)
-  st.kontratlar = giris.map((g, i) => {
-    const satir = satir28.find((r) => r.id === g.id && r.q === g.q);
-    if (!satir) return { i, id: g.id, q: g.q, durum: 'veri' };
-    const r = kontratCoz(g, { uretim: uretimGunluk(kurulum, data, g.id, satir.phTaban), ref: satir.fiyat });
-    if (!r.ok) return { i, id: g.id, q: g.q, durum: r.hata };
-    return { i, id: g.id, q: g.q, durum: 'ok', adet: r.K, fiyat: r.pc, yuzde: r.yuzde, fark: r.pc / satir.fiyat - 1 };
-  });
-  const secenek = new Map();
-  for (const r of satir28) {
-    const e = secenek.get(r.id) || { id: r.id, kaliteler: [], ana: r.q, anaAdet: -1 };
-    e.kaliteler.push(r.q);
-    if (r.adet > e.anaAdet) { e.anaAdet = r.adet; e.ana = r.q; }
-    secenek.set(r.id, e);
-  }
-  st.urunSecenek = [...secenek.values()].map((e) => ({ id: e.id, kaliteler: e.kaliteler.sort((a, b) => a - b), ana: e.ana }));
-  st.tum = tumDurumu({ ortak, oz, sirket, kurulum, data, secim: prefs?.hesap, live, simdi });
-  const satirG = satirlar({ ...ortak, fiyat: canliFiyat(oz, live, simdi), olaylar: true, simdi, kontrat: kontratFn });
-  st.guncel = guncelOneriler(satirG, {
-    ...opt,
-    seviye: (h) => (kendi[h] > 0 ? { L: kendi[h], kaynak: 'sizin' } : { L: oneri.get(h)?.L || 0, kaynak: 'oneri' }),
-    oneri: (h) => (oneri.get(h) ? { id: oneri.get(h).x.id, q: oneri.get(h).x.q } : null),
-  }).sort((a, b) => sizde(b.harf) - sizde(a.harf)).map((g) => ({
-    harf: g.harf, L: g.L, hesapL: g.hesapL, kaynak: g.kaynak,
-    id: g.en.x.id, q: g.en.x.q, kar: g.en.kar, canli: g.en.x.kaynak === 'canli', girdiOrt: g.en.x.girdiOrt, olay: g.en.x.olay,
-    kontrat: kontratBilgi(g.en.x, g.hesapL, opt.pay),
-    onerilen: g.onerilen ? { id: g.onerilen.x.id, q: g.onerilen.x.q, kar: g.onerilen.kar } : null,
-    fark: g.fark, durum: g.durum, pazarAsimi: g.pazarAsimi,
-  }));
+  st.tum = tumDurumu({ ortak: { data, oz, mevsimlik, faz, kurulum }, oz, sirket, kurulum, data, secim: prefs?.hesap, live, simdi });
   return st;
 }
