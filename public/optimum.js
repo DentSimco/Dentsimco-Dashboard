@@ -3,7 +3,9 @@
 // Hesap ve sayfa durumu optimum-hesap.js'te (sayfaDurumu; yayında en güçlü ayarla gizlenir). Bu dosya veriyi yükler,
 // sonucu gösterir ve tarayıcı tercihlerini tutar; formül, katsayı ya da ara değer içermez. Sayfada da yalnız sonuç
 // görünür: ürün, kalite, seviye, günlük kâr ve sınır (fiyat, girdi maliyeti, saatlik üretim ya da pazar büyüklüğü değil).
-// İki sekme:
+// Üst sekmeler: sol "Tüm Ürün Satışına Göre" (pazar sınırı yok: bina × ürün × kalite seçince şirketin bugünkü binalarının üstüne
+// eklenecek seviye; Ekle ile Üretim kurulumuna yazılır), sağ "Borsa Satışına Göre" (aşağıdaki iki sekme, pazar payı ve kontrat).
+// Borsa Satışına Göre içinde iki sekme:
 //   • 28 Günlük: her üretim binası için önerilen seviye, ürün ve kalite. Veri: meta/optimum_r0 (son 28 günün borsa
 //     özeti, sinyal motorunun gece çalışması yazar). Seviye kararları içindir; gece yenilenir.
 //   • Güncel: seviye sabitken (sizin seviyeniz, yoksa 28 günlük öneri) canlı borsa fiyatıyla şu an en kârlı ürün ve kalite.
@@ -25,6 +27,8 @@ const PREFS_KEY = 'dentsimco.optimum.v1';
 const URETIM_KEY = (r) => `dentsimco.uretim.r${r}`;
 const LIST_MAX = 15;
 const SEKMELER = [['ay', '28 Günlük'], ['guncel', 'Güncel']];
+// Üst sekmeler: sol "Tüm Ürün Satışına Göre" (satış sınırsız), sağ "Borsa Satışına Göre" (pazar payı ve kontrat; önceki sayfa)
+const ANA = [['tum', 'Tüm Ürün Satışına Göre'], ['borsa', 'Borsa Satışına Göre']];
 export const DESTEKLENEN_REALM = 0;
 
 // ---- biçimlendirme ----
@@ -48,10 +52,21 @@ export function okuKontrat(x) {
     adet: String(g.adet ?? '').slice(0, KONTRAT_METIN), fiyat: String(g.fiyat ?? '').slice(0, KONTRAT_METIN),
   }));
 }
+// Seviye hesaplama seçimi: { harf, id, q } (bozuksa boş; geçersiz seçim sayfa durumunda en kârlıya döner)
+export function okuHesap(x) {
+  if (!x || typeof x !== 'object') return {};
+  const o = {};
+  if (typeof x.harf === 'string' && x.harf.length >= 1 && x.harf.length <= 3) o.harf = x.harf;
+  if (Number.isFinite(Number(x.id)) && x.id !== null && x.id !== '') o.id = Number(x.id);
+  if (Number.isFinite(Number(x.q)) && x.q !== null && x.q !== '') o.q = Math.min(12, Math.max(0, Math.floor(Number(x.q))));
+  return o;
+}
 function readPrefs() {
   let p = {};
   try { p = JSON.parse(localStorage.getItem(PREFS_KEY)) || {}; } catch { p = {}; }
   return {
+    ana: ANA.some(([k]) => k === p.ana) ? p.ana : 'tum',
+    hesap: okuHesap(p.hesap),
     tab: SEKMELER.some(([k]) => k === p.tab) ? p.tab : 'ay',
     faz: [0, 1, 2].includes(p.faz) ? p.faz : 'auto',
     pay: okuPay(p.pay),
@@ -68,7 +83,7 @@ export function kurulumOku(r) {
   try { raw = JSON.parse(localStorage.getItem(URETIM_KEY(r)) || 'null'); } catch { raw = null; }
   if (!raw || typeof raw !== 'object') return { buildings: [], recreation: {}, extraBonusPct: 0 };
   const buildings = (Array.isArray(raw.buildings) ? raw.buildings : []).filter((b) => b && typeof b === 'object').map((b) => ({
-    type: b.type, product: b.product != null ? Number(b.product) : null, level: Math.max(0, Math.floor(Number(b.level) || 0)),
+    type: b.type, product: b.product != null ? Number(b.product) : null, quality: H.clampQuality(b.quality), level: Math.max(0, Math.floor(Number(b.level) || 0)),
     count: Math.max(1, Math.floor(Number(b.count) || 1)), robots: !!b.robots, construction: !!b.construction,
   }));
   return { buildings, recreation: { ...(raw.recreation || {}) }, extraBonusPct: Math.min(99, Math.max(0, Number(raw.extraBonusPct) || 0)) };
@@ -157,7 +172,7 @@ function payKutusu(st) {
   return `<div class="op-seg op-seg-pay" role="group">${dugmeler}<input class="op-in op-pay-ozel${hazir ? '' : ' on'}" type="text" inputmode="decimal" autocomplete="off" autocapitalize="off" spellcheck="false" data-pay="ozel" value="${esc(deger)}" placeholder="%35" aria-label="Özel pay yüzdesi"></div>`;
 }
 
-export function ayarlarHtml(st) {
+function fazAlani(st) {
   const fazlar = [['auto', 'Otomatik'], ...O.FAZ_ADLARI.map((ad, i) => [String(i), ad])];
   const secili = String(st.prefs.faz);
   const g = st.gamePhase;
@@ -168,8 +183,12 @@ export function ayarlarHtml(st) {
     fazNot = g && g.index !== st.prefs.faz ? `Oyundaki evre: ${O.FAZ_ADLARI[g.index]}. Seçiminiz farklı.` : '';
   }
   const seg = (act, list, cur) => `<div class="op-seg op-seg-${act}" role="group">${list.map(([v, t]) => `<button type="button" data-act="${act}" data-v="${esc(v)}" aria-pressed="${v === cur}">${esc(t)}</button>`).join('')}</div>`;
+  return `<div class="op-field"><span>Ekonomi fazı (üretim hızı)</span>${seg('faz', fazlar, secili)}${fazNot ? `<p class="op-note">${esc(fazNot)}</p>` : ''}</div>`;
+}
+
+export function ayarlarHtml(st) {
   return `<section class="op-set" aria-label="Ayarlar">
-    <div class="op-field"><span>Ekonomi fazı (üretim hızı)</span>${seg('faz', fazlar, secili)}${fazNot ? `<p class="op-note">${esc(fazNot)}</p>` : ''}</div>
+    ${fazAlani(st)}
     <div class="op-field"><span>Pazar payı</span>${payKutusu(st)}
       ${st.payHata ? `<p class="op-warn" role="alert">${esc('Pay 1 ile 100 arasında olmalı.')}</p>` : ''}
       <p class="op-note">Borsadaki günlük satışın en çok bu kadarını satabileceğiniz varsayılır; daha fazlası fiyatı düşürür. %100: borsanın tüm günlük satışı. Emin değilseniz %10 daha temkinli; kendi oranınızı da yazabilirsiniz.</p></div>
@@ -232,7 +251,7 @@ export function kontratHtml(st, ad) {
   </details>`;
 }
 
-function binaKarti(b, st, ad) {
+function binaKarti(b, st, ad, onek = '') {
   const kendi = st.sirket?.kendi?.[b.harf] || 0;
   const [sinirAd, sinirTur] = SINIR[b.sinir] || ['', ''];
   const fark = kendi > 0 ? b.L - kendi : null;
@@ -249,23 +268,27 @@ function binaKarti(b, st, ad) {
     ${urun}
     <div class="op-chips">${sinirAd ? chip(sinirAd, sinirTur) : ''}${b.kontrat ? kontratEtiketi(b.kontrat) : ''}${sizde}</div>
     ${b.kontrat ? kontratNotu(b.kontrat) : ''}${not}
-    <details data-ac="${esc(b.harf)}"${st.acik?.has(b.harf) ? ' open' : ''}><summary>Diğer seçenekler</summary>
+    <details data-ac="${esc(onek + b.harf)}"${st.acik?.has(onek + b.harf) ? ' open' : ''}><summary>Diğer seçenekler</summary>
       <div class="table-wrap"><table class="op-table"><thead><tr><th scope="col">Ürün</th><th scope="col">Seviye</th><th scope="col">Günlük kâr</th><th scope="col">Sınır</th></tr></thead><tbody>${alt}</tbody></table></div>
     </details>
   </article>`;
+}
+
+function urunlerBlogu(liste, st, ad) {
+  const hepsi = st.urunlerAcik ? liste : liste.slice(0, LIST_MAX);
+  const satir = (u) => `<tr><th scope="row">${esc(ad.urun(u.id))} ${qChip(ad, u)}${u.kontrat ? chip('Kontrat', 'muted') : ''}</th><td class="op-b">${esc(ad.bina(u.harf))}</td><td>${NF0.format(u.L)}</td><td class="${u.kar > 0 ? 'up' : ''}">${para(u.kar)}</td><td>${esc(SINIR[u.sinir]?.[0] || '')}</td></tr>`;
+  const daha = liste.length > hepsi.length ? `<button type="button" class="op-more" data-act="urunler">${esc(`Tümünü göster (${liste.length})`)}</button>` : '';
+  return `<section class="op-block"><h2>Tüm ürünler</h2><p class="op-note">Her ürünün en kârlı kalitesi ve o ürün için önerilen seviye.</p>
+      <div class="table-wrap"><table class="op-table"><thead><tr><th scope="col">Ürün</th><th scope="col">Bina</th><th scope="col">Seviye</th><th scope="col">Günlük kâr</th><th scope="col">Sınır</th></tr></thead><tbody>${hepsi.map(satir).join('')}</tbody></table></div>${daha}</section>`;
 }
 
 export function ayHtml(st, ad) {
   if (!st.oz) return `<p class="op-empty">${esc('28 günlük özet henüz hesaplanmadı. Gece hesabı her gece 04:20\'de (TR) çalışır; ilk çalışmadan sonra burada görünür.')}</p>`;
   if (!st.binalar.length) return `<p class="op-empty">${esc('Bu ayarlarla gösterilecek bina yok.')}</p>`;
   const kartlar = st.binalar.map((b) => binaKarti(b, st, ad)).join('');
-  const hepsi = st.urunlerAcik ? st.urunler : st.urunler.slice(0, LIST_MAX);
-  const satir = (u) => `<tr><th scope="row">${esc(ad.urun(u.id))} ${qChip(ad, u)}${u.kontrat ? chip('Kontrat', 'muted') : ''}</th><td class="op-b">${esc(ad.bina(u.harf))}</td><td>${NF0.format(u.L)}</td><td class="${u.kar > 0 ? 'up' : ''}">${para(u.kar)}</td><td>${esc(SINIR[u.sinir]?.[0] || '')}</td></tr>`;
-  const daha = st.urunler.length > hepsi.length ? `<button type="button" class="op-more" data-act="urunler">${esc(`Tümünü göster (${st.urunler.length})`)}</button>` : '';
   return `<p class="op-lead">Her bina için 28 günlük fiyat ve satışla en kârlı ürün, kalite ve seviye. Seviye kararları için bu sekmeyi kullanın; ne üreteceğinizi Güncel sekmesi söyler.</p>
     <div class="op-grid">${kartlar}</div>
-    <section class="op-block"><h2>Tüm ürünler</h2><p class="op-note">Her ürünün en kârlı kalitesi ve o ürün için önerilen seviye.</p>
-      <div class="table-wrap"><table class="op-table"><thead><tr><th scope="col">Ürün</th><th scope="col">Bina</th><th scope="col">Seviye</th><th scope="col">Günlük kâr</th><th scope="col">Sınır</th></tr></thead><tbody>${hepsi.map(satir).join('')}</tbody></table></div>${daha}</section>
+    ${urunlerBlogu(st.urunler, st, ad)}
     <p class="op-foot">Öneriler DentSimco formülüyle hesaplanır. İnşaat maliyeti, kalite üretebilme (araştırma, patent) ve kendi ürettiğiniz girdiler hesaba katılmaz. Mevsimlik ürünler ve borsada satışı olmayan ürünler gösterilmez.</p>`;
 }
 
@@ -324,10 +347,107 @@ export function sekmelerHtml(st) {
 export const R2_HTML = `<section class="op"><div class="op-head"><div><h1>Optimum Seviye</h1></div></div>
   <section class="op-alert soft" role="note"><h2>R2 için geliştirme aşamasında</h2><p>Optimum Seviye şimdilik yalnız R1 için hesaplanıyor. R2 için yeterli geçmiş veri birikince eklenecek.</p></section></section>`;
 
+export function anaSekmelerHtml(st) {
+  const cur = st.prefs.ana === 'tum' ? 'tum' : 'borsa';
+  return `<div class="op-tabs op-main" role="tablist" aria-label="Optimum Seviye hesabı">${ANA.map(([k, t]) =>
+    `<button type="button" role="tab" data-ana="${k}" aria-selected="${k === cur}" tabindex="${k === cur ? 0 : -1}">${esc(t)}</button>`).join('')}</div>`;
+}
+
+// ---- Tüm Ürün Satışına Göre: pazar sınırı yok; bina × ürün × kalite seçince şirketin bugünkü binalarının üstüne eklenecek seviye ----
+const kaliteAdi = (ad, id, q) => `${ad.urun(id)}${ad.kaliteli(id) ? ` Q${q}` : ''}`;
+
+export function hesapHtml(st, ad) {
+  const t = st.tum;
+  if (!t?.hesap || !t.secim) return '';
+  const hs = t.hesap;
+  const secim = t.secim;
+  const h = t.secenek.find((e) => e.harf === secim.harf);
+  const u = h.urunler.find((e) => e.id === secim.id);
+  const kaliteli = ad.kaliteli(secim.id);
+  const opt = (v, text, sel) => `<option value="${esc(v)}"${sel ? ' selected' : ''}>${esc(text)}</option>`;
+  const sirket = st.sirket;
+  const chips = [];
+  if (hs.ayni > 0) chips.push(chip(`Zaten kurulu: ${NF0.format(hs.ayni)} seviye`, 'muted'));
+  if (sirket?.sirketVar && hs.L > 0) chips.push(chip(`Şirketiniz: ${NF0.format(sirket.toplamSeviye)} → ${NF0.format(hs.toplamSonra)} seviye`, 'muted'));
+  const egri = hs.yari && hs.buyuk ? `<p class="op-note">${esc('Kâr en çok önerilen seviyededir; ondan sonra düşer.')}</p><div class="table-wrap"><table class="op-table op-egri"><thead><tr><th scope="col">Kâr eğrisi</th><th scope="col">Seviye</th><th scope="col">Günlük kâr</th></tr></thead><tbody>
+      <tr><th scope="row">Yarısı</th><td>${NF0.format(hs.yari.L)}</td><td>${para(hs.yari.kar)}</td></tr>
+      <tr class="on"><th scope="row">Önerilen</th><td>${NF0.format(hs.L)}</td><td class="up">${para(hs.kar)}</td></tr>
+      <tr><th scope="row">1,5 katı</th><td>${NF0.format(hs.buyuk.L)}</td><td>${para(hs.buyuk.kar)}</td></tr></tbody></table></div>` : '';
+  const kalite = hs.kaliteler.length > 1 ? `<details data-ac="tumq"${st.acik?.has('tumq') ? ' open' : ''}><summary>Kaliteleri karşılaştır</summary>
+      <div class="table-wrap"><table class="op-table"><thead><tr><th scope="col">Kalite</th><th scope="col">Seviye</th><th scope="col">Günlük kâr</th></tr></thead><tbody>${hs.kaliteler.map((k) =>
+        `<tr${k.q === secim.q ? ' class="on"' : ''}><th scope="row">Q${k.q}</th><td>${NF0.format(k.L)}</td><td class="${k.kar > 0 ? 'up' : ''}">${para(k.kar)}</td></tr>`).join('')}</tbody></table></div></details>` : '';
+  const var_ = hs.L >= 1;
+  const mevcutVar = hs.ayni > 0;
+  const son = st.sonEkle;
+  const sonMetin = son?.hata ? `<p class="op-warn" role="alert">${esc('Tarayıcı kaydı açık değil; eklenemedi.')}</p>` : son ? `<p class="op-ok" role="status">${esc(`${son.mod === 'mevcut' ? 'Mevcut binaya eklendi' : 'Yeni bina eklendi'}: ${kaliteAdi(ad, son.id, son.q)} +${NF0.format(son.L)} seviye.`)} <a href="#uretim/binalar">${esc("Üretim › Binalar'da gör")}</a></p>` : '';
+  return `<section class="op-block op-calc" aria-label="Seviye hesapla"><h2>Seviye hesapla</h2>
+    <p class="op-note">Bina, ürün ve kalite seçin. Öneri, şirketinizin bugünkü binalarının üstüne eklenecek en kârlı seviyedir; yönetim ekibiniz ve Üretim'deki binalarınız hesaba katılır.</p>
+    <div class="op-kon-fields op-hs">
+      <label class="op-f"><span>Bina</span><select class="op-in" data-hs="harf">${t.secenek.map((e) => opt(e.harf, ad.bina(e.harf), e.harf === secim.harf)).join('')}</select></label>
+      <label class="op-f"><span>Ürün</span><select class="op-in" data-hs="id">${h.urunler.map((e) => opt(e.id, ad.urun(e.id), e.id === secim.id)).join('')}</select></label>
+      ${kaliteli ? `<label class="op-f"><span>Kalite</span><select class="op-in" data-hs="q">${u.kaliteler.map((k) => opt(k, `Q${k}`, k === secim.q)).join('')}</select></label>` : ''}
+    </div>
+    <div class="op-card op-res">
+      <div class="op-top"><h3>${esc(kaliteAdi(ad, secim.id, secim.q))}</h3><span class="op-level"><b>${NF0.format(hs.L)}</b><small>seviye ekleyin</small></span></div>
+      <div class="op-prod"><span class="op-name">${esc('Ek günlük kâr')}</span><span class="op-kar ${hs.kar > 0 ? 'up' : ''}">${para(hs.kar)}</span><span class="op-unit">/ gün</span></div>
+      <div class="op-chips">${chips.join('')}</div>
+      ${var_ ? egri : `<p class="op-note">${esc('Bu bina, ürün ve kalite için şirketinize ek seviye önerilmiyor: eklenen seviye kâr getirmiyor.')}</p>`}
+      ${kalite}
+      <div class="op-ekle">
+        <button type="button" class="op-btn primary" data-act="ekle" data-v="yeni"${var_ ? '' : ' disabled'}>${esc(`Yeni bina olarak ekle (+${NF0.format(hs.L)})`)}</button>
+        <button type="button" class="op-btn" data-act="ekle" data-v="mevcut"${var_ && mevcutVar ? '' : ' disabled'}>${esc(`Mevcut binaya ekle (+${NF0.format(hs.L)})`)}</button>
+      </div>
+      ${var_ && !mevcutVar ? `<p class="op-note">${esc('Mevcut binaya ekle: Üretim\'de bu bina, ürün ve kalitede kurulu bina yok.')}</p>` : ''}
+      ${sonMetin}
+    </div></section>`;
+}
+
+export function tumHtml(st, ad) {
+  if (!st.oz) return `<p class="op-empty">${esc('28 günlük özet henüz hesaplanmadı. Gece hesabı her gece 04:20\'de (TR) çalışır; ilk çalışmadan sonra burada görünür.')}</p>`;
+  const t = st.tum;
+  if (!t.binalar.length) return `<p class="op-empty">${esc('Bu ayarlarla gösterilecek bina yok.')}</p>`;
+  return `<section class="op-set op-set-tek" aria-label="Ayarlar">${fazAlani(st)}</section>
+    <p class="op-warn" role="note">${esc('Satışın sınırsız ve fiyatın sabit olduğu varsayılır; büyük seviyelerde gerçekte fiyat düşer. Bu sekme üst sınırı gösterir; borsadaki gerçek satışınız için Borsa Satışına Göre sekmesine bakın.')}</p>
+    ${hesapHtml(st, ad)}
+    <section class="op-block"><h2>Bina türüne göre en kârlı</h2><p class="op-note">${esc('Her bina için 28 günlük fiyatlarla, satış sınırı olmadan en kârlı ürün, kalite ve seviye. Tavanı yalnızca maaş ve yönetim gideri belirler.')}</p>
+      <div class="op-grid">${t.binalar.map((b) => binaKarti(b, st, ad, 't:')).join('')}</div></section>
+    ${urunlerBlogu(t.urunler, st, ad)}
+    <p class="op-foot">${esc('Öneriler DentSimco formülüyle hesaplanır. İnşaat maliyeti, kalite üretebilme (araştırma, patent) ve kendi ürettiğiniz girdiler hesaba katılmaz. Mevsimlik ürünler ve borsada satışı olmayan ürünler gösterilmez.')}</p>`;
+}
+
 /** Sayfanın tamamı (saf). ad: { urun(id), bina(harf), kaliteli(id) } */
 export function sayfaHtml(st, ad) {
+  const tum = st.prefs.ana === 'tum';
   const govde = st.prefs.tab === 'guncel' ? guncelHtml(st, ad) : ayHtml(st, ad);
-  return `<section class="op">${basHtml(st)}${uyarilarHtml(st)}${sirketSatiri(st)}${ayarlarHtml(st)}${kontratHtml(st, ad)}${sekmelerHtml(st)}<div class="op-body" role="tabpanel">${govde}</div></section>`;
+  const ic = tum ? tumHtml(st, ad) : `${ayarlarHtml(st)}${kontratHtml(st, ad)}${sekmelerHtml(st)}<div class="op-body" role="tabpanel">${govde}</div>`;
+  return `<section class="op">${basHtml(st)}${uyarilarHtml(st)}${sirketSatiri(st)}${anaSekmelerHtml(st)}${ic}</section>`;
+}
+
+/**
+ * Seçilen binayı Üretim kurulum kaydına ekler (saf; kayıt ayrıştırılmış nesne). mod 'yeni': yeni bina satırı;
+ * 'mevcut': aynı bina türü, ürün ve kalitede kurulu binanın seviyesine ekler (yoksa yeni satır olur).
+ * Dönüş: { raw, mod } (mod: gerçekte yapılan) | null (seviye 1'den küçükse)
+ */
+export function binaEkle(raw, { harf, id, q, L }, mod) {
+  const seviye = Math.floor(Number(L));
+  if (!(seviye >= 1) || !harf) return null;
+  const kayit = raw && typeof raw === 'object' && !Array.isArray(raw) ? { ...raw } : { v: 1 };
+  const liste = Array.isArray(kayit.buildings) ? [...kayit.buildings] : [];
+  let yapilan = 'yeni';
+  if (mod === 'mevcut') {
+    const uygun = (b) => b && typeof b === 'object' && b.type === harf && Number(b.product) === id && H.clampQuality(b.quality) === q && !b.construction;
+    let i = liste.findIndex((b) => uygun(b) && !b.robots);
+    if (i < 0) i = liste.findIndex(uygun);
+    if (i >= 0) {
+      liste[i] = { ...liste[i], level: Math.max(1, Math.floor(Number(liste[i].level) || 1)) + seviye };
+      yapilan = 'mevcut';
+    }
+  }
+  if (yapilan === 'yeni') {
+    liste.push({ id: `b${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, type: harf, product: id, level: seviye, quality: q, robots: false, efficiency: 100, construction: false });
+  }
+  kayit.buildings = liste;
+  return { raw: kayit, mod: yapilan };
 }
 
 // ---- stiller (sitenin renk değişkenleriyle) ----
@@ -436,6 +556,20 @@ select.op-in { appearance: none; padding-right: 36px; background-image: linear-g
 .op-kon-add .kal { grid-column: span 2; }
 .op-kon-add .adet, .op-kon-add .fiyat { grid-column: span 3; }
 .op-kon-add .op-btn, .op-kon-add .op-warn { grid-column: 1 / -1; }
+.op-main button { height: auto; min-height: 46px; padding: 6px 8px; white-space: normal; line-height: 1.15; }
+.op-set-tek { grid-template-columns: minmax(0, 1fr); }
+.op-calc .op-kon-fields { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 520px) { .op-calc .op-kon-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); } .op-calc .op-kon-fields .op-f:first-child { grid-column: 1 / -1; } }
+.op-res { background: var(--bg); }
+.op-egri th:first-child { color: var(--faint); font-weight: 500; font-size: 12.5px; }
+.op-egri tbody th { color: var(--muted); font-weight: 600; font-size: 14px; }
+.op-table tr.on th, .op-table tr.on td { font-weight: 700; }
+.op-ekle { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.op-ekle .op-btn { justify-self: stretch; justify-content: center; min-height: 46px; text-align: center; }
+.op-btn:disabled { opacity: 0.45; cursor: default; }
+@media (max-width: 520px) { .op-ekle { grid-template-columns: minmax(0, 1fr); } }
+.op-ok { margin: 0; padding: 8px 10px; border: 1px solid var(--up-line); border-radius: 10px; background: var(--up-bg); color: var(--up); font-size: 13.5px; line-height: 1.45; }
+.op-ok a { color: var(--accent); font-weight: 600; margin-left: 4px; }
 .op-btn.primary { justify-self: stretch; justify-content: center; min-height: 46px; background: var(--accent); color: var(--on-accent); border-color: var(--accent); cursor: pointer; }
 @media (min-width: 900px) {
   .op-kon-list { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -466,6 +600,9 @@ export function mountOptimum(root, { realm = 0 } = {}) {
   let taslak = taslakBos(); // "Kontrat ekle" formunda yazılanlar (ekran yeniden çizilince kaybolmasın)
   let taslakHata = '';
   let payHata = false;
+  let ekler = []; // Üretim'e bu sayfadan eklenen, şirket kaydına henüz işlenmemiş binalar (Üretim açılınca işlenir): [{ id, L }]
+  let sonEkle = null; // son ekleme: { mod, id, q, L }
+  let son = null; // en son çizilen sayfa durumu (Ekle düğmesi buradan okur)
 
   const style = document.createElement('style');
   style.dataset.module = 'optimum';
@@ -487,13 +624,15 @@ export function mountOptimum(root, { realm = 0 } = {}) {
     }
     if (!yuklenen) { root.innerHTML = '<section class="op" aria-busy="true"><div class="op-head"><div><h1>Optimum Seviye</h1><p class="op-when">Yükleniyor</p></div></div></section>'; return; }
     const st = O.sayfaDurumu({
-      ...yuklenen, company: Y.loadCompanyRecord(r).company, kurulum: kurulumOku(r), gamePhase, prefs, kontratlar: prefs.kontrat, simdi: Date.now(),
+      ...yuklenen, company: Y.loadCompanyRecord(r).company, kurulum: kurulumOku(r), gamePhase, prefs, kontratlar: prefs.kontrat, ekler, simdi: Date.now(),
     });
     st.acik = acik;
     st.urunlerAcik = urunlerAcik;
     st.taslak = taslak;
     st.taslakHata = taslakHata;
     st.payHata = payHata;
+    st.sonEkle = sonEkle;
+    son = st;
     const scroll = window.scrollY;
     root.innerHTML = sayfaHtml(st, ad);
     window.scrollTo(0, scroll);
@@ -524,7 +663,7 @@ export function mountOptimum(root, { realm = 0 } = {}) {
     if (destroyed || r !== DESTEKLENEN_REALM || document.visibilityState !== 'visible' || !yuklenen) return;
     const now = Date.now();
     if (now - (yuklenen.live?.t || 0) < 7 * MIN || now - lastAuto < 3 * MIN) {
-      if (prefs.tab === 'guncel' && !yaziyor()) render(); // "x dk önce" yazısı güncel kalsın
+      if (prefs.ana === 'borsa' && prefs.tab === 'guncel' && !yaziyor()) render(); // "x dk önce" yazısı güncel kalsın
       return;
     }
     lastAuto = now;
@@ -533,7 +672,7 @@ export function mountOptimum(root, { realm = 0 } = {}) {
       const live = await canliYukle(rr);
       if (destroyed || rr !== r || !yuklenen) return;
       yuklenen = { ...yuklenen, live };
-      if (prefs.tab === 'guncel' && !yaziyor()) render();
+      if (prefs.ana === 'borsa' && prefs.tab === 'guncel' && !yaziyor()) render();
     } catch { /* bir sonraki dakikada yeniden denenir */ }
   }
   const clock = setInterval(tick, MIN);
@@ -541,6 +680,8 @@ export function mountOptimum(root, { realm = 0 } = {}) {
   document.addEventListener('visibilitychange', onVisible);
 
   function onClick(e) {
+    const ana = e.target.closest('[data-ana]');
+    if (ana) { prefs.ana = ana.dataset.ana; savePrefs(prefs); render(); return; }
     const tab = e.target.closest('[data-tab]');
     if (tab) { prefs.tab = tab.dataset.tab; savePrefs(prefs); render(); return; }
     const b = e.target.closest('[data-act]');
@@ -551,11 +692,30 @@ export function mountOptimum(root, { realm = 0 } = {}) {
     else if (act === 'urunler') { urunlerAcik = true; render(); }
     else if (act === 'yenile') yukle({ taze: true });
     else if (act === 'kontratEkle') kontratEkle();
+    else if (act === 'ekle') uretimeEkle(b.dataset.v);
     else if (act === 'kontratSil') {
       prefs.kontrat.splice(Number(b.dataset.i), 1);
       savePrefs(prefs);
       render();
     }
+  }
+  // Seçilen bina × ürün × kalite ve önerilen seviyeyi Üretim kurulumuna yazar (yeni bina ya da mevcut binanın seviyesine ekler)
+  function uretimeEkle(mod) {
+    const hs = son?.tum?.hesap;
+    if (!hs || hs.L < 1 || destroyed) return;
+    try {
+      const anahtar = URETIM_KEY(r);
+      let raw = null;
+      try { raw = JSON.parse(localStorage.getItem(anahtar) || 'null'); } catch { raw = null; }
+      const sonuc = binaEkle(raw, { harf: hs.harf, id: hs.id, q: hs.q, L: hs.L }, mod);
+      if (!sonuc) return;
+      localStorage.setItem(anahtar, JSON.stringify(sonuc.raw));
+      ekler = [...ekler, { id: hs.id, L: hs.L }];
+      sonEkle = { mod: sonuc.mod, id: hs.id, q: hs.q, L: hs.L };
+    } catch {
+      sonEkle = { hata: true };
+    }
+    render();
   }
   // "Kontrat ekle" formundaki yazıları satıra çevirir; eksik varsa formda uyarır
   function kontratEkle() {
@@ -578,7 +738,17 @@ export function mountOptimum(root, { realm = 0 } = {}) {
   }
   function onChange(e) {
     const t = e.target;
-    if (t.dataset?.pay === 'ozel') {
+    if (t.dataset?.hs) {
+      const h = { ...prefs.hesap };
+      if (t.dataset.hs === 'harf') { h.harf = t.value; delete h.id; delete h.q; }
+      else if (t.dataset.hs === 'id') { h.id = Number(t.value); delete h.q; }
+      else if (t.dataset.hs === 'q') h.q = Number(t.value);
+      if (son?.tum?.secim) { h.harf ??= son.tum.secim.harf; if (t.dataset.hs === 'q') h.id ??= son.tum.secim.id; }
+      prefs.hesap = okuHesap(h);
+      sonEkle = null;
+      savePrefs(prefs);
+      render();
+    } else if (t.dataset?.pay === 'ozel') {
       const v = parseNum(t.value);
       if (t.value.trim() === '') payHata = false;
       else if (v == null || v < 1 || v > 100) payHata = true;
@@ -602,18 +772,24 @@ export function mountOptimum(root, { realm = 0 } = {}) {
   }
   function onKey(e) {
     if (e.key === 'Enter' && e.target.dataset?.kd && e.target.tagName === 'INPUT') { e.preventDefault(); taslak[e.target.dataset.kd] = e.target.value; kontratEkle(); return; }
-    const tabs = root.querySelector('.op-tabs');
-    if (!tabs || !tabs.contains(e.target) || !['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
+    const tabs = e.target.closest?.('.op-tabs');
+    if (!tabs || !root.contains(tabs) || !['ArrowLeft', 'ArrowRight'].includes(e.key)) return;
     e.preventDefault();
-    const i = SEKMELER.findIndex(([k]) => k === prefs.tab);
-    const j = (i + (e.key === 'ArrowRight' ? 1 : -1) + SEKMELER.length) % SEKMELER.length;
-    prefs.tab = SEKMELER[j][0];
+    const ust = tabs.classList.contains('op-main');
+    const liste = ust ? ANA : SEKMELER;
+    const alan = ust ? 'ana' : 'tab';
+    const i = liste.findIndex(([k]) => k === prefs[alan]);
+    const j = (i + (e.key === 'ArrowRight' ? 1 : -1) + liste.length) % liste.length;
+    prefs[alan] = liste[j][0];
     savePrefs(prefs);
     render();
-    root.querySelector(`[data-tab="${prefs.tab}"]`)?.focus();
+    root.querySelector(`[data-${ust ? 'ana' : 'tab'}="${prefs[alan]}"]`)?.focus();
   }
   // Yönetim ya da Üretim başka bir sekmede değişirse (aynı tarayıcı) ekran yeni kayıtla çizilir
-  const onStorage = (e) => { if (e.key && (e.key.startsWith('dentsimco.sirket.') || e.key.startsWith('dentsimco.uretim.')) && !yaziyor()) render(); };
+  const onStorage = (e) => {
+    if (e.key && e.key.startsWith('dentsimco.sirket.')) ekler = []; // Üretim şirket kaydını güncelledi: eklenenler artık kayıtta
+    if (e.key && (e.key.startsWith('dentsimco.sirket.') || e.key.startsWith('dentsimco.uretim.')) && !yaziyor()) render();
+  };
 
   root.addEventListener('click', onClick);
   root.addEventListener('input', onInput);

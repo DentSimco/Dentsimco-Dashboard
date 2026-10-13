@@ -5,7 +5,7 @@
 import { readFileSync } from 'node:fs';
 import * as H from '../public/hesap.js';
 import * as O from '../public/optimum-hesap.js';
-import { sayfaHtml, uyarilarHtml, kontratHtml, ayarlarHtml, okuKontrat, okuPay, R2_HTML } from '../public/optimum.js';
+import { sayfaHtml, uyarilarHtml, kontratHtml, ayarlarHtml, okuKontrat, okuPay, okuHesap, binaEkle, tumHtml, hesapHtml, R2_HTML } from '../public/optimum.js';
 import EN from '../public/dil-en.js';
 import { sozlukDerle, cevirMetin } from '../public/i18n.js';
 import { BINA_ADLARI_EN } from '../public/adlar.js';
@@ -442,7 +442,7 @@ test('Ekran yalnız sonucu görür: sayfa durumunda fiyat, girdi, saatlik üreti
   const live = { t: NOW, items: { 2: [NOW, { 0: [0.6, null, 0, 0, NOW - SAAT] }] } };
   for (const c of [{}, { company: COMPANY, kurulum: KURULUM }]) {
     const s = st({ ...c, live });
-    anahtarlar(s, ['oz', 'eski', 'sirket', 'faz', 'gamePhase', 'prefs', 'simdi', 'liveT', 'binalar', 'urunler', 'guncel', 'kontratlar', 'urunSecenek', 'acik'], 'durum');
+    anahtarlar(s, ['oz', 'eski', 'sirket', 'faz', 'gamePhase', 'prefs', 'simdi', 'liveT', 'binalar', 'urunler', 'guncel', 'kontratlar', 'urunSecenek', 'tum', 'acik'], 'durum');
     anahtarlar(s.oz, ['t', 'gun', 'bas'], 'özet');
     anahtarlar(s.sirket, ['s', 'ekipVar', 'sirketVar', 'toplamSeviye', 'kendi'], 'şirket');
     for (const v of Object.values(s.sirket.kendi)) eq(typeof v, 'number', 'kendi binalar yalnız seviye');
@@ -597,6 +597,210 @@ test('Sayfa İngilizcede tamamen çevrilir (iki sekme, uyarılar, eski özet, ca
               s.acik = new Set([...s.binalar.map((b) => b.harf), 'kon']);
               [s.taslak, s.taslakHata] = taslaklar[i % taslaklar.length];
               htmls.push(sayfaHtml(s, ad));
+            }
+          }
+        }
+      }
+    }
+  }
+  const kalan = new Set();
+  for (const h of htmls) {
+    for (const p of parcalar(h)) {
+      const t = en(p);
+      const harfli = /[A-Za-zÇĞİÖŞÜçğıöşü]{2,}/.test(p.replace(/Riser|Q\d+/g, ''));
+      if (TR.test(t) || (t === p && harfli && !ADLAR.has(p) && EN[p] !== p)) kalan.add(p);
+    }
+  }
+  if (kalan.size) throw new Error(`çevrilmeyen: ${[...kalan].slice(0, 5).join(' | ')}`);
+});
+
+
+// ---- Tüm Ürün Satışına Göre (pazar sınırı yok) ----
+const PREFS_TUM = { ana: 'tum', tab: 'ay', faz: 0, pay: 0.25 };
+const stT = (o = {}) => st({ prefs: PREFS_TUM, company: COMPANY, kurulum: KURULUM, ...o });
+
+test('Sınırsız satış: en iyi seviye, tüm tam sayı seviyeler taranarak bulunanla aynı; yalnız yönetim gideri bağlar', () => {
+  const o = { s: 0.65, pay: O.SINIRSIZ };
+  for (const x of rows) {
+    for (const d of [{}, { Lo: 300, Wo: 120 * 24 }, { Lo: 20, Wo: 50 }]) {
+      const e = O.optimum(x, { ...o, ...d });
+      let bK = 0;
+      let bL = 0;
+      for (let L = 0; L <= 3000; L++) { const v = O.gunlukKar(L, x, { ...o, ...d }); if (v > bK + 1e-9) { bK = v; bL = L; } }
+      if (e.L >= 3000) throw new Error(`tarama sınırı yetmedi ${x.id} Q${x.q}`);
+      near(e.kar, bK, `kâr ${x.id} Q${x.q}`, 1e-6 * Math.max(1, bK));
+      if (e.L > 0) eq(e.sinir === 'zarar', false);
+      if (e.sinir === 'pazar') throw new Error('sınırsız satışta pazar sınırı yok');
+      void bL;
+    }
+  }
+});
+
+test('Sınırsız satış: pazar payı ne olursa olsun, sınırsız sonuç pay %100 sonucundan az olmaz; küçük pazarlı ürün de büyür', () => {
+  for (const x of rows) {
+    const sinirli = O.optimum(x, { s: 0.65, pay: 1 });
+    const sinirsiz = O.optimum(x, { s: 0.65, pay: O.SINIRSIZ });
+    if (sinirsiz.kar < sinirli.kar - 1e-6) throw new Error(`sınırsız daha az ${x.id}`);
+  }
+});
+
+test('Tüm Ürün sekmesi: sayfa durumu bina listesi, ürün listesi, seçici ve seçilen hesap verir (yalnız sonuç)', () => {
+  const s = stT();
+  anahtarlar(s.tum, ['binalar', 'urunler', 'secenek', 'secim', 'hesap'], 'tum');
+  if (!s.tum.binalar.length || !s.tum.urunler.length || !s.tum.secenek.length) throw new Error('boş');
+  for (const b of s.tum.binalar) {
+    anahtarlar(b, ['harf', 'id', 'q', 'L', 'kar', 'sinir', 'kontrat', 'secenekler'], 'bina');
+    if (b.sinir === 'pazar') throw new Error('pazar sınırı olmamalı');
+    eq(b.kontrat, null);
+  }
+  anahtarlar(s.tum.hesap, ['harf', 'id', 'q', 'L', 'kar', 'sinir', 'yari', 'buyuk', 'kaliteler', 'ayni', 'toplamSonra'], 'hesap');
+  for (const y of s.tum.hesap.kaliteler) anahtarlar(y, ['q', 'L', 'kar'], 'kalite');
+  for (const e of s.tum.secenek) { anahtarlar(e, ['harf', 'urunler'], 'seçenek'); for (const u of e.urunler) anahtarlar(u, ['id', 'kaliteler', 'ana'], 'ürün'); }
+  // özet yoksa boş ama çökmez
+  const bos = st({ prefs: PREFS_TUM, ozet: null });
+  eq(bos.tum.binalar.length, 0);
+  eq(bos.tum.hesap, null);
+});
+
+test('Tüm Ürün sekmesi: seçilen bina × ürün × kalite için seviye, şirketin bugünkü binalarının üstüne eklenir (kaba kuvvetle doğrulandı)', () => {
+  const sirket = O.sirketOzeti({ company: COMPANY, kurulum: KURULUM, data });
+  let kontrolEdilen = 0;
+  for (const [harf, id, q] of [['W', 2, 0], ['W', 2, 3], ['W', 1, 1]]) {
+    const s = stT({ prefs: { ...PREFS_TUM, hesap: { harf, id, q } } });
+    const hs = s.tum.hesap;
+    if (!hs) continue; // örnek veride o bina yok
+    if (hs.id !== id || hs.q !== q || hs.harf !== harf) continue; // örnekte o seçenek yok
+    kontrolEdilen++;
+    const x = rows.find((r) => r.id === id && r.q === q && r.harf === harf);
+    const d = { s: sirket.s, pay: O.SINIRSIZ, Lo: sirket.toplamSeviye, Wo: sirket.tabanMaasSaat };
+    let bK = 0;
+    let bL = 0;
+    for (let L = 0; L <= 5000; L++) { const v = O.gunlukKar(L, x, d); if (v > bK + 1e-9) { bK = v; bL = L; } }
+    near(hs.kar, bK, 'ek kâr', 1e-6 * Math.max(1, bK));
+    if (hs.L > 0) eq(hs.L, bL, 'ek seviye');
+    eq(hs.toplamSonra, sirket.toplamSeviye + hs.L);
+    if (hs.L >= 2) {
+      if (!(hs.yari.kar <= hs.kar && hs.buyuk.kar <= hs.kar)) throw new Error('tepe noktası en yüksek olmalı');
+      eq(hs.yari.L, Math.round(hs.L / 2));
+      eq(hs.buyuk.L, Math.round(hs.L * 1.5));
+    } else eq(hs.yari, null);
+  }
+  if (kontrolEdilen < 2) throw new Error('örnekte yeterli seçenek yok');
+});
+
+test('Tüm Ürün sekmesi: geçersiz ya da eksik seçim en kârlı bina, ürün ve kaliteye döner; ürün değişince geçersiz kalite düzelir', () => {
+  const ilk = stT().tum;
+  eq(ilk.secim.harf, ilk.secenek[0].harf);
+  for (const hesap of [{}, { harf: 'ZZ' }, { harf: 'W', id: 99999 }, { harf: 'W', id: 2, q: 11 }]) {
+    const t = stT({ prefs: { ...PREFS_TUM, hesap } }).tum;
+    const h = t.secenek.find((e) => e.harf === t.secim.harf);
+    const u = h.urunler.find((e) => e.id === t.secim.id);
+    if (!u || !u.kaliteler.includes(t.secim.q)) throw new Error(`geçersiz seçim döndü ${JSON.stringify(hesap)}`);
+  }
+});
+
+test('Tüm Ürün sekmesi: Üretim\'e eklenen ama şirket kaydına işlenmemiş seviyeler bir sonraki öneride hesaba girer (aynı öneri iki kez katlanmaz)', () => {
+  const sec = { harf: 'W', id: 2, q: 0 };
+  const a = stT({ prefs: { ...PREFS_TUM, hesap: sec } });
+  const L = a.tum.hesap.L;
+  if (!(L >= 1)) throw new Error('örnekte öneri yok');
+  const b = stT({ prefs: { ...PREFS_TUM, hesap: sec }, ekler: [{ id: 2, L }] });
+  eq(b.sirket.toplamSeviye, a.sirket.toplamSeviye + L);
+  if (!(b.tum.hesap.L < L)) throw new Error('eklenen seviye ikinci önerideki seviyeyi azaltmalı');
+  const c = stT({ prefs: { ...PREFS_TUM, hesap: sec }, ekler: [{ id: 2, L: 'x' }, { id: 99999, L: 3 }, null] });
+  eq(c.sirket.toplamSeviye, a.sirket.toplamSeviye + 3, 'bozuk ek yok sayılır, bilinmeyen ürün yalnız seviye ekler');
+});
+
+test('binaEkle: yeni satır, mevcut binaya ekleme (robotsuz önce), eşleşme yoksa yeni satır, bozuk kayıt ve seviye', () => {
+  const raw = { v: 1, recreation: { park: 3 }, buildings: [
+    { id: 'a', type: 'W', product: 2, quality: 0, level: 10, robots: true },
+    { id: 'b', type: 'W', product: 2, quality: 0, level: 20, robots: false },
+    { id: 'c', type: 'W', product: 2, quality: 3, level: 5, construction: true },
+  ] };
+  const e = { harf: 'W', id: 2, q: 0, L: 7 };
+  const y = binaEkle(raw, e, 'yeni');
+  eq(y.mod, 'yeni');
+  eq(y.raw.buildings.length, 4);
+  const yb = y.raw.buildings[3];
+  eq(`${yb.type}|${yb.product}|${yb.level}|${yb.quality}|${yb.robots}|${yb.construction}|${yb.efficiency}`, 'W|2|7|0|false|false|100');
+  if (!yb.id) throw new Error('yeni satırın kimliği yok');
+  eq(y.raw.recreation.park, 3, 'diğer alanlar korunur');
+  eq(raw.buildings.length, 3, 'girdi değişmez');
+  const m = binaEkle(raw, e, 'mevcut');
+  eq(m.mod, 'mevcut');
+  eq(m.raw.buildings.map((b) => b.level).join(','), '10,27,5');
+  // yalnız robotlu eşleşiyorsa o kullanılır; inşaattaki bina eşleşmez; hiç yoksa yeni satır olur
+  eq(binaEkle({ buildings: [raw.buildings[0]] }, e, 'mevcut').raw.buildings[0].level, 17);
+  const yok = binaEkle(raw, { harf: 'W', id: 2, q: 3, L: 4 }, 'mevcut');
+  eq(yok.mod, 'yeni');
+  eq(yok.raw.buildings.length, 4);
+  eq(binaEkle(null, e, 'yeni').raw.buildings.length, 1);
+  eq(binaEkle('bozuk', e, 'mevcut').mod, 'yeni');
+  eq(binaEkle({ buildings: 'x' }, e, 'yeni').raw.buildings.length, 1);
+  eq(binaEkle(raw, { ...e, L: 0 }, 'yeni'), null);
+  eq(binaEkle(raw, { ...e, L: 0.9 }, 'yeni'), null);
+  eq(binaEkle(raw, { ...e, L: 3.7 }, 'yeni').raw.buildings[3].level, 3);
+});
+
+test('Hesap seçimi kaydı temizlenir', () => {
+  eqj(okuHesap(null), {});
+  eqj(okuHesap({ harf: 'W', id: '2', q: 3 }), { harf: 'W', id: 2, q: 3 });
+  eqj(okuHesap({ harf: '<script>', id: 'a', q: 99 }), { q: 12 });
+  eqj(okuHesap({ harf: 5, id: null, q: '' }), {});
+});
+
+test('Tüm Ürün sayfası: iki üst sekme; solda sınırsız hesap (pazar payı ve kontrat yok), sağda önceki sayfa aynen', () => {
+  const tum = sayfaHtml(stT(), ad);
+  const borsa = sayfaHtml(st({ prefs: { ...PREFS_TUM, ana: 'borsa' }, company: COMPANY, kurulum: KURULUM }), ad);
+  const eski = sayfaHtml(st({ company: COMPANY, kurulum: KURULUM }), ad); // ana yok: önceki sayfa
+  for (const h of [tum, borsa, eski]) {
+    if (!h.includes('data-ana="tum"') || !h.includes('data-ana="borsa"')) throw new Error('üst sekmeler yok');
+    if (h.indexOf('Tüm Ürün Satışına Göre') > h.indexOf('Borsa Satışına Göre')) throw new Error('Tüm Ürün solda olmalı');
+  }
+  if (!tum.includes('data-ana="tum" aria-selected="true"') || !borsa.includes('data-ana="borsa" aria-selected="true"') || !eski.includes('data-ana="borsa" aria-selected="true"')) throw new Error('seçili sekme');
+  // sağ sekme = önceki sayfa: pazar payı, kontrat, 28 Günlük | Güncel
+  for (const h of [borsa, eski]) for (const t of ['Pazar payı', 'Kontratlarım', 'data-tab="ay"', 'data-tab="guncel"', 'data-act="pay"']) if (!h.includes(t)) throw new Error(`borsa sekmesinde ${t} yok`);
+  // sol sekme: pazar payı, kontrat ve alt sekmeler yok; sınırsız uyarısı, hesap, bina kartları, ürün listesi var
+  for (const t of ['Pazar payı', 'Kontratlarım', 'data-tab=', 'data-act="pay"', 'data-pay=']) if (tum.includes(t)) throw new Error(`tüm ürün sekmesinde ${t} olmamalı`);
+  for (const t of ['Satışın sınırsız ve fiyatın sabit olduğu varsayılır', 'Seviye hesapla', 'data-hs="harf"', 'data-hs="id"', 'data-act="ekle"', 'data-v="yeni"', 'data-v="mevcut"', 'Bina türüne göre en kârlı', 'Tüm ürünler', 'Ekonomi fazı']) if (!tum.includes(t)) throw new Error(`tüm ürün sekmesinde ${t} yok`);
+  if (/kat(ı)?\b.*pazar|pazar büyüklüğü/i.test(tum)) throw new Error('pazar büyüklüğü kıyası olmamalı');
+  if (tum.includes('Pazar sınırlı')) throw new Error('pazar sınırı uyarısı olmamalı');
+});
+
+test('Tüm Ürün hesap kartı: kalite seçici yalnız kaliteli üründe; "Mevcut binaya ekle" yalnız aynı bina, ürün ve kalite kuruluysa açık; öneri yoksa düğmeler kapalı', () => {
+  const kurulu = { buildings: [{ type: 'W', product: 2, quality: 0, level: 20 }], recreation: {} };
+  const a = hesapHtml(stT({ prefs: { ...PREFS_TUM, hesap: { harf: 'W', id: 2, q: 0 } }, kurulum: kurulu }), ad);
+  if (!a.includes('data-hs="q"')) throw new Error('kaliteli üründe kalite seçici olmalı');
+  if (/data-v="mevcut"[^>]*disabled/.test(a)) throw new Error('mevcut binaya ekle açık olmalı');
+  if (!a.includes('Zaten kurulu: 20 seviye')) throw new Error('kurulu seviye yok');
+  const b = hesapHtml(stT({ prefs: { ...PREFS_TUM, hesap: { harf: 'W', id: 2, q: 3 } }, kurulum: kurulu }), ad);
+  if (!/data-v="mevcut"[^>]*disabled/.test(b)) throw new Error('kurulu bina yokken mevcut binaya ekle kapalı olmalı');
+  if (!b.includes('Mevcut binaya ekle: Üretim&#39;de bu bina, ürün ve kalitede kurulu bina yok.')) throw new Error('açıklama yok');
+  // eklendi iletisi ve hata
+  const ok = stT({ prefs: { ...PREFS_TUM, hesap: { harf: 'W', id: 2, q: 0 } } });
+  ok.sonEkle = { mod: 'yeni', id: 2, q: 0, L: 7 };
+  const okH = hesapHtml(ok, ad);
+  if (!okH.includes('Yeni bina eklendi: Riser Q0 +7 seviye.') || !okH.includes('href="#uretim/binalar"')) throw new Error('eklendi iletisi yok');
+  ok.sonEkle = { mod: 'mevcut', id: 2, q: 0, L: 7 };
+  if (!hesapHtml(ok, ad).includes('Mevcut binaya eklendi: Riser Q0 +7 seviye.')) throw new Error('mevcut iletisi yok');
+  ok.sonEkle = { hata: true };
+  if (!hesapHtml(ok, ad).includes('Tarayıcı kaydı açık değil; eklenemedi.')) throw new Error('hata iletisi yok');
+});
+
+test('Tüm Ürün sayfası İngilizcede tamamen çevrilir (şirketli ve şirketsiz, her seçim, ekleme iletileri, özet yok)', () => {
+  const htmls = [];
+  for (const c of [{}, { company: COMPANY, kurulum: KURULUM }]) {
+    for (const v of [{ ozet: DOC }, { ozet: { ...DOC, t: NOW - 50 * SAAT } }, { ozet: null }]) {
+      const ilk = stT({ ...c, ...v });
+      htmls.push(sayfaHtml(ilk, ad));
+      for (const e of ilk.tum.secenek.slice(0, 3)) {
+        for (const u of e.urunler.slice(0, 2)) {
+          for (const q of u.kaliteler.slice(0, 3)) {
+            const s2 = stT({ ...c, ...v, prefs: { ...PREFS_TUM, hesap: { harf: e.harf, id: u.id, q } } });
+            for (const sonEkle of [null, { mod: 'yeni', id: u.id, q, L: 12 }, { mod: 'mevcut', id: u.id, q, L: 3 }, { hata: true }]) {
+              s2.sonEkle = sonEkle;
+              s2.acik = new Set(['tumq', ...s2.tum.binalar.map((b) => `t:${b.harf}`)]);
+              htmls.push(sayfaHtml(s2, ad));
             }
           }
         }
