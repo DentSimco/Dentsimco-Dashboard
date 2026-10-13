@@ -2,6 +2,7 @@
 //
 // Arayüzsüz, saf fonksiyonlar: tarayıcıda ve Node'da aynen çalışır; DOM, ağ ya da Firestore bilgisi içermez.
 // Formüller yalnız bu dosyadadır ve yayın kopyasında en güçlü ayarla gizlenir (araclar/gizle.mjs, FORMUL).
+// Not: gizleme aracı isteğe bağlı fonksiyon çağrısının ?. kısmını düşürüyor (f?.(x) → f(x)); bu dosyada f ? f(x) : null yazılır.
 // Ekran dosyası (optimum.js) yalnız sayfaDurumu() sonucunu görür: ürün, kalite, seviye, kâr ve sınır; formül,
 // katsayı ya da ara değer (fiyat, girdi maliyeti, saatlik üretim, pazar büyüklüğü) ekrana gitmez.
 // Soru: bir üretim binası kaç seviye olsun ve ne üretsin? Yanıt iki sınırın küçüğüdür:
@@ -156,7 +157,7 @@ export function satirlar({ data, oz, fiyat, mevsimlik, faz = 0, kurulum, olaylar
       if (eksik) continue;
       const net = H.saleUnitNet(f.p, p.transport, tp, 'exchange');
       const pazar = k[1] / 24 / ph;
-      const kt = kontrat?.(p.id, q, { phTaban, ref: f.p }) || null;
+      const kt = (kontrat ? kontrat(p.id, q, { phTaban, ref: f.p }) : null) || null;
       if (pazar < 1 && !kt) continue; // bütün pazar bir seviyeyi bile beslemiyor (kontratı olan ürün kalır)
       out.push({
         id: p.id, q, harf: p.building, fiyat: f.p, kaynak: f.kaynak, girdi, girdiOrt, net, ph, phTaban,
@@ -373,13 +374,13 @@ export function urunOnerileri(rows, o = {}) {
 export function guncelOneriler(rows, o = {}) {
   const out = [];
   for (const [harf, list] of grupla(rows, (x) => x.harf)) {
-    const ref = o.seviye?.(harf) || { L: 0, kaynak: 'oneri' };
+    const ref = (o.seviye ? o.seviye(harf) : null) || { L: 0, kaynak: 'oneri' };
     const L = Math.max(0, Math.floor(num(ref.L, 0)));
     const hesapL = L > 0 ? L : 1; // önerilmeyen bina: bir seviye için en iyisi gösterilir
     const d = digerleri(o.sirket, harf);
     const sec = list.map((x) => ({ x, kar: gunlukKar(hesapL, x, { ...o, ...d }) })).sort((a, b) => b.kar - a.kar);
     const en = sec[0];
-    const hedef = o.oneri?.(harf);
+    const hedef = o.oneri ? o.oneri(harf) : null;
     const onerilen = hedef ? sec.find((y) => y.x.id === hedef.id && y.x.q === hedef.q) || null : null;
     const fark = onerilen ? en.kar - onerilen.kar : null;
     const ayni = !onerilen || (onerilen.x.id === en.x.id && onerilen.x.q === en.x.q);
