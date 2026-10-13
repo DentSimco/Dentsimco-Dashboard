@@ -217,6 +217,15 @@ export function anaSekmelerHtml(st) {
 // ---- Tüm Ürün Satışına Göre: pazar sınırı yok; bina × ürün × kalite seçince şirketin bugünkü binalarının üstüne eklenecek seviye ----
 const kaliteAdi = (ad, id, q) => `${ad.urun(id)}${ad.kaliteli(id) ? ` Q${q}` : ''}`;
 
+// Ek seviye kâr getirmiyorsa: neden ve (başka binası olmayan bir şirket için) en kârlı seviye
+function yalnizNotu(hs) {
+  const y = hs.yalniz;
+  const metin = y && y.L > 0
+    ? ['Şirketinizin bugünkü yönetim gideriyle ek seviye kâr getirmiyor.', `Başka binanız olmasaydı en kârlı seviye ${NF0.format(y.L)} olurdu (${para(y.kar)} / gün).`]
+    : ['Bu kalitede hiçbir seviye kâr getirmiyor.'];
+  return `<p class="op-note">${metin.map((m) => `<span>${esc(m)}</span>`).join(' ')}</p>`;
+}
+
 // k: { t (sonuç), sel (seçici öznitelik), act (Ekle düğmesi), acKey, notu, binaEtiket, yeniEtiket, mevcutEtiket, mevcutNot, ekChips(hs), son (son ekleme), sonMetin(son) }
 function hesapKarti(st, ad, k) {
   const t = k.t;
@@ -233,8 +242,8 @@ function hesapKarti(st, ad, k) {
       <tr class="on"><th scope="row">Önerilen</th><td>${NF0.format(hs.L)}</td><td class="up">${para(hs.kar)}</td></tr>
       <tr><th scope="row">1,5 katı</th><td>${NF0.format(hs.buyuk.L)}</td><td>${para(hs.buyuk.kar)}</td></tr></tbody></table></div>` : '';
   const kalite = hs.kaliteler.length > 1 ? `<details data-ac="${k.acKey}"${st.acik?.has(k.acKey) ? ' open' : ''}><summary>Kaliteleri karşılaştır</summary>
-      <div class="table-wrap"><table class="op-table"><thead><tr><th scope="col">Kalite</th><th scope="col">Seviye</th><th scope="col">Günlük kâr</th></tr></thead><tbody>${hs.kaliteler.map((k) =>
-        `<tr${k.q === secim.q ? ' class="on"' : ''}><th scope="row">Q${k.q}${k.q === u.ana ? ' ★' : ''}${k.son ? ` ${chip('Son işlem', 'muted')}` : ''}</th><td>${NF0.format(k.L)}</td><td class="${k.kar > 0 ? 'up' : ''}">${para(k.kar)}</td></tr>`).join('')}</tbody></table></div></details>` : '';
+      <div class="table-wrap"><table class="op-table"><thead><tr><th scope="col">Kalite</th><th scope="col">Seviye</th><th scope="col">Günlük kâr</th>${k.islemSutunu ? '<th scope="col">İşlem günü</th>' : ''}</tr></thead><tbody>${hs.kaliteler.map((x) =>
+        `<tr${x.q === secim.q ? ' class="on"' : ''}><th scope="row">Q${x.q}${x.q === u.ana ? ' ★' : ''}${x.son ? ` ${chip('Son işlem', 'muted')}` : ''}</th><td>${NF0.format(x.L)}</td><td class="${x.kar > 0 ? 'up' : ''}">${para(x.kar)}</td>${k.islemSutunu ? `<td>${NF0.format(x.gun || 0)}/${NF0.format(hs.islem?.pencere || 0)}</td>` : ''}</tr>`).join('')}</tbody></table></div></details>` : '';
   const var_ = hs.L >= 1;
   const mevcutVar = hs.ayni > 0;
   const son = k.son;
@@ -250,7 +259,8 @@ function hesapKarti(st, ad, k) {
       <div class="op-top"><h3>${esc(kaliteAdi(ad, secim.id, secim.q))}</h3><span class="op-level"><b>${NF0.format(hs.L)}</b><small>seviye ekleyin</small></span></div>
       <div class="op-prod"><span class="op-name">${esc('Ek günlük kâr')}</span><span class="op-kar ${hs.kar > 0 ? 'up' : ''}">${para(hs.kar)}</span><span class="op-unit">/ gün</span></div>
       <div class="op-chips">${chips.join('')}</div>
-      ${var_ ? egri : `<p class="op-note">${esc(k.seviyeYok)}</p>`}
+      ${var_ ? egri : yalnizNotu(hs)}
+      ${k.islemNotu ? k.islemNotu(hs) : ''}
       ${kalite}
       <div class="op-ekle">
         <button type="button" class="op-btn primary" data-act="${k.act}" data-v="yeni"${var_ ? '' : ' disabled'}>${esc(`${k.yeniEtiket} (+${NF0.format(hs.L)})`)}</button>
@@ -261,11 +271,25 @@ function hesapKarti(st, ad, k) {
     </div></section>`;
 }
 
+// Borsa işlem sıklığı ve fiyatın güvenilirliği (28 günlük özetteki işlem günü sayısı)
+export function uretimIslemNotu(hs, st) {
+  const { gun: g, pencere: w, sonT } = hs.islem || {};
+  if (!(w > 0)) return '';
+  const ago = sonT ? ` <span>${esc(`Son işlem ${fmtAgo(sonT, st.simdi)}.`)}</span>` : '';
+  let metin;
+  let uyari = false;
+  if (g >= Math.ceil(w * 0.75)) metin = `Borsada son ${w} günün ${g} gününde işlem gördü: fiyat güvenilir.`;
+  else if (g >= Math.ceil(w * 0.5)) metin = `Borsada son ${w} günün ${g} gününde işlem gördü: fiyat orta güvenilirlikte.`;
+  else if (g > 0) { metin = `Borsada son ${w} günün yalnız ${g} gününde işlem gördü: seyrek işlem, fiyat güvenilir değil.`; uyari = true; }
+  else { metin = `Borsada son ${w} günde bu kalitede işlem yok; fiyat son işlemden: güvenilir değil.`; uyari = true; }
+  return `<p class="${uyari ? 'op-warn' : 'op-note'}" role="note">${esc(metin)}${ago}</p>`;
+}
+
 export function hesapHtml(st, ad) {
   return hesapKarti(st, ad, {
-    t: st.tum, sel: 'hs', act: 'ekle', acKey: 'tumq', son: st.sonEkle, binaEtiket: 'Bina',
+    t: st.tum, sel: 'hs', act: 'ekle', acKey: 'tumq', son: st.sonEkle, binaEtiket: 'Bina', islemSutunu: true,
+    islemNotu: (hs) => uretimIslemNotu(hs, st),
     notu: "Bina, ürün ve kalite seçin. Öneri, şirketinizin bugünkü binalarının üstüne eklenecek en kârlı seviyedir; yönetim ekibiniz ve Üretim'deki binalarınız hesaba katılır.",
-    seviyeYok: 'Bu bina, ürün ve kalite için şirketinize ek seviye önerilmiyor: eklenen seviye kâr getirmiyor.',
     yeniEtiket: 'Yeni bina olarak ekle', mevcutEtiket: 'Mevcut binaya ekle', mevcutNot: "Mevcut binaya ekle: Üretim'de bu bina, ürün ve kalitede kurulu bina yok.",
     ekChips: (hs) => {
       const c = [];
@@ -279,13 +303,23 @@ export function hesapHtml(st, ad) {
 }
 
 // ---- Perakende: mağaza × ürün × kalite için ideal seviye (satış ve alım sınırsız) ----
+// Maliyet = borsanın güncel fiyatı; son işlem eskiyse (24 saatten fazla) fiyat güncel olmayabilir
+export function pkIslemNotu(hs, st) {
+  if (!hs.sonT) return '';
+  const eski = st.simdi - hs.sonT > 24 * 3_600_000;
+  const metin = eski
+    ? `Borsada son işlem ${fmtAgo(hs.sonT, st.simdi)}: maliyet fiyatı güncel olmayabilir.`
+    : `Maliyet, borsanın güncel fiyatıdır; son işlem ${fmtAgo(hs.sonT, st.simdi)}.`;
+  return `<p class="${eski ? 'op-warn' : 'op-note'}" role="note">${esc(metin)}</p>`;
+}
+
 export function pkKartiHtml(st, ad) {
   const t = st.pk;
   if (!t?.hesap || !t.secim) return '';
   return hesapKarti(st, ad, {
     t, sel: 'pk', act: 'pkEkle', acKey: 'pkq', son: st.sonEklePk, binaEtiket: 'Mağaza',
+    islemNotu: (hs) => pkIslemNotu(hs, st),
     notu: "Mağaza, ürün ve kalite seçin. Öneri, şirketinizin bugünkü binalarının üstüne eklenecek en kârlı seviyedir; yönetim ekibiniz, Üretim'deki ve Perakende'deki binalarınız hesaba katılır.",
-    seviyeYok: 'Bu mağaza, ürün ve kalite için şirketinize ek seviye önerilmiyor: eklenen seviye kâr getirmiyor.',
     yeniEtiket: 'Yeni mağaza olarak ekle', mevcutEtiket: 'Mevcut mağazaya ekle', mevcutNot: "Mevcut mağazaya ekle: Perakende'de bu mağaza, ürün ve kalitede kurulu mağaza yok.",
     ekChips: (hs) => {
       const c = [chip(`Satış fiyatı ${fmtPrice(hs.fiyat)}`, 'muted'), chip(`Birim maliyet ${fmtPrice(hs.maliyet)}`, 'muted')];

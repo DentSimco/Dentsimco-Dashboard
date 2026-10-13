@@ -6,7 +6,7 @@ import { readFileSync } from 'node:fs';
 import * as H from '../public/hesap.js';
 import * as O from '../public/optimum-hesap.js';
 import * as RP from '../public/hesap-perakende.js';
-import { sayfaHtml, uyarilarHtml, okuHesap, binaEkle, pkBinaEkle, perakendeOku, tumHtml, hesapHtml, pkHtml, R2_HTML } from '../public/optimum.js';
+import { sayfaHtml, uyarilarHtml, okuHesap, binaEkle, pkBinaEkle, perakendeOku, tumHtml, hesapHtml, pkHtml, uretimIslemNotu, pkIslemNotu, R2_HTML } from '../public/optimum.js';
 import EN from '../public/dil-en.js';
 import { sozlukDerle, cevirMetin } from '../public/i18n.js';
 import { BINA_ADLARI_EN } from '../public/adlar.js';
@@ -360,8 +360,9 @@ test('Tüm Ürün sekmesi: sayfa durumu bina listesi, ürün listesi, seçici ve
     anahtarlar(b, ['harf', 'id', 'q', 'L', 'kar', 'sinir', 'kontrat', 'secenekler'], 'bina');
     if (b.sinir === 'pazar') throw new Error('pazar sınırı olmamalı');
   }
-  anahtarlar(s.tum.hesap, ['harf', 'id', 'q', 'L', 'kar', 'sinir', 'son', 'yari', 'buyuk', 'kaliteler', 'ayni', 'toplamSonra'], 'hesap');
-  for (const y of s.tum.hesap.kaliteler) anahtarlar(y, ['q', 'L', 'kar', 'son'], 'kalite');
+  anahtarlar(s.tum.hesap, ['harf', 'id', 'q', 'L', 'kar', 'sinir', 'son', 'yari', 'buyuk', 'kaliteler', 'islem', 'yalniz', 'ayni', 'toplamSonra'], 'hesap');
+  for (const y of s.tum.hesap.kaliteler) anahtarlar(y, ['q', 'L', 'kar', 'son', 'gun'], 'kalite');
+  anahtarlar(s.tum.hesap.islem, ['gun', 'pencere', 'sonT'], 'işlem');
   for (const e of s.tum.secenek) { anahtarlar(e, ['harf', 'urunler'], 'seçenek'); for (const u of e.urunler) anahtarlar(u, ['id', 'kaliteler', 'ana'], 'ürün'); }
   // özet yoksa boş ama çökmez
   const bos = st({ prefs: PREFS_TUM, ozet: null });
@@ -423,10 +424,10 @@ test('Son işlem fiyatı: 28 günlük ortalaması olmayan kalite, son işlemi 28
   const oz = O.ozetOku(DOC);
   const live = { t: NOW, items: { 2: [NOW, { 6: [0.77, null, 0, 0, NOW - 2 * 24 * SAAT], 7: [0.88, null, 0, 0, NOW - 40 * 24 * SAAT], 5: [0.95, null, 0, 0, NOW - SAAT], 3: [1.1, null, 0, 0, NOW - SAAT] }] } };
   const f = O.sonFiyat(oz, live, NOW);
-  eqj(f(2, 6), { p: 0.77, kaynak: 'son' }, 'özette yok, son işlem 2 gün önce');
+  eqj(f(2, 6), { p: 0.77, kaynak: 'son', lt: NOW - 2 * 24 * SAAT }, 'özette yok, son işlem 2 gün önce');
   eq(f(2, 7), null, 'son işlem 40 gün önce');
   eqj(f(2, 3), { p: 0.9, kaynak: 'ort' }, 'özette var: 28 günlük ortalama öncelikli');
-  eqj(f(2, 5), { p: 0.77 - 0.77 + 0.95, kaynak: 'son' }, 'özette seyrek (10 gün): son işlem');
+  eqj(f(2, 5), { p: 0.95, kaynak: 'son', lt: NOW - SAAT }, 'özette seyrek (10 gün): son işlem');
   eq(f(2, 11), null);
   eq(O.sonFiyat(oz, null, NOW)(2, 6), null, 'canlı belge yoksa');
 });
@@ -616,7 +617,7 @@ test('Perakende: sayfa durumu yalnız sonuç verir; seçici, liste, ürünler ve
   eq(s.pk.veriYok, false);
   for (const e of s.pk.liste) anahtarlar(e, ['harf', 'id', 'q', 'L', 'kar', 'sinir', 'fiyat'], 'liste');
   for (const e of s.pk.urunler) anahtarlar(e, ['harf', 'id', 'q', 'L', 'kar', 'sinir', 'fiyat'], 'ürün');
-  anahtarlar(s.pk.hesap, ['harf', 'id', 'q', 'L', 'kar', 'sinir', 'fiyat', 'maliyet', 'yari', 'buyuk', 'kaliteler', 'ayni', 'toplamSonra'], 'hesap');
+  anahtarlar(s.pk.hesap, ['harf', 'id', 'q', 'L', 'kar', 'sinir', 'fiyat', 'maliyet', 'sonT', 'yalniz', 'yari', 'buyuk', 'kaliteler', 'ayni', 'toplamSonra'], 'hesap');
   for (const y of s.pk.hesap.kaliteler) anahtarlar(y, ['q', 'L', 'kar'], 'kalite');
   for (const e of s.pk.secenek) { anahtarlar(e, ['harf', 'urunler'], 'seçenek'); for (const u of e.urunler) anahtarlar(u, ['id', 'kaliteler', 'ana'], 'ürün seçeneği'); }
   // en kârlı mağaza başta; restoran ve satış ofisi yok
@@ -820,6 +821,53 @@ test('★ önerisi: yalnız son işlemden fiyatlanan (seyrek) kalite, güvenilir
   if (u.ana === 2 || s.tum.secim.q === 2) throw new Error('seyrek kalite önerilmemeli');
   // elle seçilebilir
   eq(stT({ live, prefs: { ...PREFS_TUM, hesap: { harf: 'W', id: 2, q: 2 } } }).tum.secim.q, 2);
+});
+
+test('İşlem sıklığı ve güvenilirlik notu: 28 günde ≥ 21 gün güvenilir, 14 – 20 orta, daha azı seyrek (uyarı), hiç yoksa son işlemden; son işlem zamanı yazılır', () => {
+  const stx = { simdi: NOW };
+  const not = (gun, sonT = null) => uretimIslemNotu({ islem: { gun, pencere: 28, sonT } }, stx);
+  if (!not(28).includes('28 günün 28 gününde işlem gördü: fiyat güvenilir.') || not(28).includes('op-warn')) throw new Error('güvenilir');
+  if (!not(21).includes('fiyat güvenilir.')) throw new Error('21 gün güvenilir');
+  if (!not(20).includes('orta güvenilirlikte') || not(20).includes('op-warn')) throw new Error('20 gün orta');
+  if (!not(14).includes('orta güvenilirlikte')) throw new Error('14 gün orta');
+  const az = not(8, NOW - 2 * 24 * SAAT);
+  if (!az.includes('yalnız 8 gününde') || !az.includes('seyrek işlem, fiyat güvenilir değil') || !az.includes('op-warn') || !az.includes('Son işlem 2 gün önce.')) throw new Error(`seyrek: ${az}`);
+  const yok = not(0, NOW - 3 * SAAT);
+  if (!yok.includes('işlem yok; fiyat son işlemden: güvenilir değil.') || !yok.includes('op-warn') || !yok.includes('Son işlem 3 sa önce.')) throw new Error('hiç işlem yok');
+  eq(uretimIslemNotu({ islem: { gun: 5, pencere: 0, sonT: null } }, stx), '');
+  // sayfada: seçilen kalitenin notu ve karşılaştırma tablosunda işlem günü
+  const s = stT({ prefs: { ...PREFS_TUM, hesap: { harf: 'W', id: 2, q: 0 } } });
+  const h = sayfaHtml({ ...s, acik: new Set(['tumq']) }, ad);
+  if (!h.includes('Borsada son 28 günün 28 gününde işlem gördü: fiyat güvenilir.')) throw new Error('sayfada işlem notu yok');
+  if (!h.includes('<th scope="col">İşlem günü</th>') || !h.includes('<td>28/28</td>')) throw new Error('işlem günü sütunu yok');
+  eqj([s.tum.hesap.islem.gun, s.tum.hesap.islem.pencere, s.tum.hesap.islem.sonT], [28, 28, null]);
+  // son işlemden fiyatlanan kalite: günü ve son işlem zamanı
+  const live = { t: NOW, items: { 2: [NOW, { 2: [0.7, null, 0, 0, NOW - 3 * 24 * SAAT] }] } };
+  const s2 = stT({ live, prefs: { ...PREFS_TUM, hesap: { harf: 'W', id: 2, q: 2 } } });
+  eqj([s2.tum.hesap.islem.gun, s2.tum.hesap.islem.sonT], [0, NOW - 3 * 24 * SAAT]);
+});
+
+test('Perakende maliyet notu: son işlem 24 saatten yeniyse bilgi, eskiyse uyarı; zaman yoksa not yok', () => {
+  const stx = { simdi: NOW };
+  const yeni = pkIslemNotu({ sonT: NOW - 3 * SAAT }, stx);
+  if (!yeni.includes('Maliyet, borsanın güncel fiyatıdır; son işlem 3 sa önce.') || yeni.includes('op-warn')) throw new Error(`yeni: ${yeni}`);
+  const eski = pkIslemNotu({ sonT: NOW - 30 * SAAT }, stx);
+  if (!eski.includes('Borsada son işlem 1 gün önce: maliyet fiyatı güncel olmayabilir.') || !eski.includes('op-warn')) throw new Error(`eski: ${eski}`);
+  eq(pkIslemNotu({ sonT: null }, stx), '');
+  const s = stP();
+  if (!sayfaHtml(s, ad).includes('Maliyet, borsanın güncel fiyatıdır; son işlem 1 sa önce.')) throw new Error('sayfada maliyet notu yok');
+});
+
+test('Ek seviye 0 ise neden ve (başka binası olmayan şirket için) en kârlı seviye yazılır; hiçbir seviye kâr getirmiyorsa o söylenir', () => {
+  // büyük şirket: ek seviye kâr getirmez ama yalnız başına kârlı
+  const buyuk = { ...COMPANY, admin: { totalLevels: 3000, wagesDay: 90_000_000 } };
+  const s = stT({ company: buyuk, prefs: { ...PREFS_TUM, hesap: { harf: 'W', id: 2, q: 0 } } });
+  eq(s.tum.hesap.L, 0);
+  if (!(s.tum.hesap.yalniz.L > 0)) throw new Error('yalnız başına seviye bulunmalı');
+  const h = sayfaHtml(s, ad);
+  if (!h.includes('Şirketinizin bugünkü yönetim gideriyle ek seviye kâr getirmiyor.') || !h.includes(`Başka binanız olmasaydı en kârlı seviye ${s.tum.hesap.yalniz.L}`)) throw new Error('yalnız başına bilgisi yok');
+  // L > 0 iken yalniz null
+  eq(stT({ prefs: { ...PREFS_TUM, hesap: { harf: 'W', id: 2, q: 0 } } }).tum.hesap.yalniz, null);
 });
 
 test('Menü: Optimum Seviye, Piyasa ile Kâr Hesaplayıcı arasında; modül tanımlı', () => {

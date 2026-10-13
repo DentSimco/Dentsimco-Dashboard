@@ -52,7 +52,9 @@ export function ozetOku(doc) {
     return Array.isArray(x) && x[0] > 0 && x[1] > 0 && x[2] >= enAz ? x : null;
   };
   const kaliteler = (id) => Object.keys(doc.u[id] || {}).map(Number).filter((q) => kayit(id, q)).sort((a, b) => a - b);
-  return { t: num(doc.t, null), gun: doc.gun, bas: doc.bas, k: doc.k, n: doc.n, enAz, kayit, kaliteler };
+  // Borsada kaç gün işlem gördüğü (pencere içinde): özette yeterli kaydı olmayan kalite için de bilinir
+  const islemGunu = (id, q) => { const x = doc.u[id]?.[q]; return Array.isArray(x) && x[2] > 0 ? Math.min(Math.floor(x[2]), doc.k) : 0; };
+  return { t: num(doc.t, null), gun: doc.gun, bas: doc.bas, k: doc.k, n: doc.n, enAz, kayit, kaliteler, islemGunu };
 }
 
 /** 28 günlük ortalama fiyat (VWAP). Dönüş: (ürün, kalite) → { p, kaynak: 'ort' } | null */
@@ -76,7 +78,7 @@ export const sonFiyat = (oz, live, simdi = Date.now()) => (id, q) => {
   const v = live?.items?.[id]?.[1]?.[q];
   const p = Number(v?.[0]);
   const lt = Number(v?.[4]);
-  return p > 0 && lt > 0 && simdi - lt <= SON_ISLEM_GUN * 24 * SAAT_MS ? { p, kaynak: 'son' } : null;
+  return p > 0 && lt > 0 && simdi - lt <= SON_ISLEM_GUN * 24 * SAAT_MS ? { p, kaynak: 'son', lt } : null;
 };
 
 /** Mevsimlik ürünler: oyun verisinde sezonu olanlar ve mevsimlik pazarlarda satılanlar (Noel ağacı, Cadı kostümü …) */
@@ -149,7 +151,7 @@ export function satirlar({ data, oz, fiyat, mevsimlik, faz = 0, kurulum, satisFi
       const pazar = k ? k[1] / 24 / ph : 0;
       if (pazar < 1 && !tumKaliteler) continue; // bütün pazar bir seviyeyi bile beslemiyor
       out.push({
-        id: p.id, q, harf: p.building, fiyat: f.p, kaynak: f.kaynak, girdi, girdiOrt, net, ph,
+        id: p.id, q, harf: p.building, fiyat: f.p, kaynak: f.kaynak, lt: f.lt, gun: oz.islemGunu(p.id, q), girdi, girdiOrt, net, ph,
         a: ph * net, b: ph * girdi, g: ph * (net - girdi), w: p.baseSalary, adet: k ? k[1] : 0, gun: k ? k[2] : 0, pazar,
       });
     }
@@ -322,7 +324,8 @@ const sonuc = (e) => ({ id: e.x.id, q: e.x.q, L: e.L, kar: e.kar, sinir: e.sinir
  *   urunler: [{ harf, id, q, L, kar, sinir, fiyat }]  her mağaza × ürün için en kârlı kalite
  *   secenek: [{ harf, urunler: [{ id, kaliteler: [q], ana }] }]
  *   secim:   { harf, id, q }
- *   hesap:   { harf, id, q, L, kar, sinir, fiyat, maliyet, yari, buyuk, kaliteler: [{ q, L, kar }], ayni, toplamSonra }
+ *   hesap:   { harf, id, q, L, kar, sinir, fiyat, maliyet, sonT, yalniz, yari, buyuk, kaliteler: [{ q, L, kar }], ayni, toplamSonra }
+ *     sonT: borsada son işlemin zamanı (maliyet fiyatı buradan); yalniz: ek seviye 0 ise başka binası olmayan şirket için en kârlı seviye
  *   bonus:   toplam satış hızı bonusu (yüzde: rekreasyon + elle + yönetim ekibi)
  */
 const PK_DISLANAN = new Set(['r', 'B']); // Restoran ayrı planlanır; Satış ofisi ölçülmez (Perakende sayfasıyla aynı)
@@ -338,6 +341,7 @@ function pkDurumu({ data, live, company, sirket, faz, pk, secim }) {
   });
   out.bonus = bonusPct;
   const piyasa = (id, q) => { const p = Number(live?.items?.[id]?.[1]?.[q]?.[0]); return p > 0 ? p : null; };
+  const sonIslem = (id, q) => { const t = Number(live?.items?.[id]?.[1]?.[q]?.[4]); return t > 0 ? t : null; }; // borsada son işlemin zamanı
   const diger = { s: sirket.s, pay: SINIRSIZ, Lo: sirket.sirketVar ? sirket.toplamSeviye : 0, Wo: sirket.sirketVar ? sirket.tabanMaasSaat : 0 };
   const satirlar = [];
   for (const harf of R.retailLetters()) {
@@ -353,7 +357,7 @@ function pkDurumu({ data, live, company, sirket, faz, pk, secim }) {
         const a = r.sellable ? Math.max(0, r.marginHourPerLevel) : 0;
         const x = { id, q, harf, a, b: 0, w, g: a, pazar: 0, ph: 1 };
         const e = optimum(x, diger);
-        satirlar.push({ harf, id, q, x, L: e.L, kar: e.kar, sinir: e.sinir === 'pazar' ? 'yonetim' : e.sinir, fiyat: r.price, maliyet: r.cAct });
+        satirlar.push({ harf, id, q, x, L: e.L, kar: e.kar, sinir: e.sinir === 'pazar' ? 'yonetim' : e.sinir, fiyat: r.price, maliyet: r.cAct, sonT: sonIslem(id, q) });
       }
     }
   }
@@ -390,7 +394,9 @@ function pkDurumu({ data, live, company, sirket, faz, pk, secim }) {
     if (b?.letter === h.harf && Number(b.product) === u.id && !b.construction && R.clampQuality(b.quality) === q) ayni += Math.max(0, Math.floor(num(b.level, 0)));
   }
   out.hesap = {
-    harf: h.harf, id: u.id, q, L: sec.L, kar: sec.kar, sinir: sec.sinir, fiyat: sec.fiyat, maliyet: sec.maliyet,
+    harf: h.harf, id: u.id, q, L: sec.L, kar: sec.kar, sinir: sec.sinir, fiyat: sec.fiyat, maliyet: sec.maliyet, sonT: sec.sonT,
+    // ek seviye kâr getirmiyorsa: şirketin diğer binaları olmasaydı en kârlı seviye (bilgi için)
+    yalniz: sec.L === 0 ? (({ L, kar: k }) => ({ L, kar: k }))(optimum(sec.x, { s: sirket.s, pay: SINIRSIZ })) : null,
     yari: sec.L >= 2 ? { L: Math.round(sec.L / 2), kar: kar(Math.round(sec.L / 2)) } : null,
     buyuk: sec.L >= 2 ? { L: Math.round(sec.L * 1.5), kar: kar(Math.round(sec.L * 1.5)) } : null,
     kaliteler: grup.map((e) => ({ q: e.q, L: e.L, kar: e.kar })).sort((a, b) => a.q - b.q),
@@ -417,7 +423,7 @@ function ekToplami(data, ekler) {
  * liste, satış sınırsız) ve seçilen bina × ürün × kalite için, şirketin bugünkü binalarının ÜSTÜNE eklenecek en kârlı seviye.
  *   secenek: [{ harf, urunler: [{ id, kaliteler: [q], ana }] }]  seçici için (kâr sırasıyla)
  *   secim:   { harf, id, q }  seçilen (seçilmemiş ya da geçersizse en kârlı bina, ürün ve kalite)
- *   hesap:   { harf, id, q, L, kar, sinir, son, yari, buyuk, kaliteler: [{ q, L, kar, son }], ayni, toplamSonra }
+ *   hesap:   { harf, id, q, L, kar, sinir, son, yari, buyuk, kaliteler: [{ q, L, kar, son, gun }], islem: { gun, pencere, sonT }, yalniz, ayni, toplamSonra }
  *     son: fiyat 28 günlük ortalamadan değil son işlemden (borsada seyrek işlem gören kalite)
  *     yari / buyuk: önerilen seviyenin yarısında ve bir buçuk katında günlük kâr ({ L, kar }); L < 2 ise null
  *     ayni: Üretim'de aynı bina türü, ürün ve kalitede zaten kurulu seviye
@@ -461,7 +467,7 @@ function tumDurumu({ ortak, oz, sirket, kurulum, data, secim, live, simdi }) {
   const diger = { s: sirket.s, pay: SINIRSIZ, Lo: sirket.sirketVar ? sirket.toplamSeviye : 0, Wo: sirket.sirketVar ? sirket.tabanMaasSaat : 0 };
   const hesapla = (x) => {
     const e = optimum(x, diger);
-    return { q: x.q, L: e.L, kar: e.kar, sinir: e.sinir === 'pazar' ? 'yonetim' : e.sinir, son: x.kaynak === 'son', x };
+    return { q: x.q, L: e.L, kar: e.kar, sinir: e.sinir === 'pazar' ? 'yonetim' : e.sinir, son: x.kaynak === 'son', gun: x.gun, x };
   };
   const satirlarU = satirH.filter((r) => r.harf === h.harf && r.id === u.id);
   const sec = hesapla(satirlarU.find((r) => r.q === q));
@@ -474,7 +480,11 @@ function tumDurumu({ ortak, oz, sirket, kurulum, data, secim, live, simdi }) {
     harf: h.harf, id: u.id, q, L: sec.L, kar: sec.kar, sinir: sec.sinir, son: sec.son,
     yari: sec.L >= 2 ? { L: Math.round(sec.L / 2), kar: kar(Math.round(sec.L / 2)) } : null,
     buyuk: sec.L >= 2 ? { L: Math.round(sec.L * 1.5), kar: kar(Math.round(sec.L * 1.5)) } : null,
-    kaliteler: satirlarU.map(hesapla).map(({ q: qq, L, kar: k, son }) => ({ q: qq, L, kar: k, son })).sort((a, b) => a.q - b.q),
+    kaliteler: satirlarU.map(hesapla).map(({ q: qq, L, kar: k, son, gun }) => ({ q: qq, L, kar: k, son, gun })).sort((a, b) => a.q - b.q),
+    // borsa işlem sıklığı: son işlem günü sayısı / pencere; son işlemden fiyatlananda son işlemin zamanı
+    islem: { gun: sec.gun, pencere: oz.k, sonT: sec.x.kaynak === 'son' ? sec.x.lt : null },
+    // ek seviye kâr getirmiyorsa: şirketin diğer binaları olmasaydı en kârlı seviye (bilgi için)
+    yalniz: sec.L === 0 ? (({ L, kar: k }) => ({ L, kar: k }))(optimum(sec.x, { s: sirket.s, pay: SINIRSIZ })) : null,
     ayni, toplamSonra: sirket.toplamSeviye + sec.L,
   };
   return out;
