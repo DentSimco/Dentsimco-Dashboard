@@ -762,7 +762,16 @@ test('Tüm Ürün sayfası: iki üst sekme; solda sınırsız hesap (pazar payı
   for (const h of [borsa, eski]) for (const t of ['Pazar payı', 'Kontratlarım', 'data-tab="ay"', 'data-tab="guncel"', 'data-act="pay"']) if (!h.includes(t)) throw new Error(`borsa sekmesinde ${t} yok`);
   // sol sekme: pazar payı, kontrat ve alt sekmeler yok; sınırsız uyarısı, hesap, bina kartları, ürün listesi var
   for (const t of ['Pazar payı', 'Kontratlarım', 'data-tab=', 'data-act="pay"', 'data-pay=']) if (tum.includes(t)) throw new Error(`tüm ürün sekmesinde ${t} olmamalı`);
-  for (const t of ['Satışın sınırsız ve fiyatın sabit olduğu varsayılır', 'Seviye hesapla', 'data-hs="harf"', 'data-hs="id"', 'data-act="ekle"', 'data-v="yeni"', 'data-v="mevcut"', 'Bina türüne göre en kârlı', 'Tüm ürünler', 'Ekonomi fazı']) if (!tum.includes(t)) throw new Error(`tüm ürün sekmesinde ${t} yok`);
+  for (const t of ['Satışın sınırsız ve fiyatın sabit olduğu varsayılır', 'Seviye hesapla', 'data-hs="harf"', 'data-hs="id"', 'data-act="ekle"', 'data-v="yeni"', 'data-v="mevcut"', 'Seçilen binada en kârlı', 'Bu binadaki ürünler', 'Ekonomi fazı']) if (!tum.includes(t)) throw new Error(`tüm ürün sekmesinde ${t} yok`);
+  // yalnız seçilen binanın kartı ve ürünleri listelenir
+  const sT = stT();
+  const harfSayisi = (h) => h.split('<article class="op-card"').length - 1 - (h.includes('class="op-card op-res"') ? 1 : 0);
+  eq((tum.match(/<article class="op-card" data-harf=/g) || []).length, 1, 'tek bina kartı');
+  if (!tum.includes(`data-harf="${sT.tum.secim.harf}"`)) throw new Error('seçilen binanın kartı yok');
+  void harfSayisi;
+  const tablo = tum.slice(tum.indexOf('Bu binadaki ürünler'));
+  const ürünSatırı = (tablo.match(/<tr><th scope="row">/g) || []).length;
+  eq(ürünSatırı, sT.tum.urunler.filter((u) => u.harf === sT.tum.secim.harf).length, 'yalnız seçilen binanın ürünleri');
   if (/kat(ı)?\b.*pazar|pazar büyüklüğü/i.test(tum)) throw new Error('pazar büyüklüğü kıyası olmamalı');
   if (tum.includes('Pazar sınırlı')) throw new Error('pazar sınırı uyarısı olmamalı');
 });
