@@ -1100,7 +1100,9 @@ export default {
   'Oyundaki evre: {0:Resesyon|Normal|Boom} (süresi dolmuş görünüyor; yeni evre henüz yayınlanmamış olabilir).': 'Current game phase: {0} (it looks expired; the new phase may not be published yet).',
   'Oyun evresi okunamadı; {0:Resesyon|Normal|Boom} varsayıldı.': 'The game phase could not be read; {0} is assumed.',
   'Pazar payı': 'Market share',
-  'Borsadaki günlük satışın en çok bu kadarını satabileceğiniz varsayılır; daha fazlası fiyatı düşürür. Emin değilseniz %10 daha temkinli.': 'Assumes you can sell at most this share of daily exchange sales; more than that pushes the price down. If you are unsure, 10% is the safer choice.',
+  'Borsadaki günlük satışın en çok bu kadarını satabileceğiniz varsayılır; daha fazlası fiyatı düşürür. %100: borsanın tüm günlük satışı. Emin değilseniz %10 daha temkinli; kendi oranınızı da yazabilirsiniz.': 'Assumes you can sell at most this share of daily exchange sales; more than that pushes the price down. 100%: all of the daily exchange sales. If you are unsure, 10% is the safer choice; you can also type your own share.',
+  'Pay 1 ile 100 arasında olmalı.': 'The share must be between 1 and 100.',
+  'Özel pay yüzdesi': 'Custom share percentage',
   // 28 Günlük
   'Her bina için 28 günlük fiyat ve satışla en kârlı ürün, kalite ve seviye. Seviye kararları için bu sekmeyi kullanın; ne üreteceğinizi Güncel sekmesi söyler.': 'The most profitable product, quality and level for each building, based on 28-day prices and sales. Use this tab for level decisions; the Current tab tells you what to produce.',
   'Pazar sınırlı': 'Market-limited',

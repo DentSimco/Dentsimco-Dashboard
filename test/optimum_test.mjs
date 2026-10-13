@@ -5,7 +5,7 @@
 import { readFileSync } from 'node:fs';
 import * as H from '../public/hesap.js';
 import * as O from '../public/optimum-hesap.js';
-import { sayfaHtml, uyarilarHtml, kontratHtml, okuKontrat, R2_HTML } from '../public/optimum.js';
+import { sayfaHtml, uyarilarHtml, kontratHtml, ayarlarHtml, okuKontrat, okuPay, R2_HTML } from '../public/optimum.js';
 import EN from '../public/dil-en.js';
 import { sozlukDerle, cevirMetin } from '../public/i18n.js';
 import { BINA_ADLARI_EN } from '../public/adlar.js';
@@ -47,7 +47,7 @@ test('En iyi seviye, 0 … pazar sınırı + 5 aralığındaki her tam sayı sev
     const w = 50 + rnd() * 2000;
     const a = rnd() * 20000;
     const x = { a, b: rnd() * a, w, pazar: 1 + rnd() * 400 };
-    const o = { s: [0, 0.3, 0.62, 0.9, 1][i % 5], pay: O.PAYLAR[i % 3], Lo: i % 2 ? Math.floor(rnd() * 600) : 0, Wo: i % 2 ? rnd() * 300000 : 0 };
+    const o = { s: [0, 0.3, 0.62, 0.9, 1][i % 5], pay: O.PAYLAR[i % 4], Lo: i % 2 ? Math.floor(rnd() * 600) : 0, Wo: i % 2 ? rnd() * 300000 : 0 };
     const r = O.optimum(x, o);
     let bL = 0;
     let bK = 0;
@@ -104,7 +104,7 @@ test('Kontratlı en iyi seviye, tüm tam sayı seviyeler taranarak bulunanla ayn
     const K = 24 * ph * (0.3 + rnd() * 300);
     const kontrat = i % 4 === 0 ? null : { K, pc: 0, net: net * (0.8 + rnd() * 0.45), sv: K / (24 * ph) };
     const x = { a, b: rnd() * a, w: 50 + rnd() * 2000, ph, pazar: 1 + rnd() * 400, kontrat };
-    const o = { s: [0, 0.3, 0.62, 0.9][i % 4], pay: O.PAYLAR[i % 3], Lo: i % 2 ? Math.floor(rnd() * 600) : 0, Wo: i % 2 ? rnd() * 300000 : 0 };
+    const o = { s: [0, 0.3, 0.62, 0.9][i % 4], pay: O.PAYLAR[(i >> 2) % 4], Lo: i % 2 ? Math.floor(rnd() * 600) : 0, Wo: i % 2 ? rnd() * 300000 : 0 };
     const r = O.optimum(x, o);
     const P = o.pay * x.pazar + (kontrat ? kontrat.sv : 0);
     let bK = 0;
@@ -516,6 +516,29 @@ test('Sayfa yöntemi ya da ara değeri yazmaz (yalnız "DentSimco formülü")', 
   if (!sayfaHtml(st(), ad).includes('DentSimco formülüyle hesaplanır')) throw new Error('dipnot yok');
 });
 
+test('Pazar payı: hazır seçenekler %10, %25, %50, %100; yazılan oran %1 – %100 arası her değer olabilir, bozuk değer varsayılana döner', () => {
+  eqj(O.PAYLAR, [0.1, 0.25, 0.5, 1]);
+  for (const x of [0.01, 0.1, 0.355, 0.4, 0.5, 1]) eq(okuPay(x), x, `pay ${x}`);
+  for (const x of [0, 0.009, 1.01, 2, -1, null, undefined, 'x', NaN]) eq(okuPay(x), O.VARSAYILAN_PAY, `bozuk pay ${x}`);
+});
+
+test('Pazar payı kutusu: hazır oran seçiliyse düğme basılı ve kutu boş; özel oranda düğme basılı değil ve kutuda oran; hata uyarısı', () => {
+  const pay = (s) => /<div class="op-seg op-seg-pay"[\s\S]*?<\/div>/.exec(ayarlarHtml(s))[0];
+  const hazir = pay(st());
+  eq(hazir.split('data-act="pay"').length - 1, 4, 'dört hazır düğme');
+  eq(hazir.split('aria-pressed="true"').length - 1, 1, '%25 basılı');
+  if (!/data-v="0\.25" aria-pressed="true"/.test(hazir) || !/data-pay="ozel" value=""/.test(hazir)) throw new Error('hazır oranda kutu boş olmalı');
+  const yuz = pay(st({ prefs: { ...PREFS, pay: 1 } }));
+  if (!/data-v="1" aria-pressed="true"/.test(yuz)) throw new Error('%100 basılı değil');
+  const ozel = pay(st({ prefs: { ...PREFS, pay: 0.355 } }));
+  eq(ozel.split('aria-pressed="true"').length - 1, 0, 'özel oranda hazır düğme basılı olmamalı');
+  if (!/data-pay="ozel" value="35,5"/.test(ozel) || !ozel.includes('op-pay-ozel on')) throw new Error('özel oran kutuda görünmeli');
+  const hata = st();
+  hata.payHata = true;
+  if (!/class="op-warn" role="alert">Pay 1 ile 100 arasında olmalı\./.test(ayarlarHtml(hata))) throw new Error('pay hata uyarısı yok');
+  if (ayarlarHtml(st()).includes('Pay 1 ile 100')) throw new Error('hata yokken uyarı görünmemeli');
+});
+
 test('Kayıtlı kontrat satırları temizlenir: bozuk kayıt atılır, kalite ve metin sınırlanır, en çok 30 satır', () => {
   eqj(okuKontrat(null), []);
   const l = okuKontrat([null, 5, { id: 'x' }, { id: '124', q: 99, adet: 250000, fiyat: '%4' }, { id: 2, q: -3, adet: 'a'.repeat(100) }]);
@@ -569,7 +592,8 @@ test('Sayfa İngilizcede tamamen çevrilir (iki sekme, uyarılar, eski özet, ca
         for (const tab of ['ay', 'guncel']) {
           for (const v of [{ ozet: DOC, live }, { ozet: DOC, live: null }, { ozet: { ...DOC, t: NOW - 50 * SAAT } }, { ozet: null }]) {
             for (const [i, yazilan] of yazilanlar.entries()) {
-              const s = stK(yazilan, { ...c, ...v, gamePhase, prefs: { tab, faz, pay: 0.1, kontrat: yazilan } });
+              const s = stK(yazilan, { ...c, ...v, gamePhase, prefs: { tab, faz, pay: i === 1 ? 0.355 : 0.1, kontrat: yazilan } });
+              s.payHata = i === 2;
               s.acik = new Set([...s.binalar.map((b) => b.harf), 'kon']);
               [s.taslak, s.taslakHata] = taslaklar[i % taslaklar.length];
               htmls.push(sayfaHtml(s, ad));
