@@ -5,7 +5,8 @@
 import { readFileSync } from 'node:fs';
 import * as H from '../public/hesap.js';
 import * as O from '../public/optimum-hesap.js';
-import { sayfaHtml, uyarilarHtml, kontratHtml, ayarlarHtml, okuKontrat, okuPay, okuHesap, binaEkle, tumHtml, hesapHtml, R2_HTML } from '../public/optimum.js';
+import * as RP from '../public/hesap-perakende.js';
+import { sayfaHtml, uyarilarHtml, kontratHtml, ayarlarHtml, okuKontrat, okuPay, okuHesap, binaEkle, pkBinaEkle, perakendeOku, tumHtml, hesapHtml, pkHtml, R2_HTML } from '../public/optimum.js';
 import EN from '../public/dil-en.js';
 import { sozlukDerle, cevirMetin } from '../public/i18n.js';
 import { BINA_ADLARI_EN } from '../public/adlar.js';
@@ -442,7 +443,7 @@ test('Ekran yalnız sonucu görür: sayfa durumunda fiyat, girdi, saatlik üreti
   const live = { t: NOW, items: { 2: [NOW, { 0: [0.6, null, 0, 0, NOW - SAAT] }] } };
   for (const c of [{}, { company: COMPANY, kurulum: KURULUM }]) {
     const s = st({ ...c, live });
-    anahtarlar(s, ['oz', 'eski', 'sirket', 'faz', 'gamePhase', 'prefs', 'simdi', 'liveT', 'binalar', 'urunler', 'guncel', 'kontratlar', 'urunSecenek', 'tum', 'acik'], 'durum');
+    anahtarlar(s, ['oz', 'eski', 'sirket', 'faz', 'gamePhase', 'prefs', 'simdi', 'liveT', 'binalar', 'urunler', 'guncel', 'kontratlar', 'urunSecenek', 'tum', 'pk', 'acik'], 'durum');
     anahtarlar(s.oz, ['t', 'gun', 'bas'], 'özet');
     anahtarlar(s.sirket, ['s', 'ekipVar', 'sirketVar', 'toplamSeviye', 'kendi'], 'şirket');
     for (const v of Object.values(s.sirket.kendi)) eq(typeof v, 'number', 'kendi binalar yalnız seviye');
@@ -822,6 +823,197 @@ test('Tüm Ürün sayfası İngilizcede tamamen çevrilir (şirketli ve şirkets
       const t = en(p);
       const harfli = /[A-Za-zÇĞİÖŞÜçğıöşü]{2,}/.test(p.replace(/Riser|Q\d+/g, ''));
       if (TR.test(t) || (t === p && harfli && !ADLAR.has(p) && EN[p] !== p)) kalan.add(p);
+    }
+  }
+  if (kalan.size) throw new Error(`çevrilmeyen: ${[...kalan].slice(0, 5).join(' | ')}`);
+});
+
+
+// ---- Perakende: mağaza × ürün × kalite için ideal seviye (satış ve alım sınırsız) ----
+const PREFS_PK = { ana: 'pk', tab: 'ay', faz: 0, pay: 0.25 };
+const PK_HARFLER = RP.retailLetters().filter((h) => !['r', 'B'].includes(h) && RP.buildingProducts(h, 0).length);
+const PK_SAT = {};
+const PK_LIVE = { t: NOW, items: {} };
+for (const h of PK_HARFLER) for (const id of RP.buildingProducts(h, 0)) {
+  PK_SAT[id] = 1.0;
+  PK_LIVE.items[id] = [NOW, { 0: [RP.getModel(0, id, 0).c, null, 0, 0, NOW - SAAT], 1: [RP.getModel(0, id, 0).c * 1.1, null, 0, 0, NOW - SAAT] }];
+}
+const pkVeri = (o = {}) => ({ kurulum: { recreation: {}, salesSpeedPct: 0, buildings: [] }, saturation: PK_SAT, qualityWeight: 0.3, ...o });
+const stP = (o = {}) => st({ prefs: PREFS_PK, company: COMPANY, kurulum: KURULUM, live: PK_LIVE, pk: pkVeri(), ...o });
+
+test('Perakende: ideal seviye, tüm tam sayı seviyeler taranarak bulunanla aynı (satış sınırsız; yönetim giderini ek seviye belirler)', () => {
+  const s = stP();
+  const sirket = O.sirketOzeti({ company: COMPANY, kurulum: KURULUM, data });
+  const d = { s: sirket.s, pay: O.SINIRSIZ, Lo: sirket.toplamSeviye, Wo: sirket.tabanMaasSaat };
+  let kontrol = 0;
+  for (const harf of PK_HARFLER.slice(0, 6)) {
+    for (const id of RP.buildingProducts(harf, 0).slice(0, 3)) {
+      const t = stP({ prefs: { ...PREFS_PK, pk: { harf, id, q: 0 } } }).pk;
+      if (!t.hesap || t.hesap.harf !== harf || t.hesap.id !== id) continue;
+      const r = RP.calcProduct({ economy: 0, productId: id, quality: 0, saturation: 1.0, cAct: RP.getModel(0, id, 0).c, bonusPct: t.bonus, qualityWeight: 0.3, wage: 0 });
+      const w = RP.storeWage({ modelW: r.model.W, salaryModifier: data.buildings?.[harf]?.salaryModifier, averageSalary: data.averageSalary, adminNet: 0 });
+      const x = { a: Math.max(0, r.marginHourPerLevel), b: 0, w, g: r.marginHourPerLevel, pazar: 0 };
+      let bK = 0;
+      let bL = 0;
+      for (let L = 0; L <= 20000; L++) { const v = O.gunlukKar(L, x, d); if (v > bK + 1e-9) { bK = v; bL = L; } }
+      near(t.hesap.kar, bK, `kâr ${harf}/${id}`, 1e-6 * Math.max(1, bK));
+      if (t.hesap.L > 0) eq(t.hesap.L, bL, `seviye ${harf}/${id}`);
+      eq(t.hesap.fiyat, r.price);
+      kontrol++;
+    }
+  }
+  if (kontrol < 5) throw new Error('örnekte yeterli ürün yok');
+  void s;
+});
+
+test('Perakende: sayfa durumu yalnız sonuç verir; seçici, liste, ürünler ve satış bonusu', () => {
+  const s = stP();
+  anahtarlar(s.pk, ['liste', 'urunler', 'secenek', 'secim', 'hesap', 'bonus', 'veriYok'], 'pk');
+  if (!s.pk.liste.length || !s.pk.secenek.length || !s.pk.urunler.length) throw new Error('boş');
+  eq(s.pk.veriYok, false);
+  for (const e of s.pk.liste) anahtarlar(e, ['harf', 'id', 'q', 'L', 'kar', 'sinir', 'fiyat'], 'liste');
+  for (const e of s.pk.urunler) anahtarlar(e, ['harf', 'id', 'q', 'L', 'kar', 'sinir', 'fiyat'], 'ürün');
+  anahtarlar(s.pk.hesap, ['harf', 'id', 'q', 'L', 'kar', 'sinir', 'fiyat', 'maliyet', 'yari', 'buyuk', 'kaliteler', 'ayni', 'toplamSonra'], 'hesap');
+  for (const y of s.pk.hesap.kaliteler) anahtarlar(y, ['q', 'L', 'kar'], 'kalite');
+  for (const e of s.pk.secenek) { anahtarlar(e, ['harf', 'urunler'], 'seçenek'); for (const u of e.urunler) anahtarlar(u, ['id', 'kaliteler', 'ana'], 'ürün seçeneği'); }
+  // en kârlı mağaza başta; restoran ve satış ofisi yok
+  for (let i = 1; i < s.pk.liste.length; i++) if (s.pk.liste[i].kar > s.pk.liste[i - 1].kar + 1e-9) throw new Error('liste kâra göre sıralı olmalı');
+  for (const e of s.pk.liste) if (['r', 'B'].includes(e.harf)) throw new Error('restoran ve satış ofisi olmamalı');
+  // satış bonusu: elle girilen + rekreasyon + yönetim ekibi (CMO)
+  const b0 = stP().pk.bonus;
+  const b1 = stP({ pk: pkVeri({ kurulum: { recreation: { park: 2 }, salesSpeedPct: 5, buildings: [] } }) }).pk.bonus;
+  near(b1 - b0, 5 + H.recreationBonus({ park: 2 }) * 100, 'bonus farkı', 1e-9);
+  // doygunluk ya da fiyat yoksa veri yok
+  eq(stP({ pk: pkVeri({ saturation: {} }) }).pk.veriYok, true);
+  eq(stP({ live: null }).pk.liste.length > 0, true, 'canlı fiyat yoksa Q0 modeldeki maliyetle hesaplanır');
+  eq(st({ prefs: PREFS_PK }).pk.veriYok, false, 'pk verilmediyse varsayılan boş durum'.length > 0 ? false : true);
+});
+
+test('Perakende: geçersiz seçim en kârlıya döner; yüksek kalite yalnız borsada fiyatı varsa seçilir', () => {
+  const ilk = stP().pk;
+  eq(ilk.secim.harf, ilk.secenek[0].harf);
+  for (const pk of [{}, { harf: 'ZZ' }, { harf: ilk.secim.harf, id: 99999 }, { harf: ilk.secim.harf, id: ilk.secim.id, q: 11 }]) {
+    const t = stP({ prefs: { ...PREFS_PK, pk } }).pk;
+    const h = t.secenek.find((e) => e.harf === t.secim.harf);
+    const u = h.urunler.find((e) => e.id === t.secim.id);
+    if (!u || !u.kaliteler.includes(t.secim.q)) throw new Error(`geçersiz seçim ${JSON.stringify(pk)}`);
+  }
+});
+
+test('Perakende: kurulu mağaza seviyesi ve eklenen (kayda işlenmemiş) seviye bir sonraki öneriyi etkiler', () => {
+  const harf = PK_HARFLER[0];
+  const id = RP.buildingProducts(harf, 0)[0];
+  const sec = { harf, id, q: 0 };
+  const a = stP({ prefs: { ...PREFS_PK, pk: sec } }).pk;
+  const L = a.hesap.L;
+  if (!(L >= 1)) throw new Error('örnekte öneri yok');
+  eq(a.hesap.ayni, 0);
+  const kurulu = stP({ prefs: { ...PREFS_PK, pk: sec }, pk: pkVeri({ kurulum: { recreation: {}, salesSpeedPct: 0, buildings: [{ letter: harf, product: id, quality: 0, level: 17 }, { letter: harf, product: id, quality: 0, level: 5, construction: true }] } }) }).pk;
+  eq(kurulu.hesap.ayni, 17, 'inşaattaki mağaza sayılmaz');
+  const b = stP({ prefs: { ...PREFS_PK, pk: sec }, ekler: [{ id, L, pk: true, harf }] });
+  eq(b.sirket.toplamSeviye, stP().sirket.toplamSeviye + L);
+  if (!(b.pk.hesap.L < L)) throw new Error('eklenen seviye ikinci önerideki seviyeyi azaltmalı');
+  // perakende eki mağaza maaşıyla (bina maaş çarpanı × ortalama maaş) şirketin taban maaşına girer
+  const m0 = O.sirketOzeti({ company: COMPANY, kurulum: KURULUM, data }).tabanMaasSaat;
+  const m1 = O.sirketOzeti({ company: COMPANY, kurulum: KURULUM, data, ek: { seviye: 10, maas: 10 * 100 } }).tabanMaasSaat;
+  near(m1 - m0, 1000, 'ek maaş');
+});
+
+test('pkBinaEkle: yeni mağaza satırı, mevcut mağazaya ekleme, eşleşme yoksa yeni satır, bozuk kayıt ve seviye', () => {
+  const raw = { economyPhase: 1, recreation: { park: 2 }, buildings: [
+    { id: 'a', letter: 'G', product: 3, quality: 2, level: 10 },
+    { id: 'c', letter: 'G', product: 3, quality: 2, level: 5, construction: true },
+  ] };
+  const e = { harf: 'G', id: 3, q: 2, L: 7 };
+  const y = pkBinaEkle(raw, e, 'yeni');
+  eq(y.mod, 'yeni');
+  eq(y.raw.buildings.length, 3);
+  const yb = y.raw.buildings[2];
+  eq(`${yb.letter}|${yb.product}|${yb.quality}|${yb.level}|${yb.cost}|${yb.price}|${yb.construction}`, 'G|3|2|7|null|null|false');
+  eq(y.raw.economyPhase, 1, 'diğer alanlar korunur');
+  eq(raw.buildings.length, 2, 'girdi değişmez');
+  const m = pkBinaEkle(raw, e, 'mevcut');
+  eq(m.mod, 'mevcut');
+  eq(m.raw.buildings.map((b) => b.level).join(','), '17,5', 'inşaattaki mağaza eşleşmez');
+  eq(pkBinaEkle(raw, { ...e, q: 3 }, 'mevcut').mod, 'yeni');
+  eq(pkBinaEkle(null, e, 'yeni').raw.buildings.length, 1);
+  eq(pkBinaEkle({ buildings: 'x' }, e, 'mevcut').mod, 'yeni');
+  eq(pkBinaEkle(raw, { ...e, L: 0.9 }, 'yeni'), null);
+  eq(pkBinaEkle(raw, { ...e, L: 3.7 }, 'yeni').raw.buildings[2].level, 3);
+});
+
+test('Perakende kaydı okuma: yalnız gerekli alanlar, bozuk kayıt atılır', () => {
+  const eskiLS = globalThis.localStorage;
+  globalThis.localStorage = { getItem: () => JSON.stringify({ recreation: { park: 9, temple: 1 }, salesSpeedPct: '4', buildings: [{ letter: 'G', product: '3', quality: 99, level: 5.9 }, { letter: 7, product: 1 }, null, 'x'] }) };
+  try {
+    const k = perakendeOku(0);
+    eqj(k.recreation, { park: 3, temple: 1, lake: 0 });
+    eq(k.salesSpeedPct, 4);
+    eqj(k.buildings, [{ letter: 'G', product: 3, quality: 12, level: 5, construction: false }]);
+    globalThis.localStorage = { getItem: () => '{bozuk' };
+    eqj(perakendeOku(0), { buildings: [], recreation: {}, salesSpeedPct: 0 });
+  } finally { if (eskiLS === undefined) delete globalThis.localStorage; else globalThis.localStorage = eskiLS; }
+});
+
+test('Hesap kartı: kurulu seviye ve şirket seviyesi etiketleri bir kez görünür (üretim ve perakende)', () => {
+  const kurulu = { buildings: [{ type: 'W', product: 2, quality: 0, level: 20 }], recreation: {} };
+  const a = hesapHtml(stT({ prefs: { ...PREFS_TUM, hesap: { harf: 'W', id: 2, q: 0 } }, kurulum: kurulu }), ad);
+  eq(a.split('Zaten kurulu: 20 seviye').length - 1, 1, 'üretim: kurulu etiketi');
+  eq((a.match(/Şirketiniz: [\d.]+ → [\d.]+ seviye/g) || []).length, 1, 'üretim: şirket etiketi');
+  const p = stP();
+  const h = sayfaHtml(p, ad);
+  eq((h.match(/Şirketiniz: [\d.]+ → [\d.]+ seviye/g) || []).length, 1, 'perakende: şirket etiketi');
+});
+
+test('Perakende sayfası: üç üst sekme; mağaza seçici, sınırsız uyarısı, Ekle düğmeleri; pazar payı ve kontrat yok', () => {
+  const h = sayfaHtml(stP(), ad);
+  for (const t of ['data-ana="tum"', 'data-ana="borsa"', 'data-ana="pk"']) if (!h.includes(t)) throw new Error(`üst sekme yok ${t}`);
+  if (!h.includes('data-ana="pk" aria-selected="true"')) throw new Error('Perakende seçili olmalı');
+  for (const t of ['Seviye hesapla', 'data-pk="harf"', 'data-pk="id"', 'data-act="pkEkle"', 'data-v="yeni"', 'data-v="mevcut"', 'Yeni mağaza olarak ekle', 'Mevcut mağazaya ekle', 'Bu mağazadaki ürünler', 'Satışın ve alımın sınırsız', 'Satış fiyatı', 'Birim maliyet', 'Ekonomi fazı', 'Toplam satış bonusu']) if (!h.includes(t)) throw new Error(`perakende sekmesinde ${t} yok`);
+  for (const t of ['Pazar payı', 'Kontratlarım', 'data-tab=', 'data-hs=', 'data-act="ekle"']) if (h.includes(t)) throw new Error(`perakende sekmesinde ${t} olmamalı`);
+  // yalnız seçilen mağazanın ürünleri
+  const s = stP();
+  const tablo = h.slice(h.indexOf('Bu mağazadaki ürünler'));
+  eq((tablo.match(/<tr><th scope="row">/g) || []).length, s.pk.urunler.filter((u) => u.harf === s.pk.secim.harf).length, 'yalnız seçilen mağaza');
+  // veri yoksa
+  const bos = sayfaHtml(stP({ pk: pkVeri({ saturation: {} }) }), ad);
+  if (!bos.includes('Perakende verisi (doygunluk ve fiyat) okunamadı.')) throw new Error('veri yok iletisi yok');
+  // eklendi iletileri
+  const o = stP();
+  for (const [son, metin] of [[{ mod: 'yeni', id: 2, q: 0, L: 7 }, 'Yeni mağaza eklendi: Riser Q0 +7 seviye.'], [{ mod: 'mevcut', id: 2, q: 0, L: 7 }, 'Mevcut mağazaya eklendi: Riser Q0 +7 seviye.'], [{ hata: true }, 'Tarayıcı kaydı açık değil; eklenemedi.']]) {
+    o.sonEklePk = son;
+    if (!pkHtml(o, ad).includes(metin)) throw new Error(`iletisi yok: ${metin}`);
+  }
+  o.sonEklePk = { mod: 'yeni', id: 2, q: 0, L: 7 };
+  if (!pkHtml(o, ad).includes('href="#perakende/binalar"')) throw new Error('Perakende bağlantısı yok');
+});
+
+test('Perakende sayfası İngilizcede tamamen çevrilir (şirketli ve şirketsiz, her seçim, ekleme iletileri, veri yok)', () => {
+  const htmls = [];
+  for (const c of [{}, { company: COMPANY, kurulum: KURULUM }]) {
+    for (const pk of [pkVeri(), pkVeri({ saturation: {} }), pkVeri({ kurulum: { recreation: { park: 1 }, salesSpeedPct: 3, buildings: [{ letter: PK_HARFLER[0], product: RP.buildingProducts(PK_HARFLER[0], 0)[0], quality: 0, level: 9 }] } })]) {
+      const ilk = stP({ ...c, pk });
+      htmls.push(sayfaHtml(ilk, ad));
+      for (const e of ilk.pk.secenek.slice(0, 3)) {
+        for (const u of e.urunler.slice(0, 2)) {
+          for (const q of u.kaliteler.slice(0, 2)) {
+            const s2 = stP({ ...c, pk, prefs: { ...PREFS_PK, pk: { harf: e.harf, id: u.id, q } } });
+            for (const sonEklePk of [null, { mod: 'yeni', id: u.id, q, L: 12 }, { mod: 'mevcut', id: u.id, q, L: 3 }, { hata: true }]) {
+              s2.sonEklePk = sonEklePk;
+              s2.acik = new Set(['pkq']);
+              htmls.push(sayfaHtml(s2, ad));
+            }
+          }
+        }
+      }
+    }
+  }
+  const kalan = new Set();
+  for (const h of htmls) {
+    for (const p of parcalar(h)) {
+      const t2 = en(p);
+      const harfli = /[A-Za-zÇĞİÖŞÜçğıöşü]{2,}/.test(p.replace(/Riser|Q\d+/g, ''));
+      if (TR.test(t2) || (t2 === p && harfli && !ADLAR.has(p) && EN[p] !== p)) kalan.add(p);
     }
   }
   if (kalan.size) throw new Error(`çevrilmeyen: ${[...kalan].slice(0, 5).join(' | ')}`);
