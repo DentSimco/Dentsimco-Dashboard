@@ -9,6 +9,8 @@
 //   meta/sinyal_karne_r{r}        canlı karne: verilen sinyallerin 14 gün sonra ne olduğu
 //   meta/olaylar_r{r}             üretim hızı olaylarının birikmiş geçmişi (bot üzerine yazdığı için)
 //   meta/evreler_r{r}             ekonomi evrelerinin birikmiş geçmişi
+//   meta/optimum_r0               Optimum Seviye sayfası için son 28 günün borsa özeti (yalnız gece, yalnız Realm 0;
+//                                 sinyal/optimum.mjs)
 //
 // Veri: botun günlük belgeleri (daily/r{r}_{id}_{yıl}) + sinyal/gecmis-r0.json (botun başlamasından önceki
 // 1 yıllık Realm 0 geçmişi). İkisi aynı günde çakışırsa geçmiş dosyası kullanılır.
@@ -35,6 +37,7 @@
 import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { Firestore } from './firestore.mjs';
+import { optimumOzet } from './optimum.mjs';
 
 export const VERSION = 2;
 
@@ -796,7 +799,7 @@ export function hesapla({ realm, simdi, products, ids, modifiers, phase, seed, d
     karne: { onsel: ONSEL, canli: canliOzet, gunici: giOzet },
     urun,
   };
-  return { sinyal, gecmis: { t: simdi, d: T, items: gunluk }, gunIci, karne, mevsim, T, canliSayi };
+  return { sinyal, gecmis: { t: simdi, d: T, items: gunluk }, gunIci, karne, mevsim, T, canliSayi, S };
 }
 
 // ---- Okuma / yazma ------------------------------------------------------------------------------
@@ -931,6 +934,24 @@ export async function main({
       { type: 'set', path: `meta/evreler_r${realm}`, data: { data: JSON.stringify(evreler), u: t0 } },
     );
     ozet.push(`r${realm}: son gün ${sonuc.T}, ${sonuc.sinyal.sayi} sinyal, piyasa 7g ${sonuc.sinyal.makro.m7 ?? "yok"}%, mevsimsel ${Object.keys(sonuc.mevsim).length}, karne günü ${Object.keys(sonuc.karne.gunler).length} (gün içi ${Object.keys(sonuc.karne.gunici).length}), ${Math.round(metin.length / 1024)} KB`);
+
+    // Optimum Seviye (yalnız Realm 0): son 28 günün borsa özeti, aynı seriden (sinyal/optimum.mjs).
+    // Hata ya da yetersiz veri olursa yazılmaz, son iyi belge yayında kalır; sinyaller bundan etkilenmez.
+    if (realm === 0) {
+      try {
+        const opt = optimumOzet(sonuc.S, { T: sonuc.T, ids, simdi: t0, realm });
+        if (opt.yetersiz) {
+          ozet.push(`optimum: yetersiz veri (${opt.k} gün), yazılmadı`);
+        } else {
+          const optMetin = JSON.stringify(opt);
+          if (optMetin.length > 900_000) throw new Error(`belge çok büyük (${optMetin.length} karakter)`);
+          writes.push({ type: 'set', path: `meta/optimum_r${realm}`, data: { data: optMetin, u: t0 } });
+          ozet.push(`optimum: ${opt.bas} – ${opt.gun}, ${opt.k} gün, ${Object.keys(opt.u).length} ürün, ${Math.round(optMetin.length / 1024)} KB`);
+        }
+      } catch (e) {
+        ozet.push(`optimum: hesaplanamadı (${e?.message || e})`);
+      }
+    }
   }
   if (writes.length) await db.commit(writes);
   console.log(`DentSimco sinyal (${gunici ? 'gün içi' : 'gece'}) | ${ozet.join(' | ')} | ${((Date.now() - basla) / 1000).toFixed(1)} sn`);

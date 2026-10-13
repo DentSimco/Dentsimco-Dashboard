@@ -1,0 +1,309 @@
+// DentSimco — Optimum Seviye hesap motoru
+//
+// Arayüzsüz, saf fonksiyonlar: tarayıcıda ve Node'da aynen çalışır; DOM, ağ ya da Firestore bilgisi içermez.
+// Soru: bir üretim binası kaç seviye olsun ve ne üretsin? Yanıt iki sınırın küçüğüdür:
+//   • Yönetim gideri sınırı: ek seviyenin kârı, kendi maaşına ve şirketin TÜM maaşlarına eklediği yönetim giderine eşitlenir.
+//   • Pazar sınırı: borsadaki günlük satışın en çok "pazar payı" kadarı satılır (daha fazlası fiyatı bozar).
+// Veri: meta/optimum_r0 (son 28 günün borsa özeti; gece sinyal/optimum.mjs yazar) ve Güncel için canlı borsa (live/r0).
+// Formüller hesap.js ile aynı: yönetim gideri = (toplam seviye − 1) ÷ 170, net = brüt × (1 − yönetici tasarrufu),
+// maaş = taban maaş × seviye × (1 + net), borsa komisyonu %4, taşıma = taşıma birimi × taşıma fiyatı, faz ve rekreasyon hızı.
+//
+// Kâr modeli (bir bina türü, seviye L; şirketin geri kalanı sabit):
+//   a = seviye başına saatlik satış geliri: üretim × (fiyat × 0,96 − taşıma),  b = saatlik girdi maliyeti,  w = taban maaş
+//   P = pazar payı × pazar (seviye cinsinden). Çalışan seviye A = min(L, P); pazarı aşan seviye boşta kalır: üretmez,
+//   girdi ve maaş ödemez ama seviyesi yönetim giderine girer (hesap.js: inşaattaki bina gibi).
+//   C(L) = (Wo + A·w) · (1 + (Lo + L − 1) · k),   k = (1 − tasarruf) ÷ 170
+//          Lo, Wo: şirketin diğer binalarının toplam seviyesi ve saatlik taban maaşı (yoksa 0: tek binalı şirket)
+//   Günlük kâr(L) = 24 · [A · (a − b) − (C(L) − C(0))]
+//   Sınırsız en iyi seviye L* = (a − b − w − k · (w · (Lo − 1) + Wo)) ÷ (2 · w · k);  öneri = L* ile P'nin küçüğü (tam sayı)
+// Pazar (seviye) = günlük satış ÷ 24 ÷ seviye başına saatlik üretim: o kalitenin bütün pazarını tek başına beslemek kaç seviye eder.
+
+import * as H from './hesap.js';
+
+export const PAYLAR = [0.1, 0.25, 0.4];
+export const VARSAYILAN_PAY = 0.25;
+export const GUN_PAYI = 0.5; // kalite, pencerenin en az yarısında işlem görmeli (seyrek işlemin fiyatı yanıltır)
+export const UC_FIYAT_KAT = 5; // kalitenin fiyatı Q0'ın bu katını aşıyorsa (birkaç uç işlem) satır kullanılmaz
+export const TAZE_SA = 6; // Güncel: son işlemi bundan eski fiyat yerine 28 günlük ortalama kullanılır
+export const ESKI_SA = 36; // 28 günlük özet bundan eskiyse sayfa uyarır
+// 2025-10 – 2026-10 geçmişi: 28 günlük ortalama satış hacmi aydan aya medyanda ±%32 değişti (pazar sınırlı uyarısında)
+export const HACIM_OYNAKLIK_PCT = 32;
+// Güncel: başka ürün en az bu kadar daha kârlıysa "ürünü değiştir" denir (günlük $ ve 28 günlük önerinin kârına oran)
+export const DEGISIM_ESIGI_USD = 1000;
+export const DEGISIM_ESIGI_PAY = 0.05;
+export const FAZ_ADLARI = ['Resesyon', 'Normal', 'Boom'];
+const MEVSIM_BINALARI = ['t', 'u', 'z', 'I']; // mevsimlik pazarlar: burada satılan ürünler mevsimliktir
+const SAAT_MS = 3_600_000;
+
+const num = (x, d = 0) => (x !== null && x !== '' && x !== undefined && Number.isFinite(Number(x)) ? Number(x) : d);
+
+// ---------------------------------------------------------------------------------------------------------------
+// Veri
+// ---------------------------------------------------------------------------------------------------------------
+
+/** meta/optimum_r0 belgesi → okuyucu. Pencerenin yarısından azında işlem gören kalite "yok" sayılır. */
+export function ozetOku(doc) {
+  if (!doc || !doc.u || !(doc.k > 0)) return null;
+  const enAz = Math.ceil(doc.k * GUN_PAYI);
+  const kayit = (id, q) => {
+    const x = doc.u[id]?.[q];
+    return Array.isArray(x) && x[0] > 0 && x[1] > 0 && x[2] >= enAz ? x : null;
+  };
+  const kaliteler = (id) => Object.keys(doc.u[id] || {}).map(Number).filter((q) => kayit(id, q)).sort((a, b) => a - b);
+  return { t: num(doc.t, null), gun: doc.gun, bas: doc.bas, k: doc.k, n: doc.n, enAz, kayit, kaliteler };
+}
+
+/** 28 günlük ortalama fiyat (VWAP). Dönüş: (ürün, kalite) → { p, kaynak: 'ort' } | null */
+export const ortFiyat = (oz) => (id, q) => {
+  const x = oz.kayit(id, q);
+  return x ? { p: x[0], kaynak: 'ort' } : null;
+};
+
+/**
+ * Güncel fiyat: canlı son işlem fiyatı (son işlem ≤ 6 saat önceyse), yoksa 28 günlük ortalama.
+ * live: live/r{r} belgesi { t, items: { ürün: [zaman, { kalite: [fiyat, arz, satış, tutar, sonİşlemZamanı] }] } }
+ */
+export const canliFiyat = (oz, live, simdi = Date.now()) => (id, q) => {
+  const x = oz.kayit(id, q);
+  if (!x) return null;
+  const v = live?.items?.[id]?.[1]?.[q];
+  const p = Number(v?.[0]);
+  const lt = Number(v?.[4]);
+  if (p > 0 && lt > 0 && simdi - lt <= TAZE_SA * SAAT_MS) return { p, kaynak: 'canli', lt };
+  return { p: x[0], kaynak: 'ort' };
+};
+
+/** Mevsimlik ürünler: oyun verisinde sezonu olanlar ve mevsimlik pazarlarda satılanlar (Noel ağacı, Cadı kostümü …) */
+export function mevsimlikUrunler(rawProducts, core) {
+  const out = new Set();
+  for (const [k, p] of Object.entries(rawProducts || {})) {
+    if (p && (p.productionSeason || p.retailSeason)) out.add(Number(p.id ?? k));
+  }
+  for (const b of MEVSIM_BINALARI) for (const id of core?.SALES?.[b] || []) out.add(Number(id));
+  return out;
+}
+
+/** Sayfada gösterilen ürün: üretim binasında üretilir, borsada işlem görür, araştırma ya da mevsimlik değildir */
+export function uygunMu(data, p, mevsimlik = new Set()) {
+  return Boolean(p) && !p.research && p.tradable !== false && p.perHour > 0 && Boolean(p.building)
+    && p.building !== H.LAUNCH_PAD && H.buildingCategory(data, p.building) === 'production' && !mevsimlik.has(p.id);
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Ürün × kalite satırları: seviye başına saatlik gelir, girdi maliyeti, maaş ve pazar büyüklüğü
+// ---------------------------------------------------------------------------------------------------------------
+
+/**
+ * @param o.data      hesap.js normalizeData çıktısı
+ * @param o.oz        ozetOku çıktısı (pazar büyüklüğü her zaman 28 günlük satıştan)
+ * @param o.fiyat     ortFiyat(oz) ya da canliFiyat(oz, live, simdi)
+ * @param o.faz       0 Resesyon, 1 Normal, 2 Boom (üretim hızı)
+ * @param o.kurulum   Üretim kurulumundan { recreation, extraBonusPct } (rekreasyon ve elle hız bonusu)
+ * @param o.olaylar   true: etkin üretim hızı olayları uygulanır (yalnız Güncel)
+ */
+export function satirlar({ data, oz, fiyat, mevsimlik, faz = 0, kurulum, olaylar = false, simdi = Date.now() }) {
+  const out = [];
+  if (!data || !oz) return out;
+  const tp = fiyat(H.TRANSPORT_ID, 0)?.p ?? 0;
+  const mev = mevsimlik || new Set();
+  const ayar = { economyPhase: faz, recreation: kurulum?.recreation || {}, extraBonusPct: num(kurulum?.extraBonusPct, 0) };
+  for (const p of Object.values(data.products)) {
+    if (!uygunMu(data, p, mev)) continue;
+    const bonus = H.speedBonus(ayar, H.buildingCategory(data, p.building));
+    if (bonus >= 1) continue;
+    const olay = olaylar ? H.activeEventPct(data, p.id, simdi) : 0;
+    const ph = (p.perHour * H.phaseSpeedFactor(data, ayar, p) * (1 + olay / 100)) / (1 - bonus);
+    if (!(ph > 0)) continue;
+    const q0 = fiyat(p.id, 0)?.p ?? null;
+    for (const q of H.hasQuality(p) ? oz.kaliteler(p.id) : [0]) {
+      const k = oz.kayit(p.id, q);
+      const f = k && fiyat(p.id, q);
+      if (!f) continue;
+      if (q > 0 && q0 != null && f.p > UC_FIYAT_KAT * q0) continue;
+      let girdi = 0;
+      let girdiOrt = false;
+      let eksik = false;
+      for (const [iid, miktar] of p.inputs) {
+        const ip = data.products[iid];
+        const nitelik = H.hasQuality(ip);
+        let en = null;
+        for (let iq = nitelik ? H.minInputQuality(q) : 0; iq <= (nitelik ? H.MAX_QUALITY : 0); iq++) {
+          const x = fiyat(iid, iq);
+          if (x && (!en || x.p < en.p)) en = x;
+        }
+        if (!en) { eksik = true; break; }
+        girdi += miktar * en.p;
+        if (en.kaynak !== 'canli') girdiOrt = true;
+      }
+      if (eksik) continue;
+      const net = H.saleUnitNet(f.p, p.transport, tp, 'exchange');
+      const pazar = k[1] / 24 / ph;
+      if (pazar < 1) continue; // bütün pazar bir seviyeyi bile beslemiyor
+      out.push({
+        id: p.id, q, harf: p.building, fiyat: f.p, kaynak: f.kaynak, girdi, girdiOrt, net, ph,
+        a: ph * net, b: ph * girdi, g: ph * (net - girdi), w: p.baseSalary, adet: k[1], gun: k[2], pazar, olay,
+      });
+    }
+  }
+  return out;
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Şirket: yönetici tasarrufu ve diğer binalar
+// ---------------------------------------------------------------------------------------------------------------
+
+/**
+ * company: Yönetim sekmesinin şirket kaydı (yonetici.js), kurulum: Üretim kurulumu (dentsimco.uretim.r{r}).
+ * Dönüş: s (tasarruf, 0–1), ekipVar, sirketVar (toplam seviye biliniyor mu), toplamSeviye, tabanMaasSaat,
+ *        kendi: {harf: {seviye, maas (saatlik taban), bina}} Üretim kurulumundaki binalar
+ */
+export function sirketOzeti({ company, kurulum, data } = {}) {
+  const ex = Array.isArray(company?.executives) ? company.executives : [];
+  const team = H.teamEffects(ex, { bankLevel: company?.finance?.bankLevel });
+  const s = Math.min(100, Math.max(0, num(team.adminSavingsPct, 0))) / 100;
+  const ekipVar = ex.some((e) => e && e.active !== false);
+  const L = Math.max(0, Math.floor(num(company?.admin?.totalLevels, 0)));
+  const gunluk = Math.max(0, num(company?.admin?.wagesDay, 0));
+  // girilen günlük maaş yönetim gideri dahildir: taban = maaş ÷ (1 + brüt × (1 − tasarruf)) (yonetici.js companyBases ile aynı)
+  const W = L > 0 && gunluk > 0 ? gunluk / (1 + H.grossOverhead(L) * (1 - s)) / H.HOURS_PER_DAY : 0;
+  const kendi = {};
+  for (const b of kurulum?.buildings || []) {
+    const p = data?.products?.[b?.product];
+    const harf = b?.type || p?.building;
+    if (!harf) continue;
+    const sv = H.buildingLevels(b, data);
+    const robot = b.robots && (!data || H.buildingCategory(data, harf) !== 'research'); // hesap.js buildingRate ile aynı
+    const maas = b.construction ? 0 : num(p?.baseSalary, 0) * sv * (robot ? H.ROBOT_WAGE_FACTOR : 1);
+    const x = (kendi[harf] ||= { seviye: 0, maas: 0, bina: 0 });
+    x.seviye += sv;
+    x.maas += maas;
+    x.bina += 1;
+  }
+  return { s, ekipVar, sirketVar: L > 0, toplamSeviye: L, tabanMaasSaat: W, kendi };
+}
+
+/** Bir bina türü için şirketin geri kalanı: toplamdan bu türün kendi seviyesi ve maaşı çıkarılır */
+export function digerleri(sirket, harf) {
+  if (!sirket?.sirketVar) return { Lo: 0, Wo: 0 };
+  const k = sirket.kendi?.[harf] || { seviye: 0, maas: 0 };
+  return { Lo: Math.max(0, sirket.toplamSeviye - k.seviye), Wo: Math.max(0, sirket.tabanMaasSaat - k.maas) };
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Seviye ve kâr
+// ---------------------------------------------------------------------------------------------------------------
+
+export const kOf = (s) => Math.max(0, 1 - num(s, 0)) / H.ADMIN_LEVELS_PER_UNIT;
+
+/** Seviye L'de günlük kâr ($). x: satirlar() satırı; o: { s, pay, Lo, Wo }. Pazarı aşan seviye boşta kalır. */
+export function gunlukKar(L, x, { s = 0, pay = VARSAYILAN_PAY, Lo = 0, Wo = 0 } = {}) {
+  const k = kOf(s);
+  const A = Math.min(L, pay * x.pazar);
+  const C = (l, calisan) => (Wo + calisan * x.w) * (1 + Math.max(Lo + l - 1, 0) * k);
+  return H.HOURS_PER_DAY * (A * (x.a - x.b) - (C(L, A) - C(0, 0)));
+}
+
+/**
+ * En kârlı tam sayı seviye. Dönüş: { L, kar, sinir, Ly, P }
+ *   sinir: 'pazar' (pazar payı bağlıyor) | 'yonetim' (yönetim gideri bağlıyor) | 'zarar' (bir seviye bile kâr etmiyor)
+ */
+export function optimum(x, o = {}) {
+  const { s = 0, pay = VARSAYILAN_PAY, Lo = 0, Wo = 0 } = o;
+  const k = kOf(s);
+  const P = pay * x.pazar;
+  const g = x.a - x.b;
+  let Ly;
+  if (k > 0 && x.w > 0) Ly = (g - x.w - k * (x.w * (Lo - 1) + Wo)) / (2 * x.w * k);
+  else Ly = g > x.w ? Infinity : 0; // tasarruf %100 ya da maaşsız bina: yalnız pazar sınırlar
+  const m = Math.max(0, Math.min(Ly, P));
+  // 1: diğer binaların seviyesi yokken (Lo = 0) ilk seviye yönetim gideri eklemez; kâr 0 ile 1 arasında sıçrar, L* bunu görmez
+  const adaylar = new Set([0, 1, Math.floor(m), Math.ceil(m), Math.floor(P), Math.ceil(P)].filter((v) => Number.isFinite(v) && v >= 0));
+  let L = 0;
+  let kar = 0;
+  for (const c of adaylar) {
+    const v = gunlukKar(c, x, { s, pay, Lo, Wo });
+    if (v > kar + 1e-9) { kar = v; L = c; }
+  }
+  const sinir = L === 0 ? (P < 1 ? 'pazar' : 'zarar') : Ly > P ? 'pazar' : 'yonetim';
+  return { L, kar, sinir, Ly, P };
+}
+
+const grupla = (rows, anahtar) => {
+  const m = new Map();
+  for (const r of rows) {
+    const k = anahtar(r);
+    if (!m.has(k)) m.set(k, []);
+    m.get(k).push(r);
+  }
+  return m;
+};
+const sirala = (a, b) => b.kar - a.kar || b.L - a.L || b.x.g / b.x.w - a.x.g / a.x.w;
+
+/**
+ * 28 günlük öneri: her bina türü için en kârlı ürün × kalite ve seviye.
+ * o: { s, pay, sirket } (sirket: sirketOzeti çıktısı; yoksa tek binalı şirket)
+ * Dönüş: [{ harf, en: {L, kar, sinir, x}, secenekler: [...] }] günlük kâra göre sıralı
+ */
+export function binaOnerileri(rows, o = {}) {
+  const out = [];
+  for (const [harf, list] of grupla(rows, (x) => x.harf)) {
+    const d = digerleri(o.sirket, harf);
+    const sec = list.map((x) => ({ ...optimum(x, { ...o, ...d }), x })).sort(sirala);
+    out.push({ harf, en: sec[0], secenekler: sec });
+  }
+  return out.sort((a, b) => sirala(a.en, b.en));
+}
+
+/** Tüm ürünler: her ürünün en kârlı kalitesi ve seviyesi (kendi bina türündeki diğer binalar dahil) */
+export function urunOnerileri(rows, o = {}) {
+  const out = [];
+  for (const [id, list] of grupla(rows, (x) => x.id)) {
+    const d = digerleri(o.sirket, list[0].harf);
+    const sec = list.map((x) => ({ ...optimum(x, { ...o, ...d }), x })).sort(sirala);
+    out.push({ id, harf: list[0].harf, en: sec[0], secenekler: sec });
+  }
+  return out.sort((a, b) => sirala(a.en, b.en));
+}
+
+/**
+ * Güncel: seviye sabitken (sizin seviyeniz, yoksa 28 günlük öneri) canlı fiyatla en kârlı ürün ve kalite.
+ * Seviye önermez; seviyeyi haftalık değiştirmek geçmiş sınamada kazandırmadı, ürün seçimini değiştirmek kazandırdı.
+ * o: { s, pay, sirket, seviye: (harf) => { L, kaynak: 'sizin' | 'oneri' }, oneri: (harf) => { id, q } | null }
+ * Dönüş: [{ harf, L, kaynak, en: {x, kar}, onerilen: {x, kar} | null, fark, pazarAsimi }]
+ */
+export function guncelOneriler(rows, o = {}) {
+  const out = [];
+  for (const [harf, list] of grupla(rows, (x) => x.harf)) {
+    const ref = o.seviye?.(harf) || { L: 0, kaynak: 'oneri' };
+    const L = Math.max(0, Math.floor(num(ref.L, 0)));
+    const hesapL = L > 0 ? L : 1; // önerilmeyen bina: bir seviye için en iyisi gösterilir
+    const d = digerleri(o.sirket, harf);
+    const sec = list.map((x) => ({ x, kar: gunlukKar(hesapL, x, { ...o, ...d }) })).sort((a, b) => b.kar - a.kar);
+    const en = sec[0];
+    const hedef = o.oneri?.(harf);
+    const onerilen = hedef ? sec.find((y) => y.x.id === hedef.id && y.x.q === hedef.q) || null : null;
+    const fark = onerilen ? en.kar - onerilen.kar : null;
+    const ayni = !onerilen || (onerilen.x.id === en.x.id && onerilen.x.q === en.x.q);
+    out.push({
+      harf, L, hesapL, kaynak: ref.kaynak, en, onerilen, fark,
+      // 'ayni': 28 günlük öneri hâlâ en iyisi | 'degistir': başka ürün belirgin daha kârlı | 'yakin': fark küçük
+      durum: ayni ? 'ayni' : fark >= Math.max(DEGISIM_ESIGI_USD, DEGISIM_ESIGI_PAY * Math.abs(onerilen.kar)) ? 'degistir' : 'yakin',
+      // 28 günlük öneri pazar sınırını yukarı yuvarlar (son seviye kısmen boşta); uyarı ancak bundan fazlasında çıkar
+      pazarAsimi: hesapL > Math.ceil((o.pay ?? VARSAYILAN_PAY) * en.x.pazar),
+    });
+  }
+  return out.sort((a, b) => b.en.kar - a.en.kar);
+}
+
+/** Fazı seç: kullanıcının seçimi ('auto' | 0 | 1 | 2) ve oyunun güncel evresi (loadGamePhase) → 0–2 */
+export function fazSec(secim, oyun) {
+  if (secim === 0 || secim === 1 || secim === 2) return secim;
+  return oyun && [0, 1, 2].includes(oyun.index) ? oyun.index : 0;
+}
+
+/** 28 günlük özet ne kadar eski (saat) ve uyarı gerekir mi */
+export const ozetYasi = (oz, simdi = Date.now()) => (oz?.t ? (simdi - oz.t) / SAAT_MS : null);
+export const ozetEskiMi = (oz, simdi = Date.now()) => {
+  const y = ozetYasi(oz, simdi);
+  return y != null && y > ESKI_SA;
+};

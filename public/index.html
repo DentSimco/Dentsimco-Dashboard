@@ -160,7 +160,7 @@
   .brand { display: inline-flex; align-items: center; gap: 9px; color: var(--text); text-decoration: none; font: 600 21px/1 var(--font-c); }
   .brand svg { width: 24px; height: 24px; }
   .modules { display: flex; gap: 2px; }
-  .modules a { padding: 8px 12px; border-radius: 9px; color: var(--muted); text-decoration: none; font-weight: 500; }
+  .modules a { padding: 8px 12px; border-radius: 9px; color: var(--muted); text-decoration: none; font-weight: 500; white-space: nowrap; }
   .modules a:hover { color: var(--text); }
   .modules a[aria-current="page"] { color: var(--text); background: var(--raise); }
   .subnav { display: none; gap: 2px; padding: 6px 16px; overflow-x: auto; scrollbar-width: none; border-bottom: 1px solid var(--line); }
@@ -504,6 +504,7 @@
   <nav class="modules" aria-label="Modüller">
     <a href="#haberler" data-nav="haberler">Haberler</a>
     <a href="#borsa" data-nav="piyasa">Piyasa</a>
+    <a href="#optimum" data-nav="optimum">Optimum Seviye</a>
     <a href="#uretim" data-nav="kar">Kâr Hesaplayıcı</a>
     <a href="#sirketler" data-nav="sirketler">Şirketler</a>
   </nav>
@@ -597,6 +598,7 @@
   const MODULES = {
     borsa: () => import('./borsa.js').then((m) => m.mountBorsa),
     sinyal: () => import('./sinyal.js').then((m) => m.mountSinyal),
+    optimum: () => import('./optimum.js').then((m) => m.mountOptimum),
     uretim: () => import('./uretim.js').then((m) => m.mountUretim),
     yonetim: () => import('./yonetim.js').then((m) => m.mountYonetim),
     perakende: () => import('./perakende.js').then((m) => m.mountPerakende),

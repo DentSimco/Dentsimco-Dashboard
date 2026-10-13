@@ -8,6 +8,13 @@ const TABS = [['nedir', 'Nedir'], ['guncellemeler', 'Güncellemeler'], ['kaynakc
 // En yeni en üstte. { date: 'gün ay yıl', items: ['...', '...'] }
 export const UPDATES = [
   {
+    date: '13 Ekim 2026',
+    items: [
+      'Optimum Seviye sayfası eklendi (Piyasa ile Kâr Hesaplayıcı arasında; şimdilik R1 üretim binaları): her bina için son 28 günün borsa fiyatı ve satışıyla en kârlı ürün, kalite ve seviye. Güncel sekmesi, seviyeniz sabitken canlı fiyatla şu an en kârlı ürünü gösterir.',
+      'Optimum Seviye önerileri yöneticilerinizin yönetim gideri tasarrufuna ve şirketinizin toplam bina seviyesine bağlıdır: doğru sonuç için Yönetim › Ekip ve Üretim bölümlerini doldurun. Pazarı küçük ürünlerde öneri "Pazar sınırlı" uyarısıyla gösterilir.',
+    ],
+  },
+  {
     date: '11 Ekim 2026',
     items: [
       'Haberler: İngilizce dilde canlı şeritteki ve grafik başlığındaki ürün adları artık İngilizce görünüyor (önceden Türkçe kalıyordu).',
