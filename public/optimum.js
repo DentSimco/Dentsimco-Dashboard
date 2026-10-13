@@ -18,6 +18,7 @@
 import { readDocs, PATHS, dataField, loadGamePhase, fmtAgo, fmtDate, fmtDateTime, fmtPrice, MIN } from './veri.js';
 import * as H from './hesap.js';
 import * as O from './optimum-hesap.js';
+import * as R from './hesap-perakende.js';
 import * as Y from './yonetici.js';
 import { binaAdi } from './adlar.js';
 import { LOCALE } from './i18n.js';
@@ -25,10 +26,11 @@ import { parseNum } from './sayi.js';
 
 const PREFS_KEY = 'dentsimco.optimum.v1';
 const URETIM_KEY = (r) => `dentsimco.uretim.r${r}`;
+const PERAKENDE_KEY = (r) => `dentsimco.perakende.r${r}`;
 const LIST_MAX = 15;
 const SEKMELER = [['ay', '28 Günlük'], ['guncel', 'Güncel']];
 // Üst sekmeler: sol "Tüm Ürün Satışına Göre" (satış sınırsız), sağ "Borsa Satışına Göre" (pazar payı ve kontrat; önceki sayfa)
-const ANA = [['tum', 'Tüm Ürün Satışına Göre'], ['borsa', 'Borsa Satışına Göre']];
+const ANA = [['tum', 'Tüm Ürün Satışına Göre'], ['borsa', 'Borsa Satışına Göre'], ['pk', 'Perakende']];
 export const DESTEKLENEN_REALM = 0;
 
 // ---- biçimlendirme ----
@@ -67,6 +69,7 @@ function readPrefs() {
   return {
     ana: ANA.some(([k]) => k === p.ana) ? p.ana : 'tum',
     hesap: okuHesap(p.hesap),
+    pk: okuHesap(p.pk),
     tab: SEKMELER.some(([k]) => k === p.tab) ? p.tab : 'ay',
     faz: [0, 1, 2].includes(p.faz) ? p.faz : 'auto',
     pay: okuPay(p.pay),
@@ -89,11 +92,24 @@ export function kurulumOku(r) {
   return { buildings, recreation: { ...(raw.recreation || {}) }, extraBonusPct: Math.min(99, Math.max(0, Number(raw.extraBonusPct) || 0)) };
 }
 
+// Perakende kaydından yalnız gerekenler: rekreasyon, elle satış hızı ve mağazalar (harf, ürün, kalite, seviye)
+export function perakendeOku(r) {
+  let raw = null;
+  try { raw = JSON.parse(localStorage.getItem(PERAKENDE_KEY(r)) || 'null'); } catch { raw = null; }
+  if (!raw || typeof raw !== 'object') return { buildings: [], recreation: {}, salesSpeedPct: 0 };
+  const buildings = (Array.isArray(raw.buildings) ? raw.buildings : []).filter((b) => b && typeof b === 'object' && typeof b.letter === 'string').map((b) => ({
+    letter: b.letter, product: Number(b.product), quality: R.clampQuality(b.quality), level: Math.max(0, Math.floor(Number(b.level) || 0)), construction: !!b.construction,
+  }));
+  const rec = {};
+  for (const k of ['park', 'temple', 'lake']) rec[k] = Math.min(3, Math.max(0, Math.floor(Number(raw.recreation?.[k]) || 0)));
+  return { buildings, recreation: rec, salesSpeedPct: Math.max(0, Number(raw.salesSpeedPct) || 0) };
+}
+
 // ---- veri ----
 async function veriYukle(r, options) {
   const P = {
     products: PATHS.meta(`products_r${r}`), buildings: PATHS.meta('buildings'), core: PATHS.meta('core'),
-    modifiers: PATHS.meta(`modifiers_r${r}`), ozet: PATHS.meta(`optimum_r${r}`), live: PATHS.live(r),
+    modifiers: PATHS.meta(`modifiers_r${r}`), ozet: PATHS.meta(`optimum_r${r}`), live: PATHS.live(r), retail: PATHS.meta(`retail_r${r}`),
   };
   const docs = await readDocs(Object.values(P), options);
   const get = (k) => dataField(docs.get(P[k]));
@@ -101,7 +117,16 @@ async function veriYukle(r, options) {
   if (!raw || !Object.keys(raw).length) throw new Error('Ürün verisi okunamadı.');
   const core = get('core') || {};
   const data = H.normalizeData({ products: raw, buildings: get('buildings') || {}, core, modifiers: get('modifiers') || {}, realm: r });
-  return { data, mevsimlik: O.mevsimlikUrunler(raw, core), ozet: get('ozet'), live: get('live') };
+  // Perakende doygunluğu: ürün verisindeki değer, botun yazdığı meta/retail üstüne yazar (Perakende sayfasıyla aynı)
+  const doygunluk = {};
+  for (const [id, p] of Object.entries(raw)) {
+    const v = p?.marketSaturation;
+    if (v != null && v !== '' && Number.isFinite(Number(v))) doygunluk[id] = Number(v);
+  }
+  const ri = get('retail');
+  Object.assign(doygunluk, R.parseSaturation(Array.isArray(ri) ? ri : ri?.items ?? ri));
+  const qw = Number(core.RETAIL_MODELING_QUALITY_WEIGHT);
+  return { data, mevsimlik: O.mevsimlikUrunler(raw, core), ozet: get('ozet'), live: get('live'), pk: { saturation: doygunluk, qualityWeight: Number.isFinite(qw) && core.RETAIL_MODELING_QUALITY_WEIGHT != null ? qw : undefined } };
 }
 
 async function canliYukle(r) {
@@ -349,7 +374,7 @@ export const R2_HTML = `<section class="op"><div class="op-head"><div><h1>Optimu
   <section class="op-alert soft" role="note"><h2>R2 için geliştirme aşamasında</h2><p>Optimum Seviye şimdilik yalnız R1 için hesaplanıyor. R2 için yeterli geçmiş veri birikince eklenecek.</p></section></section>`;
 
 export function anaSekmelerHtml(st) {
-  const cur = st.prefs.ana === 'tum' ? 'tum' : 'borsa';
+  const cur = ['tum', 'pk'].includes(st.prefs.ana) ? st.prefs.ana : 'borsa';
   return `<div class="op-tabs op-main" role="tablist" aria-label="Optimum Seviye hesabı">${ANA.map(([k, t]) =>
     `<button type="button" role="tab" data-ana="${k}" aria-selected="${k === cur}" tabindex="${k === cur ? 0 : -1}">${esc(t)}</button>`).join('')}</div>`;
 }
@@ -357,8 +382,9 @@ export function anaSekmelerHtml(st) {
 // ---- Tüm Ürün Satışına Göre: pazar sınırı yok; bina × ürün × kalite seçince şirketin bugünkü binalarının üstüne eklenecek seviye ----
 const kaliteAdi = (ad, id, q) => `${ad.urun(id)}${ad.kaliteli(id) ? ` Q${q}` : ''}`;
 
-export function hesapHtml(st, ad) {
-  const t = st.tum;
+// k: { t (sonuç), sel (seçici öznitelik), act (Ekle düğmesi), acKey, notu, binaEtiket, yeniEtiket, mevcutEtiket, mevcutNot, ekChips(hs), son (son ekleme), sonMetin(son) }
+function hesapKarti(st, ad, k) {
+  const t = k.t;
   if (!t?.hesap || !t.secim) return '';
   const hs = t.hesap;
   const secim = t.secim;
@@ -366,41 +392,85 @@ export function hesapHtml(st, ad) {
   const u = h.urunler.find((e) => e.id === secim.id);
   const kaliteli = ad.kaliteli(secim.id);
   const opt = (v, text, sel) => `<option value="${esc(v)}"${sel ? ' selected' : ''}>${esc(text)}</option>`;
-  const sirket = st.sirket;
-  const chips = [];
-  if (hs.ayni > 0) chips.push(chip(`Zaten kurulu: ${NF0.format(hs.ayni)} seviye`, 'muted'));
-  if (sirket?.sirketVar && hs.L > 0) chips.push(chip(`Şirketiniz: ${NF0.format(sirket.toplamSeviye)} → ${NF0.format(hs.toplamSonra)} seviye`, 'muted'));
+  const chips = k.ekChips(hs);
   const egri = hs.yari && hs.buyuk ? `<p class="op-note">${esc('Kâr en çok önerilen seviyededir; ondan sonra düşer.')}</p><div class="table-wrap"><table class="op-table op-egri"><thead><tr><th scope="col">Kâr eğrisi</th><th scope="col">Seviye</th><th scope="col">Günlük kâr</th></tr></thead><tbody>
       <tr><th scope="row">Yarısı</th><td>${NF0.format(hs.yari.L)}</td><td>${para(hs.yari.kar)}</td></tr>
       <tr class="on"><th scope="row">Önerilen</th><td>${NF0.format(hs.L)}</td><td class="up">${para(hs.kar)}</td></tr>
       <tr><th scope="row">1,5 katı</th><td>${NF0.format(hs.buyuk.L)}</td><td>${para(hs.buyuk.kar)}</td></tr></tbody></table></div>` : '';
-  const kalite = hs.kaliteler.length > 1 ? `<details data-ac="tumq"${st.acik?.has('tumq') ? ' open' : ''}><summary>Kaliteleri karşılaştır</summary>
+  const kalite = hs.kaliteler.length > 1 ? `<details data-ac="${k.acKey}"${st.acik?.has(k.acKey) ? ' open' : ''}><summary>Kaliteleri karşılaştır</summary>
       <div class="table-wrap"><table class="op-table"><thead><tr><th scope="col">Kalite</th><th scope="col">Seviye</th><th scope="col">Günlük kâr</th></tr></thead><tbody>${hs.kaliteler.map((k) =>
         `<tr${k.q === secim.q ? ' class="on"' : ''}><th scope="row">Q${k.q}</th><td>${NF0.format(k.L)}</td><td class="${k.kar > 0 ? 'up' : ''}">${para(k.kar)}</td></tr>`).join('')}</tbody></table></div></details>` : '';
   const var_ = hs.L >= 1;
   const mevcutVar = hs.ayni > 0;
-  const son = st.sonEkle;
-  const sonMetin = son?.hata ? `<p class="op-warn" role="alert">${esc('Tarayıcı kaydı açık değil; eklenemedi.')}</p>` : son ? `<p class="op-ok" role="status">${esc(`${son.mod === 'mevcut' ? 'Mevcut binaya eklendi' : 'Yeni bina eklendi'}: ${kaliteAdi(ad, son.id, son.q)} +${NF0.format(son.L)} seviye.`)} <a href="#uretim/binalar">${esc("Üretim › Binalar'da gör")}</a></p>` : '';
+  const son = k.son;
+  const sonMetin = son?.hata ? `<p class="op-warn" role="alert">${esc('Tarayıcı kaydı açık değil; eklenemedi.')}</p>` : son ? k.sonMetin(son) : '';
   return `<section class="op-block op-calc" aria-label="Seviye hesapla"><h2>Seviye hesapla</h2>
-    <p class="op-note">Bina, ürün ve kalite seçin. Öneri, şirketinizin bugünkü binalarının üstüne eklenecek en kârlı seviyedir; yönetim ekibiniz ve Üretim'deki binalarınız hesaba katılır.</p>
+    <p class="op-note">${esc(k.notu)}</p>
     <div class="op-kon-fields op-hs">
-      <label class="op-f"><span>Bina</span><select class="op-in" data-hs="harf">${t.secenek.map((e) => opt(e.harf, ad.bina(e.harf), e.harf === secim.harf)).join('')}</select></label>
-      <label class="op-f"><span>Ürün</span><select class="op-in" data-hs="id">${h.urunler.map((e) => opt(e.id, ad.urun(e.id), e.id === secim.id)).join('')}</select></label>
-      ${kaliteli ? `<label class="op-f"><span>Kalite</span><select class="op-in" data-hs="q">${u.kaliteler.map((k) => opt(k, `Q${k}`, k === secim.q)).join('')}</select></label>` : ''}
+      <label class="op-f"><span>${esc(k.binaEtiket)}</span><select class="op-in" data-${k.sel}="harf">${t.secenek.map((e) => opt(e.harf, ad.bina(e.harf), e.harf === secim.harf)).join('')}</select></label>
+      <label class="op-f"><span>Ürün</span><select class="op-in" data-${k.sel}="id">${h.urunler.map((e) => opt(e.id, ad.urun(e.id), e.id === secim.id)).join('')}</select></label>
+      ${kaliteli ? `<label class="op-f"><span>Kalite</span><select class="op-in" data-${k.sel}="q">${u.kaliteler.map((k) => opt(k, `Q${k}`, k === secim.q)).join('')}</select></label>` : ''}
     </div>
     <div class="op-card op-res">
       <div class="op-top"><h3>${esc(kaliteAdi(ad, secim.id, secim.q))}</h3><span class="op-level"><b>${NF0.format(hs.L)}</b><small>seviye ekleyin</small></span></div>
       <div class="op-prod"><span class="op-name">${esc('Ek günlük kâr')}</span><span class="op-kar ${hs.kar > 0 ? 'up' : ''}">${para(hs.kar)}</span><span class="op-unit">/ gün</span></div>
       <div class="op-chips">${chips.join('')}</div>
-      ${var_ ? egri : `<p class="op-note">${esc('Bu bina, ürün ve kalite için şirketinize ek seviye önerilmiyor: eklenen seviye kâr getirmiyor.')}</p>`}
+      ${var_ ? egri : `<p class="op-note">${esc(k.seviyeYok)}</p>`}
       ${kalite}
       <div class="op-ekle">
-        <button type="button" class="op-btn primary" data-act="ekle" data-v="yeni"${var_ ? '' : ' disabled'}>${esc(`Yeni bina olarak ekle (+${NF0.format(hs.L)})`)}</button>
-        <button type="button" class="op-btn" data-act="ekle" data-v="mevcut"${var_ && mevcutVar ? '' : ' disabled'}>${esc(`Mevcut binaya ekle (+${NF0.format(hs.L)})`)}</button>
+        <button type="button" class="op-btn primary" data-act="${k.act}" data-v="yeni"${var_ ? '' : ' disabled'}>${esc(`${k.yeniEtiket} (+${NF0.format(hs.L)})`)}</button>
+        <button type="button" class="op-btn" data-act="${k.act}" data-v="mevcut"${var_ && mevcutVar ? '' : ' disabled'}>${esc(`${k.mevcutEtiket} (+${NF0.format(hs.L)})`)}</button>
       </div>
-      ${var_ && !mevcutVar ? `<p class="op-note">${esc('Mevcut binaya ekle: Üretim\'de bu bina, ürün ve kalitede kurulu bina yok.')}</p>` : ''}
+      ${var_ && !mevcutVar ? `<p class="op-note">${esc(k.mevcutNot)}</p>` : ''}
       ${sonMetin}
     </div></section>`;
+}
+
+export function hesapHtml(st, ad) {
+  return hesapKarti(st, ad, {
+    t: st.tum, sel: 'hs', act: 'ekle', acKey: 'tumq', son: st.sonEkle, binaEtiket: 'Bina',
+    notu: "Bina, ürün ve kalite seçin. Öneri, şirketinizin bugünkü binalarının üstüne eklenecek en kârlı seviyedir; yönetim ekibiniz ve Üretim'deki binalarınız hesaba katılır.",
+    seviyeYok: 'Bu bina, ürün ve kalite için şirketinize ek seviye önerilmiyor: eklenen seviye kâr getirmiyor.',
+    yeniEtiket: 'Yeni bina olarak ekle', mevcutEtiket: 'Mevcut binaya ekle', mevcutNot: "Mevcut binaya ekle: Üretim'de bu bina, ürün ve kalitede kurulu bina yok.",
+    ekChips: (hs) => {
+      const c = [];
+      if (hs.son) c.push(chip('Fiyat son işlemden (borsada seyrek işlem görüyor)', 'warn'));
+      if (hs.ayni > 0) c.push(chip(`Zaten kurulu: ${NF0.format(hs.ayni)} seviye`, 'muted'));
+      if (st.sirket?.sirketVar && hs.L > 0) c.push(chip(`Şirketiniz: ${NF0.format(st.sirket.toplamSeviye)} → ${NF0.format(hs.toplamSonra)} seviye`, 'muted'));
+      return c;
+    },
+    sonMetin: (son) => `<p class="op-ok" role="status">${esc(`${son.mod === 'mevcut' ? 'Mevcut binaya eklendi' : 'Yeni bina eklendi'}: ${kaliteAdi(ad, son.id, son.q)} +${NF0.format(son.L)} seviye.`)} <a href="#uretim/binalar">${esc("Üretim › Binalar'da gör")}</a></p>`,
+  });
+}
+
+// ---- Perakende: mağaza × ürün × kalite için ideal seviye (satış ve alım sınırsız) ----
+export function pkKartiHtml(st, ad) {
+  const t = st.pk;
+  if (!t?.hesap || !t.secim) return '';
+  return hesapKarti(st, ad, {
+    t, sel: 'pk', act: 'pkEkle', acKey: 'pkq', son: st.sonEklePk, binaEtiket: 'Mağaza',
+    notu: "Mağaza, ürün ve kalite seçin. Öneri, şirketinizin bugünkü binalarının üstüne eklenecek en kârlı seviyedir; yönetim ekibiniz, Üretim'deki ve Perakende'deki binalarınız hesaba katılır.",
+    seviyeYok: 'Bu mağaza, ürün ve kalite için şirketinize ek seviye önerilmiyor: eklenen seviye kâr getirmiyor.',
+    yeniEtiket: 'Yeni mağaza olarak ekle', mevcutEtiket: 'Mevcut mağazaya ekle', mevcutNot: "Mevcut mağazaya ekle: Perakende'de bu mağaza, ürün ve kalitede kurulu mağaza yok.",
+    ekChips: (hs) => {
+      const c = [chip(`Satış fiyatı ${fmtPrice(hs.fiyat)}`, 'muted'), chip(`Birim maliyet ${fmtPrice(hs.maliyet)}`, 'muted')];
+      if (hs.ayni > 0) c.push(chip(`Zaten kurulu: ${NF0.format(hs.ayni)} seviye`, 'muted'));
+      if (st.sirket?.sirketVar && hs.L > 0) c.push(chip(`Şirketiniz: ${NF0.format(st.sirket.toplamSeviye)} → ${NF0.format(hs.toplamSonra)} seviye`, 'muted'));
+      return c;
+    },
+    sonMetin: (son) => `<p class="op-ok" role="status">${esc(`${son.mod === 'mevcut' ? 'Mevcut mağazaya eklendi' : 'Yeni mağaza eklendi'}: ${kaliteAdi(ad, son.id, son.q)} +${NF0.format(son.L)} seviye.`)} <a href="#perakende/binalar">${esc("Perakende › Binalar'da gör")}</a></p>`,
+  });
+}
+
+export function pkHtml(st, ad) {
+  const t = st.pk;
+  if (t.veriYok || !t.hesap) return `<p class="op-empty">${esc('Perakende verisi (doygunluk ve fiyat) okunamadı.')}</p>`;
+  return `<section class="op-set op-set-tek" aria-label="Ayarlar">${fazAlani(st)}</section>
+    <p class="op-warn" role="note">${esc('Satışın ve alımın sınırsız olduğu varsayılır: mağazanın seviye başına satışı seviyeyle azalmaz ve istediğiniz kadar ürün borsadan güncel fiyatla alınır. Bu sekme üst sınırı gösterir.')}</p>
+    <p class="op-line">${esc(`Toplam satış bonusu %${NF1.format(t.bonus)} (Perakende kurulumu ve yönetim ekibiniz).`)}</p>
+    ${pkKartiHtml(st, ad)}
+    ${urunlerBlogu(t.urunler.filter((u) => u.harf === t.secim.harf), st, ad, 'Bu mağazadaki ürünler', true)}
+    <p class="op-foot">${esc('Öneriler DentSimco formülüyle hesaplanır. Fiyat, en kârlı satış fiyatıdır; maliyet borsanın güncel fiyatıdır. Restoran ve Satış ofisi gösterilmez.')}</p>`;
 }
 
 export function tumHtml(st, ad) {
@@ -418,10 +488,34 @@ export function tumHtml(st, ad) {
 
 /** Sayfanın tamamı (saf). ad: { urun(id), bina(harf), kaliteli(id) } */
 export function sayfaHtml(st, ad) {
-  const tum = st.prefs.ana === 'tum';
+  const ana = st.prefs.ana;
   const govde = st.prefs.tab === 'guncel' ? guncelHtml(st, ad) : ayHtml(st, ad);
-  const ic = tum ? tumHtml(st, ad) : `${ayarlarHtml(st)}${kontratHtml(st, ad)}${sekmelerHtml(st)}<div class="op-body" role="tabpanel">${govde}</div>`;
+  const ic = ana === 'tum' ? tumHtml(st, ad) : ana === 'pk' ? pkHtml(st, ad) : `${ayarlarHtml(st)}${kontratHtml(st, ad)}${sekmelerHtml(st)}<div class="op-body" role="tabpanel">${govde}</div>`;
   return `<section class="op">${basHtml(st)}${uyarilarHtml(st)}${sirketSatiri(st)}${anaSekmelerHtml(st)}${ic}</section>`;
+}
+
+/**
+ * Seçilen mağazayı Perakende kaydına ekler (saf). mod 'yeni': yeni mağaza satırı; 'mevcut': aynı harf, ürün ve kalitedeki
+ * mağazanın seviyesine ekler (yoksa yeni satır). Dönüş: { raw, mod } | null (seviye 1'den küçükse)
+ */
+export function pkBinaEkle(raw, { harf, id, q, L }, mod) {
+  const seviye = Math.floor(Number(L));
+  if (!(seviye >= 1) || !harf) return null;
+  const kayit = raw && typeof raw === 'object' && !Array.isArray(raw) ? { ...raw } : {};
+  const liste = Array.isArray(kayit.buildings) ? [...kayit.buildings] : [];
+  let yapilan = 'yeni';
+  if (mod === 'mevcut') {
+    const i = liste.findIndex((b) => b && typeof b === 'object' && b.letter === harf && Number(b.product) === id && R.clampQuality(b.quality) === q && !b.construction);
+    if (i >= 0) {
+      liste[i] = { ...liste[i], level: Math.max(0, Math.floor(Number(liste[i].level) || 0)) + seviye };
+      yapilan = 'mevcut';
+    }
+  }
+  if (yapilan === 'yeni') {
+    liste.push({ id: `b${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`, letter: harf, product: id, quality: q, level: seviye, cost: null, price: null, construction: false });
+  }
+  kayit.buildings = liste;
+  return { raw: kayit, mod: yapilan };
 }
 
 /**
@@ -605,6 +699,7 @@ export function mountOptimum(root, { realm = 0 } = {}) {
   let payHata = false;
   let ekler = []; // Üretim'e bu sayfadan eklenen, şirket kaydına henüz işlenmemiş binalar (Üretim açılınca işlenir): [{ id, L }]
   let sonEkle = null; // son ekleme: { mod, id, q, L }
+  let sonEklePk = null; // Perakende sekmesinde son ekleme
   let son = null; // en son çizilen sayfa durumu (Ekle düğmesi buradan okur)
 
   const style = document.createElement('style');
@@ -628,6 +723,7 @@ export function mountOptimum(root, { realm = 0 } = {}) {
     if (!yuklenen) { root.innerHTML = '<section class="op" aria-busy="true"><div class="op-head"><div><h1>Optimum Seviye</h1><p class="op-when">Yükleniyor</p></div></div></section>'; return; }
     const st = O.sayfaDurumu({
       ...yuklenen, company: Y.loadCompanyRecord(r).company, kurulum: kurulumOku(r), gamePhase, prefs, kontratlar: prefs.kontrat, ekler, simdi: Date.now(),
+      pk: { kurulum: perakendeOku(r), ...yuklenen.pk },
     });
     st.acik = acik;
     st.urunlerAcik = urunlerAcik;
@@ -635,6 +731,7 @@ export function mountOptimum(root, { realm = 0 } = {}) {
     st.taslakHata = taslakHata;
     st.payHata = payHata;
     st.sonEkle = sonEkle;
+    st.sonEklePk = sonEklePk;
     son = st;
     const scroll = window.scrollY;
     root.innerHTML = sayfaHtml(st, ad);
@@ -696,6 +793,7 @@ export function mountOptimum(root, { realm = 0 } = {}) {
     else if (act === 'yenile') yukle({ taze: true });
     else if (act === 'kontratEkle') kontratEkle();
     else if (act === 'ekle') uretimeEkle(b.dataset.v);
+    else if (act === 'pkEkle') perakendeyeEkle(b.dataset.v);
     else if (act === 'kontratSil') {
       prefs.kontrat.splice(Number(b.dataset.i), 1);
       savePrefs(prefs);
@@ -720,6 +818,24 @@ export function mountOptimum(root, { realm = 0 } = {}) {
     }
     render();
   }
+  // Perakende: seçilen mağaza × ürün × kalite ve önerilen seviyeyi Perakende kaydına yazar
+  function perakendeyeEkle(mod) {
+    const hs = son?.pk?.hesap;
+    if (!hs || hs.L < 1 || destroyed) return;
+    try {
+      const anahtar = PERAKENDE_KEY(r);
+      let raw = null;
+      try { raw = JSON.parse(localStorage.getItem(anahtar) || 'null'); } catch { raw = null; }
+      const sonuc = pkBinaEkle(raw, { harf: hs.harf, id: hs.id, q: hs.q, L: hs.L }, mod);
+      if (!sonuc) return;
+      localStorage.setItem(anahtar, JSON.stringify(sonuc.raw));
+      ekler = [...ekler, { id: hs.id, L: hs.L, pk: true, harf: hs.harf }];
+      sonEklePk = { mod: sonuc.mod, id: hs.id, q: hs.q, L: hs.L };
+    } catch {
+      sonEklePk = { hata: true };
+    }
+    render();
+  }
   // "Kontrat ekle" formundaki yazıları satıra çevirir; eksik varsa formda uyarır
   function kontratEkle() {
     const id = Number(taslak.id);
@@ -741,7 +857,17 @@ export function mountOptimum(root, { realm = 0 } = {}) {
   }
   function onChange(e) {
     const t = e.target;
-    if (t.dataset?.hs) {
+    if (t.dataset?.pk) {
+      const h = { ...prefs.pk };
+      if (t.dataset.pk === 'harf') { h.harf = t.value; delete h.id; delete h.q; }
+      else if (t.dataset.pk === 'id') { h.id = Number(t.value); delete h.q; }
+      else if (t.dataset.pk === 'q') h.q = Number(t.value);
+      if (son?.pk?.secim) { h.harf ??= son.pk.secim.harf; if (t.dataset.pk === 'q') h.id ??= son.pk.secim.id; }
+      prefs.pk = okuHesap(h);
+      sonEklePk = null;
+      savePrefs(prefs);
+      render();
+    } else if (t.dataset?.hs) {
       const h = { ...prefs.hesap };
       if (t.dataset.hs === 'harf') { h.harf = t.value; delete h.id; delete h.q; }
       else if (t.dataset.hs === 'id') { h.id = Number(t.value); delete h.q; }
@@ -791,7 +917,7 @@ export function mountOptimum(root, { realm = 0 } = {}) {
   // Yönetim ya da Üretim başka bir sekmede değişirse (aynı tarayıcı) ekran yeni kayıtla çizilir
   const onStorage = (e) => {
     if (e.key && e.key.startsWith('dentsimco.sirket.')) ekler = []; // Üretim şirket kaydını güncelledi: eklenenler artık kayıtta
-    if (e.key && (e.key.startsWith('dentsimco.sirket.') || e.key.startsWith('dentsimco.uretim.')) && !yaziyor()) render();
+    if (e.key && (e.key.startsWith('dentsimco.sirket.') || e.key.startsWith('dentsimco.uretim.') || e.key.startsWith('dentsimco.perakende.')) && !yaziyor()) render();
   };
 
   root.addEventListener('click', onClick);

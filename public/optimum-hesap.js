@@ -31,6 +31,7 @@
 //   birden çok satır adetçe toplanır, fiyat adetle ağırlıklı ortalamadır.
 
 import * as H from './hesap.js';
+import * as R from './hesap-perakende.js';
 import { parseNum, parsePrice } from './sayi.js';
 
 export const PAYLAR = [0.1, 0.25, 0.5, 1]; // hazır seçenekler; kullanıcı 1 – 100 arası kendi oranını da yazabilir
@@ -436,6 +437,93 @@ const kontratBilgi = (x, L, pay) => {
 };
 const sonuc = (e, pay) => ({ id: e.x.id, q: e.x.q, L: e.L, kar: e.kar, sinir: e.sinir, kontrat: kontratBilgi(e.x, e.L, pay) });
 
+/**
+ * Perakende: mağaza (bina) × ürün × kalite için ideal seviye; satış ve alım sınırsız (mağazanın seviye başına saatlik satışı
+ * seviyeyle azalmaz, istenen kadar ürün borsadan alınır). Fiyat en kârlı fiyattır; maliyet borsanın güncel fiyatı.
+ * Seviye, şirketin bugünkü binalarının üstüne eklenir: ek seviyenin kârı, maaşına ve şirketin bütün maaşlarına eklediği
+ * yönetim giderine eşitlenince durur (üretimdeki hesapla aynı).
+ * pk: { kurulum: Perakende kaydı { recreation, salesSpeedPct, buildings }, saturation: { ürün: doygunluk }, qualityWeight }
+ *   liste:   [{ harf, id, q, L, kar, sinir, fiyat }]  her mağazanın en kârlı ürünü (kâra göre)
+ *   urunler: [{ harf, id, q, L, kar, sinir, fiyat }]  her mağaza × ürün için en kârlı kalite
+ *   secenek: [{ harf, urunler: [{ id, kaliteler: [q], ana }] }]
+ *   secim:   { harf, id, q }
+ *   hesap:   { harf, id, q, L, kar, sinir, fiyat, maliyet, yari, buyuk, kaliteler: [{ q, L, kar }], ayni, toplamSonra }
+ *   bonus:   toplam satış hızı bonusu (yüzde: rekreasyon + elle + yönetim ekibi)
+ */
+const PK_DISLANAN = new Set(['r', 'B']); // Restoran ayrı planlanır; Satış ofisi ölçülmez (Perakende sayfasıyla aynı)
+function pkDurumu({ data, live, company, sirket, faz, pk, secim }) {
+  const out = { liste: [], urunler: [], secenek: [], secim: null, hesap: null, bonus: 0, veriYok: false };
+  const doygun = pk?.saturation || {};
+  if (!Object.keys(doygun).length) { out.veriYok = true; return out; }
+  const kur = pk?.kurulum || {};
+  const ekip = H.teamEffects(Array.isArray(company?.executives) ? company.executives : [], { bankLevel: company?.finance?.bankLevel });
+  const bonusPct = R.retailBonusPct({
+    otherSpeedPct: num(kur.salesSpeedPct, 0) + H.recreationBonus(kur.recreation || {}) * 100,
+    teamSalesSpeedPct: Math.max(0, num(ekip.salesSpeedPct, 0)),
+  });
+  out.bonus = bonusPct;
+  const piyasa = (id, q) => { const p = Number(live?.items?.[id]?.[1]?.[q]?.[0]); return p > 0 ? p : null; };
+  const diger = { s: sirket.s, pay: SINIRSIZ, Lo: sirket.sirketVar ? sirket.toplamSeviye : 0, Wo: sirket.sirketVar ? sirket.tabanMaasSaat : 0 };
+  const satirlar = [];
+  for (const harf of R.retailLetters()) {
+    if (PK_DISLANAN.has(harf)) continue;
+    for (const id of R.buildingProducts(harf, faz)) {
+      const kaliteli = H.hasQuality(data.products?.[id]);
+      for (let q = 0; q <= (kaliteli ? R.MAX_QUALITY : 0); q++) {
+        const maliyet = piyasa(id, q);
+        if (maliyet == null && q > 0) continue; // borsada fiyatı olmayan kalite hesaplanamaz
+        const r = R.calcProduct({ economy: faz, productId: id, quality: q, saturation: doygun[id], cAct: maliyet, bonusPct, qualityWeight: pk?.qualityWeight, wage: 0 });
+        if (!r.ok) continue;
+        const w = R.storeWage({ modelW: r.model.W, salaryModifier: data.buildings?.[harf]?.salaryModifier, averageSalary: data.averageSalary, adminNet: 0 });
+        const a = r.sellable ? Math.max(0, r.marginHourPerLevel) : 0;
+        const x = { id, q, harf, a, b: 0, w, g: a, pazar: 0, ph: 1 };
+        const e = optimum(x, diger);
+        satirlar.push({ harf, id, q, x, L: e.L, kar: e.kar, sinir: e.sinir === 'pazar' ? 'yonetim' : e.sinir, fiyat: r.price, maliyet: r.cAct });
+      }
+    }
+  }
+  if (!satirlar.length) { out.veriYok = true; return out; }
+  const sirala = (a, b) => b.kar - a.kar || b.L - a.L;
+  const sade = (e) => ({ harf: e.harf, id: e.id, q: e.q, L: e.L, kar: e.kar, sinir: e.sinir, fiyat: e.fiyat });
+  const harfler = new Map();
+  for (const e of satirlar) { if (!harfler.has(e.harf)) harfler.set(e.harf, []); harfler.get(e.harf).push(e); }
+  const sirali = [...harfler.entries()].map(([harf, l]) => [harf, l.sort(sirala)]).sort((a, b) => sirala(a[1][0], b[1][0]));
+  out.liste = sirali.map(([, l]) => sade(l[0]));
+  for (const [, l] of sirali) {
+    const enIyi = new Map();
+    for (const e of l) if (!enIyi.has(e.id)) enIyi.set(e.id, e);
+    for (const e of enIyi.values()) out.urunler.push(sade(e));
+  }
+  out.secenek = sirali.map(([harf, l]) => {
+    const m = new Map();
+    for (const e of l) {
+      const u = m.get(e.id) || { id: e.id, kaliteler: [], ana: e.q };
+      u.kaliteler.push(e.q);
+      m.set(e.id, u);
+    }
+    return { harf, urunler: [...m.values()].map((u) => ({ ...u, kaliteler: u.kaliteler.sort((a, c) => a - c) })) };
+  });
+  const h = out.secenek.find((e) => e.harf === secim?.harf) || out.secenek[0];
+  const u = h.urunler.find((e) => e.id === Number(secim?.id)) || h.urunler[0];
+  const q = u.kaliteler.includes(Number(secim?.q)) ? Number(secim.q) : u.ana;
+  out.secim = { harf: h.harf, id: u.id, q };
+  const grup = satirlar.filter((e) => e.harf === h.harf && e.id === u.id);
+  const sec = grup.find((e) => e.q === q);
+  const kar = (L) => gunlukKar(L, sec.x, diger);
+  let ayni = 0;
+  for (const b of Array.isArray(kur.buildings) ? kur.buildings : []) {
+    if (b?.letter === h.harf && Number(b.product) === u.id && !b.construction && R.clampQuality(b.quality) === q) ayni += Math.max(0, Math.floor(num(b.level, 0)));
+  }
+  out.hesap = {
+    harf: h.harf, id: u.id, q, L: sec.L, kar: sec.kar, sinir: sec.sinir, fiyat: sec.fiyat, maliyet: sec.maliyet,
+    yari: sec.L >= 2 ? { L: Math.round(sec.L / 2), kar: kar(Math.round(sec.L / 2)) } : null,
+    buyuk: sec.L >= 2 ? { L: Math.round(sec.L * 1.5), kar: kar(Math.round(sec.L * 1.5)) } : null,
+    kaliteler: grup.map((e) => ({ q: e.q, L: e.L, kar: e.kar })).sort((a, b) => a.q - b.q),
+    ayni, toplamSonra: sirket.toplamSeviye + sec.L,
+  };
+  return out;
+}
+
 // Üretim'e yeni eklenen ama şirket kaydına henüz işlenmemiş binalar: [{ id (ürün), L }] → toplam seviye ve taban maaş (saatlik)
 function ekToplami(data, ekler) {
   let seviye = 0;
@@ -443,7 +531,8 @@ function ekToplami(data, ekler) {
   for (const e of Array.isArray(ekler) ? ekler : []) {
     const L = Math.max(0, Math.floor(num(e?.L, 0)));
     seviye += L;
-    maas += L * num(data?.products?.[e?.id]?.baseSalary, 0);
+    // perakende (pk): mağazanın seviye başı taban maaşı = bina maaş çarpanı × ortalama maaş; üretim: ürünün taban maaşı
+    maas += L * (e?.pk ? num(data?.buildings?.[e?.harf]?.salaryModifier, 0) * num(data?.averageSalary, 345) : num(data?.products?.[e?.id]?.baseSalary, 0));
   }
   return { seviye, maas };
 }
@@ -515,7 +604,7 @@ function tumDurumu({ ortak, oz, sirket, kurulum, data, secim }) {
  *   urunSecenek: [{ id, kaliteler: [q], ana }]  kontrat eklerken seçilebilen ürün ve kaliteler (ana: en çok işlem gören)
  * kontratlar (girdi): [{ id, q, adet: 'metin', fiyat: 'metin' }] kullanıcının yazdıkları (en çok KONTRAT_EN_COK)
  */
-export function sayfaDurumu({ data, mevsimlik, ozet, live, company, kurulum, gamePhase, prefs, kontratlar, ekler, simdi = Date.now() }) {
+export function sayfaDurumu({ data, mevsimlik, ozet, live, company, kurulum, gamePhase, prefs, kontratlar, ekler, pk, simdi = Date.now() }) {
   const oz = ozetOku(ozet);
   const sirket = sirketOzeti({ company, kurulum, data, ek: ekToplami(data, ekler) });
   const faz = fazSec(prefs.faz, gamePhase);
@@ -525,7 +614,10 @@ export function sayfaDurumu({ data, mevsimlik, ozet, live, company, kurulum, gam
     sirket: { s: sirket.s, ekipVar: sirket.ekipVar, sirketVar: sirket.sirketVar, toplamSeviye: sirket.toplamSeviye, kendi },
     faz, gamePhase, prefs, simdi, liveT: live?.t ?? null, binalar: [], urunler: [], guncel: [], kontratlar: [], urunSecenek: [],
     tum: { binalar: [], urunler: [], secenek: [], secim: null, hesap: null },
+    pk: { liste: [], secenek: [], secim: null, hesap: null, bonus: 0, veriYok: false },
   };
+  // Perakende bölümü özet olmadan da çalışır (canlı fiyat ve doygunluk yeter)
+  if (data && pk) st.pk = pkDurumu({ data, live, company, sirket, faz, pk, secim: prefs?.pk });
   if (!oz || !data) return st;
   const ortak = { data, oz, mevsimlik, faz, kurulum };
   const opt = { s: sirket.s, pay: prefs.pay, sirket };
