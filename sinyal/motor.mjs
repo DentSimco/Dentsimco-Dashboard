@@ -735,8 +735,8 @@ export function hesapla({ realm, simdi, products, ids, modifiers, phase, seed, d
 
   // Canlı karne: 14 gün önceki beklentiler 14 gün sonra ne oldu. Bir gece çalışması kaçarsa o günün kaydı sonraki
   // gecelerde (en çok 18 gün geriye) yine değerlendirilir; gerçekleşen fiyat kaydın gününden tam 14 gün sonrasıdır.
-  const degerlendir = (doc, gun) => {
-    const j = S.idx(gun) + 14;
+  const degerlendir = (doc, gun, ufuk = 14) => {
+    const j = S.idx(gun) + ufuk;
     if (j > Ti || !doc?.items) return null;
     const top = {};
     const ekle = (items) => {
@@ -754,18 +754,25 @@ export function hesapla({ realm, simdi, products, ids, modifiers, phase, seed, d
     else ekle(doc.items);
     return top;
   };
-  const karne = { gunler: { ...(karneDoc?.gunler || {}) }, gunici: { ...(karneDoc?.gunici || {}) } };
+  // gunler7: aynı kayıtların 7 gün sonraki sonucu (ara durum; 14 günlük karneden ayrı tutulur)
+  const karne = { gunler: { ...(karneDoc?.gunler || {}) }, gunler7: { ...(karneDoc?.gunler7 || {}) }, gunici: { ...(karneDoc?.gunici || {}) } };
   for (const doc of gecmisDocs?.values() || []) {
-    if (!doc?.d || karne.gunler[doc.d]) continue;
-    const top = degerlendir(doc, doc.d);
-    if (top) karne.gunler[doc.d] = top;
+    if (!doc?.d) continue;
+    if (!karne.gunler[doc.d]) {
+      const top = degerlendir(doc, doc.d);
+      if (top) karne.gunler[doc.d] = top;
+    }
+    if (!karne.gunler7[doc.d]) {
+      const top7 = degerlendir(doc, doc.d, 7);
+      if (top7) karne.gunler7[doc.d] = top7;
+    }
   }
   for (const [gun, doc] of gecmisGiDocs || []) {
     if (!doc || karne.gunici[gun]) continue;
     const top = degerlendir({ ...doc, items: {} }, gun);
     if (top) karne.gunici[gun] = top;
   }
-  for (const grup of [karne.gunler, karne.gunici]) for (const d of Object.keys(grup)) if (diffDays(T, d) > M.karneGun) delete grup[d];
+  for (const grup of [karne.gunler, karne.gunler7, karne.gunici]) for (const d of Object.keys(grup)) if (diffDays(T, d) > M.karneGun) delete grup[d];
   const topla = (grup) => {
     const c = {};
     for (const top of Object.values(grup)) {
@@ -777,6 +784,7 @@ export function hesapla({ realm, simdi, products, ids, modifiers, phase, seed, d
     return Object.fromEntries(Object.entries(c).map(([k, [n, up, sum]]) => [k, [n, Math.round((up / n) * 100) / 100, Math.round((sum / n) * 1e4) / 1e4]]));
   };
   const canliOzet = topla(karne.gunler);
+  const canli7Ozet = topla(karne.gunler7);
   const giOzet = topla(karne.gunici);
 
   const sezonListe = {};
@@ -796,7 +804,7 @@ export function hesapla({ realm, simdi, products, ids, modifiers, phase, seed, d
     olaylar: olaylar.map((x) => [x.kind, x.s, x.since, x.until, Date.parse(x.since) > simdi ? 'yakinda' : Date.parse(x.until) > simdi ? 'aktif' : 'bitti']),
     sezon: sezonListe,
     kalite,
-    karne: { onsel: ONSEL, canli: canliOzet, gunici: giOzet },
+    karne: { onsel: ONSEL, canli: canliOzet, canli7: canli7Ozet, gunici: giOzet },
     urun,
   };
   return { sinyal, gecmis: { t: simdi, d: T, items: gunluk }, gunIci, karne, mevsim, T, canliSayi, S };
@@ -873,12 +881,12 @@ export async function main({
     const onceki = gunici ? parseJSON(meta.get(`meta/sinyal_r${realm}`)?.data) : null;
     const canli = gunici ? canliHaritasi(parseJSON(meta.get(`live/r${realm}`)?.data), t0) : null;
 
-    // 14 gün önceki beklentiler (karne). Son tam gün botun gece özetine bağlı olduğundan birkaç aday gün okunur.
+    // 14 gün (ve 7 gün ara durum için 8-11 gün) önceki beklentiler (karne). Son tam gün botun gece özetine bağlı olduğundan birkaç aday gün okunur.
     // Gün içi çalışmada karne güncellenmez: yeni gün eklenmez, belgedeki karne olduğu gibi yayında kalır.
     let gecmisDocs = new Map();
     let gecmisGiDocs = new Map();
     if (!gunici) {
-      const adaylar = [15, 16, 17, 18].map((k) => addDays(bugun, -k));
+      const adaylar = [8, 9, 10, 11, 15, 16, 17, 18].map((k) => addDays(bugun, -k));
       const gDocs = await db.getMany(adaylar.flatMap((d) => [`meta/sinyalgecmis_r${realm}_${d}`, `meta/sinyalgecmisgi_r${realm}_${d}`]));
       gecmisDocs = new Map(adaylar.map((d) => [d, parseJSON(gDocs.get(`meta/sinyalgecmis_r${realm}_${d}`)?.data)]));
       // Gün içi belge: her saat bir alan (sHH); karnede o günün tüm saatleri değerlendirilir
