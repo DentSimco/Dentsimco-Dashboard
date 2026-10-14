@@ -1377,4 +1377,14 @@ export default {
   'Yönetim ve Perakende sekmelerinde iletişim (CMO) yöneticisinin değeri artık aynı formülle hesaplanıyor.': 'The value of the communication (CMO) executive is now calculated with the same formula in the Management and Retail tabs.',
   'Büyük sayılar (örneğin 225,000) yazı kutularında doğru okunuyor.': 'Large numbers (for example 225,000) are read correctly in input boxes.',
   'Eski tabletlerde bina paneli ve "Olayları yönet" düğmesi düzeltildi.': 'The building panel and the "Manage events" button were fixed on older tablets.',
+  // ---- İnşaat: JSON ekle ----
+  'Oyuna girişliyken <b>simcompanies.com/api/v2/companies/me/buildings/</b> adresini açın, açılan sayfadaki metnin tamamını kopyalayıp buraya yapıştırın (adresi değil).': 'While logged in to the game, open <b>simcompanies.com/api/v2/companies/me/buildings/</b>, copy all the text on the page that opens and paste it here (not the address).',
+  'Bulunan bina': 'Buildings found',
+  'Satır': 'Rows',
+  'Tanınmayan bina': 'Unrecognised buildings',
+  'Mevcut seviyeler gelir; hedef seviyeyi satırlarda siz girersiniz. Aynı tür ve seviyedeki binalar tek satırdır.': 'Current levels are imported; you enter the target level on each row. Buildings of the same type and level share one row.',
+  'Satırlara ekle': 'Add to the rows',
+  '{0} satır yüklendi.': '{0} rows loaded.',
+  'Listede tanınan bina bulunamadı.': 'No recognised buildings found in the list.',
+  'Oyun veri yerine hata döndürdü. Oyuna girişli olduğunuzdan ve saatinizin doğru olduğundan emin olun.': 'The game returned an error instead of data. Make sure you are logged in and your device clock is correct.',
 };

@@ -16,6 +16,7 @@ export const MALZEMELER = [
 ];
 export const REFERANS_BIRIM = 3450; // $ / birim
 export const MAKS_SEVIYE = 500;
+export const MAKS_SATIR = 200; // plandaki en çok satır (JSON ile içe aktarma tür × seviye satırı üretir)
 
 // Oyunun /api/v2/constants/buildings/ yanıtından (6 Ekim 2026): harf → [costUnits, buildDuration (sn), kategori]
 // Bot bu sabitleri meta/buildings belgesine yazar; ekran belgedeki alanları okur, belge eksikse bu yedek tabloyu kullanır.
@@ -174,7 +175,7 @@ export function planiHesapla(plan, tablo, fiyat = {}, { baslangic = null, nakit 
 // Plan kaydı (tarayıcı): temizleme
 export function planTemizle(raw) {
   const p = raw && typeof raw === 'object' ? raw : {};
-  const rows = (Array.isArray(p.rows) ? p.rows : []).filter((x) => x && typeof x === 'object').slice(0, 60).map((x, i) => ({
+  const rows = (Array.isArray(p.rows) ? p.rows : []).filter((x) => x && typeof x === 'object').slice(0, MAKS_SATIR).map((x, i) => ({
     id: String(x.id || `s${i}`), letter: String(x.letter ?? ''), count: Math.min(9999, Math.max(1, Math.floor(num(x.count, 1)))),
     from: seviye(x.from), to: seviye(x.to),
   }));
@@ -186,4 +187,42 @@ export function planTemizle(raw) {
     priceMode: ['last', 'vwap'].includes(p.priceMode) ? p.priceMode : 'last',
     start: Number.isFinite(Number(p.start)) && p.start != null ? Number(p.start) : null,
   };
+}
+
+// ---- "JSON ekle": oyunun /api/v2/companies/me/buildings/ yanıtı --------------------------------------------------
+// Yanıt bir bina listesidir (ya da { buildings: [...] }); her binada harf (kind) ve seviye (level) vardır. Aynı tür ve
+// aynı seviyedeki binalar tek satırda toplanır. Hedef seviye mevcut seviyeye eşit konur: kullanıcı hedefi kendisi girer.
+// Sonuç: { parsed: [{ letter, count, from, to }], bulunan, tur, taninmayan: [harf] } ya da { error, link? }.
+export function binalariOku(text, tablo = binaTablosu(null)) {
+  const t = String(text ?? '').trim();
+  if (!t) return { error: 'Kutu boş. Adresi açın, açılan sayfadaki metnin tamamını kopyalayıp yapıştırın.' };
+  if (/^(?:https?:\/\/)?(?:www\.)?simcompanies\.com\/api\/v\d+\/companies\/(?:me|\d+)\/buildings\/?(?:\?\S*)?$/i.test(t)) {
+    return { error: 'Bu adresin kendisi, sayfanın içeriği değil. Adresi açın (oyuna girişli olmalısınız), açılan sayfadaki metnin tamamını seçip kopyalayın ve buraya yapıştırın.',
+      link: 'https://www.simcompanies.com/api/v2/companies/me/buildings/' };
+  }
+  if (/^<(!doctype|html|head|body)/i.test(t)) return { error: 'Yapıştırdığınız şey bir web sayfası, veri değil. Oyuna girişliyken adresi açın ve sayfadaki metni kopyalayın.' };
+  let obj;
+  try { obj = JSON.parse(t); } catch { return { error: 'Metin okunamadı. Sayfadaki metnin tamamını kopyaladığınızdan emin olun.' }; }
+  if (obj && !Array.isArray(obj) && !obj.buildings && (typeof obj.detail === 'string' || typeof obj.message === 'string')) {
+    return { error: 'Oyun veri yerine hata döndürdü. Oyuna girişli olduğunuzdan ve saatinizin doğru olduğundan emin olun.' };
+  }
+  const list = Array.isArray(obj) ? obj : Array.isArray(obj?.buildings) ? obj.buildings : null;
+  if (!list) return { error: 'Metin okunamadı. Sayfadaki metnin tamamını kopyaladığınızdan emin olun.' };
+  const gruplar = new Map();
+  const taninmayan = new Set();
+  let bulunan = 0;
+  for (const b of list) {
+    if (!b || typeof b !== 'object') continue;
+    const harf = String(b.kind ?? b.buildingKind ?? '');
+    if (!harf) continue;
+    if (!tablo?.[harf]) { taninmayan.add(harf); continue; }
+    const lv = seviye(b.level ?? b.currentLevel ?? 0);
+    const key = `${harf}|${lv}`;
+    const g = gruplar.get(key);
+    if (g) g.count++; else gruplar.set(key, { letter: harf, count: 1, from: lv, to: lv });
+    bulunan++;
+  }
+  if (!bulunan) return { error: 'Listede tanınan bina bulunamadı.', taninmayan: [...taninmayan] };
+  const parsed = [...gruplar.values()].sort((x, y) => (x.letter < y.letter ? -1 : x.letter > y.letter ? 1 : x.from - y.from));
+  return { parsed, bulunan, tur: new Set(parsed.map((x) => x.letter)).size, taninmayan: [...taninmayan] };
 }

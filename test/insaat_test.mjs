@@ -154,6 +154,36 @@ test('Süre metni', () => {
   eq(I.sureMetni(0), '—');
 });
 
+test('JSON ekle: aynı tür ve seviyedeki binalar tek satırda toplanır, hedef = mevcut', () => {
+  const r = I.binalariOku(JSON.stringify([{ kind: 'F', level: 10 }, { kind: 'F', level: 10 }, { kind: 'F', level: 3 }, { kind: 'Y', level: 0 }]));
+  eq(r.parsed, [{ letter: 'F', count: 1, from: 3, to: 3 }, { letter: 'F', count: 2, from: 10, to: 10 }, { letter: 'Y', count: 1, from: 0, to: 0 }]);
+  eq([r.bulunan, r.tur], [4, 2]);
+  eq(I.binalariOku(JSON.stringify({ buildings: [{ kind: 'P', level: 2 }] })).parsed, [{ letter: 'P', count: 1, from: 2, to: 2 }]);
+});
+
+test('JSON ekle: tanınmayan harf atlanır ve sayılır; hiç tanınan yoksa hata', () => {
+  const r = I.binalariOku(JSON.stringify([{ kind: 'F', level: 1 }, { kind: 'ZZ', level: 5 }]));
+  eq([r.bulunan, r.taninmayan], [1, ['ZZ']]);
+  ok(I.binalariOku(JSON.stringify([{ kind: 'ZZ', level: 5 }])).error);
+  ok(I.binalariOku('[]').error);
+});
+
+test('JSON ekle: hata durumları (boş, adres, HTML, bozuk metin, oyun hatası)', () => {
+  ok(I.binalariOku('').error);
+  const a = I.binalariOku('https://www.simcompanies.com/api/v2/companies/me/buildings/');
+  ok(a.error && a.link);
+  ok(I.binalariOku('<!doctype html><html></html>').error);
+  ok(I.binalariOku('{bozuk').error);
+  ok(/Oyun veri yerine hata/.test(I.binalariOku('{"message":"Cihazınızın sistem saatinin doğruluğundan emin olun"}').error));
+  ok(I.binalariOku('{"detail":"Authentication credentials were not provided."}').error);
+});
+
+test('JSON ekle: yüklenen satırlar plan hesabına girer', () => {
+  const r = I.binalariOku(JSON.stringify([{ kind: 'F', level: 0 }, { kind: 'F', level: 0 }, { kind: 'F', level: 0 }, { kind: 'F', level: 0 }]));
+  const p = I.planiHesapla({ rows: r.parsed.map((x, i) => ({ id: `r${i}`, ...x, to: 10 })) }, T);
+  eq(mat(p.gerekli), [2208, 30360, 8832, 552]);
+});
+
 const failed = results.filter((r) => !r.ok);
 for (const r of results) console.log(`  ${r.ok ? '✓' : '✗'} ${r.name}${r.ok ? '' : `\n      ${r.error}`}`);
 console.log(failed.length ? `\n${failed.length} test başarısız.` : `\n${results.length}/${results.length} test geçti.`);

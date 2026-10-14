@@ -108,6 +108,7 @@ export function mountInsaat(host, { realm = 0 } = {}) {
   let destroyed = false;
   let token = 0;
   let toastTimer = null;
+  let api = null; // JSON ekle kartı: { text, parsed, error, link, ... }
   const open = new Set(); // seviye dökümü açık satırlar
 
   const style = document.createElement('style');
@@ -248,6 +249,20 @@ export function mountInsaat(host, { realm = 0 } = {}) {
     return L.join('\n');
   }
 
+  function apiCard() {
+    const p = api.parsed;
+    return `<section class="ur-card" aria-labelledby="h-in-api"><h2 id="h-in-api">JSON ekle</h2>
+      <p class="ur-sub">Oyuna girişliyken <b>simcompanies.com/api/v2/companies/me/buildings/</b> adresini açın, açılan sayfadaki metnin tamamını kopyalayıp buraya yapıştırın (adresi değil).</p>
+      <textarea data-api spellcheck="false" autocapitalize="off" aria-label="API çıktısı">${esc(api.text || '')}</textarea>
+      ${api.error ? `<div class="ur-msg err" role="alert">${esc(api.error)}</div>` : ''}
+      ${api.link ? `<a class="ur-btn tint" href="${esc(api.link)}" target="_blank" rel="noopener noreferrer" style="text-decoration:none">Adresi yeni sekmede aç</a>` : ''}
+      ${p ? `<div class="ur-box">${kv('Bulunan bina', num(api.bulunan))}${kv('Bina türü', num(api.tur))}${kv('Satır', num(p.length))}${api.taninmayan?.length ? kv('Tanınmayan bina', num(api.taninmayan.length)) : ''}
+        <p class="ur-note">Mevcut seviyeler gelir; hedef seviyeyi satırlarda siz girersiniz. Aynı tür ve seviyedeki binalar tek satırdır.</p></div>` : ''}
+      <div class="ur-row"><button type="button" class="ur-btn grow" data-act="apiClose">Vazgeç</button>
+        ${p ? `${plan.rows.length ? '<button type="button" class="ur-btn grow" data-act="apiAdd">Satırlara ekle</button>' : ''}<button type="button" class="ur-btn primary grow" data-act="apiApply">Listeyi değiştir</button>`
+    : '<button type="button" class="ur-btn primary grow" data-act="apiRead">Oku</button>'}</div></section>`;
+  }
+
   function render() {
     if (destroyed) return;
     const p = prices();
@@ -261,7 +276,7 @@ export function mountInsaat(host, { realm = 0 } = {}) {
     const planCard = `<section class="ur-card" aria-labelledby="h-in-plan"><h2 id="h-in-plan">İnşaat planı</h2>
       <p class="ur-sub">Yeni bina için mevcut seviyeyi 0 yapın. Hedef mevcuttan küçükse hurda ya da seviye düşürme sayılır. Aynı satırdaki binalar birlikte yükselir.</p>
       ${rows || '<p class="ur-note">Henüz satır yok. Aşağıdan bina ekleyin.</p>'}
-      <div class="ur-row"><button type="button" class="ur-btn tint grow" data-act="add">${icon('plus')}Bina ekle</button>${plan.rows.length ? `<button type="button" class="ur-btn" data-act="clear">${icon('trash')}Temizle</button>` : ''}</div></section>`;
+      <div class="ur-row"><button type="button" class="ur-btn tint grow" data-act="apiOpen">${icon('plus')}JSON ekle</button><button type="button" class="ur-btn grow" data-act="add">${icon('plus')}Bina ekle</button>${plan.rows.length ? `<button type="button" class="ur-btn" data-act="clear">${icon('trash')}Temizle</button>` : ''}</div></section>`;
 
     const basketCard = `<section class="ur-card" aria-labelledby="h-in-sepet"><h2 id="h-in-sepet">Malzeme sepeti</h2>
       <p class="ur-sub">Alınacak = gerekli − depo stoğu${hurdaVar ? ' − hurdadan gelen' : ''}. Kalite fark etmez, Q0 yeterlidir.</p>
@@ -291,7 +306,7 @@ export function mountInsaat(host, { realm = 0 } = {}) {
       <div class="ur-row"><button type="button" class="ur-btn primary grow" data-act="copy">${icon('copy')}Özeti kopyala</button></div></section>`;
 
     const scroll = window.scrollY;
-    view.innerHTML = planCard + basketCard + sumCard;
+    view.innerHTML = api ? apiCard() : planCard + basketCard + sumCard;
     window.scrollTo(0, scroll);
     host.__calc = { calc, p }; // kopyalama için
   }
@@ -311,6 +326,23 @@ export function mountInsaat(host, { realm = 0 } = {}) {
     const el = ev.target.closest('[data-act]');
     if (!el || !host.contains(el)) return;
     const act = el.dataset.act;
+    if (act === 'apiOpen') { api = { text: '' }; return render(); }
+    if (act === 'apiClose') { api = null; return render(); }
+    if (act === 'apiRead') {
+      const text = host.querySelector('[data-api]')?.value || '';
+      api = { text, ...I.binalariOku(text, table) };
+      return render();
+    }
+    if (act === 'apiApply' || act === 'apiAdd') {
+      const yeni = api.parsed.map((x) => ({ id: uid(), ...x }));
+      const sayi = yeni.length;
+      const next = clone();
+      next.rows = act === 'apiAdd' ? [...next.rows, ...yeni] : yeni;
+      api = null;
+      open.clear();
+      commit(next);
+      return toast(`${sayi} satır yüklendi.`);
+    }
     if (act === 'step') {
       const row = findRow(el.dataset.row);
       if (!row) return;
