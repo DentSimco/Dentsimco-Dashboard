@@ -89,6 +89,17 @@ const res2 = hesapla({
 const b1 = res2.karne.gunler[addDays(res.T, -14)]?.b1;
 ok(b1 && b1[0] === 1 && b1[1] === 0, 'karne: ≤ −%4 beklentisi sonrası fiyat düştü');
 
+// 5b) 7 günlük ara durum: 8 gün önceki kayıt 7 gün sonrasıyla değerlendirilir, 14 günlük karneye girmez
+const d8 = addDays(res.T, -8);
+const res7 = hesapla({
+  realm: 0, simdi: Date.parse(`${addDays(start, N)}T01:20:00Z`), products, ids: [13, 900, 901, 902, 903],
+  modifiers: null, phase: null, seed: null, daily: yapay, mevsimHazir: {}, gecmisDocs: new Map([[d8, { d: d8, items: { 900: { 0: [-10, 20] } } }]]), karneDoc: null,
+});
+const k7 = res7.karne.gunler7[d8]?.b1;
+ok(k7 && k7[0] === 1, 'karne: 7 günlük ara durum hesaplandı');
+ok(!res7.karne.gunler[d8], 'karne: 8 günlük kayıt 14 günlük karneye girmez');
+ok(res7.sinyal.karne.canli7?.b1?.[0] === 1, 'karne: canli7 özeti yayında');
+
 
 // 6) Gece bayrağı (likit): son 7 günde ≥5 işlem günü ve günlük ortalama ≥200 birim
 {

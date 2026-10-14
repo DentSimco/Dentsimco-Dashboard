@@ -560,16 +560,17 @@ export function mountSinyal(root, { realm = 0 } = {}) {
       const satirlar = Object.keys(KOVA_AD).map((b) => {
         const o = k.onsel?.[b];
         const c = k.canli?.[b];
+        const c7 = k.canli7?.[b];
         const dusus = b === 'b1' || b === 'b2';
         const fmt = (x) => (x && x[0]
           ? `<b class="${dusus ? 'down' : b === 'b3' ? '' : 'up'}">%${Math.round((dusus ? 1 - x[1] : x[1]) * 100)} ${dusus ? 'düştü' : 'yükseldi'}</b><span class="sy-sub">ortalama ${fmtPct(x[2])}, ${x[0].toLocaleString(LOCALE)} kayıt</span>`
           : '—');
         const birik = (x) => (x && x[0] >= 30 ? fmt(x) : `<span class="sy-dim">birikiyor${x ? ` (${x[0]} kayıt)` : ''}</span>`);
-        return `<tr><th scope="row">${KOVA_AD[b]}</th><td>${fmt(o)}</td><td>${birik(c)}</td><td>${birik(k.gunici?.[b])}</td></tr>`;
+        return `<tr><th scope="row">${KOVA_AD[b]}</th><td>${fmt(o)}</td><td>${birik(c7)}</td><td>${birik(c)}</td><td>${birik(k.gunici?.[b])}</td></tr>`;
       }).join('');
       html = `<section class="sy-block"><h2 class="sy-h2">Karne</h2>
-        <p class="sy-hint">14 günlük beklentiye göre gruplar: sonra fiyat gerçekte ne yaptı. Geçmiş sınama, bir yıllık verinin bir yarısıyla öğrenip diğer yarısında denenerek yapıldı. Canlı sütun bu motorun gece sinyallerinden, Gün içi sütunu gün içinde canlı fiyatla yenilenen sinyallerden birikir (her saatin sinyali ayrı sayılır). İlk sonuçlar sinyalden 14 gün sonra gelir.</p>
-        <div class="table-wrap"><table class="qt sy-karne"><thead><tr><th scope="col">Beklenti</th><th scope="col">Geçmiş sınama</th><th scope="col">Canlı (gece)</th><th scope="col">Gün içi</th></tr></thead><tbody>${satirlar}</tbody></table></div></section>`;
+        <p class="sy-hint">14 günlük beklentiye göre gruplar: sonra fiyat gerçekte ne yaptı. Geçmiş sınama, bir yıllık verinin bir yarısıyla öğrenip diğer yarısında denenerek yapıldı. Canlı sütun bu motorun gece sinyallerinden, Gün içi sütunu gün içinde canlı fiyatla yenilenen sinyallerden birikir (her saatin sinyali ayrı sayılır). Canlı 7 gün sütunu aynı sinyallerin 7 gün sonraki ara durumudur (14 günlük sonuç değildir). İlk 14 günlük sonuçlar sinyalden 14 gün sonra gelir.</p>
+        <div class="table-wrap"><table class="qt sy-karne"><thead><tr><th scope="col">Beklenti</th><th scope="col">Geçmiş sınama</th><th scope="col">Canlı 7 gün</th><th scope="col">Canlı (gece)</th><th scope="col">Gün içi</th></tr></thead><tbody>${satirlar}</tbody></table></div></section>`;
     }
     el.body.innerHTML = html;
   }
