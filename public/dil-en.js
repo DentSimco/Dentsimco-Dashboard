@@ -1429,7 +1429,6 @@ export default {
   'Geçmiş en çok {0} gündür; bot her gün ekler. Şirketin ayrıntısı için satıra dokunun.': 'History is at most {0} days; the bot adds a day every day. Tap a row for the company details.',
   '{0} · {1} · son {2} gün': '{0} · {1} · last {2} days',
   'Grafik için yeterli veri yok.': 'Not enough data for a chart.',
-  'Bu şirketin geçmişi henüz yok. Bot geçmişi her gün ekler ve geçmiş doldurma sürerken yeni şirketler eklenir; kısa bir süre sonra yeniden bakın.': 'There is no history for this company yet. The bot adds history every day and new companies are added while the backfill runs; check again shortly.',
   'Tarih': 'Date',
   'Fark': 'Diff',
   'İzleme listeleri': 'Watchlists',

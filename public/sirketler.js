@@ -222,7 +222,7 @@ export function gecmisTablosuHtml(days) {
 const grafikAdi = (m, ad) => `${ad} · ${m.ad} · son ${G.GUN_SAYISI} gün`;
 const metrikSecici = (act, secili) => `<div class="sk-seg" role="group" aria-label="Ölçüt">${G.METRIKLER.map((m) => `<button type="button" data-${act}="${m.key}" aria-pressed="${m.key === secili}">${m.ad}</button>`).join('')}</div>`;
 const metrikBul = (key) => G.METRIKLER.find((m) => m.key === key) || G.METRIKLER[0];
-const GECMIS_YOK = '<p class="sk-note">Bu şirketin geçmişi henüz yok. Bot geçmişi her gün ekler ve geçmiş doldurma sürerken yeni şirketler eklenir; kısa bir süre sonra yeniden bakın.</p>';
+const GECMIS_YOK = ''; // geçmişi olmayan şirkette grafik bölümü boş kalır (uyarı gösterilmez)
 
 export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
   let realm = startRealm;
