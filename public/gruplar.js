@@ -1,10 +1,16 @@
 // DentSimco — Şirket grupları (saf; ağ ve tarayıcı kullanmaz).
 // Simcotools/Sim Companies'te grup API'si yok: oyuncuların kurduğu gruplar resmi değildir. Grup adı ve üye şirket
 // numaraları elle bu dosyaya yazılır; grup değeri üyelerin şirket değerlerinin toplamıdır (sıralama satırı: sirketler.js başı).
-//   { id: 'kisa-ad', ad: 'Görünen ad', idler: [şirketNo, ...], realm: 0 | 1 (yoksa iki realm'de de geçerli) }
+//   { id: 'kisa-ad', ad: 'Görünen ad', kisa: 'Kısaltma (isteğe bağlı)', idler: [şirketNo, ...], realm: 0 | 1 (yoksa iki realm'de de geçerli) }
 // Şirket numaraları realm'e özgüdür; aynı numara öteki realm'de başka bir şirkettir.
 
-export const GRUPLAR = [];
+export const GRUPLAR = [
+  {
+    id: 'tib', ad: 'Türk İhale Birliği', kisa: 'TİB', realm: 0, // 22 üyenin 22'si R1 sıralamasında (R2'de yok)
+    idler: [4310385, 2799049, 4079977, 4709855, 4949966, 2988587, 4441612, 4268453, 5297305, 1452431, 4479420,
+      4304388, 2163024, 4519661, 4806484, 2476225, 4304205, 5760678, 2465752, 3055940, 2933560, 4231397],
+  },
+];
 
 // Satır sütunları: 0 id, 1 ad, 5 değer, 6 günlük değer farkı
 export const grupRealmde = (gruplar, realm) => gruplar.filter((g) => g.realm == null || g.realm === realm);
@@ -23,7 +29,7 @@ export function grupDegerleri(rows, gruplar, realm = 0) {
     const toplam = uyeler.reduce((s, r) => s + r[5], 0);
     const fark = uyeler.reduce((s, r) => s + r[6], 0);
     const onceki = toplam - fark;
-    return { id: g.id, ad: g.ad, toplam, fark, yuzde: onceki > 0 ? fark / onceki : 0, uyeSayisi: idler.length, bulunan: uyeler.length, eksik, uyeler };
+    return { id: g.id, ad: g.kisa ? `${g.ad} (${g.kisa})` : g.ad, toplam, fark, yuzde: onceki > 0 ? fark / onceki : 0, uyeSayisi: idler.length, bulunan: uyeler.length, eksik, uyeler };
   });
 }
 
