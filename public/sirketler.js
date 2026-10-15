@@ -211,10 +211,10 @@ const sayiMetni = (x) => NUM.format(x);
 const farkMetni = (x) => (x == null ? '' : signed(x));
 
 // Satır (Sıralama ve Liste tabloları aynı biçimi kullanır)
-function satirHtml(r, ekstra = '') {
+function satirHtml(r, ekstra = '', onek = '') {
   const d = r[12] === 1;
   const dim = (v) => (d ? v : '<span class="dim">—</span>');
-  return `<tr data-id="${r[0]}" tabindex="0" role="button" aria-label="${esc(r[1])}, ID ${r[0]}"><td>${NUM.format(r[2])} <span class="${tone(r[3])}">${r[3] ? (r[3] > 0 ? '▲' : '▼') + Math.abs(r[3]) : ''}</span></td>
+  return `<tr data-id="${r[0]}" tabindex="0" role="button" aria-label="${esc(r[1])}, ID ${r[0]}">${onek}<td>${NUM.format(r[2])} <span class="${tone(r[3])}">${r[3] ? (r[3] > 0 ? '▲' : '▼') + Math.abs(r[3]) : ''}</span></td>
     <td class="l">${esc(r[1])}<span class="sk-id">ID ${r[0]}</span></td><td>${usd(r[5])}</td>
     <td class="${tone(r[6])}">${signed(r[6])}</td><td class="${tone(r[7])}">${r[7] ? PCT.format(r[7]) : '0%'}</td>
     <td>${r[4] > 0 ? dim(NUM.format(r[4])) : '<span class="dim">—</span>'}</td><td>${dim(usd(r[8]))}</td><td>${dim(usd(r[9]))}</td><td>${dim(usd(r[11]))}</td>${ekstra}</tr>`;
@@ -299,7 +299,7 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
     else if (tab === 'liste') listeCiz();
     else {
       const alt = (href, t, on) => `<a href="${href}" ${on ? 'aria-current="page"' : ''}>${t}</a>`;
-      govde().innerHTML = `<nav class="sk-sub" aria-label="Sıralama türü">${alt('#sirketler/siralama', 'Şirket Sıralaması', kapsam === 'sirket')}${alt('#sirketler/gruplar', 'Gruplar', kapsam === 'gruplar')}</nav><div class="sk-sub-body"></div>`;
+      govde().innerHTML = `<nav class="sk-sub" aria-label="Sıralama türü">${alt('#sirketler/siralama', 'Şirketler', kapsam === 'sirket')}${alt('#sirketler/gruplar', 'Gruplar', kapsam === 'gruplar')}</nav><div class="sk-sub-body"></div>`;
       if (kapsam === 'gruplar') gruplarCiz(); else { siralamaIskelet(); paint(); }
     }
   }
@@ -363,7 +363,7 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
       const uyeler = sirala(g.uyeler, 'value', -1);
       body = `<div class="sk-seg" role="group" aria-label="Grup">${liste.map((x) => `<a class="sk-act" href="${hrefU(x.id)}" ${x.id === sec ? 'aria-current="page"' : ''}>${esc(x.ad)}</a>`).join('')}</div>
         <p class="sk-note">${esc(g.ad)} · ${NUM.format(g.bulunan)} üye · Toplam değer ${usd(g.toplam)} (${signed(g.fark)})${g.eksik.length ? ` · Sıralamada bulunamayan şirket numarası: ${g.eksik.map((x) => esc(x)).join(', ')}` : ''}</p>
-        <div class="sk-wrap"><table><thead><tr>${TABLO_BASLIK.map(([t, , c]) => `<th class="${c || ''}">${t}</th>`).join('')}</tr></thead><tbody>${uyeler.map((r) => satirHtml(r)).join('') || '<tr><td colspan="9" class="l dim">Üye yok.</td></tr>'}</tbody></table></div>`;
+        <div class="sk-wrap"><table><thead><tr><th class="l">Üye sırası</th>${TABLO_BASLIK.map(([t, , c]) => `<th class="${c || ''}">${t === 'Sıra' ? 'Şirket sırası' : t}</th>`).join('')}</tr></thead><tbody>${uyeler.map((r, i) => satirHtml(r, '', `<td class="l">${NUM.format(i + 1)}</td>`)).join('') || '<tr><td colspan="10" class="l dim">Üye yok.</td></tr>'}</tbody></table></div>`;
     }
     altGovde().innerHTML = `<nav class="sk-sub" aria-label="Grup bölümleri">${alt(sec ? hrefU(sec) : '#sirketler/gruplar/uyeler', 'Üyeler', galt === 'uyeler')}${alt('#sirketler/gruplar/siralama', 'Sıralama', galt === 'siralama')}</nav>${body}`;
   }
