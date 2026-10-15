@@ -117,7 +117,11 @@ export function eksenMetni(m, v) {
  * secenek: { bicim: (v) => eksen etiketi, oku: (v) => imleç okuması (yoksa bicim), ters: küçük değer yukarıda (sıra), doldur: tek seride çizginin altı boyanır, ad: erişilebilir ad }
  * Dönüş: okuma satırı + SVG; grafikBagla(kutu) ile dokunma/fare/ok tuşlarıyla gün gün gezilir.
  */
-export function cizgiGrafik(seriler, { bicim = (v) => TAM.format(v), oku = null, ters = false, doldur = false, ad = '' } = {}) {
+export function cizgiGrafik(seriler0, { bicim: bicim0 = (v) => TAM.format(v), oku = null, ters = false, doldur = false, ad = '', log = false } = {}) {
+  // Logaritmik ölçek: değerler çok farklı şirketleri (ör. 1 milyar ve 17 milyon) aynı grafikte okunur kılar; yalnız pozitif değerler çizilir.
+  const donus = (v) => (v == null || !Number.isFinite(v) ? null : log ? (v > 0 ? Math.log10(v) : null) : v);
+  const seriler = seriler0.map((s) => ({ ...s, noktalar: s.noktalar.map(([d, v]) => [d, donus(v)]) }));
+  const bicim = (v) => bicim0(log ? 10 ** v : v);
   const W = 640; const H = 240; const L = 62; const R = 12; const T = 12; const B = 26;
   const gunler = [...new Set(seriler.flatMap((s) => s.noktalar.map((n) => n[0])))].sort((a, b) => a - b);
   const degerler = seriler.flatMap((s) => s.noktalar.map((n) => n[1]).filter((v) => v != null && Number.isFinite(v)));
@@ -140,6 +144,7 @@ export function cizgiGrafik(seriler, { bicim = (v) => TAM.format(v), oku = null,
       cur.push([x(d), y(v)]);
     }
     if (cur.length) parcalar.push(cur);
+    if (!parcalar.length) return ''; // hiç noktası olmayan seri çizilmez
     const yol = parcalar.map((p) => `M${p.map(([a, b]) => `${a.toFixed(1)},${b.toFixed(1)}`).join(' L')}`).join(' ');
     const alan = doldur && seriler.length === 1 ? parcalar.map((p) => `<path d="M${p[0][0].toFixed(1)},${H - B} L${p.map(([a, b]) => `${a.toFixed(1)},${b.toFixed(1)}`).join(' L')} L${p.at(-1)[0].toFixed(1)},${H - B} Z" style="fill:${renk};opacity:.16"/>`).join('') : '';
     const son = parcalar.at(-1)?.at(-1);
@@ -147,14 +152,16 @@ export function cizgiGrafik(seriler, { bicim = (v) => TAM.format(v), oku = null,
     return `${alan}<path d="${yol}" class="sg-line" style="stroke:${renk}"/>${nokta}`;
   }).join('');
   // Gezinme verisi: her gün için x, her seri için y ve biçimli değer
-  const okuBicim = oku || bicim;
+  const okuBicim = oku || bicim0;
   const veri = {
     W, H, T, B,
     xs: gunler.map((d) => +x(d).toFixed(1)),
     gunler: gunler.map((d) => gunMetni(d, { day: 'numeric', month: 'long', year: 'numeric' })),
     seriler: seriler.map((s, k) => {
-      const m = new Map(s.noktalar);
-      return { ad: s.ad, renk: s.renk || RENKLER[k % RENKLER.length], y: gunler.map((d) => (m.get(d) == null || !Number.isFinite(m.get(d)) ? null : +y(m.get(d)).toFixed(1))), t: gunler.map((d) => (m.get(d) == null || !Number.isFinite(m.get(d)) ? '—' : okuBicim(m.get(d)))) };
+      const m = new Map(s.noktalar); // çizim değerleri (log ölçekte dönüştürülmüş)
+      const o = new Map(seriler0[k].noktalar); // gerçek değerler: okuma satırında bunlar yazar
+      const var_ = (d) => m.get(d) != null && Number.isFinite(m.get(d));
+      return { ad: s.ad, renk: s.renk || RENKLER[k % RENKLER.length], y: gunler.map((d) => (var_(d) ? +y(m.get(d)).toFixed(1) : null)), t: gunler.map((d) => (var_(d) ? okuBicim(o.get(d)) : '—')) };
     }),
   };
   const imlec = `<g class="sg-cur" hidden><line class="sg-cl" y1="${T}" y2="${H - B}"/>${seriler.map((s, k) => `<circle r="4.5" class="sg-cd" style="fill:${s.renk || RENKLER[k % RENKLER.length]}"/>`).join('')}</g>`;
