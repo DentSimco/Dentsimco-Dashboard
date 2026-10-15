@@ -119,6 +119,10 @@ const CSS = G.GRAFIK_CSS + `
 .sk-gt td.d { font-size: 13px; }
 .sk-ok { color: var(--up); font-size: 14px; }
 .sk-panel.wide { max-width: 820px; }
+.sk-det { border: 1px solid var(--line); border-radius: 12px; background: var(--surface); padding: 0 12px; }
+.sk-det summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font: 600 15px var(--font-c); }
+.sk-det[open] summary { border-bottom: 1px solid var(--row-line); margin-bottom: 10px; }
+.sk-det .sk-wrap { margin-bottom: 8px; }
 .sk-dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 8px; }
 `;
 
@@ -218,7 +222,7 @@ export function gecmisTablosuHtml(days) {
 const grafikAdi = (m, ad) => `${ad} · ${m.ad} · son ${G.GUN_SAYISI} gün`;
 const metrikSecici = (act, secili) => `<div class="sk-seg" role="group" aria-label="Ölçüt">${G.METRIKLER.map((m) => `<button type="button" data-${act}="${m.key}" aria-pressed="${m.key === secili}">${m.ad}</button>`).join('')}</div>`;
 const metrikBul = (key) => G.METRIKLER.find((m) => m.key === key) || G.METRIKLER[0];
-const GECMIS_YOK = '<p class="sk-note">Bu şirketin geçmişi henüz yok. Bot geçmişi her gün ekler ve geçmiş doldurma sürerken yeni şirketler eklenir; kısa bir süre sonra yeniden bakın.</p>';
+const GECMIS_YOK = ''; // geçmişi olmayan şirkette grafik bölümü boş kalır (uyarı gösterilmez)
 
 export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
   let realm = startRealm;
@@ -360,7 +364,7 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
     });
     const bos = seriler.every((s) => s.noktalar.every(([, v]) => v == null));
     const grafik = bos ? GECMIS_YOK : G.cizgiGrafik(seriler, {
-      bicim: yuzde ? (v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}%` : (v) => G.eksenMetni(m, v), ters: m.tur === 'sira' && !yuzde, ad: grafikAdi(m, 'Kıyas'),
+      bicim: yuzde ? (v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}%` : (v) => G.eksenMetni(m, v), oku: yuzde ? (v) => `${v > 0 ? '+' : ''}${v.toFixed(2)}%` : (v) => G.degerMetni(m, v), ters: m.tur === 'sira' && !yuzde, ad: grafikAdi(m, 'Kıyas'),
     });
     const satir = (id, i) => {
       const r = sirketBul(data.rows, id);
@@ -376,6 +380,7 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
       <div class="sk-legend">${seriler.map((s) => `<span><i style="background:${s.renk}"></i>${esc(s.ad)}</span>`).join('')}</div>
       <div class="sk-wrap"><table><thead><tr><th class="l">Şirket</th><th>Sıra</th><th>Şirket değeri</th><th>${esc(m.ad)}</th><th>${G.GUN_SAYISI} gün değişimi</th></tr></thead><tbody>${kiyas.ids.map(satir).join('')}</tbody></table></div>
       <p class="sk-note">${esc(`Geçmiş en çok ${G.GUN_SAYISI} gündür; bot her gün ekler.`)} Şirketin ayrıntısı için satıra dokunun.</p>`;
+    kutu.querySelectorAll('.sg-kutu').forEach(G.grafikBagla);
   }
 
   // ---- Liste ----
@@ -419,15 +424,16 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
   }
   function gecmisCiz() {
     const kutu = sheetHost.querySelector('[data-gecmis]');
+    const tablo = sheetHost.querySelector('[data-gt-body]');
     if (!kutu || !sheet) return;
     if (!sheet.gecmis) { kutu.innerHTML = '<p class="sk-note">Geçmiş yükleniyor…</p>'; return; }
     if (!sheet.gecmis.length) { kutu.innerHTML = GECMIS_YOK; return; }
     const m = metrikBul(sheet.metrik);
     const ad = adOf(sheet.id);
     kutu.innerHTML = `${metrikSecici('gm', sheet.metrik)}
-      ${G.cizgiGrafik([{ ad, renk: 'var(--accent)', noktalar: G.seriNoktalari(sheet.gecmis, m) }], { bicim: (v) => G.eksenMetni(m, v), ters: m.tur === 'sira', doldur: true, ad: grafikAdi(m, ad) })}
-      ${gecmisTablosuHtml(sheet.gecmis)}
-      <p class="sk-note">Son ${G.GUN_SAYISI} gün; bot günde bir kez ekler. Ayrıntısı o gün gelmemiş şirketlerde "—" görünür.</p>`;
+      ${G.cizgiGrafik([{ ad: m.ad, renk: 'var(--accent)', noktalar: G.seriNoktalari(sheet.gecmis, m) }], { bicim: (v) => G.eksenMetni(m, v), oku: (v) => G.degerMetni(m, v), ters: m.tur === 'sira', doldur: true, ad: grafikAdi(m, ad) })}`;
+    kutu.querySelectorAll('.sg-kutu').forEach(G.grafikBagla);
+    if (tablo && !tablo.dataset.dolu) { tablo.innerHTML = gecmisTablosuHtml(sheet.gecmis); tablo.dataset.dolu = '1'; }
   }
   function listeEkleHtml(id) {
     if (!listeler.listeler.length) return `<p class="sk-note">Şirketi izlemek için önce bir liste oluşturun. <a href="#sirketler/liste">Liste sekmesine git</a></p>`;
@@ -447,6 +453,8 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
       ${r[12] === 1 ? '' : '<p class="sk-note">Bu şirketin ayrıntıları (EVA, bina, patent, işçi, bono) henüz gelmedi; sonraki günlük güncellemede tamamlanabilir.</p>'}
       ${listeEkleHtml(r[0])}
       <div class="sk-row"><button type="button" class="sk-act" data-sheet-kiyas>Kıyasla</button></div>
+      <details class="sk-det"><summary>Gün gün tablo</summary><div data-gt-body></div>
+        <p class="sk-note">Son ${G.GUN_SAYISI} gün; bot günde bir kez ekler. Ayrıntısı o gün gelmemiş şirketlerde "—" görünür.</p></details>
       <p class="sk-note">Veri: Simcotools${data.date ? ` · ${new Date(data.date).toLocaleDateString(LOCALE, { timeZone: 'UTC' })}` : ''}</p></div></div>`;
     document.body.style.overflow = 'hidden';
     sheetHost.querySelector('[data-close]').focus();

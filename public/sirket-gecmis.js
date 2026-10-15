@@ -114,9 +114,10 @@ export function eksenMetni(m, v) {
 
 /**
  * seriler: [{ ad, renk, noktalar: [[YYYYMMDD, değer | null], ...] }]
- * secenek: { bicim: (v) => eksen etiketi, ters: küçük değer yukarıda (sıra), doldur: tek seride çizginin altı boyanır, ad: erişilebilir ad }
+ * secenek: { bicim: (v) => eksen etiketi, oku: (v) => imleç okuması (yoksa bicim), ters: küçük değer yukarıda (sıra), doldur: tek seride çizginin altı boyanır, ad: erişilebilir ad }
+ * Dönüş: okuma satırı + SVG; grafikBagla(kutu) ile dokunma/fare/ok tuşlarıyla gün gün gezilir.
  */
-export function cizgiGrafik(seriler, { bicim = (v) => TAM.format(v), ters = false, doldur = false, ad = '' } = {}) {
+export function cizgiGrafik(seriler, { bicim = (v) => TAM.format(v), oku = null, ters = false, doldur = false, ad = '' } = {}) {
   const W = 640; const H = 240; const L = 62; const R = 12; const T = 12; const B = 26;
   const gunler = [...new Set(seriler.flatMap((s) => s.noktalar.map((n) => n[0])))].sort((a, b) => a - b);
   const degerler = seriler.flatMap((s) => s.noktalar.map((n) => n[1]).filter((v) => v != null && Number.isFinite(v)));
@@ -145,11 +146,85 @@ export function cizgiGrafik(seriler, { bicim = (v) => TAM.format(v), ters = fals
     const nokta = son ? `<circle cx="${son[0].toFixed(1)}" cy="${son[1].toFixed(1)}" r="3.5" style="fill:${renk}"/>` : '';
     return `${alan}<path d="${yol}" class="sg-line" style="stroke:${renk}"/>${nokta}`;
   }).join('');
-  return `<svg class="sg-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(ad)}" preserveAspectRatio="xMidYMid meet"><title>${esc(ad)}</title>${grid}<line x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}" class="sg-base"/>${xEtiket}${cizgiler}</svg>`;
+  // Gezinme verisi: her gün için x, her seri için y ve biçimli değer
+  const okuBicim = oku || bicim;
+  const veri = {
+    W, H, T, B,
+    xs: gunler.map((d) => +x(d).toFixed(1)),
+    gunler: gunler.map((d) => gunMetni(d, { day: 'numeric', month: 'long', year: 'numeric' })),
+    seriler: seriler.map((s, k) => {
+      const m = new Map(s.noktalar);
+      return { ad: s.ad, renk: s.renk || RENKLER[k % RENKLER.length], y: gunler.map((d) => (m.get(d) == null || !Number.isFinite(m.get(d)) ? null : +y(m.get(d)).toFixed(1))), t: gunler.map((d) => (m.get(d) == null || !Number.isFinite(m.get(d)) ? '—' : okuBicim(m.get(d)))) };
+    }),
+  };
+  const imlec = `<g class="sg-cur" hidden><line class="sg-cl" y1="${T}" y2="${H - B}"/>${seriler.map((s, k) => `<circle r="4.5" class="sg-cd" style="fill:${s.renk || RENKLER[k % RENKLER.length]}"/>`).join('')}</g>`;
+  return `<div class="sg-kutu" data-sg="${esc(JSON.stringify(veri))}"><div class="sg-oku" data-sg-oku aria-live="polite"></div><svg class="sg-svg" viewBox="0 0 ${W} ${H}" role="img" tabindex="0" aria-label="${esc(ad)}" preserveAspectRatio="xMidYMid meet"><title>${esc(ad)}</title>${grid}<line x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}" class="sg-base"/>${xEtiket}${cizgiler}${imlec}</svg></div>`;
+}
+
+// Grafiğe dokununca ya da fareyi gezdirince en yakın gün seçilir (canlı borsa grafiği gibi); ok tuşları ve Home/End de çalışır.
+// Seçili günün tarihi ve değerleri grafiğin üstündeki satırda yazar; bırakınca son güne döner.
+export function grafikBagla(kutu) {
+  let v;
+  try { v = JSON.parse(kutu.dataset.sg); } catch { return; }
+  const svg = kutu.querySelector('svg');
+  const oku = kutu.querySelector('[data-sg-oku]');
+  const cur = svg?.querySelector('.sg-cur');
+  if (!svg || !oku || !cur || !v?.xs?.length) return;
+  const daireler = [...cur.querySelectorAll('.sg-cd')];
+  const cl = cur.querySelector('.sg-cl');
+  const son = v.xs.length - 1;
+  let sec = son;
+  const yaz = (i, gor) => {
+    sec = i;
+    oku.replaceChildren();
+    const g = document.createElement('b');
+    g.textContent = v.gunler[i];
+    oku.append(g);
+    v.seriler.forEach((s, k) => {
+      const e = document.createElement('span');
+      if (v.seriler.length > 1) { const nokta = document.createElement('i'); nokta.style.background = s.renk; e.append(nokta, `${s.ad}: `); }
+      e.append(s.t[i]);
+      oku.append(e);
+      daireler[k].setAttribute('cx', v.xs[i]);
+      if (s.y[i] == null) daireler[k].setAttribute('display', 'none');
+      else { daireler[k].removeAttribute('display'); daireler[k].setAttribute('cy', s.y[i]); }
+    });
+    cl.setAttribute('x1', v.xs[i]); cl.setAttribute('x2', v.xs[i]);
+    cur.toggleAttribute('hidden', !gor);
+  };
+  const yakin = (clientX) => {
+    const r = svg.getBoundingClientRect();
+    const px = ((clientX - r.left) / (r.width || 1)) * v.W;
+    let en = 0;
+    for (let i = 1; i < v.xs.length; i++) if (Math.abs(v.xs[i] - px) < Math.abs(v.xs[en] - px)) en = i;
+    return en;
+  };
+  svg.style.touchAction = 'pan-y';
+  svg.addEventListener('pointerdown', (e) => yaz(yakin(e.clientX), true));
+  svg.addEventListener('pointermove', (e) => { if (e.pointerType === 'mouse' || e.buttons) yaz(yakin(e.clientX), true); });
+  svg.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') yaz(son, false); });
+  svg.addEventListener('pointerup', (e) => { if (e.pointerType !== 'mouse') yaz(son, false); });
+  svg.addEventListener('pointercancel', () => yaz(son, false));
+  svg.addEventListener('keydown', (e) => {
+    const k = { ArrowLeft: sec - 1, ArrowRight: sec + 1, Home: 0, End: son }[e.key];
+    if (k == null) return;
+    e.preventDefault();
+    yaz(Math.min(son, Math.max(0, k)), k !== son || e.key !== 'End');
+  });
+  svg.addEventListener('blur', () => yaz(son, false));
+  yaz(son, false);
 }
 
 export const GRAFIK_CSS = `
-.sg-svg { width: 100%; height: auto; display: block; }
+.sg-svg { width: 100%; height: auto; display: block; cursor: crosshair; user-select: none; -webkit-user-select: none; }
+.sg-svg:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
+.sg-kutu { margin-top: 8px; }
+.sg-oku { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; min-height: 24px; margin-bottom: 6px; font-size: 15px; font-variant-numeric: tabular-nums; }
+.sg-oku b { font-weight: 600; }
+.sg-oku span { color: var(--text); }
+.sg-oku i { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
+.sg-cl { stroke: var(--chart-cross, var(--muted)); stroke-width: 1; stroke-dasharray: 3 3; }
+.sg-cd { stroke: var(--surface); stroke-width: 2; }
 .sg-grid { stroke: var(--row-line); stroke-width: 1; }
 .sg-base { stroke: var(--line-2); stroke-width: 1; }
 .sg-lbl { fill: var(--muted); font: 500 11px var(--font-c); }

@@ -43,7 +43,12 @@ assert.deepEqual(G.yuzdeNoktalari([[1, null], [2, null]]), [[1, null], [2, null]
 
 // Grafik
 const svg = G.cizgiGrafik([{ ad: 'A', noktalar: [[20261013, 100], [20261014, null], [20261015, 120]] }], { doldur: true, ad: 'deneme' });
-assert.ok(svg.startsWith('<svg') && svg.includes('role="img"') && svg.includes('aria-label="deneme"'));
+assert.ok(svg.startsWith('<div class="sg-kutu"') && svg.includes('<svg') && svg.includes('role="img"') && svg.includes('aria-label="deneme"') && svg.includes('data-sg-oku'));
+const veri = JSON.parse(svg.match(/data-sg="([^"]*)"/)[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&'));
+assert.equal(veri.xs.length, 3, 'her gün için x');
+assert.equal(veri.seriler[0].t[1], '—', 'boş gün okumada —');
+assert.equal(veri.seriler[0].y[1], null);
+assert.ok(veri.xs[0] < veri.xs[1] && veri.xs[1] < veri.xs[2]);
 assert.equal((svg.match(/class="sg-line"/g) || []).length, 1);
 assert.ok((svg.match(/ M/g) || []).length >= 1, 'boşluk (null) çizgiyi böler');
 assert.ok(G.cizgiGrafik([{ ad: 'A', noktalar: [[20261013, null]] }]).includes('yeterli veri yok'));
