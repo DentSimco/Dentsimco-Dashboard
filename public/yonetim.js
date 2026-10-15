@@ -105,6 +105,42 @@ export function apiOku(text) {
   } catch { return { error: 'Metin okunamadı. Sayfadaki metnin tamamını kopyaladığınızdan emin olun.' }; }
 }
 
+// Ekip düzeni: sekiz pozisyonun (COO, CFO, CMO, CTO ve stajyerleri) her birinde en fazla bir kişi olur; fazlalar personel olur.
+// Sıra: COO, COO stajyeri, CFO, CFO stajyeri, CMO, CMO stajyeri, CTO, CTO stajyeri, sonra personel (kendi sırasıyla).
+const POZISYON_SIRASI = ['o', 'v', 'f', 'x', 'm', 'y', 't', 'z'];
+const pozisyonSirasi = (p) => { const i = POZISYON_SIRASI.indexOf(String(p)); return i >= 0 ? i : /^\d+$/.test(String(p)) ? 8 : 9; };
+// oncelik: aynı pozisyonda birden fazla kişi varsa pozisyonu tutacak yönetici (listedeki nesne); yoksa listedeki ilk kişi.
+// Sonuç: { list, dusen } — dusen = personele düşen kişi sayısı.
+export function ekibiDuzenle(executives, { oncelik = null } = {}) {
+  const list = (Array.isArray(executives) ? executives : []).map((e) => ({ ...e }));
+  const kazanan = oncelik ? list.find((e) => e.id === oncelik.id && e.position === oncelik.position && e.name === oncelik.name) || null : null;
+  let dusen = 0;
+  for (const p of POZISYON_SIRASI) {
+    const sahipler = list.filter((e) => String(e.position) === p);
+    if (sahipler.length < 2) continue;
+    const kalan = sahipler.includes(kazanan) ? kazanan : sahipler[0];
+    for (const e of sahipler) if (e !== kalan) { e.position = '1'; dusen++; }
+  }
+  const sirali = list.map((e, i) => [e, i]).sort((a, b) => (pozisyonSirasi(a[0].position) - pozisyonSirasi(b[0].position)) || (a[1] - b[1])).map(([e]) => e);
+  return { list: sirali, dusen };
+}
+// Pozisyonu şu an başkası taşıyorsa o kişi (index: düzenlenen yöneticinin sırası, yeniyse null), yoksa null. Personel hep boştur.
+export function pozisyonSahibi(executives, index, position) {
+  if (!POZISYON_SIRASI.includes(String(position))) return null;
+  return (executives || []).find((e, j) => j !== index && String(e.position) === String(position)) || null;
+}
+// Yöneticiyi kaydeder (index null ise yeni). Pozisyonu taşıyan başka biri varsa onunla yer değiştirir: o, düzenlenenin eski
+// pozisyonunu alır (yeni eklenen ya da eskiden personel olan için personel olur). Sonuç: ekibiDuzenle çıktısı (list sıralı).
+export function yoneticiKaydet(executives, index, e) {
+  const list = (executives || []).map((x) => ({ ...x }));
+  const sahip = pozisyonSahibi(list, index, e.position);
+  const eski = index != null ? list[index]?.position : null;
+  if (sahip) sahip.position = eski != null && String(eski) !== '' ? eski : '1';
+  const kayit = { ...e };
+  if (index != null) list[index] = kayit; else list.push(kayit);
+  return ekibiDuzenle(list, { oncelik: kayit });
+}
+
 // Tüm ekip kadrosunu siler. Sonuç: { company, silinen }; silinen = geri alma için eski liste. Boş kadroda silinen boştur.
 export function ekibiTemizle(company) {
   const silinen = Array.isArray(company?.executives) ? company.executives : [];
@@ -140,6 +176,11 @@ export function etkiDegerleri(team, totalLevels, salariesDay) {
 }
 
 const loadCompany = (r) => Y.loadCompanyRecord(r);
+// Kayıtlı kadroda aynı pozisyonda birden fazla kişi varsa (eski kayıtlar) düzeltir; düşen sayısı __dusen'de döner.
+function duzenliKayit(company) {
+  const out = ekibiDuzenle(company?.executives);
+  return { ...company, executives: out.list, __dusen: out.dusen };
+}
 const saveCompany = (r, c) => Y.saveCompanyRecord(r, c);
 
 async function loadProducts(r) {
@@ -156,7 +197,8 @@ async function loadLive(r, options) {
 
 export function mountYonetim(root, { realm = 0 } = {}) {
   let r = realm;
-  let { company } = loadCompany(r);
+  let company = duzenliKayit(loadCompany(r).company);
+  let duzeltilen = company.__dusen || 0; delete company.__dusen;
   let products = null;
   let productError = null;
   let live = null;
@@ -208,7 +250,7 @@ export function mountYonetim(root, { realm = 0 } = {}) {
   }
   // silent: yazarken yalnız kaydeder; ekranı yeniden çizmez (klavye ve imleç kaybolmasın). Sonuçlar kutudan çıkınca yenilenir.
   function commit(next, { soft = false, silent = false } = {}) {
-    company = Y.sanitizeCompany(next);
+    company = Y.sanitizeCompany({ ...next, executives: ekibiDuzenle(next.executives).list });
     if (!saveCompany(r, company)) toast('Tarayıcı kaydı açık değil; değişiklikler sayfa kapanınca kaybolur.');
     if (silent) return;
     ensureVwap();
@@ -316,14 +358,23 @@ export function mountYonetim(root, { realm = 0 } = {}) {
   function formCard() {
     const d = draft.e;
     const editing = draft.index != null;
+    const sahip = pozisyonSahibi(company.executives, draft.index, d.position);
+    const eski = editing ? company.executives[draft.index]?.position : null;
+    const sahipAd = sahip ? esc(sahip.name || positionName(sahip.position)) : '';
+    const sahipSon = sahip ? (eski != null && !/^\d+$/.test(String(eski)) && POZISYON_SIRASI.includes(String(eski)) ? positionName(eski) : 'personel') : '';
+    const cakisma = sahip ? `<div class="ur-msg" role="alert"><b>${esc(positionName(d.position))}</b> pozisyonunda şu an <b>${sahipAd}</b> var. ${draft.onay
+      ? `Değiştirmek istediğinize emin misiniz? ${sahipAd} ${sahipSon === 'personel' ? 'personel olacak' : `${esc(sahipSon)} olacak`}; pozisyonlar yer değiştirir.`
+      : `Kaydederseniz ${sahipAd} ${sahipSon === 'personel' ? 'personel olur' : `${esc(sahipSon)} olur`} (pozisyonlar yer değiştirir); önce onayınız istenir.`}</div>` : '';
     return `<section class="ur-card" aria-labelledby="h-form"><h2 id="h-form">${editing ? 'Yönetici düzenle' : 'Yönetici ekle'}</h2>
       <div class="ur-field"><span>Pozisyon</span><div class="ur-pos" role="group" aria-label="Pozisyon">${POSITIONS.map(([k, t]) => `<button type="button" data-act="dPos" data-v="${k}" aria-pressed="${k === '1' ? /^\d+$/.test(d.position) : d.position === k}">${t}</button>`).join('')}</div></div>
       <label class="ur-field"><span>İsim (isteğe bağlı)</span><input type="text" data-d="name" value="${esc(d.name)}" autocomplete="off"></label>
       <div class="ur-field"><span>Beceriler</span><div class="ur-grid2">${SKILL_LABELS.map(([k, t]) => `<label class="ur-field"><span style="font-size:13px">${t}</span><input type="text" inputmode="numeric" data-d="skill.${k}" value="${esc(inVal(d.skills[k]))}"></label>`).join('')}</div></div>
       ${field('Günlük maaş', 'salary', inVal(d.salary), { unit: '$', mode: 'numeric', attr: 'data-d' })}
       <div class="ur-field"><span>Durum</span>${seg('dActive', [['1', 'Aktif'], ['0', 'Eğitimde']], d.active ? '1' : '0', 'Durum')}<p class="ur-note">Eğitimde, yerleşmekte ya da grevde olan yönetici etki etmez, maaşı yine ödenir.</p></div>
-      <div class="ur-row">${editing ? `<button type="button" class="ur-btn danger" data-act="execDel" aria-label="Yöneticiyi sil">${icon('trash')}</button>` : ''}
-        <button type="button" class="ur-btn grow" data-act="formClose">Vazgeç</button><button type="button" class="ur-btn primary grow" data-act="execSave">${editing ? 'Kaydet' : 'Ekle'}</button></div></section>`;
+      ${cakisma}
+      <div class="ur-row">${editing && !draft.onay ? `<button type="button" class="ur-btn danger" data-act="execDel" aria-label="Yöneticiyi sil">${icon('trash')}</button>` : ''}
+        ${draft.onay ? `<button type="button" class="ur-btn grow" data-act="dOnayIptal">Vazgeç</button><button type="button" class="ur-btn primary grow" data-act="execSave">Evet, değiştir</button>`
+    : `<button type="button" class="ur-btn grow" data-act="formClose">Vazgeç</button><button type="button" class="ur-btn primary grow" data-act="execSave">${editing ? 'Kaydet' : 'Ekle'}</button>`}</div></section>`;
   }
   function apiCard() {
     const p = api.parsed;
@@ -441,13 +492,14 @@ export function mountYonetim(root, { realm = 0 } = {}) {
     if (act === 'execNew') { draft = { index: null, e: newExec() }; api = null; return render(); }
     if (act === 'execEdit') { const i = Number(v); draft = { index: i, e: JSON.parse(JSON.stringify(company.executives[i])) }; return render(); }
     if (act === 'formClose') { draft = null; return render(); }
-    if (act === 'dPos') { draft.e.position = v; return render(); }
+    if (act === 'dPos') { draft.e.position = v; draft.onay = false; return render(); }
+    if (act === 'dOnayIptal') { draft.onay = false; return render(); }
     if (act === 'dActive') { draft.e.active = v === '1'; return render(); }
     if (act === 'execSave') {
-      const list = [...company.executives];
-      if (draft.index != null) list[draft.index] = draft.e; else list.push(draft.e);
+      if (pozisyonSahibi(company.executives, draft.index, draft.e.position) && !draft.onay) { draft.onay = true; return render(); }
+      const out = yoneticiKaydet(company.executives, draft.index, draft.e);
       draft = null;
-      commit({ ...company, executives: list });
+      commit({ ...company, executives: out.list });
       return toast('Kaydedildi.');
     }
     if (act === 'execDel') {
@@ -478,7 +530,7 @@ export function mountYonetim(root, { realm = 0 } = {}) {
       return render();
     }
     if (act === 'apiApply') {
-      const list = api.parsed.map((e) => ({ name: e.name, position: e.position, salary: e.salary, skills: e.skills, active: e.active }));
+      const list = ekibiDuzenle(api.parsed.map((e) => ({ name: e.name, position: e.position, salary: e.salary, skills: e.skills, active: e.active }))).list;
       api = null;
       commit({ ...company, executives: list });
       return toast(`${list.length} yönetici yüklendi.`);
@@ -576,16 +628,19 @@ export function mountYonetim(root, { realm = 0 } = {}) {
   root.addEventListener('pointerup', onPointerUp, true);
   window.addEventListener('hashchange', onHash);
   load();
+  if (duzeltilen) toast(`${duzeltilen} yönetici aynı pozisyonda olduğu için personel yapıldı.`);
 
   return {
     setRealm(next) {
       if (next === r) return;
       flushTyping(); // yazılmakta olan değer eski realm'e kaydedilir
       r = next;
-      ({ company } = loadCompany(r));
+      company = duzenliKayit(loadCompany(r).company);
+      const dz = company.__dusen || 0; delete company.__dusen;
       draft = null; api = null;
       insaat?.setRealm(next);
       load();
+      if (dz) toast(`${dz} yönetici aynı pozisyonda olduğu için personel yapıldı.`);
     },
     destroy() {
       flushTyping();
