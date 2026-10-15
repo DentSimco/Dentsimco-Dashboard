@@ -8,6 +8,15 @@ const TABS = [['nedir', 'Nedir'], ['guncellemeler', 'Güncellemeler'], ['kaynakc
 // En yeni en üstte. { date: 'gün ay yıl', items: ['...', '...'] }
 export const UPDATES = [
   {
+    date: '15 Ekim 2026',
+    items: [
+      'Şirketler: Sıralama, Kıyas ve Liste sekmeleri eklendi. Bir şirkete dokununca son 30 günün grafiği ve gün gün tablosu (sıra, EVA, değer, bina, patent, işçi, bono) açılır. Geçmiş bugünden itibaren günde bir kez birikir; ilk günlerde geçmiş doldurma sürerken bazı şirketlerin geçmişi kısa olabilir.',
+      'Şirketler › Kıyas: en çok 5 şirketin geçmişi aynı grafikte; değer ya da ilk güne göre yüzde değişim.',
+      'Şirketler › Liste: izleme listeleri oluşturun, şirket ekleyin; "Sıralamada gör" ve "Kıyasla" ile açın. Listeler bu tarayıcıda saklanır.',
+      'Üretim ve Perakende: yönetici girilmediyse ya da öteki bölümde bina varsa üstte uyarı çıkar; ilgili bölüme gidebilir ya da o bölümün binalarını (geri alınabilir şekilde) kaldırabilirsiniz.',
+    ],
+  },
+  {
     date: '13 Ekim 2026',
     items: [
       "Optimum Seviye sayfası eklendi (Piyasa ile Kâr Hesaplayıcı arasında; şimdilik R1): iki sekmesi var, Üretim ve Perakende. Öneriler şirketinize göre hesaplanır: doğru sonuç için Yönetim › Ekip ve Üretim bölümlerini doldurun.",
@@ -20,7 +29,7 @@ export const UPDATES = [
     items: [
       'Haberler: İngilizce dilde canlı şeritteki ve grafik başlığındaki ürün adları artık İngilizce görünüyor (önceden Türkçe kalıyordu).',
       'Yönetim: Ekip listesinin altına Tümünü sil düğmesi eklendi; tüm yöneticileri tek dokunuşla siler. Yanlışlıkla basarsanız 8 saniye içinde Geri al ile listeyi geri getirebilirsiniz.',
-      'Şirketler: şirket numarası (ID) tabloda adın altında görünür. Bir şirkete dokununca ayrıntı paneli açılır (sıra, EVA, değer, günlük değişim, bina, patent, işçi, bono) ve numara kopyalanabilir.',
+      'Şirketler: Sıralama, Kıyas ve Liste sekmeleri var. Sıralamada şirket numarası (ID) adın altında görünür; bir şirkete dokununca ayrıntı paneli açılır (son 30 günün grafiği ve gün gün tablosu, sıra, EVA, değer, günlük değişim, bina, patent, işçi, bono) ve numara kopyalanabilir. Kıyas en çok 5 şirketin geçmişini aynı grafikte gösterir. Liste, şirketleri izleme listelerine toplar (bu tarayıcıda saklanır).',
       'Şirketler: Ad (A-Z) sıralaması ve İşçi sütunu kaldırıldı; işçi sayısı şirketin ayrıntı panelinde görünür.',
       'Şirketler: "Sıra" ölçütü kaldırıldı; Simcotools sırası şirket değerine göre olduğu için Şirket değeri ölçütüyle aynıydı. Sayfa artık şirket değerine göre açılıyor, sıra numarası tabloda duruyor.',
       'Şirketler: Tahvil sütunu Bono oldu.',
