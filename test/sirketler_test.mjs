@@ -75,7 +75,7 @@ console.log('sirketler_test: tamam');
 
 // ---- Sekmeler ve adres ----
 import { sirketlerRota, SEKMELER, gecmisTablosuHtml } from '../public/sirketler.js';
-assert.deepEqual(SEKMELER.map((s) => s[0]), ['siralama', 'kiyas', 'liste']);
+assert.deepEqual(SEKMELER.map((s) => s[0]), ['siralama', 'gruplar', 'kiyas', 'liste']);
 const rota3 = (h) => { const { tab, key, ids } = sirketlerRota(h); return { tab, key, ids }; }; // kapsam/galt/grup: gruplar_test.mjs
 assert.deepEqual(rota3('#sirketler'), { tab: 'siralama', key: null, ids: [] });
 assert.deepEqual(rota3('#sirketler/eva'), { tab: 'siralama', key: 'eva', ids: [] }, 'haber sayfasındaki ölçüt bağlantıları çalışır');

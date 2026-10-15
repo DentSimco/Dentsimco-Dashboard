@@ -78,22 +78,22 @@ export function detaySatirlari(r) {
 }
 
 // Adres: #sirketler (Sıralama) | #sirketler/{ölçüt} (Sıralama, o ölçütle; haber sayfası bağlantıları) | #sirketler/kiyas[/id,id,...] | #sirketler/liste
-//   Sıralama altında: #sirketler/siralama (Şirketler) | #sirketler/gruplar[/uyeler[/grupId] | /siralama] (Gruplar)
+//   Gruplar: #sirketler/gruplar[/uyeler[/grupId] | /siralama]; Şirketler (şirket sıralaması): #sirketler/siralama
 export function sirketlerRota(hash) {
   const p = String(hash ?? '').replace(/^#/, '').split('/');
-  const r = { tab: 'siralama', key: null, ids: [], kapsam: 'sirket', galt: 'uyeler', grup: null };
+  const r = { tab: 'siralama', key: null, ids: [], galt: 'uyeler', grup: null };
   if (p[0] !== 'sirketler') return r;
   if (p[1] === 'kiyas') return { ...r, tab: 'kiyas', ids: [...new Set(String(p[2] ?? '').split(',').map(Number).filter((x) => Number.isInteger(x) && x > 0))].slice(0, Li.KIYAS_MAX) };
   if (p[1] === 'liste') return { ...r, tab: 'liste' };
   if (p[1] === 'gruplar') {
     let grup = null;
     try { grup = p[3] ? decodeURIComponent(p[3]) : null; } catch { grup = null; }
-    return { ...r, kapsam: 'gruplar', galt: p[2] === 'siralama' ? 'siralama' : 'uyeler', grup };
+    return { ...r, tab: 'gruplar', galt: p[2] === 'siralama' ? 'siralama' : 'uyeler', grup };
   }
   const spec = SIRALAMA.find((s) => s[0] === p[1]);
   return { ...r, key: spec ? spec[0] : null };
 }
-export const SEKMELER = [['siralama', 'Sıralama'], ['kiyas', 'Kıyas'], ['liste', 'Liste']];
+export const SEKMELER = [['siralama', 'Şirketler'], ['gruplar', 'Gruplar'], ['kiyas', 'Kıyas'], ['liste', 'Liste']];
 
 const CSS = G.GRAFIK_CSS + `
 .sk-sub { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -245,7 +245,6 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
   let data = null;
   const state = { key: 'value', dir: -1, q: '', page: 1, listeId: null };
   let tab = 'siralama';
-  let kapsam = 'sirket'; // Sıralama altında: 'sirket' | 'gruplar'
   let galt = 'uyeler'; // Gruplar altında: 'uyeler' | 'siralama'
   let grupId = null; // Üyeler'de seçili grup
   let kiyas = { ids: [], metrik: 'value', mod: 'deger', gecmis: null, yukleniyor: false };
@@ -274,8 +273,8 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
   // ---- adres ----
   function rotayiOku() {
     const x = sirketlerRota(location.hash);
-    tab = x.tab; kapsam = x.kapsam; galt = x.galt;
-    if (x.kapsam === 'gruplar' && x.grup) grupId = x.grup;
+    tab = x.tab; galt = x.galt;
+    if (x.tab === 'gruplar' && x.grup) grupId = x.grup;
     if (x.key) { state.key = x.key; state.dir = SIRALAMA.find((s) => s[0] === x.key)[3]; state.page = 1; }
     if (x.tab === 'kiyas' && x.ids.length) { kiyas = { ...kiyas, ids: x.ids, gecmis: null }; }
   }
@@ -297,19 +296,15 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
     box.innerHTML = `<h1>Şirketler</h1><div class="sk-body"></div>`;
     if (tab === 'kiyas') kiyasCiz();
     else if (tab === 'liste') listeCiz();
-    else {
-      const alt = (href, t, on) => `<a href="${href}" ${on ? 'aria-current="page"' : ''}>${t}</a>`;
-      govde().innerHTML = `<nav class="sk-sub" aria-label="Sıralama türü">${alt('#sirketler/siralama', 'Şirketler', kapsam === 'sirket')}${alt('#sirketler/gruplar', 'Gruplar', kapsam === 'gruplar')}</nav><div class="sk-sub-body"></div>`;
-      if (kapsam === 'gruplar') gruplarCiz(); else { siralamaIskelet(); paint(); }
-    }
+    else if (tab === 'gruplar') gruplarCiz();
+    else { siralamaIskelet(); paint(); }
   }
   const govde = () => box.querySelector('.sk-body');
-  const altGovde = () => box.querySelector('.sk-sub-body');
 
   // ---- Sıralama ----
   function siralamaIskelet() {
     const liste = state.listeId ? listeler.listeler.find((l) => l.id === state.listeId) : null;
-    altGovde().innerHTML = `
+    govde().innerHTML = `
       <div class="sk-bar">
         <label>Sırala <select id="sk-key" aria-label="Sıralama ölçütü">${SIRALAMA.map(([k, t]) => `<option value="${k}" ${k === state.key ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
         <button type="button" class="sk-dir" id="sk-dir" aria-label="Sıralama yönü"></button>
@@ -330,7 +325,7 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
   }
 
   function paint() {
-    if (!data || tab !== 'siralama' || kapsam !== 'sirket') return;
+    if (!data || tab !== 'siralama') return;
     const liste = state.listeId ? listeler.listeler.find((l) => l.id === state.listeId) : null;
     const kaynak = liste ? data.rows.filter((r) => liste.idler.includes(r[0])) : data.rows;
     view = sirala(ara(kaynak, state.q), state.key, state.dir);
@@ -357,7 +352,7 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
       body = `<div class="sk-wrap"><table><thead><tr><th class="l">Sıra</th><th class="l">Grup</th><th>Üye</th><th>Toplam değer</th><th>Değişim</th><th>%</th></tr></thead><tbody>${sirali.map((g, i) => `<tr><td class="l">${NUM.format(i + 1)}</td>
         <td class="l"><a href="${hrefU(g.id)}">${esc(g.ad)}</a></td><td>${NUM.format(g.bulunan)}${g.eksik.length ? `<span class="dim"> / ${NUM.format(g.uyeSayisi)}</span>` : ''}</td><td>${usd(g.toplam)}</td>
         <td class="${tone(g.fark)}">${signed(g.fark)}</td><td class="${tone(g.yuzde)}">${g.yuzde ? PCT.format(g.yuzde) : '0%'}</td></tr>`).join('')}</tbody></table></div>
-        <p class="sk-note">Grup değeri, üyelerinin şirket değerlerinin toplamıdır. Gruplar resmi değildir; üyeler elle tanımlanır. Grup adına dokunun: üyeleri görün.</p>`;
+        <p class="sk-note">Grup değeri, üyelerinin şirket değerlerinin toplamıdır. Gruplar resmi değildir. Grup adına dokunun: üyeleri görün. Üye eksiği varsa grup liderleri Feedback üzerinden iletişime geçebilir.</p>`;
     } else {
       const g = liste.find((x) => x.id === sec);
       const uyeler = sirala(g.uyeler, 'value', -1);
@@ -365,7 +360,7 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
         <p class="sk-note">${esc(g.ad)} · ${NUM.format(g.bulunan)} üye · Toplam değer ${usd(g.toplam)} (${signed(g.fark)})${g.eksik.length ? ` · Sıralamada bulunamayan şirket numarası: ${g.eksik.map((x) => esc(x)).join(', ')}` : ''}</p>
         <div class="sk-wrap"><table><thead><tr><th class="l">Üye sırası</th>${TABLO_BASLIK.map(([t, , c]) => `<th class="${c || ''}">${t === 'Sıra' ? 'Şirket sırası' : t}</th>`).join('')}</tr></thead><tbody>${uyeler.map((r, i) => satirHtml(r, '', `<td class="l">${NUM.format(i + 1)}</td>`)).join('') || '<tr><td colspan="10" class="l dim">Üye yok.</td></tr>'}</tbody></table></div>`;
     }
-    altGovde().innerHTML = `<nav class="sk-sub" aria-label="Grup bölümleri">${alt(sec ? hrefU(sec) : '#sirketler/gruplar/uyeler', 'Üyeler', galt === 'uyeler')}${alt('#sirketler/gruplar/siralama', 'Sıralama', galt === 'siralama')}</nav>${body}`;
+    govde().innerHTML = `<nav class="sk-sub" aria-label="Grup bölümleri">${alt(sec ? hrefU(sec) : '#sirketler/gruplar/uyeler', 'Üyeler', galt === 'uyeler')}${alt('#sirketler/gruplar/siralama', 'Sıralama', galt === 'siralama')}</nav>${body}`;
   }
 
   // ---- Ortak: şirket arama kutusu ----
