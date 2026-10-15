@@ -188,6 +188,8 @@
   .about { padding: 6px 9px; border-radius: 9px; color: var(--muted); text-decoration: none; font-size: 14px; font-weight: 500; white-space: nowrap; }
   .about:hover { color: var(--text); }
   .about[aria-current="page"] { color: var(--text); background: var(--raise); }
+  /* Geniş ekran (bilgisayar): logo sol kenara, R1/R2 ve Hakkımızda sağ kenara; içerik ortada kalır */
+  @media (min-width: 1281px) { .top { max-width: none; padding-left: 28px; padding-right: 28px; } }
   @media (max-width: 600px) {
     .top { padding: 12px 14px 8px; column-gap: 8px; }
     .about { padding: 6px 4px; font-size: 13px; }
