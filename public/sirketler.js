@@ -10,6 +10,7 @@ import { PATHS, readDocs, dataField, VeriHatasi } from './veri.js';
 import { LOCALE } from './i18n.js';
 import * as G from './sirket-gecmis.js';
 import * as Li from './sirket-liste.js';
+import * as Gr from './gruplar.js';
 
 const PAGE = 50;
 
@@ -77,20 +78,27 @@ export function detaySatirlari(r) {
 }
 
 // Adres: #sirketler (Sıralama) | #sirketler/{ölçüt} (Sıralama, o ölçütle; haber sayfası bağlantıları) | #sirketler/kiyas[/id,id,...] | #sirketler/liste
+//   Sıralama altında: #sirketler/siralama (Şirketler) | #sirketler/gruplar[/uyeler[/grupId] | /siralama] (Gruplar)
 export function sirketlerRota(hash) {
   const p = String(hash ?? '').replace(/^#/, '').split('/');
-  if (p[0] !== 'sirketler') return { tab: 'siralama', key: null, ids: [] };
-  if (p[1] === 'kiyas') return { tab: 'kiyas', key: null, ids: [...new Set(String(p[2] ?? '').split(',').map(Number).filter((x) => Number.isInteger(x) && x > 0))].slice(0, Li.KIYAS_MAX) };
-  if (p[1] === 'liste') return { tab: 'liste', key: null, ids: [] };
+  const r = { tab: 'siralama', key: null, ids: [], kapsam: 'sirket', galt: 'uyeler', grup: null };
+  if (p[0] !== 'sirketler') return r;
+  if (p[1] === 'kiyas') return { ...r, tab: 'kiyas', ids: [...new Set(String(p[2] ?? '').split(',').map(Number).filter((x) => Number.isInteger(x) && x > 0))].slice(0, Li.KIYAS_MAX) };
+  if (p[1] === 'liste') return { ...r, tab: 'liste' };
+  if (p[1] === 'gruplar') {
+    let grup = null;
+    try { grup = p[3] ? decodeURIComponent(p[3]) : null; } catch { grup = null; }
+    return { ...r, kapsam: 'gruplar', galt: p[2] === 'siralama' ? 'siralama' : 'uyeler', grup };
+  }
   const spec = SIRALAMA.find((s) => s[0] === p[1]);
-  return { tab: 'siralama', key: spec ? spec[0] : null, ids: [] };
+  return { ...r, key: spec ? spec[0] : null };
 }
 export const SEKMELER = [['siralama', 'Sıralama'], ['kiyas', 'Kıyas'], ['liste', 'Liste']];
 
 const CSS = G.GRAFIK_CSS + `
-.sk-tabs { display: flex; gap: 6px; }
-.sk-tabs a { flex: 1 1 0; display: flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 10px; border-radius: 10px; border: 1px solid var(--line-2); color: var(--muted); font: 600 15px var(--font-c); text-decoration: none; }
-.sk-tabs a[aria-current="page"] { color: var(--accent); border-color: var(--accent); background: var(--raise); }
+.sk-sub { display: flex; flex-wrap: wrap; gap: 6px; }
+.sk-sub a { display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line-2); color: var(--muted); font: 600 14px var(--font-c); text-decoration: none; }
+.sk-sub a[aria-current="page"] { color: var(--accent); border-color: var(--accent); background: var(--raise); }
 .sk-card { border: 1px solid var(--line); border-radius: 14px; background: var(--surface); padding: 12px; display: flex; flex-direction: column; gap: 10px; }
 .sk-card h2 { margin: 0; font: 600 17px var(--font-c); }
 .sk-chips { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -102,6 +110,8 @@ const CSS = G.GRAFIK_CSS + `
 .sk-seg button[aria-pressed="true"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .sk-act.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .sk-act.danger { color: var(--down-text, var(--down)); }
+a.sk-act { display: inline-flex; align-items: center; text-decoration: none; }
+a.sk-act[aria-current="page"] { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .sk-act:disabled { opacity: .45; cursor: default; }
 .sk-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 .sk-row select, .sk-row input[type=text], .sk-row input[type=search] { height: 40px; padding: 0 10px; border: 1px solid var(--line-2); border-radius: 10px; background: var(--surface); color: var(--text); min-width: 0; }
@@ -235,6 +245,9 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
   let data = null;
   const state = { key: 'value', dir: -1, q: '', page: 1, listeId: null };
   let tab = 'siralama';
+  let kapsam = 'sirket'; // Sıralama altında: 'sirket' | 'gruplar'
+  let galt = 'uyeler'; // Gruplar altında: 'uyeler' | 'siralama'
+  let grupId = null; // Üyeler'de seçili grup
   let kiyas = { ids: [], metrik: 'value', mod: 'deger', gecmis: null, yukleniyor: false };
   let kiyasToken = 0;
   let listeler = Li.oku(realm);
@@ -246,6 +259,14 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
   style.dataset.module = 'sirketler';
   style.textContent = CSS_TUMU;
   document.head.append(style);
+  // Şirketler bölümleri: Piyasa ve Kâr Hesaplayıcı gibi sayfanın üstündeki genel alt şerit (modül dışında, root'tan önce)
+  const subnav = document.createElement('nav');
+  subnav.className = 'subnav on';
+  subnav.id = 'subnav-sirketler';
+  subnav.setAttribute('aria-label', 'Şirketler bölümleri');
+  subnav.innerHTML = SEKMELER.map(([k, t]) => `<a href="#sirketler/${k}" data-sub="${k}">${t}</a>`).join('');
+  root.before(subnav);
+  const subnavBoya = () => { for (const a of subnav.querySelectorAll('a')) { if (a.dataset.sub === tab) a.setAttribute('aria-current', 'page'); else a.removeAttribute('aria-current'); } };
   root.innerHTML = '<div class="sk"></div>';
   const box = root.querySelector('.sk');
   const kaydet = (next) => { listeler = next; Li.yaz(realm, listeler); };
@@ -253,15 +274,18 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
   // ---- adres ----
   function rotayiOku() {
     const x = sirketlerRota(location.hash);
-    tab = x.tab;
+    tab = x.tab; kapsam = x.kapsam; galt = x.galt;
+    if (x.kapsam === 'gruplar' && x.grup) grupId = x.grup;
     if (x.key) { state.key = x.key; state.dir = SIRALAMA.find((s) => s[0] === x.key)[3]; state.page = 1; }
     if (x.tab === 'kiyas' && x.ids.length) { kiyas = { ...kiyas, ids: x.ids, gecmis: null }; }
   }
   rotayiOku();
+  subnavBoya();
   function onHash() {
     if (location.hash.slice(1).split('/')[0] !== 'sirketler') return;
     closeSheet();
     rotayiOku();
+    subnavBoya();
     if (data) ciz();
   }
   window.addEventListener('hashchange', onHash);
@@ -269,18 +293,23 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
   // ---- iskelet ----
   function ciz() {
     if (!data) return;
-    const sekmeler = `<nav class="sk-tabs" aria-label="Şirketler bölümleri">${SEKMELER.map(([k, t]) => `<a href="#sirketler/${k}" ${k === tab ? 'aria-current="page"' : ''}>${t}</a>`).join('')}</nav>`;
-    box.innerHTML = `<h1>Şirketler</h1>${sekmeler}<div class="sk-body"></div>`;
+    subnavBoya();
+    box.innerHTML = `<h1>Şirketler</h1><div class="sk-body"></div>`;
     if (tab === 'kiyas') kiyasCiz();
     else if (tab === 'liste') listeCiz();
-    else { siralamaIskelet(); paint(); }
+    else {
+      const alt = (href, t, on) => `<a href="${href}" ${on ? 'aria-current="page"' : ''}>${t}</a>`;
+      govde().innerHTML = `<nav class="sk-sub" aria-label="Sıralama türü">${alt('#sirketler/siralama', 'Şirket Sıralaması', kapsam === 'sirket')}${alt('#sirketler/gruplar', 'Gruplar', kapsam === 'gruplar')}</nav><div class="sk-sub-body"></div>`;
+      if (kapsam === 'gruplar') gruplarCiz(); else { siralamaIskelet(); paint(); }
+    }
   }
   const govde = () => box.querySelector('.sk-body');
+  const altGovde = () => box.querySelector('.sk-sub-body');
 
   // ---- Sıralama ----
   function siralamaIskelet() {
     const liste = state.listeId ? listeler.listeler.find((l) => l.id === state.listeId) : null;
-    govde().innerHTML = `
+    altGovde().innerHTML = `
       <div class="sk-bar">
         <label>Sırala <select id="sk-key" aria-label="Sıralama ölçütü">${SIRALAMA.map(([k, t]) => `<option value="${k}" ${k === state.key ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
         <button type="button" class="sk-dir" id="sk-dir" aria-label="Sıralama yönü"></button>
@@ -301,7 +330,7 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
   }
 
   function paint() {
-    if (!data || tab !== 'siralama') return;
+    if (!data || tab !== 'siralama' || kapsam !== 'sirket') return;
     const liste = state.listeId ? listeler.listeler.find((l) => l.id === state.listeId) : null;
     const kaynak = liste ? data.rows.filter((r) => liste.idler.includes(r[0])) : data.rows;
     view = sirala(ara(kaynak, state.q), state.key, state.dir);
@@ -313,6 +342,30 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
     box.querySelector('#sk-dir').textContent = state.dir > 0 ? '↑' : '↓';
     box.querySelector('#sk-note').textContent = `${NUM.format(view.length)} şirket · Veri: Simcotools · ${data.date ? new Date(data.date).toLocaleDateString(LOCALE, { timeZone: 'UTC' }) : ''}. Ayrıntıları (EVA, bina, patent, bono) henüz gelmemiş şirketlerde "—" görünür. Ayrıntı ve son 30 günün grafiği için şirkete dokunun.`;
     box.querySelector('.sk-pager').innerHTML = `<button type="button" data-p="-1" ${state.page <= 1 ? 'disabled' : ''}>‹ Önceki</button><span>${state.page} / ${pages}</span><button type="button" data-p="1" ${state.page >= pages ? 'disabled' : ''}>Sonraki ›</button>`;
+  }
+
+  // ---- Gruplar (public/gruplar.js; grup değeri = üyelerin şirket değerleri toplamı) ----
+  function gruplarCiz() {
+    const liste = Gr.grupDegerleri(data.rows, Gr.GRUPLAR, realm);
+    const alt = (href, t, on) => `<a href="${href}" ${on ? 'aria-current="page"' : ''}>${t}</a>`;
+    const sec = grupId && liste.some((g) => g.id === grupId) ? grupId : liste[0]?.id;
+    const hrefU = (id) => `#sirketler/gruplar/uyeler/${encodeURIComponent(id)}`;
+    let body;
+    if (!liste.length) body = '<p class="sk-note">Bu realm için henüz grup tanımlanmadı.</p>';
+    else if (galt === 'siralama') {
+      const sirali = Gr.grupSirala(liste);
+      body = `<div class="sk-wrap"><table><thead><tr><th class="l">Sıra</th><th class="l">Grup</th><th>Üye</th><th>Toplam değer</th><th>Değişim</th><th>%</th></tr></thead><tbody>${sirali.map((g, i) => `<tr><td class="l">${NUM.format(i + 1)}</td>
+        <td class="l"><a href="${hrefU(g.id)}">${esc(g.ad)}</a></td><td>${NUM.format(g.bulunan)}${g.eksik.length ? `<span class="dim"> / ${NUM.format(g.uyeSayisi)}</span>` : ''}</td><td>${usd(g.toplam)}</td>
+        <td class="${tone(g.fark)}">${signed(g.fark)}</td><td class="${tone(g.yuzde)}">${g.yuzde ? PCT.format(g.yuzde) : '0%'}</td></tr>`).join('')}</tbody></table></div>
+        <p class="sk-note">Grup değeri, üyelerinin şirket değerlerinin toplamıdır. Gruplar resmi değildir; üyeler elle tanımlanır. Grup adına dokunun: üyeleri görün.</p>`;
+    } else {
+      const g = liste.find((x) => x.id === sec);
+      const uyeler = sirala(g.uyeler, 'value', -1);
+      body = `<div class="sk-seg" role="group" aria-label="Grup">${liste.map((x) => `<a class="sk-act" href="${hrefU(x.id)}" ${x.id === sec ? 'aria-current="page"' : ''}>${esc(x.ad)}</a>`).join('')}</div>
+        <p class="sk-note">${esc(g.ad)} · ${NUM.format(g.bulunan)} üye · Toplam değer ${usd(g.toplam)} (${signed(g.fark)})${g.eksik.length ? ` · Sıralamada bulunamayan şirket numarası: ${g.eksik.map((x) => esc(x)).join(', ')}` : ''}</p>
+        <div class="sk-wrap"><table><thead><tr>${TABLO_BASLIK.map(([t, , c]) => `<th class="${c || ''}">${t}</th>`).join('')}</tr></thead><tbody>${uyeler.map((r) => satirHtml(r)).join('') || '<tr><td colspan="9" class="l dim">Üye yok.</td></tr>'}</tbody></table></div>`;
+    }
+    altGovde().innerHTML = `<nav class="sk-sub" aria-label="Grup bölümleri">${alt(sec ? hrefU(sec) : '#sirketler/gruplar/uyeler', 'Üyeler', galt === 'uyeler')}${alt('#sirketler/gruplar/siralama', 'Sıralama', galt === 'siralama')}</nav>${body}`;
   }
 
   // ---- Ortak: şirket arama kutusu ----
@@ -589,12 +642,12 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
       if (next === realm) return;
       closeSheet();
       realm = next;
-      state.page = 1; state.listeId = null;
+      state.page = 1; state.listeId = null; grupId = null;
       listeler = Li.oku(realm);
       kiyas = { ...kiyas, ids: [], gecmis: null };
       formu = null;
       load();
     },
-    destroy() { alive = false; window.removeEventListener('hashchange', onHash); document.removeEventListener('keydown', onKey); document.body.style.overflow = ''; style.remove(); root.replaceChildren(); },
+    destroy() { alive = false; window.removeEventListener('hashchange', onHash); document.removeEventListener('keydown', onKey); document.body.style.overflow = ''; style.remove(); subnav.remove(); root.replaceChildren(); },
   };
 }
