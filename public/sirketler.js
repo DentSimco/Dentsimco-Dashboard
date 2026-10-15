@@ -153,8 +153,12 @@ const CSS_ESKI = `
 .sk-panel { background: var(--surface); border: 1px solid var(--line-2); border-bottom: 0; border-radius: 20px 20px 0 0; width: 100%; max-width: 560px; max-height: calc(100dvh - 24px);
   overflow: auto; overscroll-behavior: contain; padding: 16px 16px calc(20px + env(safe-area-inset-bottom, 0px)); display: flex; flex-direction: column; gap: 12px; box-sizing: border-box; }
 @media (min-width: 740px) { .sk-sheet { align-items: center; } .sk-panel { border-radius: 20px; border-bottom: 1px solid var(--line-2); } }
-.sk-panel-head { display: flex; align-items: flex-start; gap: 10px; }
-.sk-panel-head h2 { flex: 1 1 auto; min-width: 0; margin: 0; font: 600 20px/1.25 var(--font-c); overflow-wrap: anywhere; }
+.sk-panel-head { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 10px; }
+.sk-head-main { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; min-width: 0; }
+.sk-head-act { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.sk-head-act select { height: 40px; padding: 0 10px; border: 1px solid var(--line-2); border-radius: 10px; background: var(--surface); color: var(--text); min-width: 0; max-width: 220px; }
+.sk-head-act a.sk-act { display: inline-flex; align-items: center; text-decoration: none; }
+.sk-panel-head h2 { flex: 0 1 auto; min-width: 0; margin: 0; font: 600 20px/1.25 var(--font-c); overflow-wrap: anywhere; }
 .sk-btn { min-height: 44px; min-width: 44px; padding: 0 14px; border: 1px solid var(--line-2); border-radius: 12px; background: var(--raise); color: var(--text); font: 600 15px var(--font); }
 .sk-idrow { display: flex; align-items: center; gap: 10px; justify-content: space-between; background: var(--raise); border: 1px solid var(--line-2); border-radius: 12px; padding: 8px 8px 8px 12px; }
 .sk-idrow span { color: var(--muted); font-size: 14px; }
@@ -256,6 +260,7 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
   rotayiOku();
   function onHash() {
     if (location.hash.slice(1).split('/')[0] !== 'sirketler') return;
+    closeSheet();
     rotayiOku();
     if (data) ciz();
   }
@@ -435,10 +440,13 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
     kutu.querySelectorAll('.sg-kutu').forEach(G.grafikBagla);
     if (tablo && !tablo.dataset.dolu) { tablo.innerHTML = gecmisTablosuHtml(sheet.gecmis); tablo.dataset.dolu = '1'; }
   }
-  function listeEkleHtml(id) {
-    if (!listeler.listeler.length) return `<p class="sk-note">Şirketi izlemek için önce bir liste oluşturun. <a href="#sirketler/liste">Liste sekmesine git</a></p>`;
-    return `<div class="sk-row"><select data-sheet-liste aria-label="Liste seç">${listeler.listeler.map((l) => `<option value="${esc(l.id)}" ${l.id === listeler.aktif ? 'selected' : ''}>${esc(l.ad)}${Li.listedeMi(l, id) ? ' ✓' : ''}</option>`).join('')}</select>
-      <button type="button" class="sk-act" data-sheet-ekle>Listeye ekle</button><span class="sk-ok" data-sheet-ok role="status"></span></div>`;
+  // Şirket adının yanındaki eylemler: liste seçimi, Listeye ekle, Kıyasla (sığmazsa altına sarılır)
+  function pencereEylemleri(id) {
+    const liste = listeler.listeler.length
+      ? `<select data-sheet-liste aria-label="Liste seç">${listeler.listeler.map((l) => `<option value="${esc(l.id)}" ${l.id === listeler.aktif ? 'selected' : ''}>${esc(l.ad)}${Li.listedeMi(l, id) ? ' ✓' : ''}</option>`).join('')}</select>
+        <button type="button" class="sk-act" data-sheet-ekle>Listeye ekle</button>`
+      : '<a class="sk-act" href="#sirketler/liste" data-sheet-liste-yok>Liste oluştur</a>';
+    return `<div class="sk-head-act">${liste}<button type="button" class="sk-act" data-sheet-kiyas>Kıyasla</button><span class="sk-ok" data-sheet-ok role="status"></span></div>`;
   }
   function openSheet(id) {
     const r = data && sirketBul(data.rows, id);
@@ -446,13 +454,11 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
     sheet = { id: r[0], metrik: 'value', gecmis: null };
     const lines = detaySatirlari(r).map(([t, v, c]) => `<div class="sk-kv"><span>${t}</span><span class="${c}">${v}</span></div>`).join('');
     sheetHost.innerHTML = `<div class="sk-sheet" data-sheet-bg><div class="sk-panel wide" role="dialog" aria-modal="true" aria-labelledby="sk-title">
-      <div class="sk-panel-head"><h2 id="sk-title">${esc(r[1])}</h2><button type="button" class="sk-btn" data-close aria-label="Kapat">✕</button></div>
+      <div class="sk-panel-head"><div class="sk-head-main"><h2 id="sk-title">${esc(r[1])}</h2>${pencereEylemleri(r[0])}</div><button type="button" class="sk-btn" data-close aria-label="Kapat">✕</button></div>
       <div class="sk-idrow"><span>Şirket numarası (ID)</span><b>${r[0]}</b><button type="button" class="sk-btn" data-copy>Kopyala</button></div>
       <div data-gecmis></div>
       <div>${lines}</div>
       ${r[12] === 1 ? '' : '<p class="sk-note">Bu şirketin ayrıntıları (EVA, bina, patent, işçi, bono) henüz gelmedi; sonraki günlük güncellemede tamamlanabilir.</p>'}
-      ${listeEkleHtml(r[0])}
-      <div class="sk-row"><button type="button" class="sk-act" data-sheet-kiyas>Kıyasla</button></div>
       <details class="sk-det"><summary>Gün gün tablo</summary><div data-gt-body></div>
         <p class="sk-note">Son ${G.GUN_SAYISI} gün; bot günde bir kez ekler. Ayrıntısı o gün gelmemiş şirketlerde "—" görünür.</p></details>
       <p class="sk-note">Veri: Simcotools${data.date ? ` · ${new Date(data.date).toLocaleDateString(LOCALE, { timeZone: 'UTC' })}` : ''}</p></div></div>`;

@@ -1456,4 +1456,5 @@ export default {
   'Son {0} gün; bot günde bir kez ekler. Ayrıntısı o gün gelmemiş şirketlerde "—" görünür.': 'Last {0} days; the bot adds a day once a day. Days whose details had not arrived show "—".',
   '‹ Önceki': '‹ Previous',
   'Gün gün tablo': 'Day-by-day table',
+  'Liste oluştur': 'Create a list',
 };
