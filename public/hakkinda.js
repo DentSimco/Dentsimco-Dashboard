@@ -117,10 +117,7 @@ function viewNedir() {
       <p>Bu aracın önemli özelliği, tüm sistemlerin entegre çalışmasıdır. En iyi sonucu almak için şirketinizin tüm bilgilerini, binalarınızı ve özellikle Yönetim bölümünü eksiksiz doldurun. Şirket özetinden çok verim alacaksınız, detaylı incelemeyi unutmayın.</p></section>
     <section class="hk-card" aria-labelledby="hk-sin"><h2 id="hk-sin">Borsa al-sat sinyalleri</h2>
       <p>Borsa al-sat sinyalleri deney aşamasındadır, ancak beklenen doğruluk tahminleri %50 ile %75 arasındadır. Formül özel olarak geliştirilmiştir.</p>
-      <p class="hk-note">Tahmin doğruluğu oranı, reel kârın o oranda artacağı anlamına gelmez.</p></section>
-    <section class="hk-card warn" aria-labelledby="hk-bil"><span class="hk-chip">Bilinen sorun</span><h2 id="hk-bil">Perakende ve Üretim</h2>
-      <p>Şu an için Perakende ve Üretim bölümünü ayrı şekilde hesaplayın. İkisini birlikte kurguladığınızda sistemde hata oluşuyor ve kâr yanlış hesaplanıyor.</p>
-      <p class="hk-note">Güncellenecek.</p></section>`;
+      <p class="hk-note">Tahmin doğruluğu oranı, reel kârın o oranda artacağı anlamına gelmez.</p></section>`;
 }
 
 function viewGuncellemeler() {
