@@ -231,7 +231,7 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
   let data = null;
   const state = { key: 'value', dir: -1, q: '', page: 1, listeId: null };
   let tab = 'siralama';
-  let kiyas = { ids: [], metrik: 'value', mod: 'deger', olcek: 'dogrusal', gecmis: null, yukleniyor: false };
+  let kiyas = { ids: [], metrik: 'value', mod: 'deger', gecmis: null, yukleniyor: false };
   let kiyasToken = 0;
   let listeler = Li.oku(realm);
   let formu = null; // Liste sekmesi: { tur: 'yeni' | 'ad' } | { tur: 'sil' } | null
@@ -363,10 +363,7 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
       return { ad: adOf(id), renk: G.RENKLER[i % G.RENKLER.length], noktalar: yuzde ? G.yuzdeNoktalari(n) : n };
     });
     const bos = seriler.every((s) => s.noktalar.every(([, v]) => v == null));
-    const yok = seriler.filter((s) => s.noktalar.every(([, v]) => v == null)); // geçmişi (ya da bu ölçütü) olmayan şirketler: grafikte çizgisi olmaz
-    const log = kiyas.olcek === 'log' && !yuzde && m.tur !== 'sira';
     const grafik = bos ? GECMIS_YOK : G.cizgiGrafik(seriler, {
-      log,
       bicim: yuzde ? (v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}%` : (v) => G.eksenMetni(m, v), oku: yuzde ? (v) => `${v > 0 ? '+' : ''}${v.toFixed(2)}%` : (v) => G.degerMetni(m, v), ters: m.tur === 'sira' && !yuzde, ad: grafikAdi(m, 'Kıyas'),
     });
     const satir = (id, i) => {
@@ -379,11 +376,8 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
     };
     kutu.innerHTML = `${metrikSecici('kiyas-metrik', kiyas.metrik)}
       <div class="sk-seg" role="group" aria-label="Gösterim"><button type="button" data-kiyas-mod="deger" aria-pressed="${!yuzde}">Değer</button><button type="button" data-kiyas-mod="yuzde" aria-pressed="${yuzde}">İlk güne göre %</button></div>
-      ${!yuzde && m.tur !== 'sira' ? `<div class="sk-seg" role="group" aria-label="Ölçek"><button type="button" data-kiyas-olcek="dogrusal" aria-pressed="${!log}">Doğrusal ölçek</button><button type="button" data-kiyas-olcek="log" aria-pressed="${log}">Logaritmik ölçek</button></div>` : ''}
       ${grafik}
-      <div class="sk-legend">${seriler.map((s) => `<span><i style="background:${s.renk}"></i>${esc(s.ad)}${yok.includes(s) ? ' (geçmişi henüz yok)' : ''}</span>`).join('')}</div>
-      ${yok.length && !bos ? '<p class="sk-note">Geçmişi henüz olmayan şirketlerin çizgisi grafikte görünmez. Geçmiş doldurma değere göre en değerliden başlar; daha düşük değerli şirketler sonraki günlerde tamamlanır.</p>' : ''}
-      ${!yuzde && !log && m.tur !== 'sira' && !bos ? '<p class="sk-note">Değerler çok farklıysa küçük şirket grafiğin dibinde düz görünür: "Logaritmik ölçek" ya da "İlk güne göre %" ile kıyaslayın.</p>' : ''}
+      <div class="sk-legend">${seriler.map((s) => `<span><i style="background:${s.renk}"></i>${esc(s.ad)}</span>`).join('')}</div>
       <div class="sk-wrap"><table><thead><tr><th class="l">Şirket</th><th>Sıra</th><th>Şirket değeri</th><th>${esc(m.ad)}</th><th>${G.GUN_SAYISI} gün değişimi</th></tr></thead><tbody>${kiyas.ids.map(satir).join('')}</tbody></table></div>
       <p class="sk-note">${esc(`Geçmiş en çok ${G.GUN_SAYISI} gündür; bot her gün ekler.`)} Şirketin ayrıntısı için satıra dokunun.</p>`;
     kutu.querySelectorAll('.sg-kutu').forEach(G.grafikBagla);
@@ -527,8 +521,6 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
     if (t.closest('[data-kiyas-liste]')) { const a = Li.aktifListe(listeler); if (a) kiyasDegis([...kiyas.ids, ...a.idler]); return; }
     const km = t.closest('[data-kiyas-metrik]');
     if (km) { kiyas.metrik = km.dataset.kiyasMetrik; return kiyasSonuc(); }
-    const kol = t.closest('[data-kiyas-olcek]');
-    if (kol) { kiyas.olcek = kol.dataset.kiyasOlcek; return kiyasSonuc(); }
     const kmod = t.closest('[data-kiyas-mod]');
     if (kmod) { kiyas.mod = kmod.dataset.kiyasMod; return kiyasSonuc(); }
     if (t.closest('[data-liste-temizle]')) { state.listeId = null; state.page = 1; return ciz(); }

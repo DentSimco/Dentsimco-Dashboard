@@ -1457,11 +1457,4 @@ export default {
   'Son {0} gün; bot günde bir kez ekler. Ayrıntısı o gün gelmemiş şirketlerde "—" görünür.': 'Last {0} days; the bot adds a day once a day. Days whose details had not arrived show "—".',
   '‹ Önceki': '‹ Previous',
   'Gün gün tablo': 'Day-by-day table',
-  'Doğrusal ölçek': 'Linear scale',
-  'Logaritmik ölçek': 'Logarithmic scale',
-  'Ölçek': 'Scale',
-  ' (geçmişi henüz yok)': ' (no history yet)',
-  '(geçmişi henüz yok)': '(no history yet)',
-  'Geçmişi henüz olmayan şirketlerin çizgisi grafikte görünmez. Geçmiş doldurma değere göre en değerliden başlar; daha düşük değerli şirketler sonraki günlerde tamamlanır.': 'Companies that have no history yet have no line on the chart. The history backfill starts from the most valuable companies; lower-valued companies are completed over the following days.',
-  'Değerler çok farklıysa küçük şirket grafiğin dibinde düz görünür: "Logaritmik ölçek" ya da "İlk güne göre %" ile kıyaslayın.': 'When the values differ a lot, a small company looks flat at the bottom of the chart: compare with "Logarithmic scale" or "% since the first day".',
 };

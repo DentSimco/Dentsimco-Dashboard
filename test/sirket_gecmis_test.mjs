@@ -97,16 +97,3 @@ try {
   assert.equal(Li.oku(1).listeler.length, 0, 'R2 listeleri ayrı');
 } finally { delete globalThis.localStorage; }
 console.log('sirket_gecmis_test: tamam');
-
-// Logaritmik ölçek: çok farklı büyüklükteki şirketler okunur; doğrusalda küçükler dibe yapışır
-const uc = [{ ad: 'Büyük', noktalar: [[20261014, 1.4e9], [20261015, 1.41e9]] }, { ad: 'Orta', noktalar: [[20261014, 1.7e8], [20261015, 1.8e8]] }, { ad: 'Küçük', noktalar: [[20261014, 1.7e7], [20261015, 1.8e7]] }];
-const veriOf = (html) => JSON.parse(html.match(/data-sg="([^"]*)"/)[1].replace(/&quot;/g, '"').replace(/&amp;/g, '&'));
-const dg = veriOf(G.cizgiGrafik(uc, {}));
-const lg = veriOf(G.cizgiGrafik(uc, { log: true }));
-const taban = 240 - 26; const tepe = 12;
-assert.ok((taban - dg.seriler[1].y[1]) / (taban - tepe) < 0.25, 'doğrusalda orta şirket dibe yakın (alt çeyrek)');
-const ortaLog = (taban - lg.seriler[1].y[1]) / (taban - tepe);
-assert.ok(ortaLog > 0.3 && ortaLog < 0.7, 'logda orta şirket ortalarda');
-assert.ok(lg.seriler[2].t[1].includes('18'), 'okumada gerçek değer yazar');
-assert.ok(G.cizgiGrafik([{ ad: 'A', noktalar: [[20261014, 0], [20261015, 0]] }], { log: true }).includes('yeterli veri yok'), 'log ölçekte yalnız pozitif değerler çizilir');
-console.log('sirket_gecmis_test (log): tamam');
