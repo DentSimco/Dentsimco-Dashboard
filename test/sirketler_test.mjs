@@ -76,11 +76,12 @@ console.log('sirketler_test: tamam');
 // ---- Sekmeler ve adres ----
 import { sirketlerRota, SEKMELER, gecmisTablosuHtml } from '../public/sirketler.js';
 assert.deepEqual(SEKMELER.map((s) => s[0]), ['siralama', 'kiyas', 'liste']);
-assert.deepEqual(sirketlerRota('#sirketler'), { tab: 'siralama', key: null, ids: [] });
-assert.deepEqual(sirketlerRota('#sirketler/eva'), { tab: 'siralama', key: 'eva', ids: [] }, 'haber sayfasındaki ölçüt bağlantıları çalışır');
-assert.deepEqual(sirketlerRota('#sirketler/bilinmez'), { tab: 'siralama', key: null, ids: [] });
-assert.deepEqual(sirketlerRota('#sirketler/liste'), { tab: 'liste', key: null, ids: [] });
-assert.deepEqual(sirketlerRota('#sirketler/kiyas/1,2,2,x,3'), { tab: 'kiyas', key: null, ids: [1, 2, 3] }, 'tekrarlar ve bozuk numaralar atılır');
+const rota3 = (h) => { const { tab, key, ids } = sirketlerRota(h); return { tab, key, ids }; }; // kapsam/galt/grup: gruplar_test.mjs
+assert.deepEqual(rota3('#sirketler'), { tab: 'siralama', key: null, ids: [] });
+assert.deepEqual(rota3('#sirketler/eva'), { tab: 'siralama', key: 'eva', ids: [] }, 'haber sayfasındaki ölçüt bağlantıları çalışır');
+assert.deepEqual(rota3('#sirketler/bilinmez'), { tab: 'siralama', key: null, ids: [] });
+assert.deepEqual(rota3('#sirketler/liste'), { tab: 'liste', key: null, ids: [] });
+assert.deepEqual(rota3('#sirketler/kiyas/1,2,2,x,3'), { tab: 'kiyas', key: null, ids: [1, 2, 3] }, 'tekrarlar ve bozuk numaralar atılır');
 assert.equal(sirketlerRota('#sirketler/kiyas/1,2,3,4,5,6,7').ids.length, 5, 'en çok 5 şirket');
 // Gün gün tablo: yeniden eskiye; farklar önceki günle; ayrıntısı olmayan gün "—"
 const g = (d, sira, eva, deger, bina) => [d, sira, eva, deger, bina, bina == null ? null : 5, bina == null ? null : 300, bina == null ? null : 7, bina == null ? 0 : 1];
