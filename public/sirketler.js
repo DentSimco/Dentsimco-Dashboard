@@ -357,7 +357,7 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
       body = `<div class="sk-wrap"><table><thead><tr><th class="l">Sıra</th><th class="l">Grup</th><th>Üye</th><th>Toplam değer</th><th>Değişim</th><th>%</th></tr></thead><tbody>${sirali.map((g, i) => `<tr><td class="l">${NUM.format(i + 1)}</td>
         <td class="l"><a href="${hrefU(g.id)}">${esc(g.ad)}</a></td><td>${NUM.format(g.bulunan)}${g.eksik.length ? `<span class="dim"> / ${NUM.format(g.uyeSayisi)}</span>` : ''}</td><td>${usd(g.toplam)}</td>
         <td class="${tone(g.fark)}">${signed(g.fark)}</td><td class="${tone(g.yuzde)}">${g.yuzde ? PCT.format(g.yuzde) : '0%'}</td></tr>`).join('')}</tbody></table></div>
-        <p class="sk-note">Grup değeri, üyelerinin şirket değerlerinin toplamıdır. Gruplar resmi değildir; üyeler elle tanımlanır. Grup adına dokunun: üyeleri görün.</p>`;
+        <p class="sk-note">Grup değeri, üyelerinin şirket değerlerinin toplamıdır. Gruplar resmi değildir. Grup adına dokunun: üyeleri görün. Üye eksiği varsa grup liderleri Feedback üzerinden iletişime geçebilir.</p>`;
     } else {
       const g = liste.find((x) => x.id === sec);
       const uyeler = sirala(g.uyeler, 'value', -1);

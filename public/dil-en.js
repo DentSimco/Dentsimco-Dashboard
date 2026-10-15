@@ -1421,7 +1421,7 @@ export default {
   'Toplam değer': 'Total value',
   'Üye yok.': 'No members.',
   'Bu realm için henüz grup tanımlanmadı.': 'No groups have been defined for this realm yet.',
-  'Grup değeri, üyelerinin şirket değerlerinin toplamıdır. Gruplar resmi değildir; üyeler elle tanımlanır. Grup adına dokunun: üyeleri görün.': 'A group\'s value is the sum of its members\' company values. Groups are unofficial; members are defined by hand. Tap a group name to see its members.',
+  'Grup değeri, üyelerinin şirket değerlerinin toplamıdır. Gruplar resmi değildir. Grup adına dokunun: üyeleri görün. Üye eksiği varsa grup liderleri Feedback üzerinden iletişime geçebilir.': 'A group\'s value is the sum of its members\' company values. Groups are unofficial. Tap a group name to see its members. If any members are missing, group leaders can get in touch via Feedback.',
   'Liste: {0}': 'List: {0}',
   'Liste süzgecini kaldır': 'Remove list filter',
   'Şirket adı ya da numarası ara': 'Search by company name or number',
