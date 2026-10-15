@@ -9,7 +9,7 @@ import { LOCALE, t as ceviri } from './i18n.js';
 import { readDocs, PATHS, dataField, loadProduct, summarizeDay, utcDay, addDays, START_YEAR, loadGamePhase } from './veri.js';
 import * as H from './hesap.js';
 import * as Y from './yonetici.js';
-import { CSS, parseNum, kisayolKucuk, kisayolSatiri } from './uretim.js';
+import { CSS, parseNum, kisayolKucuk, kisayolSatiri, bolumUyariHtml } from './uretim.js';
 import * as R from './hesap-perakende.js';
 import { guideCard } from './rehber.js';
 import { binaAdi } from './adlar.js';
@@ -249,6 +249,8 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   let loadToken = 0;
   let destroyed = false;
   let toastTimer = null;
+  let kbOnay = false; // öteki bölümün binalarını kaldırma onayı bekleniyor
+  let kbGeri = null; // kaldırılanı geri almak için eski durum
   let sheet = null; // { draft: { index, id, letter, product, quality, level, cost, price } }
   let rankFilter = 'all';
   let period = 'day';
@@ -281,6 +283,11 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   const onAnyClick = () => setTimeout(flush, 0);
   const softRender = () => { if (pointerActive) pendingRender = true; else render(); };
 
+  function toastKbGeri(text) {
+    toastHost.innerHTML = `<div class="ur-toast" role="status">${esc(text)} <button type="button" class="ur-btn" data-act="kbGeri" style="min-height:36px;margin-left:10px">Geri al</button></div>`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toastHost.innerHTML = ''; kbGeri = null; }, 8000);
+  }
   function toast(text) {
     toastHost.innerHTML = `<div class="ur-toast" role="status">${esc(text)}</div>`;
     clearTimeout(toastTimer);
@@ -433,7 +440,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       }
     }
     const scroll = window.scrollY;
-    view.innerHTML = tabs + body;
+    view.innerHTML = tabs + (data && !loadError ? bolumUyariHtml(company, 'perakende', kbOnay) : '') + body;
     window.scrollTo(0, scroll);
     if (sheet) renderSheet();
   }
@@ -846,6 +853,25 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     if (act === 'sheetBackdrop' && (ev.target !== btn || !downOnBackdrop)) return;
     if (act === 'retry') return load();
     if (!data) return;
+    if (act === 'kbOnay') { kbOnay = true; return render(); }
+    if (act === 'kbIptal') { kbOnay = false; return render(); }
+    if (act === 'kbSil') {
+      kbOnay = false;
+      const eski = Y.karsiBolumuKaldir(r, 'uretim');
+      company = Y.loadCompanyRecord(r).company;
+      render();
+      if (!eski) return toast('Kaldırılamadı: tarayıcı kaydı açık değil.');
+      kbGeri = eski;
+      return toastKbGeri('Üretim binaları kaldırıldı.');
+    }
+    if (act === 'kbGeri') {
+      const geri = Y.karsiBolumuGeriYukle(kbGeri);
+      kbGeri = null;
+      toastHost.innerHTML = '';
+      company = Y.loadCompanyRecord(r).company;
+      render();
+      return toast(geri ? 'Üretim binaları geri yüklendi.' : 'Geri alınamadı.');
+    }
     if (act === 'sheetBackdrop' || act === 'sheetClose') return closeSheet();
     if (act === 'sheetSave') return saveSheet();
     if (act === 'sheetDel') {

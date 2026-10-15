@@ -132,6 +132,51 @@ export function otherAdminLevels(company, name) {
   return { levels: Math.floor(pos(other?.levels)), academy: Math.floor(pos(other?.academy)) };
 }
 
+// ---------------------------------------------------------------------------------------------------------------
+// Bölüm uyarıları: Üretim ve Perakende hesapları birbirinin özetini (seviye, maaş) yönetim giderine katar
+// ---------------------------------------------------------------------------------------------------------------
+const BOLUMLER = {
+  uretim: { ad: 'Üretim', binalar: 'Üretim binaları', git: "Üretim'e git", href: '#uretim/binalar', key: (r) => `dentsimco.uretim.r${r}` },
+  perakende: { ad: 'Perakende', binalar: 'Perakende mağazaları', git: "Perakende'ye git", href: '#perakende/binalar', key: (r) => `dentsimco.perakende.r${r}` },
+};
+// bolum: şu an açık olan bölüm ('uretim' | 'perakende'). Dönüş: { yoneticiYok, karsi } — karsi: öteki bölümde seviye varsa
+// { bolum, ad, binalar, href, seviye }, yoksa null (seviyesi 0 olan kurulum hesabı etkilemez).
+export function bolumUyarilari(company, bolum) {
+  const karsiAd = bolum === 'uretim' ? 'perakende' : 'uretim';
+  const seviye = Math.floor(pos(company?.parts?.[karsiAd]?.levels));
+  const b = BOLUMLER[karsiAd];
+  return {
+    yoneticiYok: !(Array.isArray(company?.executives) && company.executives.length),
+    karsi: seviye > 0 ? { bolum: karsiAd, ad: b.ad, binalar: b.binalar, git: b.git, href: b.href, seviye } : null,
+  };
+}
+// Öteki bölümün binalarını kaldırır: kayıttaki bina listesi boşalır, şirket kaydındaki payı (seviye, maaş, araştırma) sıfırlanır.
+// Akademi ve öteki ayarlar (rekreasyon, hız) kalır. Dönüş: geri alma için eski durum, ya da null (yazılamadıysa).
+export function karsiBolumuKaldir(r, karsiAd) {
+  const b = BOLUMLER[karsiAd];
+  if (!b) return null;
+  try {
+    const eskiHam = localStorage.getItem(b.key(r));
+    const { company } = loadCompanyRecord(r);
+    const eskiPay = company.parts?.[karsiAd] || null;
+    let kayit = null;
+    try { kayit = JSON.parse(eskiHam || 'null'); } catch { kayit = null; }
+    if (kayit && typeof kayit === 'object') localStorage.setItem(b.key(r), JSON.stringify({ ...kayit, buildings: [] }));
+    setCompanyPart(r, karsiAd, { levels: 0, academy: eskiPay?.academy, wagesDay: 0, researchDay: 0 });
+    return { r, karsiAd, eskiHam, eskiPay };
+  } catch { return null; }
+}
+// Kaldırılan bölümü geri yükler. Arada şirket kaydı ya da kayıt değiştiyse de eski pay ve bina listesi geri yazılır.
+export function karsiBolumuGeriYukle(eski) {
+  if (!eski || !BOLUMLER[eski.karsiAd]) return false;
+  try {
+    const b = BOLUMLER[eski.karsiAd];
+    if (eski.eskiHam != null) localStorage.setItem(b.key(eski.r), eski.eskiHam);
+    if (eski.eskiPay) setCompanyPart(eski.r, eski.karsiAd, eski.eskiPay);
+    return true;
+  } catch { return false; }
+}
+
 // Tarayıcı kaydı: Üretim, Yönetim ve Perakende aynı şirket kaydını okur ve yazar.
 export const COMPANY_KEY = (r) => `dentsimco.sirket.r${r}`;
 const URETIM_KEY = (r) => `dentsimco.uretim.r${r}`;
