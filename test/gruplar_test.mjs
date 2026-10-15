@@ -35,11 +35,11 @@ assert.equal(r0.length, G.length - 1);
 assert.equal(G[0].idler.length, 3, 'girdi değişmez');
 
 // adresler
-assert.deepEqual(sirketlerRota('#sirketler/gruplar'), { tab: 'siralama', key: null, ids: [], kapsam: 'gruplar', galt: 'uyeler', grup: null });
+assert.deepEqual(sirketlerRota('#sirketler/gruplar'), { tab: 'gruplar', key: null, ids: [], galt: 'uyeler', grup: null });
 assert.equal(sirketlerRota('#sirketler/gruplar/siralama').galt, 'siralama');
 assert.equal(sirketlerRota('#sirketler/gruplar/uyeler/a%20b').grup, 'a b');
 assert.equal(sirketlerRota('#sirketler/gruplar/uyeler/%E0%A4%A').grup, null, 'bozuk kodlama çökmez');
-assert.equal(sirketlerRota('#sirketler/siralama').kapsam, 'sirket');
+assert.equal(sirketlerRota('#sirketler/siralama').tab, 'siralama');
 assert.equal(sirketlerRota('#sirketler/value').key, 'value', 'haber bağlantıları çalışır');
 assert.equal(sirketlerRota('#sirketler/kiyas/1,2').ids.length, 2);
 assert.equal(sirketlerRota('#sirketler/liste').tab, 'liste');
