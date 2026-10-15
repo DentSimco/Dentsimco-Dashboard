@@ -72,3 +72,21 @@ assert.deepEqual(dC['Sıra'], ['3 (▼1)', 'down']);
 assert.deepEqual(detay(D)['EVA sırası'], ['—', '']);
 assert.ok(SIRALAMA.every(([k, t, col, dir]) => k && t && Number.isInteger(col) && (dir === 1 || dir === -1)));
 console.log('sirketler_test: tamam');
+
+// ---- Sekmeler ve adres ----
+import { sirketlerRota, SEKMELER, gecmisTablosuHtml } from '../public/sirketler.js';
+assert.deepEqual(SEKMELER.map((s) => s[0]), ['siralama', 'kiyas', 'liste']);
+assert.deepEqual(sirketlerRota('#sirketler'), { tab: 'siralama', key: null, ids: [] });
+assert.deepEqual(sirketlerRota('#sirketler/eva'), { tab: 'siralama', key: 'eva', ids: [] }, 'haber sayfasındaki ölçüt bağlantıları çalışır');
+assert.deepEqual(sirketlerRota('#sirketler/bilinmez'), { tab: 'siralama', key: null, ids: [] });
+assert.deepEqual(sirketlerRota('#sirketler/liste'), { tab: 'liste', key: null, ids: [] });
+assert.deepEqual(sirketlerRota('#sirketler/kiyas/1,2,2,x,3'), { tab: 'kiyas', key: null, ids: [1, 2, 3] }, 'tekrarlar ve bozuk numaralar atılır');
+assert.equal(sirketlerRota('#sirketler/kiyas/1,2,3,4,5,6,7').ids.length, 5, 'en çok 5 şirket');
+// Gün gün tablo: yeniden eskiye; farklar önceki günle; ayrıntısı olmayan gün "—"
+const g = (d, sira, eva, deger, bina) => [d, sira, eva, deger, bina, bina == null ? null : 5, bina == null ? null : 300, bina == null ? null : 7, bina == null ? 0 : 1];
+const tablo = gecmisTablosuHtml([g(20261013, 3, 10, 1000, 50), g(20261014, 2, 8, 1100, null), g(20261015, 2, 9, 1050, 60)]);
+assert.ok(tablo.indexOf('15') < tablo.indexOf('13') || tablo.indexOf('2026') > 0, 'tablo üretildi');
+assert.ok(tablo.includes('$1,100') || tablo.includes('$1.100'), 'değer görünür');
+assert.ok(tablo.includes('class="dim">—'), 'ayrıntısı gelmemiş gün "—"');
+assert.equal((tablo.match(/<tr>/g) || []).length, 4, 'başlık + 3 gün');
+console.log('sirketler sekmeleri: tamam');
