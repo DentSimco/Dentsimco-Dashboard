@@ -202,6 +202,7 @@ export const CSS = `
 .ur-stat > span:first-child { font-size: 13px; color: var(--muted); font-weight: 600; }
 .ur-stat > span:last-child { font-size: 17px; font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .ur-eff { font-size: 14px; font-weight: 600; color: var(--accent); margin-left: 4px; }
+@media (min-width: 761px) { .ur { max-width: 1240px; } } /* tablet ve bilgisayar: Optimum Seviye (.op) ile aynı genişlik */
 @media (max-width: 600px) { .ur-eff { display: block; margin-left: 0; } }
 .ur-stats { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1fr) minmax(0, 1.5fr); gap: 8px; }
 .ur-metrics { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
