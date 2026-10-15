@@ -3,6 +3,7 @@
 // "Ekibinizin etkisi" ekranlarından; para karşılıkları elle hesaplanmış örneklerle sınanır.
 
 import * as Y from '../public/yonetici.js';
+import { bolumUyariHtml } from '../public/uretim.js';
 import * as H from '../public/hesap.js';
 import * as R from '../public/hesap-perakende.js';
 
@@ -292,6 +293,54 @@ test('Üretim payındaki araştırma değeri kayıtta korunur ve temizlenir', ()
 });
 
 // ---- rapor ----
+
+section('Bölüm uyarıları (Üretim ↔ Perakende)');
+const sirketOrnek = (parts, executives = [ex('A', 'o', 0, 70, 0, 0, 0)]) => Y.sanitizeCompany({ executives, parts });
+test('Yönetici yoksa uyarı verir; öteki bölümde seviye yoksa ya da 0 ise karşı uyarı yok', () => {
+  eq(Y.bolumUyarilari(sirketOrnek({}, []), 'uretim'), { yoneticiYok: true, karsi: null });
+  eq(Y.bolumUyarilari(sirketOrnek({ perakende: { levels: 0, academy: 5 } }), 'uretim'), { yoneticiYok: false, karsi: null });
+});
+test('Üretim açıkken Perakende, Perakende açıkken Üretim karşı bölümdür; seviye ve adres döner', () => {
+  const c = sirketOrnek({ uretim: { levels: 30 }, perakende: { levels: 12 } });
+  const u = Y.bolumUyarilari(c, 'uretim').karsi;
+  eq([u.bolum, u.ad, u.seviye, u.href, u.git], ['perakende', 'Perakende', 12, '#perakende/binalar', "Perakende'ye git"]);
+  const p = Y.bolumUyarilari(c, 'perakende').karsi;
+  eq([p.bolum, p.ad, p.seviye, p.href, p.git], ['uretim', 'Üretim', 30, '#uretim/binalar', "Üretim'e git"]);
+});
+test('Kaldır: binalar boşalır, pay sıfırlanır (akademi kalır); geri al hepsini döndürür', () => {
+  const depo = new Map();
+  globalThis.localStorage = { getItem: (k) => (depo.has(k) ? depo.get(k) : null), setItem: (k, v) => depo.set(k, String(v)), removeItem: (k) => depo.delete(k) };
+  try {
+    Y.saveCompanyRecord(0, sirketOrnek({ uretim: { levels: 30, wagesDay: 900 }, perakende: { levels: 12, academy: 4, wagesDay: 500, researchDay: 7 } }));
+    depo.set('dentsimco.perakende.r0', JSON.stringify({ buildings: [{ letter: 'S', product: 1, level: 12 }], recreation: { park: 2 } }));
+    const eski = Y.karsiBolumuKaldir(0, 'perakende');
+    ok(eski, 'geri alma bilgisi dönmedi');
+    const c = Y.loadCompanyRecord(0).company;
+    eq([c.parts.perakende.levels, c.parts.perakende.wagesDay, c.parts.perakende.researchDay, c.parts.perakende.academy], [0, 0, 0, 4]);
+    eq(c.parts.uretim.levels, 30, 'Üretim payına dokunulmamalı');
+    const kayit = JSON.parse(depo.get('dentsimco.perakende.r0'));
+    eq([kayit.buildings, kayit.recreation.park], [[], 2]);
+    eq(Y.bolumUyarilari(c, 'uretim').karsi, null);
+    ok(Y.karsiBolumuGeriYukle(eski));
+    const g = Y.loadCompanyRecord(0).company;
+    eq([g.parts.perakende.levels, g.parts.perakende.wagesDay, g.parts.perakende.researchDay], [12, 500, 7]);
+    eq(JSON.parse(depo.get('dentsimco.perakende.r0')).buildings.length, 1);
+  } finally { delete globalThis.localStorage; }
+});
+test('Uyarı kartı: yönetici yoksa Ekip bağlantısı; karşı bölümde bina varsa git ve kaldır düğmesi, onayda Evet/Vazgeç; hiçbiri yoksa boş', () => {
+  const h = bolumUyariHtml(sirketOrnek({ perakende: { levels: 12 } }, []), 'uretim');
+  ok(h.includes('href="#yonetim/ekip"') && h.includes('role="alert"'), 'yönetici uyarısı yok');
+  ok(h.includes('href="#perakende/binalar"') && h.includes('data-act="kbOnay"') && h.includes('12 seviye'), 'karşı bölüm uyarısı yok');
+  const o = bolumUyariHtml(sirketOrnek({ perakende: { levels: 12 } }), 'uretim', true);
+  ok(o.includes('data-act="kbSil"') && o.includes('data-act="kbIptal"') && !o.includes('data-act="kbOnay"'), 'onay adımı yok');
+  eq(bolumUyariHtml(sirketOrnek({}), 'perakende'), '');
+});
+test('Kaldır: tarayıcı kaydı yoksa null döner, hata fırlatmaz', () => {
+  eq(Y.karsiBolumuKaldir(0, 'perakende'), null);
+  eq(Y.karsiBolumuKaldir(0, 'yok'), null);
+  eq(Y.karsiBolumuGeriYukle(null), false);
+});
+
 let failed = 0;
 let current = null;
 for (const r of results) {

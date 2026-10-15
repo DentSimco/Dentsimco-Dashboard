@@ -258,6 +258,26 @@ const icon = (n) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" 
 const kv = (label, value, cls = '', strong = false) => `<div class="ur-kv${strong ? ' strong' : ''}"><span>${label}</span><span class="${cls}">${value}</span></div>`;
 const seg = (act, options, value, label) => `<div class="ur-seg" role="group" aria-label="${esc(label)}">${options.map(([v, t]) =>
   `<button type="button" data-act="${act}" data-v="${esc(v)}" aria-pressed="${String(v) === String(value)}">${esc(t)}</button>`).join('')}</div>`;
+// Üretim ve Perakende üstündeki uyarı kartı: yönetici yok / öteki bölümde bina var (git ya da kaldır). onay: kaldırma onayı bekleniyor.
+export function bolumUyariHtml(company, bolum, onay = false) {
+  const u = Y.bolumUyarilari(company, bolum);
+  const parts = [];
+  if (u.yoneticiYok) {
+    parts.push(`<div class="ur-msg err" role="alert"><b>Yönetici girilmedi</b>
+      <p style="margin:6px 0 10px">Yönetim gideri tasarrufu yöneticilerinize bağlıdır; girmediğiniz için bu sayfa %0 tasarrufla hesaplıyor.</p>
+      <a class="ur-btn" href="#yonetim/ekip" style="text-decoration:none">Yönetim › Ekip'e git</a></div>`);
+  }
+  if (u.karsi) {
+    const k = u.karsi;
+    parts.push(`<div class="ur-msg" role="note"><b>${esc(k.ad)}'de bina var</b>
+      <p style="margin:6px 0 10px">${esc(`${k.binalar} toplam ${NF[0].format(k.seviye)} seviye. Bunlar yönetim giderinize girer ve bu sayfadaki sonuçları etkiler.`)}</p>
+      ${onay ? `<p style="margin:0 0 10px"><b>${esc(`${k.ad} binaları silinecek. Emin misiniz?`)}</b></p>
+        <div class="ur-row"><button type="button" class="ur-btn grow" data-act="kbIptal">Vazgeç</button><button type="button" class="ur-btn danger grow" data-act="kbSil">Evet, kaldır</button></div>`
+    : `<div class="ur-row"><a class="ur-btn grow" href="${esc(k.href)}" style="text-decoration:none;justify-content:center">${esc(k.git)}</a>
+        <button type="button" class="ur-btn danger grow" data-act="kbOnay">${esc(`${k.ad} binalarını kaldır`)}</button></div>`}</div>`);
+  }
+  return parts.length ? `<section class="ur-card" aria-label="Uyarılar" style="gap:10px">${parts.join('')}</section>` : '';
+}
 const sw = (act, on, label, extra = '') => `<button type="button" class="ur-switch" data-act="${act}" ${extra} aria-pressed="${on}" aria-label="${esc(label)}"></button>`;
 const chip = (text, kind = '') => `<span class="ur-chip ${kind}">${esc(text)}</span>`;
 function field(label, name, value, { unit = '', hint = '', mode = 'decimal', attr = 'data-f' } = {}) {
@@ -287,6 +307,8 @@ export function mountUretim(root, { realm = 0 } = {}) {
   if (TABS.some(([k]) => k === fromHash)) tab = fromHash;
   let sheet = null; // { kind, draft, opener, ... }
   let toastTimer = null;
+  let kbOnay = false; // öteki bölümün binalarını kaldırma onayı bekleniyor
+  let kbGeri = null; // kaldırılanı geri almak için eski durum
 
   const style = document.createElement('style');
   style.dataset.module = 'uretim';
@@ -342,6 +364,11 @@ export function mountUretim(root, { realm = 0 } = {}) {
     syncPart();
     if (silentSave) return;
     if (soft) softRender(); else render();
+  }
+  function toastKbGeri(text) {
+    toastHost.innerHTML = `<div class="ur-toast" role="status">${esc(text)} <button type="button" class="ur-btn" data-act="kbGeri" style="min-height:36px;margin-left:10px">Geri al</button></div>`;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { toastHost.innerHTML = ''; kbGeri = null; }, 8000);
   }
   function toast(text) {
     toastHost.innerHTML = `<div class="ur-toast" role="status">${esc(text)}</div>`;
@@ -452,7 +479,7 @@ export function mountUretim(root, { realm = 0 } = {}) {
       }
     }
     const scroll = window.scrollY;
-    view.innerHTML = tabs + body;
+    view.innerHTML = tabs + (data && !loadError ? bolumUyariHtml(company, 'uretim', kbOnay) : '') + body;
     window.scrollTo(0, scroll);
     if (sheet) renderSheet();
   }
@@ -1037,6 +1064,25 @@ export function mountUretim(root, { realm = 0 } = {}) {
     if (act === 'sheetBackdrop') { if (ev.target === btn && downOnBackdrop) closeSheet(); return; }
     if (act === 'retry') return load();
     if (!data) return;
+    if (act === 'kbOnay') { kbOnay = true; return render(); }
+    if (act === 'kbIptal') { kbOnay = false; return render(); }
+    if (act === 'kbSil') {
+      kbOnay = false;
+      const eski = Y.karsiBolumuKaldir(r, 'perakende');
+      company = Y.loadCompanyRecord(r).company;
+      render();
+      if (!eski) return toast('Kaldırılamadı: tarayıcı kaydı açık değil.');
+      kbGeri = eski;
+      return toastKbGeri('Perakende binaları kaldırıldı.');
+    }
+    if (act === 'kbGeri') {
+      const geri = Y.karsiBolumuGeriYukle(kbGeri);
+      kbGeri = null;
+      toastHost.innerHTML = '';
+      company = Y.loadCompanyRecord(r).company;
+      render();
+      return toast(geri ? 'Perakende binaları geri yüklendi.' : 'Geri alınamadı.');
+    }
     const set = (patch) => commit({ ...setup, ...patch });
     if (act === 'phase') return set({ economyPhase: v === 'auto' ? null : Number(v) });
     if (act === 'refreshPrices') return refreshPrices();
