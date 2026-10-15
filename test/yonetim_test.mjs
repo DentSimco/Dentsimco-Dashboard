@@ -1,7 +1,7 @@
 // DentSimco — Yönetim menü yönlendirme sınamaları (eski adresler yeni yerlerine gider).
 // Çalıştırma: node test/yonetim_test.mjs
 
-import { yonetimRota, puanMetni, etkiDegerleri, apiOku, ekibiTemizle, ekibiGeriYukle } from '../public/yonetim.js';
+import { yonetimRota, puanMetni, etkiDegerleri, apiOku, ekibiTemizle, ekibiGeriYukle, ekibiDuzenle, pozisyonSahibi, yoneticiKaydet } from '../public/yonetim.js';
 import * as H from '../public/hesap.js';
 
 const results = [];
@@ -133,6 +133,44 @@ test('Geri al: kadro boşsa liste geri gelir; arada yeni yönetici eklendiyse ya
   eq(ekibiGeriYukle(bos, null), null);
   const back = ekibiTemizle({ executives: [e1, e2] });
   eq(ekibiGeriYukle(back.company, back.silinen).executives, [e1, e2], 'sil ve geri al gidiş dönüş');
+});
+
+
+const yon = (id, position, extra = {}) => ({ id, name: id, position, salary: 0, skills: { coo: 0, cfo: 0, cmo: 0, cto: 0 }, active: true, ...extra });
+const pozlar = (l) => l.map((e) => `${e.id}:${e.position}`).join(' ');
+
+test('Ekip düzeni: sıra COO, COO stajyeri, CFO, CFO stajyeri, CMO, CMO stajyeri, CTO, CTO stajyeri, sonra personel (kendi sırasıyla)', () => {
+  const { list } = ekibiDuzenle([yon('p1', '1'), yon('t', 't'), yon('z', 'z'), yon('p2', '2'), yon('y', 'y'), yon('m', 'm'), yon('x', 'x'), yon('f', 'f'), yon('v', 'v'), yon('o', 'o')]);
+  eq(list.map((e) => e.id), ['o', 'v', 'f', 'x', 'm', 'y', 't', 'z', 'p1', 'p2']);
+});
+test('Ekip düzeni: aynı pozisyonda iki kişi varsa öncelikli kalır, öteki personel olur; öncelik yoksa ilk kişi kalır', () => {
+  const a = yon('a', 'o'), b = yon('b', 'o');
+  eq(pozlar(ekibiDuzenle([a, b], { oncelik: b }).list), 'b:o a:1');
+  const out = ekibiDuzenle([a, b]);
+  eq(pozlar(out.list), 'a:o b:1'); eq(out.dusen, 1);
+  eq(pozlar(ekibiDuzenle([yon('s1', 'v'), yon('s2', 'v')]).list), 's1:v s2:1');
+});
+test('Pozisyon sahibi: yalnız başkası sayılır, personel her zaman boştur', () => {
+  const l = [yon('a', 'o'), yon('b', 'f'), yon('c', '1')];
+  eq(pozisyonSahibi(l, null, 'o')?.id, 'a'); eq(pozisyonSahibi(l, 0, 'o'), null); eq(pozisyonSahibi(l, null, '1'), null); eq(pozisyonSahibi(l, null, 'm'), null);
+});
+test('Yönetici kaydet: yeni COO eklenince eski COO personel olur', () => {
+  eq(pozlar(yoneticiKaydet([yon('a', 'o'), yon('b', 'f')], null, yon('n', 'o')).list), 'n:o b:f a:1');
+});
+test('Yönetici kaydet: iki yönetici pozisyon değiştirir (COO ↔ CFO) ve liste sıralı kalır', () => {
+  const l = [yon('a', 'o'), yon('b', 'f')];
+  eq(pozlar(yoneticiKaydet(l, 0, { ...l[0], position: 'f' }).list), 'b:o a:f');
+});
+test('Yönetici kaydet: personelken COO olunca eski COO personel olur; stajyer için de aynı', () => {
+  const l = [yon('a', 'o'), yon('p', '1')];
+  eq(pozlar(yoneticiKaydet(l, 1, { ...l[1], position: 'o' }).list), 'p:o a:1');
+  const k = [yon('s', 'v'), yon('p', '1')];
+  eq(pozlar(yoneticiKaydet(k, 1, { ...k[1], position: 'v' }).list), 'p:v s:1');
+});
+test('Ekip puanı: personel katkı vermez, pozisyon değişince puanlar buna göre değişir', () => {
+  const a = yon('a', 'o', { skills: { coo: 70, cfo: 0, cmo: 0, cto: 0 } });
+  eq(H.teamScores([a]).coo, 70);
+  eq(H.teamScores([{ ...a, position: '1' }]).coo, 0);
 });
 
 const failed = results.filter((r) => !r.ok);
