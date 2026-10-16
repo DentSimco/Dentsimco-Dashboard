@@ -37,3 +37,14 @@ export function grupDegerleri(rows, gruplar, realm = 0) {
 
 // dir: -1 azalan (varsayılan). Eşitlikte ada göre.
 export const grupSirala = (liste, dir = -1) => [...liste].sort((a, b) => ((a.toplam - b.toplam) * dir) || String(a.ad).localeCompare(String(b.ad), 'tr'));
+
+// Grup geçmişi: gecmis = Map(şirketNo → gün listesi; gün = [YYYYMMDD, sıra, eva, değer, ...], bkz. sirket-gecmis.js).
+// Gün, geçmişi olan tüm üyelerde varsa toplanır (eksik günde toplam sahte düşerdi); hiç geçmişi olmayan üye toplama girmez.
+// Dönüş: { noktalar: [[YYYYMMDD, toplam]], uye: geçmişi olan üye sayısı, gecmissiz: geçmişi olmayan üye sayısı }
+export function grupGecmisi(idler, gecmis) {
+  const uyeler = idler.map((id) => new Map((gecmis.get(Number(id)) || []).filter((g) => Number.isFinite(g[3])).map((g) => [g[0], g[3]])));
+  const var_ = uyeler.filter((m) => m.size);
+  const gunler = [...new Set(var_.flatMap((m) => [...m.keys()]))].sort((a, b) => a - b);
+  const noktalar = gunler.filter((d) => var_.every((m) => m.has(d))).map((d) => [d, var_.reduce((t, m) => t + m.get(d), 0)]);
+  return { noktalar, uye: var_.length, gecmissiz: uyeler.length - var_.length };
+}
