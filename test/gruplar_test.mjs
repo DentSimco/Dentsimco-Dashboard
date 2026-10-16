@@ -1,6 +1,6 @@
 // node test/gruplar_test.mjs — Grup toplamı ve sıralaması (ağ kullanmaz)
 import assert from 'node:assert/strict';
-import { grupDegerleri, grupSirala, grupRealmde } from '../public/gruplar.js';
+import { grupDegerleri, grupSirala, grupRealmde, grupGecmisi } from '../public/gruplar.js';
 import { sirketlerRota } from '../public/sirketler.js';
 
 // [id, ad, sıra, sıraFarkı, eva, değer, değerFarkı, ...]
@@ -43,4 +43,17 @@ assert.equal(sirketlerRota('#sirketler/siralama').tab, 'siralama');
 assert.equal(sirketlerRota('#sirketler/value').key, 'value', 'haber bağlantıları çalışır');
 assert.equal(sirketlerRota('#sirketler/kiyas/1,2').ids.length, 2);
 assert.equal(sirketlerRota('#sirketler/liste').tab, 'liste');
+// grup geçmişi: gün = [gün, sıra, eva, değer]
+const gun = (d, v) => [d, 0, 0, v];
+const gec = new Map([
+  [1, [gun(20260101, 10), gun(20260102, 20), gun(20260103, 30)]],
+  [2, [gun(20260102, 1), gun(20260103, 2)]],
+  [3, []],
+]);
+const gg = grupGecmisi([1, 2, 3], gec);
+assert.deepEqual(gg.noktalar, [[20260102, 21], [20260103, 32]], 'yalnız tüm üyelerde bulunan günler toplanır');
+assert.equal(gg.uye, 2);
+assert.equal(gg.gecmissiz, 1, 'geçmişi olmayan üye toplama girmez');
+assert.deepEqual(grupGecmisi([3], gec).noktalar, []);
+assert.deepEqual(grupGecmisi([], gec), { noktalar: [], uye: 0, gecmissiz: 0 });
 console.log('gruplar_test: tamam');

@@ -96,6 +96,12 @@ export function sirketlerRota(hash) {
 export const SEKMELER = [['siralama', 'Şirketler'], ['gruplar', 'Gruplar'], ['kiyas', 'Kıyas'], ['liste', 'Liste']];
 
 const CSS = G.GRAFIK_CSS + `
+.sk-body { display: flex; flex-direction: column; gap: 12px; }
+.sk-body > * { min-width: 0; }
+.sk-gtab { width: 100%; }
+.sk-gtab td, .sk-gtab th { padding: 9px 8px; font-size: 14px; }
+.sk-gtab td.l:nth-child(2) { white-space: normal; min-width: 110px; }
+.sk-gtab td:nth-child(3) { white-space: nowrap; text-align: right; }
 .sk-sub { display: flex; flex-wrap: wrap; gap: 6px; }
 .sk-sub a { display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line-2); color: var(--muted); font: 600 14px var(--font-c); text-decoration: none; }
 .sk-sub a[aria-current="page"] { color: var(--accent); border-color: var(--accent); background: var(--raise); }
@@ -247,6 +253,9 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
   let tab = 'siralama';
   let galt = 'uyeler'; // Gruplar altında: 'uyeler' | 'siralama'
   let grupId = null; // Üyeler'de seçili grup
+  let grupGecmis = null; // Gruplar › Sıralama grafiği: Map(şirketNo → gün listesi)
+  let grupMod = 'deger'; // 'deger' | 'yuzde'
+  let grupToken = 0;
   let kiyas = { ids: [], metrik: 'value', mod: 'deger', gecmis: null, yukleniyor: false };
   let kiyasToken = 0;
   let listeler = Li.oku(realm);
@@ -349,18 +358,56 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
     if (!liste.length) body = '<p class="sk-note">Bu realm için henüz grup tanımlanmadı.</p>';
     else if (galt === 'siralama') {
       const sirali = Gr.grupSirala(liste);
-      body = `<div class="sk-wrap"><table><thead><tr><th class="l">Sıra</th><th class="l">Grup</th><th>Üye</th><th>Toplam değer</th><th>Değişim</th><th>%</th></tr></thead><tbody>${sirali.map((g, i) => `<tr><td class="l">${NUM.format(i + 1)}</td>
-        <td class="l"><a href="${hrefU(g.id)}">${esc(g.ad)}</a></td><td>${NUM.format(g.bulunan)}${g.eksik.length ? `<span class="dim"> / ${NUM.format(g.uyeSayisi)}</span>` : ''}</td><td>${usd(g.toplam)}</td>
-        <td class="${tone(g.fark)}">${signed(g.fark)}</td><td class="${tone(g.yuzde)}">${g.yuzde ? PCT.format(g.yuzde) : '0%'}</td></tr>`).join('')}</tbody></table></div>
+      body = `<div class="sk-wrap"><table class="sk-gtab"><thead><tr><th class="l">Sıra</th><th class="l">Grup</th><th>Toplam değer · değişim</th></tr></thead><tbody>${sirali.map((g, i) => `<tr><td class="l">${NUM.format(i + 1)}</td>
+        <td class="l"><a href="${hrefU(g.id)}">${esc(g.ad)}</a><span class="sk-id">${NUM.format(g.bulunan)}${g.eksik.length ? ` / ${NUM.format(g.uyeSayisi)}` : ''} üye</span></td>
+        <td>${usd(g.toplam)}<span class="sk-id ${tone(g.fark)}">${signed(g.fark)} · ${g.yuzde ? PCT.format(g.yuzde) : '0%'}</span></td></tr>`).join('')}</tbody></table></div>
+        <section class="sk-card" data-grup-grafik aria-live="polite"></section>
         <p class="sk-note">Grup değeri, üyelerinin şirket değerlerinin toplamıdır. Gruplar resmi değildir. Grup adına dokunun: üyeleri görün. Üye eksiği varsa grup liderleri Feedback üzerinden iletişime geçebilir.</p>`;
     } else {
       const g = liste.find((x) => x.id === sec);
       const uyeler = sirala(g.uyeler, 'value', -1);
-      body = `<div class="sk-seg" role="group" aria-label="Grup">${liste.map((x) => `<a class="sk-act" href="${hrefU(x.id)}" ${x.id === sec ? 'aria-current="page"' : ''}>${esc(x.ad)}</a>`).join('')}</div>
+      body = `<div class="sk-row"><select data-grup-sec aria-label="Grup seç">${liste.map((x) => `<option value="${esc(x.id)}" ${x.id === sec ? 'selected' : ''}>${esc(x.ad)}</option>`).join('')}</select></div>
         <p class="sk-note">${esc(g.ad)} · ${NUM.format(g.bulunan)} üye · Toplam değer ${usd(g.toplam)} (${signed(g.fark)})${g.eksik.length ? ` · Sıralamada bulunamayan şirket numarası: ${g.eksik.map((x) => esc(x)).join(', ')}` : ''}</p>
-        <div class="sk-wrap"><table><thead><tr><th class="l">Üye sırası</th>${TABLO_BASLIK.map(([t, , c]) => `<th class="${c || ''}">${t === 'Sıra' ? 'Şirket sırası' : t}</th>`).join('')}</tr></thead><tbody>${uyeler.map((r, i) => satirHtml(r, '', `<td class="l">${NUM.format(i + 1)}</td>`)).join('') || '<tr><td colspan="10" class="l dim">Üye yok.</td></tr>'}</tbody></table></div>`;
+        <p class="sk-note">#: grup içindeki sıra · Sıra: şirket sıralamasındaki yer.</p>
+        <div class="sk-wrap"><table><thead><tr><th class="l" title="Grup içindeki sıra">#</th>${TABLO_BASLIK.map(([t, , c]) => `<th class="${c || ''}"${t === 'Sıra' ? ' title="Şirket sıralamasındaki yer"' : ''}>${t}</th>`).join('')}</tr></thead><tbody>${uyeler.map((r, i) => satirHtml(r, '', `<td class="l">${NUM.format(i + 1)}</td>`)).join('') || '<tr><td colspan="10" class="l dim">Üye yok.</td></tr>'}</tbody></table></div>`;
     }
     govde().innerHTML = `<nav class="sk-sub" aria-label="Grup bölümleri">${alt(sec ? hrefU(sec) : '#sirketler/gruplar/uyeler', 'Üyeler', galt === 'uyeler')}${alt('#sirketler/gruplar/siralama', 'Sıralama', galt === 'siralama')}</nav>${body}`;
+    if (liste.length && galt === 'siralama') grupGrafik(liste);
+  }
+
+  // Grupların toplam değeri, son 30 günün şirket geçmişlerinin gün gün toplamıdır (üyelerin geçmişi gerekir; ağır olduğundan arka planda yüklenir).
+  async function grupGrafik(liste) {
+    const kutu = box.querySelector('[data-grup-grafik]');
+    if (!kutu) return;
+    if (!grupGecmis) {
+      const my = ++grupToken;
+      kutu.innerHTML = '<p class="sk-note">Grafik için geçmiş yükleniyor…</p>';
+      try {
+        const g = await G.gecmisYukle(realm, liste.flatMap((x) => x.uyeler.map((r) => r[0])));
+        if (!alive || my !== grupToken) return;
+        grupGecmis = g;
+      } catch {
+        if (!alive || my !== grupToken) return;
+        kutu.innerHTML = '<p class="sk-note">Grafik için geçmiş açılamadı. Biraz sonra tekrar deneyin.</p>';
+        return;
+      }
+    }
+    const m = metrikBul('value');
+    const yuzde = grupMod === 'yuzde';
+    const seriler = Gr.grupSirala(liste).map((g, i) => {
+      const h = Gr.grupGecmisi(g.uyeler.map((r) => r[0]), grupGecmis);
+      return { ad: g.ad, renk: G.RENKLER[i % G.RENKLER.length], gecmissiz: h.gecmissiz, noktalar: yuzde ? G.yuzdeNoktalari(h.noktalar) : h.noktalar };
+    });
+    const grafik = seriler.every((s) => s.noktalar.length < 2) ? GECMIS_YOK : G.cizgiGrafik(seriler, {
+      bicim: yuzde ? (v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}%` : (v) => G.eksenMetni(m, v), oku: yuzde ? (v) => `${v > 0 ? '+' : ''}${v.toFixed(2)}%` : (v) => G.degerMetni(m, v), ad: `Grup toplam değeri · son ${G.GUN_SAYISI} gün`,
+    });
+    const eksik = seriler.filter((s) => s.gecmissiz > 0);
+    kutu.innerHTML = `<h2>Toplam değer · son 30 gün</h2>
+      <div class="sk-seg" role="group" aria-label="Gösterim"><button type="button" data-grup-mod="deger" aria-pressed="${!yuzde}">Değer</button><button type="button" data-grup-mod="yuzde" aria-pressed="${yuzde}">İlk güne göre %</button></div>
+      ${grafik}
+      <div class="sk-legend">${seriler.map((s) => `<span><i style="background:${s.renk}"></i>${esc(s.ad)}</span>`).join('')}</div>
+      <p class="sk-note">Toplam, üyelerin o günkü şirket değerlerinin toplamıdır; geçmişi eksik günler gösterilmez.</p>${eksik.length ? `<p class="sk-note">${`Geçmişi henüz olmayan şirketler toplama girmez: ${eksik.map((s) => `${esc(s.ad)} (${s.gecmissiz})`).join(', ')}`}</p>` : ''}`;
+    kutu.querySelectorAll('.sg-kutu').forEach(G.grafikBagla);
   }
 
   // ---- Ortak: şirket arama kutusu ----
@@ -558,6 +605,8 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
     if (kutu && data) sonuclariCiz(kutu);
   });
   box.addEventListener('change', (e) => {
+    const gs = e.target.closest('[data-grup-sec]');
+    if (gs) { location.hash = `#sirketler/gruplar/uyeler/${encodeURIComponent(gs.value)}`; return; }
     const sec = e.target.closest('[data-liste-sec]');
     if (sec) { kaydet(Li.sec(listeler, sec.value)); formu = null; listeCiz(); }
   });
@@ -573,6 +622,8 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
     const kc = t.closest('[data-kiyas-cikar]');
     if (kc) return kiyasDegis(kiyas.ids.filter((x) => x !== Number(kc.dataset.kiyasCikar)));
     if (t.closest('[data-kiyas-liste]')) { const a = Li.aktifListe(listeler); if (a) kiyasDegis([...kiyas.ids, ...a.idler]); return; }
+    const gm = t.closest('[data-grup-mod]');
+    if (gm) { grupMod = gm.dataset.grupMod; return gruplarCiz(); }
     const km = t.closest('[data-kiyas-metrik]');
     if (km) { kiyas.metrik = km.dataset.kiyasMetrik; return kiyasSonuc(); }
     const kmod = t.closest('[data-kiyas-mod]');
@@ -637,7 +688,7 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
       if (next === realm) return;
       closeSheet();
       realm = next;
-      state.page = 1; state.listeId = null; grupId = null;
+      state.page = 1; state.listeId = null; grupId = null; grupGecmis = null;
       listeler = Li.oku(realm);
       kiyas = { ...kiyas, ids: [], gecmis: null };
       formu = null;
