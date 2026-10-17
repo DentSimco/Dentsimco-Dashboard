@@ -124,6 +124,7 @@ export function cizgiGrafik(seriler, { bicim = (v) => TAM.format(v), oku = null,
   if (!gunler.length || !degerler.length) return '<p class="sg-bos">Grafik için yeterli veri yok.</p>';
   let lo = Math.min(...degerler); let hi = Math.max(...degerler);
   if (lo === hi) { const p = Math.max(1, Math.abs(lo) * 0.01); lo -= p; hi += p; } else { const p = (hi - lo) * 0.08; lo -= p; hi += p; }
+  if (Math.min(...degerler) >= 0 && lo < 0) lo = 0; // hiç negatif değer yokken eksen sıfırın altına inmesin
   const o0 = ordinal(gunler[0]); const o1 = ordinal(gunler.at(-1));
   const x = (day) => (o1 === o0 ? (L + W - R) / 2 : L + ((ordinal(day) - o0) / (o1 - o0)) * (W - L - R));
   const y = (v) => { const t = (v - lo) / (hi - lo); return T + (ters ? t : 1 - t) * (H - T - B); };
