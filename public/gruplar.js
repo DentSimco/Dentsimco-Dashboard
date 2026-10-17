@@ -29,6 +29,11 @@ export const GRUPLAR = [
     ],
   },
   { id: 'tyb', ad: 'Türk Yatırım Birliği', kisa: 'TYB', realm: 0, idler: [1391662, 5256887, 5236541, 5165637] }, // 4 üyenin 4'ü isimden eşlendi
+  {
+    id: 'ttib', ad: 'TTİB', realm: 0,
+    // 9 isimden 6'sı sıralamayla eşlendi. Sıralamada bulunamayanlar (pasif olabilir): RESSAMX, KAPLAN YATIRIM, BLACKSEA INTERNATİONAL
+    idler: [5298615, 5405958, 5492548, 5225452, 4580864, 5464654],
+  },
 ];
 
 // Satır sütunları: 0 id, 1 ad, 5 değer, 6 günlük değer farkı
