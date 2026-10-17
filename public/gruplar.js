@@ -28,6 +28,7 @@ export const GRUPLAR = [
       4065073, 4362225, 3422501, 4517439, 3637420, 5095772, 4088048, 3669404, 3621292, 3634074,
     ],
   },
+  { id: 'tyb', ad: 'Türk Yatırım Birliği', kisa: 'TYB', realm: 0, idler: [1391662, 5256887, 5236541, 5165637] }, // 4 üyenin 4'ü isimden eşlendi
 ];
 
 // Satır sütunları: 0 id, 1 ad, 5 değer, 6 günlük değer farkı
