@@ -10,6 +10,7 @@ import * as H from './hesap.js';
 import * as Y from './yonetici.js';
 import { CSS, parseNum, kisayolSatiri } from './uretim.js';
 import { mountInsaat } from './insaat.js';
+import { esc } from './esc.js';
 
 const TAB_KEY = 'dentsimco.yonetim.tab';
 const SIM_KEY = 'dentsimco.yonetim.sim';
@@ -50,7 +51,6 @@ const money = (x, d = 0, sign = false) => {
   return x < 0 ? `−${s}` : sign && x > 0 ? `+${s}` : s;
 };
 const price = (x) => (!fin(x) ? '—' : money(x, Math.abs(x) < 1000 ? 2 : 0));
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const cls = (x) => (x > 0 ? 'c-up' : x < 0 ? 'c-down' : '');
 const uid = (p) => `${p}${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 

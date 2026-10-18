@@ -10,6 +10,7 @@ import * as Y from './yonetici.js';
 import { guideCard } from './rehber.js';
 import { binaAdi } from './adlar.js';
 import { parseNum, parsePrice } from './sayi.js';
+import { esc } from './esc.js';
 
 const STORE_KEY = (r) => `dentsimco.uretim.r${r}`;
 const TAB_KEY = 'dentsimco.uretim.tab';
@@ -71,7 +72,6 @@ const money = (x, d = 0, sign = false) => {
   return x < 0 ? `−${s}` : sign && x > 0 ? `+${s}` : s;
 };
 const pctText = (fraction, d = 2) => (fin(fraction) ? `${fraction < 0 ? '−' : ''}%${NF[d].format(Math.abs(fraction * 100))}` : '—');
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const whenFmt = new Intl.DateTimeFormat(LOCALE, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
 // Sayı okuma (parseNum, parsePrice) sayi.js'te; eski içe aktarmalar bozulmasın diye buradan da dışa aktarılır.

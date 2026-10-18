@@ -11,6 +11,7 @@ import { LOCALE } from './i18n.js';
 import * as G from './sirket-gecmis.js';
 import * as Li from './sirket-liste.js';
 import * as Gr from './gruplar.js';
+import { esc } from './esc.js';
 
 const PAGE = 50;
 
@@ -50,7 +51,6 @@ export function ara(rows, query) {
   return rows.filter((r) => r[1].toLocaleLowerCase('tr').includes(q) || (/^\d+$/.test(q) && String(r[0]) === q));
 }
 
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const NUM = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 0 });
 const PCT = new Intl.NumberFormat(LOCALE, { style: 'percent', maximumFractionDigits: 2, signDisplay: 'exceptZero' });
 const usd = (x) => `$${NUM.format(x)}`;
@@ -220,8 +220,8 @@ const farkMetni = (x) => (x == null ? '' : signed(x));
 function satirHtml(r, ekstra = '', onek = '') {
   const d = r[12] === 1;
   const dim = (v) => (d ? v : '<span class="dim">—</span>');
-  return `<tr data-id="${r[0]}" tabindex="0" role="button" aria-label="${esc(r[1])}, ID ${r[0]}">${onek}<td>${NUM.format(r[2])} <span class="${tone(r[3])}">${r[3] ? (r[3] > 0 ? '▲' : '▼') + Math.abs(r[3]) : ''}</span></td>
-    <td class="l">${esc(r[1])}<span class="sk-id">ID ${r[0]}</span></td><td>${usd(r[5])}</td>
+  return `<tr data-id="${esc(r[0])}" tabindex="0" role="button" aria-label="${esc(r[1])}, ID ${esc(r[0])}">${onek}<td>${NUM.format(r[2])} <span class="${tone(r[3])}">${r[3] ? (r[3] > 0 ? '▲' : '▼') + Math.abs(r[3]) : ''}</span></td>
+    <td class="l">${esc(r[1])}<span class="sk-id">ID ${esc(r[0])}</span></td><td>${usd(r[5])}</td>
     <td class="${tone(r[6])}">${signed(r[6])}</td><td class="${tone(r[7])}">${r[7] ? PCT.format(r[7]) : '0%'}</td>
     <td>${r[4] > 0 ? dim(NUM.format(r[4])) : '<span class="dim">—</span>'}</td><td>${dim(usd(r[8]))}</td><td>${dim(usd(r[9]))}</td><td>${dim(usd(r[11]))}</td>${ekstra}</tr>`;
 }

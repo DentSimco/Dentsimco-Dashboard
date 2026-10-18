@@ -1,7 +1,7 @@
+import { esc } from './esc.js';
 // DentSimco — Binalar sekmesinin üstündeki rehber kartı (Üretim ve Perakende aynı metni kullanır)
 // Kart: başlık, kısa açıklama, iki bilgi etiketi (toplam bonus, yönetim gideri) ve Yönetim › Ekip bağlantısı.
 
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 /** @param {{ title: string, lead: string, chips?: Array<[string, string?]|null|false> }} o  chips: [metin, tür('' | 'muted' | 'down' | 'up')] */
 export function guideCard({ title, lead, chips = [] }) {

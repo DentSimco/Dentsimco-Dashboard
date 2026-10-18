@@ -12,10 +12,10 @@
 import { PATHS, readDocs, dataField, VeriHatasi, fmtPrice, fmtAgo, fmtDateTime } from './veri.js';
 import { DIL, LOCALE } from './i18n.js';
 import { urunAdi } from './urun-adlari.js';
+import { esc } from './esc.js';
 
 const TICKER_N = 18;
 
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 // Ürün adı bot belgesinde tek dilde (Türkçe) gelir; şerit ve grafik başlığı bu işlevle seçili dile çevrilir.
 export const haberUrunAdi = (id, ad) => urunAdi(id, ad);
 const dil = (h) => (DIL === 'en' ? h?.en : h?.tr) || h?.tr || { baslik: '', spot: '', govde: [] };
@@ -262,7 +262,7 @@ function spark(g) {
 function companyChips(list) {
   const lbl = DIL === 'en' ? 'Daily value gain' : 'Günlük değer artışı';
   return `<div class="nw-co" aria-label="${esc(lbl)}">${list.map((c) => `<div class="nw-co-i">
-    <span class="nw-logo-w"><b aria-hidden="true">${esc([...c.ad][0] || '?')}</b>${c.logo ? `<img class="nw-logo-img" src="${esc(c.logo)}" alt="" width="56" height="56" loading="lazy" referrerpolicy="no-referrer">` : ''}</span>
+    <span class="nw-logo-w"><b aria-hidden="true">${esc([...c.ad][0] || '?')}</b>${/^https:\/\//.test(c.logo) ? `<img class="nw-logo-img" src="${esc(c.logo)}" alt="" width="56" height="56" loading="lazy" referrerpolicy="no-referrer">` : ''}</span>
     <span class="nw-co-t"><b data-no-t>${esc(c.ad)}</b><small data-no-t>${esc((DIL === 'en' ? c.etiket?.en : c.etiket?.tr) || '')}</small></span>
     <span class="nw-co-v" data-no-t><small>${esc(lbl)}</small>+${esc(c.artis)}</span></div>`).join('')}</div>`;
 }

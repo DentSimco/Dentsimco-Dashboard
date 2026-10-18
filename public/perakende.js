@@ -14,6 +14,7 @@ import * as R from './hesap-perakende.js';
 import { guideCard } from './rehber.js';
 import { binaAdi } from './adlar.js';
 import { urunAdi } from './urun-adlari.js';
+import { esc } from './esc.js';
 
 const STORE_KEY = (r) => `dentsimco.perakende.r${r}`;
 const TAB_KEY = 'dentsimco.perakende.tab';
@@ -47,7 +48,6 @@ const money = (x, d = 0) => {
 };
 const price = (x) => (!fin(x) ? '—' : money(x, Math.abs(x) < 10 ? 3 : Math.abs(x) < 1000 ? 2 : 0));
 const cls = (x) => (x > 0.004 ? 'c-up' : x < -0.004 ? 'c-down' : '');
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const uid = () => `b${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 const posNum = (x) => { const n = Number(x); return x != null && x !== '' && Number.isFinite(n) && n > 0 ? n : null; };
 const toInt = (x) => Math.max(0, Math.floor(Number(x) || 0));

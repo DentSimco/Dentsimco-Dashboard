@@ -1,3 +1,4 @@
+import { esc } from './esc.js';
 // DentSimco — Hakkımızda: Nedir, Güncellemeler, Kaynakça.
 // Metin ve güncelleme listesi bu dosyanın başındadır; yeni güncelleme eklemek için UPDATES listesinin EN ÜSTÜNE yeni kayıt yazın.
 // Metin Türkçedir; İngilizcesi dil-en.js sözlüğündedir. Yeni bir madde eklerseniz İngilizcesini de sözlüğe yazın,
@@ -96,7 +97,6 @@ export const UPDATES = [
   },
 ];
 
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const CSS = `
 .hk { max-width: 760px; margin: 0 auto; padding: 8px 14px 40px; display: flex; flex-direction: column; gap: 12px; }

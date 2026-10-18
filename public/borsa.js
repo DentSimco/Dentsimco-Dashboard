@@ -10,6 +10,7 @@ import { DIL } from './i18n.js';
 import { createChart } from './grafik.js';
 import { loadSignals, signalCard } from './sinyal.js';
 import { hasQuality } from './hesap.js';
+import { esc } from './esc.js';
 
 // ---- Ayarlar (renkleri buradan değiştirebilirsin) ----
 
@@ -258,7 +259,6 @@ const formatPoint = (t, daily) => (daily ? fmtDate(t) : fmtDateTime(t));
 
 // ---- Arayüz ----
 
-const esc = (s) => String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const norm = (s) => s.toLocaleLowerCase('en').replace(/ı/g, 'i').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 
 const ICON_CHEVRON = '<svg class="chev" viewBox="0 0 20 20" width="18" height="18" aria-hidden="true"><path d="M5 7.5l5 5 5-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>';
