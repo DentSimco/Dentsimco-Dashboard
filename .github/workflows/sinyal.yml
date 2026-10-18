@@ -42,7 +42,7 @@ jobs:
     env:
       SINYAL_MOD: ${{ github.event_name == 'workflow_dispatch' && inputs.mod || (github.event.schedule == '20 1 * * *' && 'gece' || 'gunici') }}
     steps:
-      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
           sparse-checkout: sinyal
