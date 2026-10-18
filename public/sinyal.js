@@ -17,6 +17,7 @@ import { readDocs, dataField, loadBasics, PATHS, fmtDate, fmtDateTime, fmtAgo, f
 import { loadPerakendeSinyal, karMi, zararMi } from './perakende-sinyal.js';
 import { binaAdi } from './adlar.js';
 import { LOCALE } from './i18n.js';
+import { esc } from './esc.js';
 
 const PREFS_KEY = 'dentsimco.sinyal.v1';
 const BORSA_KEY = 'dentsimco.borsa.v1';
@@ -24,7 +25,6 @@ const LIST_MAX = 15;
 
 // İşaret ile yüzde arasına sözcük birleştirici (U+2060): satır sonunda "−" ile "%6" ayrılmasın
 const pctInt = (x) => (x == null || !Number.isFinite(x) ? '—' : `${x > 0 ? '+' : x < 0 ? '−' : ''}\u2060%${Math.abs(Math.round(x))}`);
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 
 // ---- Veri ----
 

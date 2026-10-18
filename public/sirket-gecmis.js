@@ -7,6 +7,7 @@
 
 import { PATHS, readDocs, dataField } from './veri.js';
 import { LOCALE } from './i18n.js';
+import { esc } from './esc.js';
 
 export const GUN_SAYISI = 30;
 export const PARCA = 256;
@@ -97,7 +98,6 @@ export function yuzdeNoktalari(noktalar) {
 }
 
 // ---- Çizgi grafik (SVG metni) ----
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 // Canlı ama aşırı olmayan, birbirinden ayrı 10 ton (ilk 5'i en uzak tonlar); gündüz ve gece temasında okunur
 export const RENKLER = ['#1E9BFF', '#FF8A1F', '#22D07A', '#FF3D9A', '#A35BFF', '#18C5D8', '#F0414F', '#8FD30F', '#5C6BFF', '#F2B705'];
 const KOMPAKT = new Intl.NumberFormat(LOCALE, { notation: 'compact', maximumFractionDigits: 2 });

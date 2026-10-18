@@ -17,6 +17,7 @@ import * as R from './hesap-perakende.js';
 import * as Y from './yonetici.js';
 import { binaAdi } from './adlar.js';
 import { LOCALE } from './i18n.js';
+import { esc } from './esc.js';
 
 const PREFS_KEY = 'dentsimco.optimum.v1';
 const URETIM_KEY = (r) => `dentsimco.uretim.r${r}`;
@@ -29,7 +30,6 @@ export const DESTEKLENEN_REALM = 0;
 // ---- biçimlendirme ----
 const NF0 = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 0 });
 const NF1 = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 1 });
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
 const fin = (x) => x != null && Number.isFinite(x);
 export const para = (x) => (fin(x) ? `${x < 0 ? '−' : ''}$${NF0.format(Math.abs(Math.round(x)))}` : '—');
 const pct = (x) => `%${NF0.format(Math.round(x * 100))}`;

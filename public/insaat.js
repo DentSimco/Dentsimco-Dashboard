@@ -10,6 +10,7 @@ import * as Y from './yonetici.js';
 import * as I from './hesap-insaat.js';
 import { binaAdi } from './adlar.js';
 import { parseNum } from './uretim.js';
+import { esc } from './esc.js';
 
 const KEY = (r) => `dentsimco.insaat.r${r}`;
 const NF = [0, 1, 2].map((d) => new Intl.NumberFormat(LOCALE, { minimumFractionDigits: d, maximumFractionDigits: d }));
@@ -22,7 +23,6 @@ const money = (x, d = 0, sign = false) => {
 };
 const price = (x) => (!fin(x) ? '—' : money(x, Math.abs(x) < 1000 ? 2 : 0));
 const pct = (x) => (!fin(x) ? '—' : `${x > 0 ? '+' : x < 0 ? '−' : ''}%${NF[1].format(Math.abs(x) * 100)}`);
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 // Süre: Türkçede hesap motorunun metni ("3 gün 20 saat"); diğer dillerde kısa biçim ("3 d 20 h"). Sözlükle çevrilmez
 // çünkü tekil/çoğul ayrımı kalıpla yapılamıyor.
 const sure = (sn) => {

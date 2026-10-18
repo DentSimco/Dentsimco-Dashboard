@@ -1,3 +1,4 @@
+import { esc } from './esc.js';
 // DentSimco — Hakkımızda: Nedir, Güncellemeler, Kaynakça.
 // Metin ve güncelleme listesi bu dosyanın başındadır; yeni güncelleme eklemek için UPDATES listesinin EN ÜSTÜNE yeni kayıt yazın.
 // Metin Türkçedir; İngilizcesi dil-en.js sözlüğündedir. Yeni bir madde eklerseniz İngilizcesini de sözlüğe yazın,
@@ -7,6 +8,14 @@ const TABS = [['nedir', 'Nedir'], ['guncellemeler', 'Güncellemeler'], ['kaynakc
 
 // En yeni en üstte. { date: 'gün ay yıl', items: ['...', '...'] }
 export const UPDATES = [
+  {
+    date: '19 Ekim 2026',
+    items: [
+      'Kâr Hesaplayıcı › Restoran eklendi (test sürümü): restoranın döngü gideri oyunun Menu price ekranıyla aynı kurallarla hesaplanır (eko ve lüks). Maliyet borsadan, kontrat indirimiyle ya da elle girilir.',
+      'Restoran › Döngüler: döngü kayıtlarınızdan fiyat önerisi (zam, koru, indir). Oyundan kopyalanan döngü listesi topluca eklenebilir; kayıtlar yalnız bu tarayıcıda saklanır.',
+      'Restoran › Rating: ratingin zaman içindeki gidişi ve yükseltmenin (kapanışın) rating üzerindeki etkisi.',
+    ],
+  },
   {
     date: '15 Ekim 2026',
     items: [
@@ -96,7 +105,6 @@ export const UPDATES = [
   },
 ];
 
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
 const CSS = `
 .hk { max-width: 760px; margin: 0 auto; padding: 8px 14px 40px; display: flex; flex-direction: column; gap: 12px; }
