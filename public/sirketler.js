@@ -129,8 +129,8 @@ a.sk-act[aria-current="page"] { background: var(--accent); color: var(--on-accen
 .sk-hits button { display: flex; width: 100%; justify-content: space-between; gap: 10px; min-height: 40px; align-items: center; padding: 0 12px; border: 0; border-bottom: 1px solid var(--row-line); background: transparent; color: var(--text); text-align: left; font: 500 15px var(--font); cursor: pointer; }
 .sk-hits button:last-child { border-bottom: 0; }
 .sk-hits button small { color: var(--muted); }
-.sk-legend { display: flex; flex-wrap: wrap; gap: 10px 14px; font-size: 14px; color: var(--muted); }
-.sk-legend i { width: 10px; height: 10px; border-radius: 50%; display: inline-block; margin-right: 6px; }
+.sk-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 14px; color: var(--text); }
+.sk-legend i { width: 18px; height: 3px; border-radius: 2px; display: inline-block; margin-right: 7px; vertical-align: middle; }
 .sk-gt th, .sk-gt td { padding: 7px 9px; font-size: 14px; }
 .sk-gt td.d { font-size: 13px; }
 .sk-ok { color: var(--up); font-size: 14px; }
@@ -359,7 +359,7 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
     else if (galt === 'siralama') {
       const sirali = Gr.grupSirala(liste);
       body = `<div class="sk-wrap"><table class="sk-gtab"><thead><tr><th class="l">Sıra</th><th class="l">Grup</th><th>Toplam değer · değişim</th></tr></thead><tbody>${sirali.map((g, i) => `<tr><td class="l">${NUM.format(i + 1)}</td>
-        <td class="l"><a href="${hrefU(g.id)}">${esc(g.ad)}</a><span class="sk-id">${NUM.format(g.bulunan)}${g.eksik.length ? ` / ${NUM.format(g.uyeSayisi)}` : ''} üye</span></td>
+        <td class="l"><i class="sk-dot" style="background:${grupRenk(liste, g)}"></i><a href="${hrefU(g.id)}">${esc(g.ad)}</a><span class="sk-id">${NUM.format(g.bulunan)}${g.eksik.length ? ` / ${NUM.format(g.uyeSayisi)}` : ''} üye</span></td>
         <td>${usd(g.toplam)}<span class="sk-id ${tone(g.fark)}">${signed(g.fark)} · ${g.yuzde ? PCT.format(g.yuzde) : '0%'}</span></td></tr>`).join('')}</tbody></table></div>
         <section class="sk-card" data-grup-grafik aria-live="polite"></section>
         <p class="sk-note">Grup değeri, üyelerinin şirket değerlerinin toplamıdır. Gruplar resmi değildir. Grup adına dokunun: üyeleri görün. Üye eksiği varsa grup liderleri Feedback üzerinden iletişime geçebilir.</p>`;
@@ -374,6 +374,9 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
     govde().innerHTML = `<nav class="sk-sub" aria-label="Grup bölümleri">${alt(sec ? hrefU(sec) : '#sirketler/gruplar/uyeler', 'Üyeler', galt === 'uyeler')}${alt('#sirketler/gruplar/siralama', 'Sıralama', galt === 'siralama')}</nav>${body}`;
     if (liste.length && galt === 'siralama') grupGrafik(liste);
   }
+
+  // Grup rengi tanım sırasına bağlıdır (sıralama değişince renk değişmez); tablo ve grafik aynı rengi kullanır
+  const grupRenk = (liste, g) => G.RENKLER[liste.findIndex((x) => x.id === g.id) % G.RENKLER.length];
 
   // Grupların toplam değeri, son 30 günün şirket geçmişlerinin gün gün toplamıdır (üyelerin geçmişi gerekir; ağır olduğundan arka planda yüklenir).
   async function grupGrafik(liste) {
@@ -394,9 +397,9 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
     }
     const m = metrikBul('value');
     const yuzde = grupMod === 'yuzde';
-    const seriler = Gr.grupSirala(liste).map((g, i) => {
+    const seriler = Gr.grupSirala(liste).map((g) => {
       const h = Gr.grupGecmisi(g.uyeler.map((r) => r[0]), grupGecmis);
-      return { ad: g.ad, renk: G.RENKLER[i % G.RENKLER.length], gecmissiz: h.gecmissiz, noktalar: yuzde ? G.yuzdeNoktalari(h.noktalar) : h.noktalar };
+      return { ad: g.ad, renk: grupRenk(liste, g), gecmissiz: h.gecmissiz, noktalar: yuzde ? G.yuzdeNoktalari(h.noktalar) : h.noktalar };
     });
     const grafik = seriler.every((s) => s.noktalar.length < 2) ? GECMIS_YOK : G.cizgiGrafik(seriler, {
       bicim: yuzde ? (v) => `${v > 0 ? '+' : ''}${v.toFixed(1)}%` : (v) => G.eksenMetni(m, v), oku: yuzde ? (v) => `${v > 0 ? '+' : ''}${v.toFixed(2)}%` : (v) => G.degerMetni(m, v), ad: `Grup toplam değeri · son ${G.GUN_SAYISI} gün`,

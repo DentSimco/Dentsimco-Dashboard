@@ -98,8 +98,8 @@ export function yuzdeNoktalari(noktalar) {
 
 // ---- Çizgi grafik (SVG metni) ----
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-// Renk körlüğüne uygun (Okabe-Ito) beş ayrı ton; gündüz ve gece temasında okunur
-export const RENKLER = ['#0072B2', '#E69F00', '#009E73', '#CC79A7', '#D55E00'];
+// Canlı ama aşırı olmayan, birbirinden ayrı 10 ton (ilk 5'i en uzak tonlar); gündüz ve gece temasında okunur
+export const RENKLER = ['#1E9BFF', '#FF8A1F', '#22D07A', '#FF3D9A', '#A35BFF', '#18C5D8', '#F0414F', '#8FD30F', '#5C6BFF', '#F2B705'];
 const KOMPAKT = new Intl.NumberFormat(LOCALE, { notation: 'compact', maximumFractionDigits: 2 });
 const TAM = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 0 });
 
@@ -144,8 +144,8 @@ export function cizgiGrafik(seriler, { bicim = (v) => TAM.format(v), oku = null,
     const yol = parcalar.map((p) => `M${p.map(([a, b]) => `${a.toFixed(1)},${b.toFixed(1)}`).join(' L')}`).join(' ');
     const alan = doldur && seriler.length === 1 ? parcalar.map((p) => `<path d="M${p[0][0].toFixed(1)},${H - B} L${p.map(([a, b]) => `${a.toFixed(1)},${b.toFixed(1)}`).join(' L')} L${p.at(-1)[0].toFixed(1)},${H - B} Z" style="fill:${renk};opacity:.16"/>`).join('') : '';
     const son = parcalar.at(-1)?.at(-1);
-    const nokta = son ? `<circle cx="${son[0].toFixed(1)}" cy="${son[1].toFixed(1)}" r="3.5" style="fill:${renk}"/>` : '';
-    return `${alan}<path d="${yol}" class="sg-line" style="stroke:${renk}"/>${nokta}`;
+    const nokta = son ? `<circle cx="${son[0].toFixed(1)}" cy="${son[1].toFixed(1)}" r="2.8" style="fill:${renk}"/>` : '';
+    return `${alan}<path d="${yol}" class="sg-line" style="stroke:${renk};filter:drop-shadow(0 0 2px ${renk}8c)"/>${nokta}`;
   }).join('');
   // Gezinme verisi: her gün için x, her seri için y ve biçimli değer
   const okuBicim = oku || bicim;
@@ -158,7 +158,7 @@ export function cizgiGrafik(seriler, { bicim = (v) => TAM.format(v), oku = null,
       return { ad: s.ad, renk: s.renk || RENKLER[k % RENKLER.length], y: gunler.map((d) => (m.get(d) == null || !Number.isFinite(m.get(d)) ? null : +y(m.get(d)).toFixed(1))), t: gunler.map((d) => (m.get(d) == null || !Number.isFinite(m.get(d)) ? '—' : okuBicim(m.get(d)))) };
     }),
   };
-  const imlec = `<g class="sg-cur" hidden><line class="sg-cl" y1="${T}" y2="${H - B}"/>${seriler.map((s, k) => `<circle r="4.5" class="sg-cd" style="fill:${s.renk || RENKLER[k % RENKLER.length]}"/>`).join('')}</g>`;
+  const imlec = `<g class="sg-cur" hidden><line class="sg-cl" y1="${T}" y2="${H - B}"/>${seriler.map((s, k) => `<circle r="3.6" class="sg-cd" style="fill:${s.renk || RENKLER[k % RENKLER.length]}"/>`).join('')}</g>`;
   return `<div class="sg-kutu" data-sg="${esc(JSON.stringify(veri))}"><div class="sg-oku" data-sg-oku aria-live="polite"></div><svg class="sg-svg" viewBox="0 0 ${W} ${H}" role="img" tabindex="0" aria-label="${esc(ad)}" preserveAspectRatio="xMidYMid meet"><title>${esc(ad)}</title>${grid}<line x1="${L}" x2="${W - R}" y1="${H - B}" y2="${H - B}" class="sg-base"/>${xEtiket}${cizgiler}${imlec}</svg></div>`;
 }
 
@@ -229,6 +229,6 @@ export const GRAFIK_CSS = `
 .sg-grid { stroke: var(--row-line); stroke-width: 1; }
 .sg-base { stroke: var(--line-2); stroke-width: 1; }
 .sg-lbl { fill: var(--muted); font: 500 11px var(--font-c); }
-.sg-line { fill: none; stroke-width: 2.2; stroke-linejoin: round; stroke-linecap: round; }
+.sg-line { fill: none; stroke-width: 1.5; stroke-linejoin: round; stroke-linecap: round; }
 .sg-bos { color: var(--muted); font-size: 14px; margin: 8px 0; }
 `;
