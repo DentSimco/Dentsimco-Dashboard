@@ -9,6 +9,14 @@ const TABS = [['nedir', 'Nedir'], ['guncellemeler', 'Güncellemeler'], ['kaynakc
 // En yeni en üstte. { date: 'gün ay yıl', items: ['...', '...'] }
 export const UPDATES = [
   {
+    date: '19 Ekim 2026',
+    items: [
+      'Kâr Hesaplayıcı › Restoran eklendi (test sürümü): restoranın döngü gideri oyunun Menu price ekranıyla aynı kurallarla hesaplanır (eko ve lüks). Maliyet borsadan, kontrat indirimiyle ya da elle girilir.',
+      'Restoran › Döngüler: döngü kayıtlarınızdan fiyat önerisi (zam, koru, indir). Oyundan kopyalanan döngü listesi topluca eklenebilir; kayıtlar yalnız bu tarayıcıda saklanır.',
+      'Restoran › Rating: ratingin zaman içindeki gidişi ve yükseltmenin (kapanışın) rating üzerindeki etkisi.',
+    ],
+  },
+  {
     date: '15 Ekim 2026',
     items: [
       'Şirketler: Sıralama, Kıyas ve Liste sekmeleri eklendi. Bir şirkete dokununca son 30 günün grafiği ve gün gün tablosu (sıra, EVA, değer, bina, patent, işçi, bono) açılır. Geçmiş bugünden itibaren günde bir kez birikir; ilk günlerde geçmiş doldurma sürerken bazı şirketlerin geçmişi kısa olabilir.',
