@@ -48,6 +48,7 @@ ok(!/if\s+true/.test(rules), 'kurallarda koşulsuz izin (if true) yok');
 const izinli = ((rules.match(/col\s+in\s+\[([^\]]*)\]/) || [])[1] || '').split(',').map((x) => x.trim().replace(/^'|'$/g, '')).filter(Boolean);
 ok(izinli.length > 0, 'izinli koleksiyon listesi okunabildi');
 ok(!izinli.includes('state'), 'eski state koleksiyonu izinli değil');
+ok(!izinli.includes('botstate'), 'botstate (yalnız bot) koleksiyonu izinli değil');
 const okunan = new Set([PATHS.live(0), PATHS.intraday(0, '2026-01-01', 1), PATHS.daily(0, 1, 2026), PATHS.meta('x'), PATHS.system('x')].map((p) => p.split('/')[0]));
 for (const kol of okunan) ok(izinli.includes(kol), `site "${kol}" koleksiyonunu okuyor ama kurallarda izinli değil`);
 for (const kol of izinli) ok(okunan.has(kol), `kurallar "${kol}" koleksiyonuna izin veriyor ama site okumuyor (gereksiz izin)`);
