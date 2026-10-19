@@ -261,8 +261,9 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   let loadToken = 0;
   let destroyed = false;
   let toastTimer = null;
-  const tuketimAcik = new Set(); // açık ürün satırları
-  let tuketimDonem = 7;
+  let tuketimMod = 'urun'; // 'urun' | 'gun'
+  let tuketimUrun = null;
+  let tuketimGun = null;
   const restoranAcik = new Set(); // ayrı menülü restoran kartlarında açık menüler
   let kbOnay = false; // öteki bölümün binalarını kaldırma onayı bekleniyor
   let kbGeri = null; // kaldırılanı geri almak için eski durum
@@ -279,7 +280,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
 
   const style = document.createElement('style');
   style.dataset.module = 'perakende';
-  style.textContent = CSS + EXTRA_CSS + RS.RESTORAN_CSS;
+  style.textContent = CSS + EXTRA_CSS + RS.RESTORAN_CSS + RS.TUKETIM_CSS;
   document.head.append(style);
   root.innerHTML = '<div class="ur"></div><div data-sheet></div><div data-toast></div>';
   const view = root.querySelector('.ur');
@@ -470,7 +471,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       }
     }
     const scroll = window.scrollY;
-    view.innerHTML = tabs + (data && !loadError ? bolumUyariHtml(company, 'perakende', kbOnay) : '') + body;
+    view.innerHTML = tabs + (data && !loadError && tab !== 'tuketim' ? bolumUyariHtml(company, 'perakende', kbOnay) : '') + body;
     window.scrollTo(0, scroll);
     if (sheet) renderSheet();
   }
@@ -602,7 +603,9 @@ export function mountPerakende(root, { realm = 0 } = {}) {
 
   // ---- TÜKETİMLER ----
   function viewTuketim() {
-    return RS.tuketimHtml(data.consumption, { nameOf, acik: tuketimAcik, period: tuketimDonem });
+    // Kayıtta fiyatı olmayan ürünlerde borsanın kalite ortalaması
+    const fiyatYedek = (id) => { const v = Object.values(data.market?.[id] || {}); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+    return RS.tuketimHtml(data.consumption, { nameOf, mod: tuketimMod, urun: tuketimUrun, gun: tuketimGun, fiyatYedek });
   }
 
   // ---- PPHPL MAX ----
@@ -985,8 +988,9 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       try { localStorage.setItem(PERIOD_KEY, period); } catch { /* gizli sekme */ }
       return softRender();
     }
-    if (act === 'rt.urun') { const id = btn.dataset.v; if (tuketimAcik.has(id)) tuketimAcik.delete(id); else tuketimAcik.add(id); return softRender(); }
-    if (act === 'rt.donem') { tuketimDonem = Number(btn.dataset.v) || 7; return softRender(); }
+    if (act === 'rt.mod') { tuketimMod = btn.dataset.v === 'gun' ? 'gun' : 'urun'; return softRender(); }
+    if (act === 'rt.urun') { tuketimUrun = btn.dataset.v; return softRender(); }
+    if (act === 'rt.gun') { tuketimGun = btn.dataset.v; return softRender(); }
     if (/^r[kfm]\./.test(act)) {
       const nx = clone();
       if (RS.restoranTikla(nx.restoran, btn, { marketOf, acik: restoranAcik })) return commit(nx);
