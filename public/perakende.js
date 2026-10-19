@@ -261,7 +261,8 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   let loadToken = 0;
   let destroyed = false;
   let toastTimer = null;
-  let tuketimMod = 'urun'; // 'urun' | 'gun'
+  let tuketimMetrik = 'adet'; // 'adet' | 'tutar'
+  let tuketimAralik = 28;
   let tuketimUrun = null;
   let tuketimGun = null;
   const restoranAcik = new Set(); // ayrı menülü restoran kartlarında açık menüler
@@ -605,7 +606,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   function viewTuketim() {
     // Kayıtta fiyatı olmayan ürünlerde borsanın kalite ortalaması
     const fiyatYedek = (id) => { const v = Object.values(data.market?.[id] || {}); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
-    return RS.tuketimHtml(data.consumption, { nameOf, mod: tuketimMod, urun: tuketimUrun, gun: tuketimGun, fiyatYedek });
+    return RS.tuketimHtml(data.consumption, { nameOf, metrik: tuketimMetrik, aralik: tuketimAralik, urun: tuketimUrun, gun: tuketimGun, fiyatYedek });
   }
 
   // ---- PPHPL MAX ----
@@ -988,7 +989,8 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       try { localStorage.setItem(PERIOD_KEY, period); } catch { /* gizli sekme */ }
       return softRender();
     }
-    if (act === 'rt.mod') { tuketimMod = btn.dataset.v === 'gun' ? 'gun' : 'urun'; return softRender(); }
+    if (act === 'rt.metrik') { tuketimMetrik = btn.dataset.v === 'tutar' ? 'tutar' : 'adet'; return softRender(); }
+    if (act === 'rt.aralik') { tuketimAralik = [7, 14, 28].includes(Number(btn.dataset.v)) ? Number(btn.dataset.v) : 28; return softRender(); }
     if (act === 'rt.urun') { tuketimUrun = btn.dataset.v; return softRender(); }
     if (act === 'rt.gun') { tuketimGun = btn.dataset.v; return softRender(); }
     if (/^r[kfm]\./.test(act)) {
