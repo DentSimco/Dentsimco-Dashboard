@@ -834,6 +834,14 @@ function dailyCoz(docs, ids, realm, years) {
         const qs = m && parseJSON(text);
         if (qs) days.set(`${y}-${m[1]}-${m[2]}`, qs);
       }
+      // Anlık borsa botunun günlük ortalama arzı (a{AAGG}) satırın ortArz yerine işlenir
+      for (const [key, text] of Object.entries(f)) {
+        const m = /^a(\d\d)(\d\d)$/.exec(key);
+        const avg = m && parseJSON(text);
+        const qs = m && days.get(`${y}-${m[1]}-${m[2]}`);
+        if (!avg || !qs) continue;
+        for (const [q, a] of Object.entries(avg)) if (Array.isArray(qs[q]) && Number.isFinite(Number(a))) { qs[q] = [...qs[q]]; qs[q][4] = Number(a); }
+      }
     }
     out.set(id, days);
   }

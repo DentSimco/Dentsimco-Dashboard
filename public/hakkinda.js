@@ -12,6 +12,7 @@ export const UPDATES = [
     date: '19 Ekim 2026',
     items: [
       'Kâr Hesaplayıcı › Perakende: restoran binaları eklendi (test sürümü). Menü fiyatı, seviye, rating, son doluluk ve menü girilir; kâr Perakende özetinde beklenen rating ve doluluğa göre hesaplanır. Yönetim gideri ve satış hızı mağazalarla ortaktır.',
+      'Canlı Borsa: anlık borsa fiyatı ve satış arzı artık ayrı bir botla çekiliyor; veri 20 dakikadan eskiyse ne kadar önce ölçüldüğü yazılıyor.',
       "Canlı Borsa: Sim Companies'in anlık borsa fiyatı eklendi. Büyük fiyat ve grafikteki yeni (basamaklı) çizgi, kalite ve üstü satış ilanlarının en ucuzunu gösterir; son işlem fiyatı ayrı çizgi ve satırdır. Günlük kapanış hâlâ son işlem fiyatıdır.",
       'Canlı Borsa: Satış Arzı artık doluyor (kalitedeki toplam satış ilanı adedi). Kalite tablosuna Borsa fiyatı sütunu eklendi.',
       'Kâr Hesaplayıcı: maliyet ve fiyatlar son işlem yerine anlık borsa fiyatından hesaplanıyor; anlık veri yoksa son işlem fiyatı kullanılır.',
