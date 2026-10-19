@@ -2,7 +2,7 @@
 // Ürün ve kalite seç, zaman aralığı seç: grafik, bugünkü özet, sinyal kartı ve kalite tablosu burada.
 
 import {
-  QUALITIES, START_YEAR, MIN, HOUR, DAY, ASK_FRESH_MS, utcDay, addDays, dayStart,
+  QUALITIES, START_YEAR, MIN, HOUR, DAY, ASK_FRESH_MS, ASK_LIVE_MS, utcDay, addDays, dayStart,
   loadBasics, loadProduct, summarizeDay,
   fmtPrice, fmtNum, fmtCompact, fmtPct, fmtShare, fmtTime, fmtDate, fmtDateTime, fmtMonth, fmtMonthYear, fmtAgo,
 } from './veri.js';
@@ -568,7 +568,9 @@ export function mountBorsa(root, { realm = 0 } = {}) {
     el.price.classList.toggle('none', p == null);
     el.price.classList.toggle('ask', showAsk);
     const lt = cur?.[4];
-    if (showAsk) el.lastTrade.textContent = trade != null && Number.isFinite(lt) ? `borsa fiyatı · son işlem ${fmtPrice(trade)}, ${fmtAgo(lt, now)}` : 'borsa fiyatı';
+    const askOld = showAsk && now - snap.askT > ASK_LIVE_MS; // anlık veri eskiyse yaşı yazılır
+    const askLabel = askOld ? `borsa fiyatı (${fmtAgo(snap.askT, now)})` : 'borsa fiyatı';
+    if (showAsk) el.lastTrade.textContent = trade != null && Number.isFinite(lt) ? `${askLabel} · son işlem ${fmtPrice(trade)}, ${fmtAgo(lt, now)}` : askLabel;
     else if (noListing) el.lastTrade.textContent = Number.isFinite(lt) ? `satış ilanı yok · son işlem: ${fmtAgo(lt, now)}` : 'satış ilanı yok';
     else el.lastTrade.textContent = Number.isFinite(lt) ? `son işlem: ${fmtAgo(lt, now)}` : '';
     let ch = showAsk ? change24h(product, q, snap, 'ask') : null;
@@ -660,7 +662,7 @@ export function mountBorsa(root, { realm = 0 } = {}) {
       const none = p == null && k == null && !(a > 0) && !(s > 0);
       return `<tr data-q="${q}" class="${q === sel ? 'sel' : ''}${none ? ' none' : ''}">`
         + `<th scope="row"><button type="button" data-q="${q}" aria-pressed="${q === sel}">Q${q}</button></th>`
-        + `<td class="ask">${fmtPrice(k)}</td>`
+        + `<td class="ask">${fmtPrice(k)}${k != null && snap?.askT && nowT - snap.askT > ASK_LIVE_MS ? `<small class="ago" title="Borsa fiyatının ölçüldüğü zaman">${agoShort(snap.askT, nowT)}</small>` : ''}</td>`
         + `<td>${fmtPrice(p)}${p != null && Number.isFinite(lt) ? `<small class="ago" title="Son işlem">${agoShort(lt, nowT)}</small>` : ''}</td><td>${fmtNum(a)}</td><td>${fmtNum(s)}</td><td>${fmtPrice(s > 0 ? v / s : null)}</td>`
         + `<td class="share">${bar}${fmtShare(share)}</td></tr>`;
     }).join('');

@@ -1,9 +1,12 @@
 // DentSimco — veri katmanı (tüm modüller ortak kullanır)
 // Firestore'u anahtarsız REST ile okur. Kurallar herkese okuma izni verir, yazma kapalıdır.
 // Botun yazdığı biçim (bot/common.mjs başındaki "VERİ HARİTASI"):
-//   live/r{realm}                  data = {t, items: {id: [t, {q: [p,a,s,v,lt,ask]}, askT]}}   son ölçüm
-//   intraday/r{realm}_{gün}_s{NN}  t{SSDD} = {id: {q: [p,a,s,v,ask]}}                          10 dk'lık noktalar
-//   daily/r{realm}_{id}_{yıl}      d{AAGG} = {q: [açılış,yüksek,düşük,kapanış,ortArz,satış,tutar]}
+//   live/r{realm}                  data = {t, items: {id: [t, {q: [p,a,s,v,lt]}]}}          son ölçüm (SimcoTools borsa botu)
+//                                  anlik = {t, items: {id: [askT, {q: [ask, arz]}]}}        anlık borsa (Sim Companies, ayrı bot)
+//   intraday/r{realm}_{gün}_s{NN}  t{SSDD} = {id: {q: [p,a,s,v]}}                          10 dk'lık noktalar (SimcoTools)
+//   intraday/r{realm}_{gün}_a{NN}  a{SSDD} = {id: {q: [ask, arz]}}                         anlık borsa örnekleri
+//   daily/r{realm}_{id}_{yıl}      d{AAGG} = {q: [açılış,yüksek,düşük,kapanış,ortArz,satış,tutar]}; a{AAGG} = {q: ortalama arz}
+//   İki botun verisi burada birleştirilir: canlı satır [p,a,s,v,lt,ask] + askT, gün içi nokta [p,a,s,v,ask], günlük ortArz.
 //   p = son işlem fiyatı (SimcoTools), a = o kalitedeki satıştaki toplam adet (arz), s = tahmini satış adedi, v = tahmini satış tutarı,
 //   lt = son işlemin zamanı, ask = anlık borsa fiyatı (Sim Companies: kalitesi ≥ q olan en ucuz ilan), askT = ask ölçümünün zamanı.
 //   Günlük kapanış = son işlem fiyatı. Saatler UTC.
@@ -32,7 +35,8 @@ export const addDays = (day, n) => utcDay(dayStart(day) + n * DAY);
 
 // Canlı kalite satırındaki sıra numaraları (live/r{realm} → items[id][1][q])
 export const LIVE = { TRADE: 0, SUPPLY: 1, SOLD: 2, VALUE: 3, TRADE_T: 4, ASK: 5 };
-export const ASK_FRESH_MS = 20 * MIN; // anlık borsa fiyatı bundan eskiyse güncel sayılmaz (bot 5 dakikada bir ölçer)
+export const ASK_FRESH_MS = 6 * HOUR; // anlık borsa fiyatı bundan eskiyse kullanılmaz (sunucu yavaşlatırsa tur saatler sürebilir)
+export const ASK_LIVE_MS = 20 * MIN; // bundan eskiyse ekranda yaşı yazılır
 
 /**
  * Hesaplar için fiyat: anlık borsa fiyatı (kalitesi ≥ q olan en ucuz ilan); taze değilse ya da ilan yoksa son işlem fiyatı.
@@ -53,6 +57,7 @@ export function anlikFiyat(live, id, q, now = Date.now()) {
 export const PATHS = {
   live: (r) => `live/r${r}`,
   intraday: (r, day, id) => `intraday/r${r}_${day}_s${pad2(Number(id) % SHARDS)}`,
+  intradayAnlik: (r, day, id) => `intraday/r${r}_${day}_a${pad2(Number(id) % SHARDS)}`,
   daily: (r, id, year) => `daily/r${r}_${id}_${year}`,
   meta: (name) => `meta/${name}`,
   system: (name) => `system/${name}`,
@@ -190,7 +195,76 @@ function memo(fields, build) {
   return parsed.get(fields);
 }
 
-export const dataField = (fields) => memo(fields, (f) => parseJSON(f?.data));
+// Belgenin 'data' alanı. Canlı borsa belgesinde anlık borsa botunun 'anlik' alanı da varsa birleştirilir.
+export const dataField = (fields) => memo(fields, (f) => {
+  const d = parseJSON(f?.data);
+  return f?.anlik ? mergeAnlik(d, parseJSON(f.anlik)) : d;
+});
+
+/**
+ * SimcoTools canlı kaydına (items: {id: [t, {q: [p,a,s,v,lt]}]}) anlık borsa kaydını (items: {id: [askT, {q: [ask, arz]}]}) işler.
+ * Sonuç satırı [p, arz, s, v, lt, ask], ürün kaydı [t, satırlar, askT]. Anlık kaydı olan üründe ilanı olmayan kalite: arz 0, ask yok.
+ */
+export function mergeAnlik(live, anlik) {
+  if (!anlik?.items) return live;
+  const out = { ...(live || { t: anlik.t }), items: { ...(live?.items || {}) } };
+  for (const [id, entry] of Object.entries(anlik.items)) {
+    if (!Array.isArray(entry)) continue;
+    const [askT, qs] = entry;
+    const item = out.items[id];
+    const rows = {};
+    const keys = new Set([...Object.keys(item?.[1] || {}), ...Object.keys(qs || {})]);
+    for (const q of keys) {
+      const row = item?.[1]?.[q] ? [...item[1][q]] : [null, null, 0, 0, null];
+      while (row.length < 5) row.push(null);
+      const a = qs?.[q];
+      row[1] = a ? (a[1] ?? null) : 0;
+      row[5] = a ? (a[0] ?? null) : null;
+      rows[q] = row;
+    }
+    out.items[id] = [item?.[0] ?? askT, rows, askT];
+  }
+  return out;
+}
+
+// Anlık borsa gün içi belgesi → [{t, items}] zamana göre sıralı (a{SSDD} alanları)
+export function anlikPoints(fields, day) {
+  return memo(fields, (f) => {
+    const list = [];
+    if (!f) return list;
+    const base = dayStart(day);
+    for (const [key, text] of Object.entries(f)) {
+      const m = /^a(\d\d)(\d\d)$/.exec(key);
+      if (!m) continue;
+      const items = parseJSON(text);
+      if (items) list.push({ t: base + (Number(m[1]) * 60 + Number(m[2])) * MIN, items });
+    }
+    return list.sort((a, b) => a.t - b.t);
+  });
+}
+
+// Gün içi noktalara anlık borsa örneklerini işler: her noktaya, o andan önceki en yeni örneğin ask ve arzı (en çok 6 saat eski).
+// Nokta [p,a,s,v] → [p, arz, s, v, ask]. Örneği olup noktada olmayan kalite eklenir (fiyatsız satır).
+const ANLIK_MAX_YAS = 6 * HOUR;
+export function withAnlikSamples(points, samples) {
+  if (!samples?.length) return points;
+  return points.map((pt) => {
+    let s = null;
+    for (const x of samples) { if (x.t <= pt.t) s = x; else break; }
+    if (!s || pt.t - s.t > ANLIK_MAX_YAS) return pt;
+    const qs = {};
+    const keys = new Set([...Object.keys(pt.qs || {}), ...Object.keys(s.qs || {})]);
+    for (const q of keys) {
+      const m = pt.qs?.[q] ? [...pt.qs[q]] : [null, null, 0, 0];
+      while (m.length < 4) m.push(null);
+      const a = s.qs?.[q];
+      m[1] = a ? (a[1] ?? null) : 0;
+      m[4] = a ? (a[0] ?? null) : null;
+      qs[q] = m;
+    }
+    return { t: pt.t, qs };
+  });
+}
 
 // Gün içi belge → [{t, items}] zamana göre sıralı
 export function intradayPoints(fields, day) {
@@ -216,6 +290,16 @@ export function dailyRows(fields, year) {
       const m = /^d(\d\d)(\d\d)$/.exec(key);
       const qs = m && parseJSON(text);
       if (qs) rows.set(`${year}-${m[1]}-${m[2]}`, qs);
+    }
+    // Anlık borsa botunun günlük ortalama arzı (a{AAGG}): satırın ortArz yerine (5. eleman) işlenir
+    for (const [key, text] of Object.entries(f || {})) {
+      const m = /^a(\d\d)(\d\d)$/.exec(key);
+      const avg = m && parseJSON(text);
+      const day = m && `${year}-${m[1]}-${m[2]}`;
+      if (!avg || !rows.has(day)) continue;
+      const qs = { ...rows.get(day) };
+      for (const [q, a] of Object.entries(avg)) if (Array.isArray(qs[q]) && Number.isFinite(Number(a))) { qs[q] = [...qs[q]]; qs[q][4] = Number(a); }
+      rows.set(day, qs);
     }
     return rows;
   });
@@ -247,8 +331,9 @@ export async function loadBasics(r, options) {
 // Bir ürünün gün içi noktaları (günlere göre) ve günlük özetleri
 export async function loadProduct(r, id, { days = [], years = [] } = {}, options) {
   const intraPaths = days.map((d) => PATHS.intraday(r, d, id));
+  const anlikPaths = days.map((d) => PATHS.intradayAnlik(r, d, id));
   const dailyPaths = years.map((y) => PATHS.daily(r, id, y));
-  const docs = await readDocs([...intraPaths, ...dailyPaths], options);
+  const docs = await readDocs([...intraPaths, ...anlikPaths, ...dailyPaths], options);
   const byDay = new Map();
   days.forEach((day, i) => {
     const points = [];
@@ -256,7 +341,9 @@ export async function loadProduct(r, id, { days = [], years = [] } = {}, options
       const qs = items[id];
       if (qs) points.push({ t, qs });
     }
-    byDay.set(day, points);
+    const samples = [];
+    for (const { t, items } of anlikPoints(docs.get(anlikPaths[i]), day)) if (items[id]) samples.push({ t, qs: items[id] });
+    byDay.set(day, withAnlikSamples(points, samples));
   });
   const daily = new Map();
   years.forEach((year, i) => {

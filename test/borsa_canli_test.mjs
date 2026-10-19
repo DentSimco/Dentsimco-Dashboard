@@ -1,6 +1,6 @@
 // DentSimco — borsa: canlı ölçümün grafiğe ve gün aralığına katılması. Çalıştırma: node test/borsa_canli_test.mjs
 import { withLive, intradaySeries, buildSeries, RANGES } from '../public/borsa.js';
-import { summarizeDay, anlikFiyat, ASK_FRESH_MS } from '../public/veri.js';
+import { summarizeDay, anlikFiyat, ASK_FRESH_MS, mergeAnlik, withAnlikSamples, dataField, dailyRows } from '../public/veri.js';
 
 const results = [];
 function test(name, fn) { try { fn(); results.push({ name, ok: true }); } catch (e) { results.push({ name, ok: false, error: e.message }); } }
@@ -70,6 +70,36 @@ test('anlikFiyat: taze anlık borsa fiyatı; eski ya da ilan yoksa son işlem fi
   eq(anlikFiyat(live, 1, 7, now), null);
   eq(anlikFiyat(live, 99, 0, now), null);
   eq(anlikFiyat({ items: { 1: [now, { 0: [0.24, null, 0, 0, null] }] } }, 1, 0, now), { p: 0.24, kaynak: 'son', t: now }, 'eski kayıt biçimi (ask yok)');
+});
+
+
+// ---- İki botun verisinin birleşmesi: SimcoTools (data) + Sim Companies (anlik) ----
+test('mergeAnlik: canlı satıra arz ve ask işlenir; ilanı olmayan kalite arz 0, yalnız ilanı olan kalite eklenir', () => {
+  const live = { t: 10, items: { 1: [10, { 0: [0.24, null, 5, 1.2, 9], 2: [0.25, null, 0, 0, 8] }] } };
+  const anlik = { t: 20, items: { 1: [20, { 0: [0.242, 100], 3: [0.3, 7] }], 9: [21, { 1: [1.5, 4] }] } };
+  const m = mergeAnlik(live, anlik);
+  eq(m.items[1], [10, { 0: [0.24, 100, 5, 1.2, 9, 0.242], 2: [0.25, 0, 0, 0, 8, null], 3: [null, 7, 0, 0, null, 0.3] }, 20]);
+  eq(m.items[9], [21, { 1: [null, 4, 0, 0, null, 1.5] }, 21], 'SimcoTools kaydı olmayan ürün');
+  eq(live.items[1][1][0].length, 5, 'giriş değişmez');
+});
+test('dataField: canlı belgede anlik alanı varsa birleştirir, yoksa data aynen', () => {
+  const f = { data: JSON.stringify({ t: 1, items: { 1: [1, { 0: [0.24, null, 0, 0, 1] }] } }), anlik: JSON.stringify({ t: 2, items: { 1: [2, { 0: [0.25, 50] }] } }) };
+  eq(dataField(f).items[1][1][0], [0.24, 50, 0, 0, 1, 0.25]);
+  eq(dataField({ data: JSON.stringify({ a: 1 }) }), { a: 1 });
+});
+test('withAnlikSamples: her noktaya önceki en yeni örneğin ask ve arzı işlenir; 6 saatten eski örnek kullanılmaz', () => {
+  const pts = [{ t: 1000, qs: { 1: [1, null, 2, 3] } }, { t: 2000, qs: { 1: [1.1, null, 0, 0] } }, { t: 1000 + 7 * 3_600_000, qs: { 1: [1.2, null, 0, 0] } }];
+  const out = withAnlikSamples(pts, [{ t: 1500, qs: { 1: [1.05, 40], 2: [1.3, 2] } }]);
+  eq(out[0], pts[0], 'örnekten önceki nokta değişmez');
+  eq(out[1].qs[1], [1.1, 40, 0, 0, 1.05]);
+  eq(out[1].qs[2], [null, 2, 0, 0, 1.3]);
+  eq(out[2], pts[2], '6 saatten eski örnek');
+});
+test('dailyRows: anlık botun günlük ortalama arzı (a alanı) satırın ortArz yerine işlenir', () => {
+  const f = { d1018: JSON.stringify({ 1: [1, 2, 0.5, 1.5, 0, 10, 15] }), a1018: JSON.stringify({ 1: 333, 4: 9 }) };
+  const rows = dailyRows(f, 2026);
+  eq(rows.get('2026-10-18')[1][4], 333);
+  eq(rows.get('2026-10-18')[4], undefined, 'günlük satırı olmayan kalite eklenmez');
 });
 
 const failed = results.filter((r) => !r.ok);

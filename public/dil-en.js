@@ -1538,4 +1538,8 @@ export default {
   "Canlı Borsa: Sim Companies'in anlık borsa fiyatı eklendi. Büyük fiyat ve grafikteki yeni (basamaklı) çizgi, kalite ve üstü satış ilanlarının en ucuzunu gösterir; son işlem fiyatı ayrı çizgi ve satırdır. Günlük kapanış hâlâ son işlem fiyatıdır.": "Live exchange: the live exchange price from Sim Companies was added. The big price and the new (stepped) chart line show the cheapest sell listing at that quality or higher; the last trade price is a separate line and column. The daily close is still the last trade price.",
   'Canlı Borsa: Satış Arzı artık doluyor (kalitedeki toplam satış ilanı adedi). Kalite tablosuna Borsa fiyatı sütunu eklendi.': 'Live exchange: Supply for sale is now filled in (total units listed for sale in that quality). An Exchange price column was added to the quality table.',
   'Kâr Hesaplayıcı: maliyet ve fiyatlar son işlem yerine anlık borsa fiyatından hesaplanıyor; anlık veri yoksa son işlem fiyatı kullanılır.': 'Profit calculator: costs and prices are now calculated from the live exchange price instead of the last trade; the last trade price is used when live data is missing.',
+  'borsa fiyatı ({0})': 'exchange price ({0})',
+  'borsa fiyatı ({0}) · son işlem {1}, {2}': 'exchange price ({0}) · last trade {1}, {2}',
+  'Borsa fiyatının ölçüldüğü zaman': 'When the exchange price was measured',
+  'Canlı Borsa: anlık borsa fiyatı ve satış arzı artık ayrı bir botla çekiliyor; veri 20 dakikadan eskiyse ne kadar önce ölçüldüğü yazılıyor.': 'Live exchange: the live exchange price and supply for sale are now collected by a separate bot; if the data is older than 20 minutes, the time it was measured is shown.',
 };
