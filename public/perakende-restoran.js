@@ -322,7 +322,8 @@ export function tuketimVerisi(retailList, kayit) {
   return Object.keys(p).length ? { p } : null;
 }
 
-const MODLAR = [['urun', 'Ürün'], ['gun', 'Gün']];
+const METRIKLER = [['adet', 'Adet'], ['tutar', 'Tutar']];
+const ARALIKLAR = [[7, '7 gün'], [14, '14 gün'], [28, '28 gün']];
 const gunKisa = (d) => `${d.slice(8, 10)}.${d.slice(5, 7)}`;
 const gunAdi = (d) => new Intl.DateTimeFormat(LOCALE, { weekday: 'short', timeZone: 'UTC' }).format(new Date(`${d}T12:00:00Z`));
 const avg = (a) => (a.length ? a.reduce((s, x) => s + x, 0) / a.length : null);
@@ -331,41 +332,38 @@ const pctDeg = (x) => (fin(x) ? `${x > 0.05 ? '+' : x < -0.05 ? '−' : ''}%${NF
 const degCls = (x) => (!fin(x) ? 'mu' : x > 0.05 ? 'up' : x < -0.05 ? 'dn' : 'mu');
 const kisa = new Intl.NumberFormat(LOCALE, { notation: 'compact', maximumFractionDigits: 1 });
 const tutarKisa = (x) => (fin(x) ? `$${kisa.format(x)}` : '—');
-const fiyatFmt = (x) => (fin(x) ? `$${NF[x >= 100 ? 0 : 2].format(x)}` : '—');
 
 export const TUKETIM_CSS = `
-.tk-modes, .tk-days { display: flex; gap: 6px; }
-.tk-days { overflow-x: auto; -webkit-overflow-scrolling: touch; padding-bottom: 4px; }
-.tk-day { flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; min-width: 56px; height: 52px; padding: 0 10px; border-radius: 12px;
-  border: 1px solid var(--line-2); background: var(--raise); color: var(--text); font: 600 15px var(--font-c); }
-.tk-day small { color: var(--muted); font: 500 11px var(--font); }
-.tk-day[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
-.tk-day[aria-pressed="true"] small { color: var(--on-accent); }
-.tk-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-.tk-chip { display: inline-flex; align-items: center; height: 40px; padding: 0 14px; border-radius: 20px; border: 1px solid var(--line-2); background: var(--raise);
-  color: var(--text); font: 600 14px var(--font); white-space: nowrap; }
-.tk-chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
-.tk-cat { color: var(--accent); font: 600 12px var(--font-c); letter-spacing: .08em; text-transform: uppercase; margin: 8px 0 6px; }
-.tk-bars { display: flex; align-items: flex-end; gap: 4px; height: 64px; border-bottom: 1px solid var(--line-2); }
-.tk-bars span { flex: 1 1 0; border-radius: 4px 4px 0 0; background: var(--s-vol, #3d6a94); opacity: .7; min-height: 2px; }
-.tk-bars span.last { background: var(--accent); opacity: 1; }
+.tk-seg { display: flex; gap: 10px; flex-wrap: wrap; }
+.tk-seg .ur-seg { flex: 1 1 200px; }
+.tk-top { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.tk-bars { display: flex; align-items: flex-end; gap: 3px; height: 64px; border-bottom: 1px solid var(--line-2); }
+.tk-bars span { flex: 1 1 0; border-radius: 3px 3px 0 0; background: var(--accent); opacity: .45; min-height: 2px; }
+.tk-bars span.sel { opacity: 1; }
 .tk-axis { display: flex; justify-content: space-between; color: var(--muted); font-size: 11px; }
-.tk-t { display: flex; flex-direction: column; font-variant-numeric: tabular-nums; }
-.tk-t .row { display: grid; gap: 4px; align-items: center; padding: 0 2px; min-height: 38px; border-bottom: 1px solid var(--line); font-size: 13.5px; }
-.tk-t .head { min-height: 28px; color: var(--muted); font-weight: 600; font-size: 11.5px; }
-.tk-t .row > :not(:first-child) { text-align: right; }
-.tk-t .row .nm { font: 600 14px var(--font-c); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; }
-.tk-t.g1 .row { grid-template-columns: 44px minmax(0, 1.5fr) 62px 74px 56px; }
-.tk-t.g2 .row { grid-template-columns: minmax(0, 1fr) 72px 54px 50px 54px; font-size: 13px; }
-.tk-t .row.hl { background: var(--sel); border-radius: 6px; }
-.tk-t .up, .ur .tk-up { color: var(--up); } .tk-t .dn { color: var(--down); } .tk-t .mu { color: var(--muted); }
-.tk-cathead { display: flex; justify-content: space-between; align-items: baseline; margin-top: 8px; padding: 6px 2px 4px; border-bottom: 1px solid var(--line-2); }
-.tk-cathead b { color: var(--accent); font: 600 12px var(--font-c); letter-spacing: .08em; text-transform: uppercase; }
-.tk-cathead span { color: var(--muted); font-size: 12px; }
+.tk-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--line-2); border-radius: 12px; background: var(--surface); }
+.tk-m { border-collapse: separate; border-spacing: 0; font-variant-numeric: tabular-nums; font-size: 13px; width: 100%; }
+.tk-m th, .tk-m td { height: 38px; padding: 0 8px; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+.tk-m thead th { position: sticky; top: 0; background: var(--surface); color: var(--muted); font: 600 12px var(--font); }
+.tk-m .nm { position: sticky; left: 0; z-index: 2; background: var(--surface); text-align: left; min-width: 118px; max-width: 150px; overflow: hidden; text-overflow: ellipsis;
+  border-right: 1px solid var(--line-2); font: 600 14px var(--font-c); }
+.tk-m thead .nm { z-index: 3; }
+.tk-m .nm button { all: unset; cursor: pointer; display: block; width: 100%; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
+.tk-m tr.selrow td, .tk-m tr.selrow th.nm { background: var(--sel); }
+.tk-m tr.selrow .nm button { color: var(--accent); }
+.tk-m th.selday, .tk-m td.selday { box-shadow: inset 2px 0 0 var(--accent), inset -2px 0 0 var(--accent); }
+.tk-m thead th button { all: unset; cursor: pointer; display: flex; flex-direction: column; align-items: flex-end; width: 100%; color: inherit; line-height: 1.15; }
+.tk-m thead th.selday button { color: var(--accent); }
+.tk-m thead th small { font: 500 10.5px var(--font); }
+.tk-m .cat td { height: 30px; text-align: left; background: var(--raise); color: var(--accent); font: 600 12px var(--font-c); letter-spacing: .08em; text-transform: uppercase; position: sticky; left: 0; }
+.tk-m tfoot td, .tk-m tfoot th { font-weight: 600; border-bottom: 0; }
+.tk-m .up { color: var(--up); } .tk-m .dn { color: var(--down); } .tk-m .mu { color: var(--muted); }
+.tk-m .sum { color: var(--muted); }
+@media (max-width: 600px) { .tk-m .opt { display: none; } .tk-m .nm { min-width: 104px; } }
 `;
 
-// raw: tuketimVerisi sonucu; o: { nameOf, mod, urun, gun, fiyatYedek(id) }
-export function tuketimHtml(raw, { nameOf, mod = 'urun', urun = null, gun = null, fiyatYedek } = {}) {
+// raw: tuketimVerisi sonucu; o: { nameOf, metrik, aralik, urun, gun, fiyatYedek(id) }
+export function tuketimHtml(raw, { nameOf, metrik = 'adet', aralik = 28, urun = null, gun = null, fiyatYedek } = {}) {
   const p = raw?.p;
   const ids = p ? Object.keys(p).filter((id) => p[id] && Object.keys(p[id]).length) : [];
   if (!ids.length) return `<div class="ur-card ur-empty"><h2>Tüketim verisi henüz yok</h2><p class="ur-sub">Restoranlarda satılan ürünlerin günlük tüketimi her gün bir kez toplanır; ilk kayıt geldiğinde burada görünür.</p></div>`;
@@ -382,84 +380,83 @@ export function tuketimHtml(raw, { nameOf, mod = 'urun', urun = null, gun = null
     if (!(id in yedek)) yedek[id] = fiyatYedek ? fiyatYedek(Number(id)) : null;
     return fin(yedek[id]) && yedek[id] > 0 ? { v: yedek[id], yedek: true } : { v: null, yedek: false };
   };
-  let yedekKullanildi = false;
-  const star = (f) => { if (f.yedek) yedekKullanildi = true; return f.yedek ? '*' : ''; };
+  const hucre = (id, day) => {
+    const e = p[id][day];
+    if (!e) return null;
+    const f = fiyatOf(id, day);
+    return { a: e[0], tutar: f.v ? e[0] * f.v : null, yedek: f.yedek };
+  };
   const sec = urun && ids.includes(String(urun)) ? String(urun) : (ids.includes('124') ? '124' : order[0]);
   const gunSec = gun && days.includes(gun) ? gun : last;
+  const gorunen = days.slice(-aralik).reverse(); // en yeni solda
+  const val = (h) => (h == null ? null : metrik === 'tutar' ? h.tutar : h.a);
+  const fmt = (x) => (!fin(x) ? '—' : metrik === 'tutar' ? tutarKisa(x) : num(x));
 
-  const modes = `<div class="tk-modes">${seg('rt.mod', MODLAR, mod, 'Görünüm')}</div>`;
-  const head = `<div class="ur-head"><h2 id="h-tk">Restoran tüketimi</h2>${chip(`Son veri ${gunKisa(last)}`, 'muted')}</div>`;
-  let body = '';
-
-  if (mod === 'gun') {
-    const idx = days.indexOf(gunSec);
-    const onceki = idx > 0 ? days[idx - 1] : null;
-    const pencere = days.slice(Math.max(0, idx - 7), idx);
-    const satir = (id) => {
-      const e = p[id][gunSec];
-      const a = e ? e[0] : null;
-      const dun = onceki && p[id][onceki] ? p[id][onceki][0] : null;
-      const ort = pencere.length >= 3 ? avg(pencere.map((d) => p[id][d]?.[0]).filter(fin)) : null;
-      const f = fiyatOf(id, gunSec);
-      return { id, a, f, d1: degisim(a, dun), d7: degisim(a, ort), tutar: a != null && f.v ? a * f.v : null };
-    };
-    const rows = ids.map(satir).filter((r) => r.a != null);
-    const artan = rows.filter((r) => r.d1 != null && r.d1 > 0.05).length;
-    const azalan = rows.filter((r) => r.d1 != null && r.d1 < -0.05).length;
-    const toplam = rows.reduce((s, r) => s + (r.tutar || 0), 0);
-    const secici = `<div class="tk-days" role="group" aria-label="Gün">${[...days].reverse().map((d) =>
-      `<button type="button" class="tk-day" data-act="rt.gun" data-v="${d}" aria-pressed="${d === gunSec}">${gunKisa(d)}<small>${esc(gunAdi(d))}</small></button>`).join('')}</div>`;
-    const stats = `<div class="ur-metrics" style="grid-template-columns:repeat(4,minmax(0,1fr))">
-        <div class="ur-stat"><span>Ürün</span><span>${num(rows.length)}</span></div>
+  // seçili gün özeti
+  const gi = days.indexOf(gunSec);
+  const onceki = gi > 0 ? days[gi - 1] : null;
+  let artan = 0, azalan = 0, toplamTutar = 0, adetli = 0;
+  for (const id of ids) {
+    const h = hucre(id, gunSec), o = onceki ? hucre(id, onceki) : null;
+    if (!h) continue;
+    adetli += 1;
+    toplamTutar += h.tutar || 0;
+    const d = degisim(h.a, o?.a);
+    if (d != null && d > 0.05) artan += 1; else if (d != null && d < -0.05) azalan += 1;
+  }
+  const gunKutu = `<div class="ur-box" style="gap:8px"><div class="ur-row" style="justify-content:space-between"><span style="font:600 17px var(--font-c)">${gunKisa(gunSec)} ${esc(gunAdi(gunSec))}</span><span class="ur-note">Seçili gün</span></div>
+      <div class="ur-metrics" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+        <div class="ur-stat"><span>Ürün</span><span>${num(adetli)}</span></div>
         <div class="ur-stat"><span>Artan</span><span class="${artan ? 'c-up' : ''}">${num(artan)}</span></div>
         <div class="ur-stat"><span>Azalan</span><span class="${azalan ? 'c-down' : ''}">${num(azalan)}</span></div>
-        <div class="ur-stat"><span>Tutar</span><span>${tutarKisa(toplam)}</span></div></div>`;
-    const bolum = R.KATEGORILER.map((k) => [k.ad, k.key]).concat([['Diğer', null]]).map(([adi, key]) => {
-      const sub = order.filter((id) => (key ? katOf(id) === key : !katOf(id))).map((id) => rows.find((r) => r.id === id)).filter(Boolean);
-      if (!sub.length) return '';
-      return `<div class="tk-cathead"><b>${esc(adi)}</b><span>${num(sub.length)} ürün</span></div>${sub.map((r) =>
-        `<div class="row"><span class="nm">${esc(name(r.id))}</span><span>${num(r.a)}</span><span class="${r.f.v == null ? 'mu' : ''}">${fiyatFmt(r.f.v)}${star(r.f)}</span><span class="${degCls(r.d1)}">${pctDeg(r.d1)}</span><span class="${degCls(r.d7)}">${pctDeg(r.d7)}</span></div>`).join('')}`;
-    }).join('');
-    body = `${secici}${stats}<div class="tk-t g2" style="margin-top:4px"><div class="row head"><span>Ürün</span><span>Tüketim</span><span>Fiyat</span><span>Δ dün</span><span>Δ 7g</span></div>${bolum}</div>`;
-  } else {
-    const d = p[sec];
-    const dizi = days.map((day) => d[day]?.[0] ?? null);
-    const son = d[last]?.[0];
-    const son7 = days.slice(-7).map((day) => d[day]?.[0]).filter(fin);
-    const en = Math.max(...dizi.filter(fin));
-    const g14 = days.slice(-14);
-    const v14 = g14.map((day) => d[day]?.[0]).filter(fin);
-    const lo = Math.min(...v14), hi = Math.max(...v14), span = hi - lo || 1;
-    const bars = g14.map((day, i) => {
-      const v = d[day]?.[0];
-      const h = fin(v) ? Math.round(10 + ((v - lo) / span) * 54) : 2;
-      return `<span style="height:${h}px" ${i === g14.length - 1 ? 'class="last"' : ''}></span>`;
-    }).join('');
-    const chips = R.KATEGORILER.map((k) => [k.ad, k.key]).concat([['Diğer', null]]).map(([adi, key]) => {
-      const sub = order.filter((id) => (key ? katOf(id) === key : !katOf(id)));
-      return sub.length ? `<div class="tk-cat">${esc(adi)}</div><div class="tk-chips">${sub.map((id) =>
-        `<button type="button" class="tk-chip" data-act="rt.urun" data-v="${esc(id)}" aria-pressed="${id === sec}">${esc(name(id))}</button>`).join('')}</div>` : '';
-    }).join('');
-    const tablo = [...days].reverse().map((day, i) => {
-      const e = d[day];
-      if (!e) return '';
-      const idx = days.indexOf(day);
-      const dun = idx > 0 ? d[days[idx - 1]]?.[0] : null;
-      const f = fiyatOf(sec, day);
-      const dg = degisim(e[0], dun);
-      return `<div class="row${i === 0 ? ' hl' : ''}"><span>${gunKisa(day)}</span><span>${num(e[0])}</span><span>${fiyatFmt(f.v)}${star(f)}</span><span>${tutarKisa(f.v ? e[0] * f.v : null)}</span><span class="${degCls(dg)}">${pctDeg(dg)}</span></div>`;
-    }).join('');
-    body = `${chips}
-      <div class="ur-metrics">
-        <div class="ur-stat"><span>Son gün</span><span>${num(son)}</span></div>
+        <div class="ur-stat"><span>Tutar</span><span>${tutarKisa(toplamTutar)}</span></div></div></div>`;
+
+  // seçili ürün özeti: tüm günler (en çok 28)
+  const d = p[sec];
+  const dizi = days.slice(-28).map((day) => d[day]?.[0] ?? null);
+  const v = dizi.filter(fin);
+  const lo = Math.min(...v), hi = Math.max(...v), span = hi - lo || 1;
+  const son7 = days.slice(-7).map((day) => d[day]?.[0]).filter(fin);
+  const bars = days.slice(-28).map((day) => {
+    const x = d[day]?.[0];
+    return `<span ${day === gunSec ? 'class="sel"' : ''} style="height:${fin(x) ? Math.round(10 + ((x - lo) / span) * 54) : 2}px"></span>`;
+  }).join('');
+  const urunKutu = `<div class="ur-box" style="gap:8px"><div class="ur-row" style="justify-content:space-between"><span style="font:600 17px var(--font-c)">${esc(name(sec))}</span><span class="ur-note">${gunKisa(days[Math.max(0, days.length - 28)])} – ${gunKisa(last)}</span></div>
+      <div class="ur-metrics"><div class="ur-stat"><span>Son gün</span><span>${num(d[last]?.[0])}</span></div>
         <div class="ur-stat"><span>7 gün ort.</span><span>${num(avg(son7))}</span></div>
-        <div class="ur-stat"><span>En yüksek</span><span>${num(en)}</span></div></div>
-      <div class="ur-box" style="gap:8px"><div class="ur-row" style="justify-content:space-between"><span style="font:600 17px var(--font-c)">${esc(name(sec))}</span><span class="ur-note">${esc(`${gunKisa(g14[0])} – ${gunKisa(last)}`)}</span></div>
-        <div class="tk-bars" role="img" aria-label="${esc(`${name(sec)}: ${num(lo)} – ${num(hi)}`)}">${bars}</div>
-        <div class="tk-axis"><span>${gunKisa(g14[0])}</span><span>${gunKisa(last)}</span></div></div>
-      <div class="tk-t g1"><div class="row head"><span>Gün</span><span>Tüketim</span><span>Fiyat</span><span>Tutar</span><span>Δ</span></div>${tablo}</div>`;
-  }
-  const dipnot = yedekKullanildi ? '<p class="ur-note">* Kayıtta fiyatı olmayan ürünlerde borsa ortalama fiyatı kullanıldı.</p>' : '';
-  return `<section class="ur-card" aria-labelledby="h-tk">${head}${modes}${body}${dipnot}
-      <p class="ur-note">Δ: ${mod === 'gun' ? 'bir önceki güne ve önceki 7 günün ortalamasına göre' : 'bir önceki güne göre'}.</p></section>`;
+        <div class="ur-stat"><span>En yüksek</span><span>${num(hi)}</span></div></div>
+      <div class="tk-bars" role="img" aria-label="${esc(`${name(sec)}: ${num(lo)} – ${num(hi)}`)}">${bars}</div>
+      <div class="tk-axis"><span>${gunKisa(days[Math.max(0, days.length - 28)])}</span><span>${gunKisa(last)}</span></div></div>`;
+
+  // matris
+  let yedekVar = false;
+  const basl = gorunen.map((day) => `<th scope="col" class="${day === gunSec ? 'selday' : ''}"><button type="button" data-act="rt.gun" data-v="${day}" aria-pressed="${day === gunSec}">${gunKisa(day)}<small>${esc(gunAdi(day))}</small></button></th>`).join('');
+  const satirlar = R.KATEGORILER.map((k) => [k.ad, k.key]).concat([['Diğer', null]]).map(([adi, key]) => {
+    const sub = order.filter((id) => (key ? katOf(id) === key : !katOf(id)));
+    if (!sub.length) return '';
+    const kolon = gorunen.length + 2;
+    return `<tr class="cat"><td colspan="${kolon}">${esc(adi)}</td></tr>${sub.map((id) => {
+      const hs = gorunen.map((day) => hucre(id, day));
+      const vals = hs.map(val).filter(fin);
+      const mn = Math.min(...vals), mx = Math.max(...vals), sp = mx - mn || 1;
+      const sonH = hucre(id, gunSec), onH = onceki ? hucre(id, onceki) : null;
+      const dg = degisim(sonH?.a, onH?.a);
+      const yd = hs.some((h) => h?.yedek) && metrik === 'tutar';
+      if (yd) yedekVar = true;
+      return `<tr class="${id === sec ? 'selrow' : ''}"><th scope="row" class="nm"><button type="button" data-act="rt.urun" data-v="${esc(id)}" aria-pressed="${id === sec}">${esc(name(id))}${yd ? '*' : ''}</button></th>
+        <td class="opt ${degCls(dg)}">${pctDeg(dg)}</td><td class="opt sum">${fmt(avg(hs.map(val).filter(fin)))}</td>
+        ${hs.map((h, i) => { const x = val(h); const t = fin(x) ? Math.round(((x - mn) / sp) * 28) : 0; return `<td class="${gorunen[i] === gunSec ? 'selday' : ''}" style="background:color-mix(in srgb, var(--accent) ${t}%, transparent)">${fmt(x)}</td>`; }).join('')}</tr>`;
+    }).join('')}`;
+  }).join('');
+  const altToplam = gorunen.map((day) => { let t = 0; for (const id of ids) t += hucre(id, day)?.tutar || 0; return `<td class="${day === gunSec ? 'selday' : ''}">${tutarKisa(t)}</td>`; }).join('');
+
+  const kontrol = `<div class="tk-seg">${seg('rt.metrik', METRIKLER, metrik, 'Gösterim')}${seg('rt.aralik', ARALIKLAR, aralik, 'Aralık')}</div>`;
+  return `<section class="ur-card" aria-labelledby="h-tk"><div class="ur-head"><h2 id="h-tk">Restoran tüketimi</h2>${chip(`Son veri ${gunKisa(last)}`, 'muted')}</div>
+      ${kontrol}
+      <div class="tk-top">${gunKutu}${urunKutu}</div>
+      <div class="tk-wrap" tabindex="0" role="region" aria-label="Tüketim tablosu"><table class="tk-m">
+        <thead><tr><th class="nm" scope="col">Ürün</th><th scope="col" class="opt">Δ dün</th><th scope="col" class="opt">Ort.</th>${basl}</tr></thead>
+        <tbody>${satirlar}</tbody>
+        <tfoot><tr><th class="nm" scope="row">Tutar</th><td class="opt"></td><td class="opt"></td>${altToplam}</tr></tfoot></table></div>
+      <p class="ur-note">Ürün adına dokununca üstte o ürünün grafiği, gün başlığına dokununca o günün özeti açılır. Koyu zemin, ürünün kendi aralığındaki yüksek günleri gösterir. Δ dün: seçili günün bir önceki güne göre değişimi.${yedekVar ? ' * Kayıtta fiyatı olmayan ürünlerde borsa ortalama fiyatı kullanıldı.' : ''}</p></section>`;
 }
