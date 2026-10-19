@@ -304,6 +304,24 @@ export function restoranDegis(rs, t, env) {
 // ---------------------------------------------------------------------------------------------------------------
 // Tüketimler: botun topladığı günlük restoran satışı (tüm oyuncular). raw = { v, t, p: { ürünId: { 'AAAA-AA-GG': [adet, ortFiyat, talep, ...] } } }
 // ---------------------------------------------------------------------------------------------------------------
+// Tüketim verisi: meta/retail_r{realm} içindeki ürün satırları (son ~28 gün) esas alınır; botun biriktirdiği restoran kaydında
+// daha eski günler varsa onlar eklenir. Dönen biçim tuketimHtml'in istediği { p: { ürünId: { gün: [adet, fiyat, talep] } } }.
+export function tuketimVerisi(retailList, kayit) {
+  const p = {};
+  for (const [id, days] of Object.entries(kayit?.p || {})) p[id] = { ...days };
+  for (const it of Array.isArray(retailList) ? retailList : []) {
+    const id = Number(it?.dbLetter);
+    const rows = Array.isArray(it?.retailData) ? it.retailData : [];
+    if (!Number.isFinite(id) || !rows.some((r) => Number(r?.amountSoldRestaurant) > 0)) continue;
+    p[id] = p[id] || {};
+    for (const r of rows) {
+      const adet = Number(r?.amountSoldRestaurant);
+      if (/^\d{4}-\d{2}-\d{2}$/.test(r?.date) && Number.isFinite(adet)) p[id][r.date] = [adet, Number(r.averagePrice) || 0, Number(r.demand) || 0];
+    }
+  }
+  return Object.keys(p).length ? { p } : null;
+}
+
 const DONEMLER = [[7, '7 gün'], [14, '14 gün'], [28, '28 gün']];
 const gunKisa = (d) => `${d.slice(8, 10)}.${d.slice(5, 7)}`;
 const avg = (a) => (a.length ? a.reduce((s, x) => s + x, 0) / a.length : null);

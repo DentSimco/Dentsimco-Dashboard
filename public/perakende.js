@@ -199,7 +199,7 @@ async function loadData(r) {
     liveT: Number(get('live')?.t) || null,
     qualityWeight: qw != null && Number.isFinite(Number(qw)) ? Number(qw) : undefined,
     hasRetailInfo: !!ri,
-    consumption: get('restaurant'),
+    consumption: RS.tuketimVerisi(Array.isArray(ri) ? ri : ri?.items, get('restaurant')),
     gamePhase,
   };
 }
