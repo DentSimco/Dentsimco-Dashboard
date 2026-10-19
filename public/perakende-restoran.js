@@ -159,8 +159,7 @@ function menuHtml(rs, scope, m, g, marketOf, katAcik) {
       const opts = x.secili ? `<div class="rs-opts">
           <label class="rs-mini"><span>Kalite</span><select data-rm="${esc(scope)}|${id}|kalite">${Array.from({ length: 13 }, (_, q) => `<option value="${q}" ${q === x.kalite ? 'selected' : ''}>Q${q}</option>`).join('')}</select></label>
           <div class="rs-mini"><span>Maliyet</span>${seg('rm.kaynak', KAYNAKLAR, x.kaynak, `${ad(id)} maliyet kaynağı`, ` ${key}`)}</div>
-          ${x.kaynak === 'manuel' ? `<label class="rs-mini"><span>Birim $</span><input type="text" inputmode="decimal" autocomplete="off" data-rm="${esc(scope)}|${id}|manuel" value="${esc(inputVal(x.manuel == null ? null : Math.round(x.manuel * 1e4) / 1e4))}" placeholder="${esc(b != null ? inputVal(b) : '')}"></label>
-          <label class="rs-mini"><span>ya da Sourcing Cost $</span><input type="text" inputmode="decimal" autocomplete="off" data-rm="${esc(scope)}|${id}|satir" value="" placeholder="${esc(k?.tutar != null ? num(k.tutar) : 'oyundaki satır')}"></label>` : ''}
+          ${x.kaynak === 'manuel' ? `<label class="rs-mini"><span>Sourcing Cost $</span><input type="text" inputmode="decimal" autocomplete="off" data-rm="${esc(scope)}|${id}|satir" value="${esc(inputVal(x.manuel != null && k?.adet > 0 ? Math.round(x.manuel * k.adet * 100) / 100 : ''))}" placeholder="${esc(k?.adet > 0 ? 'oyundaki satır' : 'önce seviye girin')}"></label>` : ''}
         </div>` : '';
       return `<div class="rs-item"><div class="rs-top">
           <button type="button" class="rs-pick" data-act="rm.urun" ${key} aria-pressed="${x.secili}"><span class="rs-box"></span><span class="nm">${esc(ad(id))}</span></button>
@@ -288,11 +287,10 @@ export function restoranDegis(rs, t, env) {
     const x = m?.[pid];
     if (!x) return false;
     if (f === 'kalite') x.kalite = Math.min(12, Math.max(0, Math.floor(Number(t.value) || 0)));
-    else if (f === 'manuel') x.manuel = posOr(parseNum(t.value));
     else if (f === 'satir') {
       // Oyundaki "Sourcing Cost" satırı: toplam tutar ÷ adet = birim maliyet
       const tutar = posOr(parseNum(t.value));
-      const it = scope === 'o' ? rs.items.find((y) => y.seviye > 0) : rs.items.find((y) => y.id === scope);
+      const it = scope === 'o' ? rs.items[0] : rs.items.find((y) => y.id === scope);
       const ids = Object.keys(m).filter((i) => m[i].secili).map(Number);
       const adet = it ? R.ihtiyac(ids, it.seviye, it.tip)[pid] : null;
       if (tutar != null && adet > 0) { x.kaynak = 'manuel'; x.manuel = tutar / adet; }
