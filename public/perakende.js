@@ -20,7 +20,10 @@ import { esc } from './esc.js';
 const STORE_KEY = (r) => `dentsimco.perakende.r${r}`;
 const TAB_KEY = 'dentsimco.perakende.tab';
 const PERIOD_KEY = 'dentsimco.perakende.period';
-export const TABS = [['kurulum', 'Kurulum'], ['binalar', 'Binalar'], ['pphpl', 'PPHPL Max'], ['ozet', 'Özet']];
+export const TABS = [['kurulum', 'Kurulum'], ['binalar', 'Binalar'], ['pphpl', 'PPHPL Max'], ['restoran', 'Restoran'], ['tuketim', 'Tüketimler'], ['ozet', 'Özet']];
+// Üst sekmeler; Binalar ve Restoran'ın altında ikişer alt sekme var
+const GROUPS = [['kurulum', 'Kurulum', ['kurulum']], ['binalar', 'Binalar', ['binalar', 'pphpl']], ['restoran', 'Restoran', ['restoran', 'tuketim']], ['ozet', 'Özet', ['ozet']]];
+const SUBS = { binalar: [['binalar', 'Binalar'], ['pphpl', 'PPHPL Max']], restoran: [['restoran', 'Binalar'], ['tuketim', 'Tüketimler']] };
 const PERIODS = [['hour', 'Saatlik', 1 / 24], ['day', 'Günlük', 1], ['week', 'Haftalık', 7], ['month', 'Aylık', 30]];
 const REC = [['park', 'Park'], ['temple', 'Tapınak'], ['lake', 'Göl']];
 const HISTORY_DAYS = 30;
@@ -102,6 +105,10 @@ const EXTRA_CSS = `
 .pk-fold .grow { flex: 1 1 auto; }
 .pk-fold svg { width: 20px; height: 20px; flex: none; transition: transform 0.2s; }
 .pk-fold[aria-expanded="true"] svg { transform: rotate(180deg); }
+.ur-subtabs { display: flex; gap: 6px; margin: 10px 0 2px; }
+.ur-subtabs a { flex: 1 1 0; display: flex; align-items: center; justify-content: center; min-height: 40px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--raise);
+  color: var(--muted); font: 600 15px var(--font-c); text-decoration: none; white-space: nowrap; }
+.ur-subtabs a[aria-current="page"] { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
 .pk-svg { width: 100%; height: auto; display: block; }
 .pk-svg text { fill: var(--muted); font-size: 11px; font-family: var(--font); }
 `;
@@ -170,7 +177,7 @@ function parseLive(doc) {
 }
 async function loadData(r) {
   const P = { products: PATHS.meta(`products_r${r}`), buildings: PATHS.meta('buildings'), core: PATHS.meta('core'),
-    retail: PATHS.meta(`retail_r${r}`), modifiers: PATHS.meta(`modifiers_r${r}`), live: PATHS.live(r) };
+    retail: PATHS.meta(`retail_r${r}`), restaurant: PATHS.meta(`restaurant_r${r}`), modifiers: PATHS.meta(`modifiers_r${r}`), live: PATHS.live(r) };
   const [docs, gamePhase] = await Promise.all([readDocs(Object.values(P)), loadGamePhase(r)]); // evre okunamazsa null
   const get = (k) => dataField(docs.get(P[k]));
   const products = get('products');
@@ -192,6 +199,7 @@ async function loadData(r) {
     liveT: Number(get('live')?.t) || null,
     qualityWeight: qw != null && Number.isFinite(Number(qw)) ? Number(qw) : undefined,
     hasRetailInfo: !!ri,
+    consumption: get('restaurant'),
     gamePhase,
   };
 }
@@ -253,6 +261,8 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   let loadToken = 0;
   let destroyed = false;
   let toastTimer = null;
+  const tuketimAcik = new Set(); // açık ürün satırları
+  let tuketimDonem = 7;
   const restoranAcik = new Set(); // ayrı menülü restoran kartlarında açık menüler
   let kbOnay = false; // öteki bölümün binalarını kaldırma onayı bekleniyor
   let kbGeri = null; // kaldırılanı geri almak için eski durum
@@ -398,7 +408,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     const rs = RS.degerlendirRestoran(setup.restoran, c.ctx, marketOf);
     const a = ev.totals;
     const b = rs.totals;
-    return { ...ev, restoran: rs, totals: { ...a, levels: a.levels + b.levels, revenueDay: a.revenueDay + b.revenueDay, costDay: a.costDay + b.costDay,
+    return { ...ev, stores: a, restoran: rs, totals: { ...a, levels: a.levels + b.levels, revenueDay: a.revenueDay + b.revenueDay, costDay: a.costDay + b.costDay,
       wagesDay: a.wagesDay + b.wagesDay, profitDay: a.profitDay + b.profitDay } };
   }
   const hasPlan = () => setup.buildings.length > 0 || setup.restoran.items.length > 0;
@@ -439,8 +449,11 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   function render() {
     if (destroyed) return;
     pendingRender = false;
-    const tabs = `<nav class="ur-tabs" aria-label="Perakende bölümleri">${TABS.map(([k, t]) =>
-      `<a href="#perakende/${k}" ${k === tab ? 'aria-current="page"' : ''}>${t}</a>`).join('')}</nav>`;
+    const group = GROUPS.find(([, , views]) => views.includes(tab)) || GROUPS[1];
+    const tabs = `<nav class="ur-tabs" aria-label="Perakende bölümleri">${GROUPS.map(([k, t, views]) =>
+      `<a href="#perakende/${views.includes(tab) ? tab : views[0]}" ${views.includes(tab) ? 'aria-current="page"' : ''}>${t}</a>`).join('')}</nav>`
+      + (SUBS[group[0]] ? `<nav class="ur-subtabs" aria-label="${esc(group[1])} alt bölümleri">${SUBS[group[0]].map(([k, t]) =>
+        `<a href="#perakende/${k}" ${k === tab ? 'aria-current="page"' : ''}>${t}</a>`).join('')}</nav>` : '');
     let body;
     if (loadError) {
       body = `<div class="ur-msg err" role="alert">Veriler okunamadı: ${esc(loadError)}</div><button type="button" class="ur-btn" data-act="retry">Tekrar dene</button>`;
@@ -450,7 +463,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       try {
         const c = context();
         const ev = evaluateAll(c);
-        body = tab === 'kurulum' ? viewKurulum(c) : tab === 'pphpl' ? viewPphpl(c) : tab === 'ozet' ? viewOzet(c, ev) : viewBinalar(c, ev);
+        body = tab === 'kurulum' ? viewKurulum(c) : tab === 'pphpl' ? viewPphpl(c) : tab === 'ozet' ? viewOzet(c, ev) : tab === 'restoran' ? viewRestoran(c, ev) : tab === 'tuketim' ? viewTuketim() : viewBinalar(c, ev);
       } catch (e) {
         console.error(e);
         body = `<div class="ur-msg err" role="alert">Bu ekran gösterilemedi: ${esc(e?.message || e)}. Sayfayı yenileyin; sürerse bize bildirin.</div>`;
@@ -559,21 +572,37 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     </article>`;
   }
   function viewBinalar(c, ev) {
-    const t = ev.totals;
+    const t = ev.stores;
     const cards = setup.buildings.map((b, i) => buildingCard(c, b, ev.buildings[i]?.lines[0], i)).join('');
     const empty = '<div class="ur-card ur-empty"><h2>Henüz bina yok</h2><p class="ur-sub">Bina ekleyin: tür, ürün, seviye ve kalite seçin. PPHPL Max sekmesindeki önerilerden de ekleyebilirsiniz.</p></div>';
     return `
       ${guideCard({ title: 'Perakende', lead: 'Mağazalarınızın hangi ürünle ne kadar kazandıracağını hesaplar. PPHPL, bir bina seviyesinin saatlik kârıdır (maaş düşülmüş).',
         chips: [[`Toplam satış bonusu ${pctText(c.bonusPct)}`, c.bonusPct > 0 ? '' : 'muted'], [`Yönetim gideri ${pctText(c.ctx.adminNet * 100)}`, 'muted'],
           data.hasRetailInfo ? null : ['Doygunluk botta yok', 'down']] })}
-      ${hasPlan() ? `<div class="ur-stats">
+      ${setup.buildings.length ? `<div class="ur-stats">
         <div class="ur-stat"><span>Günlük kâr</span><span class="${cls(t.profitDay)}">${money(t.profitDay)}</span></div>
         <div class="ur-stat"><span>Toplam maaş</span><span>${money(t.wagesDay)}</span></div>
         <div class="ur-stat"><span>Kullanılan seviye</span><span>${num(t.levels)}</span></div></div>` : ''}
       <button type="button" class="ur-btn primary" data-act="add" style="width:100%">${icon('plus')}Bina ekle</button>
-      ${setup.buildings.length ? `<div class="ur-bgrid">${cards}</div>` : setup.restoran.items.length ? '' : empty}
-      ${RS.restoranBinalarHtml(setup.restoran, ev.restoran, marketOf, restoranAcik)}
+      ${setup.buildings.length ? `<div class="ur-bgrid">${cards}</div>` : empty}
       ${kisayolSatiri('perakendePphpl', 'perakendeOzet')}`;
+  }
+
+  // ---- RESTORAN ----
+  function viewRestoran(c, ev) {
+    const t = ev.restoran.totals;
+    return `
+      ${setup.restoran.items.length ? `<div class="ur-stats">
+        <div class="ur-stat"><span>Günlük kâr</span><span class="${cls(t.profitDay)}">${money(t.profitDay)}</span></div>
+        <div class="ur-stat"><span>Toplam maaş</span><span>${money(t.wagesDay)}</span></div>
+        <div class="ur-stat"><span>Kullanılan seviye</span><span>${num(t.levels)}</span></div></div>` : ''}
+      ${RS.restoranBinalarHtml(setup.restoran, ev.restoran, marketOf, restoranAcik)}
+      ${kisayolSatiri('perakendeOzet')}`;
+  }
+
+  // ---- TÜKETİMLER ----
+  function viewTuketim() {
+    return RS.tuketimHtml(data.consumption, { nameOf, acik: tuketimAcik, period: tuketimDonem });
   }
 
   // ---- PPHPL MAX ----
@@ -956,6 +985,8 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       try { localStorage.setItem(PERIOD_KEY, period); } catch { /* gizli sekme */ }
       return softRender();
     }
+    if (act === 'rt.urun') { const id = btn.dataset.v; if (tuketimAcik.has(id)) tuketimAcik.delete(id); else tuketimAcik.add(id); return softRender(); }
+    if (act === 'rt.donem') { tuketimDonem = Number(btn.dataset.v) || 7; return softRender(); }
     if (/^r[kfm]\./.test(act)) {
       const nx = clone();
       if (RS.restoranTikla(nx.restoran, btn, { marketOf, acik: restoranAcik })) return commit(nx);
