@@ -77,6 +77,16 @@ test('Lüks binanın saatlik maaşından eko seviye başına çevirme (×2)', ()
   near(R.seviyeBasiSaatlikMaas(55924 / 12, 11, 'luks'), W25, 0.02); // oyun maaşı tam dolara yuvarlar
 });
 
+section('Maaş tahmini (seviye ve yönetim giderinden)');
+test('18 Ekim: toplam 271 seviye, COO %72 → seviye başı $847,3/saat (oyun: $254.196 ÷ 12 ÷ 25)', () => {
+  near(R.saatlikMaasTahmini(271, 72), 254196 / 12 / 25, 0.05);
+});
+test('Yönetim tasarrufu sıfırken brüt gider tam uygulanır; tek seviyede gider 0', () => {
+  near(R.saatlikMaasTahmini(1, 0), 586.5, 1e-9);
+  near(R.saatlikMaasTahmini(341, 0), 586.5 * 3, 1e-9);
+  eq(R.saatlikMaasTahmini(0, 50), null);
+});
+
 section('Kategori çarpanı');
 test('Kategoride 2 ürün: çarpan 1 (oyunda doğrulandı); 1 ürün 2,1 · 3 ürün 0,7 · 4+ 0,55 (makale)', () => {
   eq([1, 2, 3, 4, 5, 6].map(R.kategoriCarpani), [2.1, 1, 0.7, 0.55, 0.55, 0.55]);

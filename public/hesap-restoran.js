@@ -19,7 +19,11 @@
 //   Doluluk: rating ~4,5 altında çöker (%40–70), üstünde fiyat ($60–64) ve ratingden bağımsız ~%96,5 [ölçüm]
 //   Menü fiyatı en az $60, en çok $350 [oyun rehberi]
 
+import { grossOverhead } from './hesap.js';
+
 export const DONGU_SAAT = 12;
+export const ORTALAMA_MAAS = 345; // oyun sabiti (meta/core AVERAGE_SALARY)
+export const RESTORAN_MAAS_KATSAYISI = 1.7; // bina katsayısı (meta/buildings, restoran)
 export const FIYAT_MIN = 60;
 export const FIYAT_MAX = 350;
 export const KOLTUK = { eko: 1000, luks: 500 }; // seviye başına
@@ -96,6 +100,15 @@ export function ihtiyac(ids, seviye, tip = 'eko') {
     out[id] = Math.ceil(u.oran * kategoriCarpani(say[u.kat]) * L * luks - 1e-9);
   }
   return out;
+}
+
+// Eko restoranın seviye başı saatlik maaşı: katsayı × ortalama maaş × (1 + net yönetim gideri).
+// Net yönetim gideri = brüt (toplam bina seviyesi − 1) ÷ 170 × (1 − COO tasarrufu).
+export function saatlikMaasTahmini(toplamBinaSeviyesi, tasarrufPct = 0) {
+  const T = Number(toplamBinaSeviyesi);
+  if (!(T >= 1)) return null;
+  const tasarruf = Math.min(100, Math.max(0, Number(tasarrufPct) || 0)) / 100;
+  return RESTORAN_MAAS_KATSAYISI * ORTALAMA_MAAS * (1 + grossOverhead(T) * (1 - tasarruf));
 }
 
 // Bina ekranındaki saatlik maaştan eko restoranın seviye başı saatlik maaşı (lüks binadan girildiyse ×2)
