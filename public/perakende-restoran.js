@@ -300,3 +300,79 @@ export function restoranDegis(rs, t, env) {
   }
   return false;
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// Tüketimler: botun topladığı günlük restoran satışı (tüm oyuncular). raw = { v, t, p: { ürünId: { 'AAAA-AA-GG': [adet, ortFiyat, talep, ...] } } }
+// ---------------------------------------------------------------------------------------------------------------
+const DONEMLER = [[7, '7 gün'], [14, '14 gün'], [28, '28 gün']];
+const gunKisa = (d) => `${d.slice(8, 10)}.${d.slice(5, 7)}`;
+const avg = (a) => (a.length ? a.reduce((s, x) => s + x, 0) / a.length : null);
+const pctDeg = (x) => (fin(x) ? `${x > 0 ? '+' : x < 0 ? '−' : ''}%${NF[1].format(Math.abs(x))}` : '—');
+
+function sparkline(vals) {
+  const v = vals.filter((x) => fin(x));
+  if (v.length < 2) return '';
+  const W = 300, H = 56, P = 4;
+  const lo = Math.min(...v), hi = Math.max(...v), span = hi - lo || 1;
+  const pts = vals.map((x, i) => (fin(x) ? `${(P + (i * (W - 2 * P)) / (vals.length - 1)).toFixed(1)},${(H - P - ((x - lo) / span) * (H - 2 * P)).toFixed(1)}` : null)).filter(Boolean);
+  return `<svg viewBox="0 0 ${W} ${H}" width="100%" height="${H}" role="img" aria-label="${esc(`${num(lo)} – ${num(hi)}`)}"><polyline points="${pts.join(' ')}" fill="none" stroke="var(--accent)" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>`;
+}
+
+export function tuketimHtml(raw, { nameOf, acik, period = 7 } = {}) {
+  const p = raw?.p;
+  const ids = p ? Object.keys(p).filter((id) => p[id] && Object.keys(p[id]).length) : [];
+  if (!ids.length) return `<div class="ur-card ur-empty"><h2>Tüketim verisi henüz yok</h2><p class="ur-sub">Restoranlarda satılan ürünlerin günlük tüketimi her gün bir kez toplanır; ilk kayıt geldiğinde burada görünür.</p></div>`;
+  const days = [...new Set(ids.flatMap((id) => Object.keys(p[id])))].sort();
+  const last = days[days.length - 1];
+  const win = days.slice(-period);
+  const prev = days.slice(-2 * period, -period);
+  const name = (id) => (nameOf ? nameOf(Number(id)) : null) || ad(id);
+  const row = (id) => {
+    const d = p[id];
+    const amt = (day) => d[day]?.[0];
+    const a = win.map(amt).filter(fin);
+    const b = prev.map(amt).filter(fin);
+    const ma = avg(a), mb = avg(b);
+    const pr = [...win].reverse().map((day) => d[day]?.[1]).find((x) => fin(x) && x > 0);
+    return { id, last: amt(last), avg: ma, change: ma != null && mb ? ((ma - mb) / mb) * 100 : null, price: pr ?? null, avgValue: avg(win.map((day) => (d[day] ? d[day][0] * d[day][1] : null)).filter(fin)),
+      series: days.slice(-28).map(amt), d };
+  };
+  const rows = Object.fromEntries(ids.map((id) => [id, row(id)]));
+  // günlük toplam tüketim değeri (adet × ortalama borsa fiyatı)
+  const valueOf = (day) => ids.reduce((s, id) => s + (p[id][day] ? p[id][day][0] * p[id][day][1] : 0), 0);
+  const totalLast = valueOf(last);
+  const totalAvg = avg(win.map(valueOf));
+  const katOf = (id) => R.URUNLER[id]?.kat;
+  const order = [...R.KATEGORILER.flatMap((k) => k.urunler.map(String)), ...ids.filter((id) => !katOf(id))].filter((id, i, arr) => ids.includes(id) && arr.indexOf(id) === i);
+  const detay = (id) => {
+    const r = rows[id];
+    const list = days.slice(-28).reverse().map((day) => {
+      const e = r.d[day];
+      if (!e) return '';
+      return `<div class="ur-kv"><span>${gunKisa(day)}</span><span>${num(e[0])} <small class="c-muted">· ${birimFmt(e[1])} · ${money(e[0] * e[1])}</small></span></div>`;
+    }).join('');
+    return `<div class="rs-item" style="gap:4px">${sparkline(r.series)}<p class="ur-note">Son ${num(Math.min(28, days.length))} gün · adet · borsa fiyatı · tutar</p>${list}</div>`;
+  };
+  const kategoriler = [...R.KATEGORILER.map((k) => [k.ad, k.key]), ['Diğer', null]];
+  const bolumler = kategoriler.map(([adi, key]) => {
+    const sub = order.filter((id) => (key ? katOf(id) === key : !katOf(id)));
+    if (!sub.length) return '';
+    return `<div class="rs-cat"><b>${esc(adi)}</b><span>${num(sub.length)} ürün</span></div>${sub.map((id) => {
+      const r = rows[id];
+      const open = acik?.has(id);
+      return `<div class="rs-item"><button type="button" class="rs-pick" data-act="rt.urun" data-v="${esc(id)}" aria-expanded="${!!open}" style="width:100%">
+        <span class="nm" style="flex:1 1 auto">${esc(name(id))}</span>
+        <span class="rs-num"><b>${num(r.last)}</b><small>son gün</small></span>
+        <span class="rs-num"><b>${num(r.avg)}</b><small>ort. ${num(win.length)} gün</small></span>
+        <span class="rs-num"><b class="${r.change > 0.05 ? 'c-up' : r.change < -0.05 ? 'c-down' : ''}">${pctDeg(r.change)}</b><small>önceki dönem</small></span>
+      </button>${open ? detay(id) : ''}</div>`;
+    }).join('')}`;
+  }).join('');
+  return `<section class="ur-card" aria-labelledby="h-tk"><div class="ur-head"><h2 id="h-tk">Restoran tüketimi</h2>${chip(`Son veri ${gunKisa(last)}`, 'muted')}</div>
+      ${seg('rt.donem', DONEMLER, period, 'Dönem')}
+      <div class="ur-metrics">
+        <div class="ur-stat"><span>Son gün toplam</span><span>${money(totalLast)}</span></div>
+        <div class="ur-stat"><span>Ort. günlük</span><span>${money(totalAvg)}</span></div>
+        <div class="ur-stat"><span>Gün sayısı</span><span>${num(days.length)}</span></div></div>
+      ${bolumler}</section>`;
+}

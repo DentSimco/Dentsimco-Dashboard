@@ -16,6 +16,7 @@ export const UPDATES = [
       "Canlı Borsa: Sim Companies'in anlık borsa fiyatı eklendi. Büyük fiyat ve grafikteki yeni (basamaklı) çizgi, kalite ve üstü satış ilanlarının en ucuzunu gösterir; son işlem fiyatı ayrı çizgi ve satırdır. Günlük kapanış hâlâ son işlem fiyatıdır.",
       'Canlı Borsa: Satış Arzı artık doluyor (kalitedeki toplam satış ilanı adedi). Kalite tablosuna Borsa fiyatı sütunu eklendi.',
       'Kâr Hesaplayıcı: maliyet ve fiyatlar son işlem yerine anlık borsa fiyatından hesaplanıyor; anlık veri yoksa son işlem fiyatı kullanılır.',
+      'Perakende: PPHPL Max artık Binalar sekmesinin altında. Restoranlar kendi sekmesine taşındı (Restoran › Binalar ve Tüketimler); Tüketimler, restoranlarda satılan tüm ürünlerin günlük tüketimini gösterir.',
       'Perakende › Restoran: birden fazla restoran eklenebilir; tüm binalara aynı menü ya da her binaya ayrı menü seçilir. Maliyet borsadan, kontrat indirimiyle ya da elle girilir.',
     ],
   },
