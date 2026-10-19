@@ -16,8 +16,8 @@ import { esc } from './esc.js';
 
 // Açıklama satırındaki sırayla. z: çizim sırası, büyük olan üstte.
 export const SERIES = [
-  { key: 'ask', kind: 'line', z: 10, color: 'var(--s-ask)', width: 2.2, glow: 8, step: true },
-  { key: 'anlik', kind: 'line', z: 9, color: 'var(--s-price)', width: 2.2, glow: 9 },
+  { key: 'ask', kind: 'line', z: 9, color: 'var(--s-ask)', width: 1.8, glow: 2, step: true },
+  { key: 'anlik', kind: 'line', z: 10, color: 'var(--s-price)', width: 2.2, glow: 9 },
   { key: 'dusuk', kind: 'line', z: 6, color: 'var(--s-low)', width: 1.5, dash: [4, 4], step: true, resets: true },
   { key: 'yuksek', kind: 'line', z: 7, color: 'var(--s-high)', width: 1.5, dash: [4, 4], step: true, resets: true },
   { key: 'vwap', kind: 'line', z: 8, color: 'var(--s-vwap)', width: 1.8, resets: true },
@@ -33,8 +33,8 @@ function seriesLabel(key, { q, daily }) {
     case 'dusuk': return 'Gün en düşük';
     case 'yuksek': return 'Gün en yüksek';
     case 'vwap': return 'VWAP';
-    case 'hacim': return q == null ? 'Satılan Birim' : `Q${q} Satılan Birim`;
-    default: return 'Toplam Satılan Birim';
+    case 'hacim': return q == null ? 'Lot' : `Q${q} Lot`;
+    default: return 'Toplam Lot';
   }
 }
 
@@ -279,9 +279,9 @@ const ICON_RELOAD = '<svg viewBox="0 0 20 20" width="18" height="18" aria-hidden
 
 const FIGS = [
   ['vwap', 'VWAP (bugün)'],
-  ['hacim', 'Satılan Birim'],
-  ['toplam', 'İşlem Değeri ($)'],
-  ['arz', 'Satış Arzı'],
+  ['hacim', 'Lot'],
+  ['toplam', 'İşlem Hacmi ($)'],
+  ['arz', 'Derinlik'],
 ];
 
 const TEMPLATE = `
@@ -349,7 +349,7 @@ const TEMPLATE = `
     <h2 class="quality-title">Kaliteler, bugün</h2>
     <div class="table-wrap">
       <table class="qt">
-        <thead><tr><th scope="col">Kalite</th><th scope="col">Borsa fiyatı</th><th scope="col">Son işlem</th><th scope="col">Satış Arzı</th><th scope="col">Satılan Birim</th><th scope="col">VWAP</th><th scope="col">Satış payı</th></tr></thead>
+        <thead><tr><th scope="col">Kalite</th><th scope="col">Borsa fiyatı</th><th scope="col">Son işlem</th><th scope="col">Derinlik</th><th scope="col">Lot</th><th scope="col">VWAP</th><th scope="col">Pay</th></tr></thead>
         <tbody data-el="rows"></tbody>
         <tfoot data-el="total"></tfoot>
       </table>
@@ -561,7 +561,7 @@ export function mountBorsa(root, { realm = 0 } = {}) {
     const trade = cur?.[0] ?? null; // son işlem fiyatı (SimcoTools)
     const ask = cur?.[5] ?? null; // anlık borsa fiyatı (Sim Companies): kalitesi ≥ q olan en ucuz ilan
     const askFresh = snap?.askT != null && now - snap.askT <= ASK_FRESH_MS;
-    const noListing = askFresh && ask == null; // anlık veri taze ama bu kalite ve üstünde satış ilanı yok
+    const noListing = askFresh && ask == null; // anlık veri taze ama bu kalite ve üstünde satış emri yok
     const showAsk = askFresh && ask != null;
     const p = showAsk ? ask : trade;
     el.price.textContent = p != null ? fmtPrice(p) : snap ? (noListing ? 'İlan yok' : 'İşlem yok') : '—';
@@ -571,7 +571,7 @@ export function mountBorsa(root, { realm = 0 } = {}) {
     const askOld = showAsk && now - snap.askT > ASK_LIVE_MS; // anlık veri eskiyse yaşı yazılır
     const askLabel = askOld ? `borsa fiyatı (${fmtAgo(snap.askT, now)})` : 'borsa fiyatı';
     if (showAsk) el.lastTrade.textContent = trade != null && Number.isFinite(lt) ? `${askLabel} · son işlem ${fmtPrice(trade)}, ${fmtAgo(lt, now)}` : askLabel;
-    else if (noListing) el.lastTrade.textContent = Number.isFinite(lt) ? `satış ilanı yok · son işlem: ${fmtAgo(lt, now)}` : 'satış ilanı yok';
+    else if (noListing) el.lastTrade.textContent = Number.isFinite(lt) ? `satış emri yok · son işlem: ${fmtAgo(lt, now)}` : 'satış emri yok';
     else el.lastTrade.textContent = Number.isFinite(lt) ? `son işlem: ${fmtAgo(lt, now)}` : '';
     let ch = showAsk ? change24h(product, q, snap, 'ask') : null;
     let chNote = '';
@@ -598,7 +598,7 @@ export function mountBorsa(root, { realm = 0 } = {}) {
     const arz = askFresh ? (cur?.[1] ?? null) : null; // arz Sim Companies ilanlarından; veri eskiyse ya da yoksa 0 değil —
     figs.arz.textContent = arz != null ? fmtNum(arz) : '—';
     const arzEtiket = figs.arz.previousElementSibling;
-    if (arzEtiket) arzEtiket.textContent = arz != null ? 'Satış Arzı' : 'Satış Arzı · veri yok';
+    if (arzEtiket) arzEtiket.textContent = arz != null ? 'Derinlik' : 'Derinlik · veri yok';
     setFresh(freshness(snap?.t, now));
   }
 
@@ -635,7 +635,7 @@ export function mountBorsa(root, { realm = 0 } = {}) {
     const bars = rg.kind === 'daily' ? 'Her sütun bir günün satışı.'
       : rg.bucket ? 'Her sütun 2 saatlik satış.' : 'Her sütun iki nokta arası (yaklaşık 10 dk) satış.';
     const few = rg.kind === 'daily' && shown.xs.length <= 3 ? ' Günlük geçmiş, bot her gece bir gün ekledikçe uzar.' : '';
-    el.foot.textContent = `${bars} Borsa fiyatı, kalitesi seçilen kalite ve üstü olan satış ilanlarının en ucuzudur (anlık, grafikte basamaklı çizgi); son işlem fiyatı kalitedeki son işlemin fiyatıdır. Günlük kapanış son işlem fiyatıdır. Satılan birim, işlem değeri ve VWAP gün içinde 5 dakikalık mumlardan tahmin edilir; tamamlanan günlerin değerleri kesindir. Gün sınırı UTC gece yarısı (senin saatinle ${fmtTime(dayStart(utcDay(now)))}).${few}`;
+    el.foot.textContent = `${bars} Borsa fiyatı, kalitesi seçilen kalite ve üstü olan satış emirlerinin en ucuzudur (anlık, grafikte basamaklı çizgi); son işlem fiyatı kalitedeki son işlemin fiyatıdır. Günlük kapanış son işlem fiyatıdır. Lot, işlem hacmi ve VWAP gün içinde 5 dakikalık mumlardan tahmin edilir; tamamlanan günlerin değerleri kesindir. Gün sınırı UTC gece yarısı (senin saatinle ${fmtTime(dayStart(utcDay(now)))}).${few}`;
   }
 
   function renderTable() {
