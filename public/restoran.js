@@ -10,6 +10,8 @@ import { CSS, parseNum } from './uretim.js';
 import * as R from './hesap-restoran.js';
 import { urunAdi } from './urun-adlari.js';
 import { esc } from './esc.js';
+import * as H from './hesap.js';
+import * as Y from './yonetici.js';
 
 const STORE_KEY = (r) => `dentsimco.restoran.r${r}`;
 const TAB_KEY = 'dentsimco.restoran.tab';
@@ -98,7 +100,7 @@ const numOr = (x, d = null) => (x === '' || x == null || !fin(Number(x)) ? d : N
 export function defaultSetup() {
   return {
     v: 1, tip: 'eko', seviye: 20, fiyat: 62, doluluk: R.DOLULUK.ust, toplamSeviye: null, kontratPct: 8,
-    maas: { saatlik: null, seviye: null, tip: 'eko' },
+    yonetim: { toplam: null, tasarruf: null },
     menu: Object.fromEntries(Object.keys(R.URUNLER).map((id) => [id, { secili: id in VARSAYILAN_MENU, kalite: VARSAYILAN_MENU[id] ?? 0, kaynak: 'borsa', manuel: null }])),
     restoranlar: [], kayitlar: [],
     rating: { mevcut: 6, hedef: R.RATING.hedef, hedef2: 3, dongu: 12 },
@@ -113,8 +115,8 @@ export function sanitizeSetup(raw) {
   s.doluluk = Math.min(100, Math.max(1, posOr(raw.doluluk, s.doluluk)));
   s.toplamSeviye = posOr(raw.toplamSeviye) == null ? null : Math.floor(posOr(raw.toplamSeviye));
   s.kontratPct = Math.min(50, Math.max(0, numOr(raw.kontratPct, s.kontratPct)));
-  const m = raw.maas || {};
-  s.maas = { saatlik: posOr(m.saatlik), seviye: posOr(m.seviye) == null ? null : Math.floor(posOr(m.seviye)), tip: tipOf(m.tip) };
+  const y = raw.yonetim || {};
+  s.yonetim = { toplam: posOr(y.toplam) == null ? null : Math.floor(posOr(y.toplam)), tasarruf: numOr(y.tasarruf) == null ? null : Math.min(100, Math.max(0, numOr(y.tasarruf))) };
   for (const id of Object.keys(R.URUNLER)) {
     const x = raw.menu?.[id];
     if (!x || typeof x !== 'object') continue;
@@ -221,7 +223,16 @@ export function mountRestoran(root, { realm = 0 } = {}) {
     if (b == null) return null;
     return m.kaynak === 'kontrat' ? b * (1 - setup.kontratPct / 100) : b;
   }
-  const saatlik = () => R.seviyeBasiSaatlikMaas(setup.maas.saatlik, setup.maas.seviye, setup.maas.tip);
+  // Yönetim gideri: Yönetim sekmesindeki şirket kaydından (bina seviyeleri + COO tasarrufu); kutular boşsa oradan gelir
+  const sirket = () => Y.loadCompanyRecord(r).company;
+  const otoToplam = () => {
+    const c = sirket();
+    return c.admin.totalLevels > 0 ? c.admin.totalLevels + (setup.toplamSeviye || setup.seviye) : null;
+  };
+  const otoTasarruf = () => { const c = sirket(); return c.executives.length ? H.teamEffects(c.executives, { bankLevel: c.finance.bankLevel }).adminSavingsPct : 0; };
+  const toplamBina = () => setup.yonetim.toplam ?? otoToplam();
+  const tasarruf = () => setup.yonetim.tasarruf ?? otoTasarruf();
+  const saatlik = () => R.saatlikMaasTahmini(toplamBina(), tasarruf());
   const gider = (tip = setup.tip, seviye = setup.seviye) => R.donguGideri({
     menu: seciliIds().map((id) => ({ id, birim: birim(id) })), seviye, tip, saatlikMaas: saatlik(), fiyat: setup.fiyat,
   });
@@ -255,14 +266,14 @@ export function mountRestoran(root, { realm = 0 } = {}) {
         ${field('Bu tipteki toplam seviye (isteğe bağlı)', 'data-f="toplamSeviye"', setup.toplamSeviye ?? '', { mode: 'numeric' })}
       </div></section>`;
 
-    const maasKart = `<section class="ur-card"><h2>Maaş</h2>
+    const tb = toplamBina();
+    const maasKart = `<section class="ur-card"><h2>Yönetim gideri</h2>
       <div class="ur-grid2">
-        ${field('Bina ekranındaki saatlik maaş', 'data-f="maasSaatlik"', setup.maas.saatlik ?? '', { mode: 'numeric', unit: '$', placeholder: 'ör. 16.305' })}
-        ${field('O binanın seviyesi', 'data-f="maasSeviye"', setup.maas.seviye ?? '', { mode: 'numeric', placeholder: 'ör. 17' })}
+        ${field('Şirketin toplam bina seviyesi', 'data-f="yonToplam"', setup.yonetim.toplam ?? '', { mode: 'numeric', placeholder: otoToplam() != null ? String(otoToplam()) : 'ör. 271' })}
+        ${field('Yönetim tasarrufu (COO)', 'data-f="yonTasarruf"', inputVal(setup.yonetim.tasarruf), { unit: '%', placeholder: String(otoTasarruf()) })}
       </div>
-      ${seg('maasTip', TIPLER, setup.maas.tip, 'Maaşı girilen binanın tipi')}
-      ${ws == null ? ''
-        : `${kv('Eko restoran, seviye başı saatlik', money(ws))}${kv(`Bu restoranın döngü maaşı (${setup.tip === 'luks' ? 'lüks' : 'eko'}, seviye ${setup.seviye})`, money(g.maas))}`}</section>`;
+      ${tb == null ? '<div class="ur-msg">Toplam bina seviyesi girilmedi: gider yalnız malzemeden oluşur.</div>'
+        : `${kv('Net yönetim gideri', pct((H.grossOverhead(tb) * (1 - tasarruf() / 100)) * 100, 1))}${kv('Seviye başı saatlik maaş', money(ws))}${kv(`Bu restoranın döngü maaşı (${setup.tip === 'luks' ? 'lüks' : 'eko'}, seviye ${setup.seviye})`, money(g.maas))}`}</section>`;
 
     const kalemSatir = (id) => {
       const m = setup.menu[id];
@@ -295,7 +306,7 @@ export function mountRestoran(root, { realm = 0 } = {}) {
 
     const uyarilar = [
       g.eksikKategori.length ? `<div class="ur-msg err">Oyun her kategoriden en az bir ürün ister: ${esc(g.eksikKategori.join(', '))} eksik.</div>` : '',
-      g.eksikMaas ? '<div class="ur-msg">Maaş girilmedi: gider yalnız malzeme, kâr olduğundan yüksek görünür. Maaş kartını doldurun.</div>' : '',
+      g.eksikMaas ? '<div class="ur-msg">Toplam bina seviyesi girilmedi: gider yalnız malzeme, kâr olduğundan yüksek görünür.</div>' : '',
       g.eksikFiyat ? `<div class="ur-msg">Fiyatı olmayan ürünler toplama girmedi: ${esc(g.kalemler.filter((k) => k.birim == null).map((k) => ad(k.id)).join(', '))}. Kaliteyi değiştirin ya da maliyeti elle girin.</div>` : '',
     ].join('');
     const gun = setup.toplamSeviye && g.seviyeBasi ? setup.toplamSeviye : null;
@@ -512,7 +523,6 @@ export function mountRestoran(root, { realm = 0 } = {}) {
     const act = t.dataset.act;
     const id = t.dataset.id;
     if (act === 'tip') { setup.tip = tipOf(t.dataset.v); }
-    else if (act === 'maasTip') { setup.maas.tip = tipOf(t.dataset.v); }
     else if (act === 'urun') { setup.menu[id].secili = !setup.menu[id].secili; }
     else if (act === 'kaynak') { setup.menu[id].kaynak = t.dataset.v; if (t.dataset.v === 'manuel' && setup.menu[id].manuel == null) setup.menu[id].manuel = borsaFiyati(Number(id)); }
     else if (act === 'rEkle') { setup.restoranlar.push({ id: uid('r'), ad: '', tip: 'eko', seviye: null }); }
@@ -579,8 +589,8 @@ export function mountRestoran(root, { realm = 0 } = {}) {
       else if (ds.f === 'doluluk') setup.doluluk = Math.min(100, Math.max(1, v || R.DOLULUK.ust));
       else if (ds.f === 'toplamSeviye') setup.toplamSeviye = v > 0 ? Math.floor(v) : null;
       else if (ds.f === 'kontratPct') setup.kontratPct = Math.min(50, Math.max(0, v || 0));
-      else if (ds.f === 'maasSaatlik') setup.maas.saatlik = v > 0 ? v : null;
-      else if (ds.f === 'maasSeviye') setup.maas.seviye = v > 0 ? Math.floor(v) : null;
+      else if (ds.f === 'yonToplam') setup.yonetim.toplam = v > 0 ? Math.floor(v) : null;
+      else if (ds.f === 'yonTasarruf') setup.yonetim.tasarruf = el.value.trim() === '' ? null : Math.min(100, Math.max(0, v || 0));
     } else if (ds.kalite) { setup.menu[ds.kalite].kalite = Math.min(12, Math.max(0, Number(el.value) || 0)); }
     else if (ds.manuel) { const v = okuSayi(el.value); setup.menu[ds.manuel].manuel = v > 0 ? v : null; }
     else if (ds.satir) {
