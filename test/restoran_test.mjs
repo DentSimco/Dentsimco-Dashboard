@@ -49,7 +49,7 @@ test('İhtiyaç adetleri birebir', () => {
   eq(MENU.map((id) => a[id]), A24);
 });
 test('Maaş = bina ekranındaki $23.018/saat × 12; toplam $1.286.573 (±$10, saatlik maaş ekranda yuvarlanmış)', () => {
-  const w = R.seviyeBasiSaatlikMaas(23018, 24, 'eko');
+  const w = 23018 / 24;
   const g = R.donguGideri({ menu: menuWith(C24, A24), seviye: 24, tip: 'eko', saatlikMaas: w, fiyat: 63 });
   near(g.maas, 276216, 0.01, 'maaş');
   near(g.toplam, 1286573, 10, 'toplam');
@@ -74,17 +74,7 @@ test('Maaş eko seviye başı maaşın yarısı: $55.924; toplam $281.418; %100 
   eq(Math.round(g.basabas * 100), 83, 'başabaş (oyun %83)');
 });
 test('Lüks binanın saatlik maaşından eko seviye başına çevirme (×2)', () => {
-  near(R.seviyeBasiSaatlikMaas(55924 / 12, 11, 'luks'), W25, 0.02); // oyun maaşı tam dolara yuvarlar
-});
-
-section('Maaş tahmini (seviye ve yönetim giderinden)');
-test('18 Ekim: toplam 271 seviye, COO %72 → seviye başı $847,3/saat (oyun: $254.196 ÷ 12 ÷ 25)', () => {
-  near(R.saatlikMaasTahmini(271, 72), 254196 / 12 / 25, 0.05);
-});
-test('Yönetim tasarrufu sıfırken brüt gider tam uygulanır; tek seviyede gider 0', () => {
-  near(R.saatlikMaasTahmini(1, 0), 586.5, 1e-9);
-  near(R.saatlikMaasTahmini(341, 0), 586.5 * 3, 1e-9);
-  eq(R.saatlikMaasTahmini(0, 50), null);
+  near(55924 / 12 / 11 / R.LUKS_MAAS, W25, 0.02); // oyun maaşı tam dolara yuvarlar
 });
 
 section('Kategori çarpanı');
@@ -109,97 +99,89 @@ test('Fiyatı bilinmeyen ürün toplama girmez, işaretlenir', () => {
   near(g.malzeme, Math.ceil(288 * 2.1) * 10 + Math.ceil(144 * 2.1) * 50, 1e-6);
 });
 
-section('Döngü kayıtları');
-test('Gelirden seviye: 18 Eki 19C %84,24 $62 → 19; 14 Eki 19B %100 $64 → 19; yanlış girişte null', () => {
-  eq(R.seviyeTahmini({ gelir: 992303, fiyat: 62, doluluk: 84.24 }), 19);
-  eq(R.seviyeTahmini({ gelir: 1216000, fiyat: 64, doluluk: 100 }), 19);
-  eq(R.seviyeTahmini({ gelir: 1000000, fiyat: 62, doluluk: 84.24 }), null);
+section('Yönetim, satış hızı ve rating bonusu');
+test('Maaş: 1,7 × 345 × (1 + net yönetim gideri); 18 Ekim net %44,47 → $847,3/saat/seviye (oyun: $254.196 ÷ 12 ÷ 25)', () => {
+  near(R.saatlikMaasSeviye({ salaryModifier: 1.7, averageSalary: 345, adminNet: 0.4447 }), 254196 / 12 / 25, 0.05);
+  near(R.saatlikMaasSeviye({ adminNet: 0 }), 586.5, 1e-9);
 });
-test('Kayıt analizi: gider, seviye başı gider, rating değişimi', () => {
-  const a = R.kayitAnalizi({ fiyat: 62, doluluk: 98.73, gelir: 1040593, kar: 189259, ratingOnce: 5.72, ratingSonra: 5.74 }, { seviye: 17, tip: 'eko' });
-  eq(a.seviye, 17);
-  near(a.gider, 851334, 0);
-  near(a.giderSeviye, 50078.47, 0.01);
-  near(a.delta, 0.02, 1e-9);
+test('Rating bonusu: ekip dışı satış hızı %15 × 0,02 + etkili iletişim 69 × 0,01 = 0,99 (yönetici ekranı: +0,3 +0,690)', () => {
+  near(R.ratingBonusu(15, 69), 0.99, 1e-9);
+  near(R.ratingBonusu(0, 0), 0, 1e-9);
 });
-test('Yapıştırılan oyun metni okunur (çok döngülü, "(-)" zarar, "collecting" satırı atlanır)', () => {
-  const metin = `6.51 ★★★★★★★ (collecting customer feedback and occupancy stats) $64 Menu price
-6.87 (-0.36) 6.51 about 3 hours ago I didn't give 5 stars because it's too expensive, not worth every penny.
-100% Occupancy Revenue: $1,216,000 $64 Menu price Profit: $196,938
-6.46 (-0.17) 6.29 about 4 hours ago I disliked the scent of soap in the bathroom, but the service was superb.
-75.57% Occupancy Revenue: $796,455 $62 Menu price Profit: (-) $123,539`;
-  const k = R.satirlariCoz(metin);
-  eq(k.length, 2);
-  eq(k[0], { ratingOnce: 6.87, ratingSonra: 6.51, onceSaat: 3, doluluk: 100, fiyat: 64, gelir: 1216000, kar: 196938 });
-  eq(k[1], { ratingOnce: 6.46, ratingSonra: 6.29, onceSaat: 4, doluluk: 75.57, fiyat: 62, gelir: 796455, kar: -123539 });
-});
-
-test('"kaç saat önce" okunur: about 15 hours ago → 15, a day ago → 24, 2 days ago → 48, yaklaşık 5 saat önce → 5', () => {
-  eq([R.onceSaatOku('about 15 hours ago'), R.onceSaatOku('a day ago'), R.onceSaatOku('2 days ago'), R.onceSaatOku('yaklaşık 5 saat önce'), R.onceSaatOku('x')], [15, 24, 48, 5, null]);
-});
-
-section('Rating modeli');
 test('Kapanış ratingi ×0,875 yapar: 7 yükseltme vakasında ±0,02 içinde', () => {
   for (const [once, sonra] of [[4.70, 4.11], [4.58, 4.01], [4.86, 4.26], [6.58, 5.75], [6.69, 5.86], [5.95, 5.20], [5.86, 5.13]]) {
     near(R.kapanisSonrasi(once), sonra, 0.02, `${once}`);
   }
 });
-test('Yükseltme güvenliği: 5,2 güvenli, 5,0 değil (kapanış sonrası 4,5 altına iner)', () => {
+test('Yükseltme güvenliği: 5,2 güvenli, 5,0 değil', () => {
   eq(R.yukseltmeGuvenli(5.2), true);
   eq(R.yukseltmeGuvenli(5.0), false);
 });
-test('Rating yolu ölçülen gidişe uyar: 3,95 → 4,25 → 4,61 → 4,86 (±0,07)', () => {
-  const y = R.ratingYolu(3.95, 6, 3);
-  near(y[1], 4.25, 0.07); near(y[2], 4.61, 0.07); near(y[3], 4.86, 0.07);
+
+section('Hedef rating ve beklenen doluluk');
+test('Hedef: elle girilen önce; önceki+mevcut varsa tahmin; yoksa eko varsayılan (bonusla kayar), lüks mevcut rating', () => {
+  eq(R.hedefRating({ hedef: 7.2, tip: 'eko' }), { deger: 7.2, kaynak: 'girilen' });
+  const t = R.hedefRating({ onceki: 5, rating: 5.177, tip: 'eko' });
+  near(t.deger, 6, 1e-9); eq(t.kaynak, 'tahmin');
+  near(R.hedefRating({ tip: 'eko' }, 0.99).deger, 6, 1e-9);
+  near(R.hedefRating({ tip: 'eko' }, 1.19).deger, 6.2, 1e-9); // bonus 0,2 artınca hedef 0,2 artar
+  eq(R.hedefRating({ tip: 'luks', rating: 8.75 }), { deger: 8.75, kaynak: 'bilinmiyor' });
 });
-test('Yeni restoran (0) hedef 6 ile 4,5 eşiğine 8 döngüde; hedef eşiğin altındaysa hiç (null)', () => {
-  eq(R.esigeDongu(0, 6, 4.5), 8);
-  eq(R.esigeDongu(0, 4, 4.5), null);
-  eq(R.esigeDongu(8.75, 2, 4.5), 6);
+test('Rating hedefe yaklaşır: 3,95 → 4,25 → 4,61 → 4,86 ölçümüyle aynı hedefi (~6) verir', () => {
+  near(R.hedefRating({ onceki: 3.95, rating: 4.25 }).deger, 3.95 + 0.30 / R.RATING.k, 1e-9);
+  near(R.hedefRating({ onceki: 3.95, rating: 4.25 }).deger, 5.64, 0.01);
 });
-test('Hedef tahmini: döngü puanlarının ortalaması', () => {
-  const h = R.hedefTahmini([{ ratingOnce: 5, ratingSonra: 5.177 }, { ratingOnce: 7, ratingSonra: 6.823 }]);
-  near(h.hedef, 6, 1e-9);
-  eq(h.n, 2);
+test('Beklenen doluluk: eşiğin üstünde son doluluk korunur, altında düşük; eşiğin altından çıkınca varsayılan üst', () => {
+  eq(R.beklenenDoluluk(6, 6.5, 91), 91);
+  eq(R.beklenenDoluluk(6, 6.5, null), R.DOLULUK.ust);
+  eq(R.beklenenDoluluk(4, 6, 98), R.DOLULUK.alt);
+  eq(R.beklenenDoluluk(4, 4.2, 60), 60);
+  eq(R.beklenenDoluluk(6, 4, 46), R.DOLULUK.ust);
 });
 
-section('Fiyat önerisi');
-const rec = (saat, tarih, fiyat, doluluk, ratingOnce, ratingSonra) => ({ tarih, saat, fiyat, doluluk, ratingOnce, ratingSonra });
-test('17L (18 Eki): %95 · %100 · %100, ort. %98,4 → hedef bantta, sabit (3 döngüden 2\'si %100 yetmez)', () => {
-  const o = R.restoranOzeti([rec('19:27', '2026-10-17', 60, 95.13, 6.15, 5.81), rec('07:27', '2026-10-18', 60, 100, 5.81, 5.47), rec('19:27', '2026-10-18', 62, 100, 5.47, 5.71)]);
-  eq(o.oneri.yon, 'sabit');
+section('Bina bazlı değerlendirme (Perakende özetine giren)');
+const MENU25 = menuWith(C25, A25);
+const ctxR = (extra = {}) => ({ adminNet: 0.4447, averageSalary: 345, salaryModifier: 1.7, ratingBonus: 0.99, mod: 'simdi', menuOf: () => MENU25, ...extra });
+test('18 Ekim, eko seviye 25, $62, %100 doluluk: döngü kârı oyunun %100 kârı ($272.726); günlük ×2', () => {
+  const r = R.restoranDegerlendir([{ id: 'a', ad: 'x', tip: 'eko', seviye: 25, fiyat: 62, rating: 6, doluluk: 100 }], ctxR());
+  near(r.totals.profitDay, 2 * 272726, 40);
+  near(r.totals.revenueDay, 2 * 1550000, 1e-6);
+  near(r.totals.costDay, 2 * 1023078, 4);
+  near(r.totals.wagesDay, 2 * 254196, 4);
+  eq(r.totals.levels, 25);
 });
-test('Rating sabit, son 4 döngünün 3\'ü %100 → zam $1', () => {
-  const o = R.restoranOzeti([rec('07:27', '2026-10-17', 62, 100, 6.0, 6.05), rec('19:27', '2026-10-17', 62, 97, 6.05, 6.0), rec('07:27', '2026-10-18', 62, 100, 6.0, 6.02), rec('19:27', '2026-10-18', 62, 100, 6.02, 6.0)]);
-  eq(o.oneri.yon, 'zam'); eq(o.oneri.adim, 1);
+test('Yönetim gideri sıfırken maaş taban maaştır ve baseWagesDay ile aynıdır', () => {
+  const r = R.restoranDegerlendir([{ id: 'a', tip: 'eko', seviye: 10, fiyat: 62, rating: 6, doluluk: 100 }], ctxR({ adminNet: 0 }));
+  near(r.totals.wagesDay, 586.5 * 24 * 10, 1e-6);
+  near(r.totals.wagesDay, r.totals.baseWagesDay, 1e-6);
 });
-test('Tek kötü döngü (19C %84) → sabit, indirim yok', () => {
-  const o = R.restoranOzeti([rec('19:27', '2026-10-17', 60, 100, 6.16, 6.10), rec('07:27', '2026-10-18', 60, 95.69, 6.10, 6.12), rec('19:27', '2026-10-18', 62, 84.24, 6.12, 6.11)]);
-  eq(o.oneri.yon, 'sabit');
+test('Çoklu bina toplanır; lüks maaş ve yemek yarı, koltuk 500', () => {
+  const rs = [{ id: 'a', tip: 'eko', seviye: 10, fiyat: 62, rating: 6, doluluk: 100 }, { id: 'b', tip: 'luks', seviye: 10, fiyat: 62, rating: 6, doluluk: 100 }];
+  const r = R.restoranDegerlendir(rs, ctxR());
+  near(r.rows[1].gider.koltuk * 2, r.rows[0].gider.koltuk, 0);
+  near(r.rows[1].wagesDay * 2, r.rows[0].wagesDay, 1e-6);
+  near(r.totals.revenueDay, r.rows[0].secili.revenueDay + r.rows[1].secili.revenueDay, 1e-6);
+  eq(r.totals.levels, 20);
 });
-test('Rating 4,5 altında → fiyat değil rating önerisi', () => {
-  const o = R.restoranOzeti([rec('07:27', '2026-10-12', 60, 46.18, 4.01, 4.26), rec('19:27', '2026-10-12', 60, 67.3, 4.26, 4.36)]);
-  eq(o.oneri.yon, 'rating');
+test('Şimdi ve beklenen: rating hedefi eşiğin altındaysa beklenen kâr düşer; mod seçimi toplamı değiştirir', () => {
+  const it = { id: 'a', tip: 'eko', seviye: 10, fiyat: 62, rating: 6, doluluk: 98, hedef: 3.5 };
+  const bek = R.restoranDegerlendir([it], ctxR({ mod: 'beklenen' }));
+  const sim = R.restoranDegerlendir([it], ctxR({ mod: 'simdi' }));
+  ok(bek.totals.profitDay < sim.totals.profitDay, 'beklenen daha düşük');
+  eq(bek.rows[0].beklenen.doluluk, R.DOLULUK.alt);
+  eq(sim.rows[0].simdi.doluluk, 98);
 });
-test('Zam sonrası doluluk $ başına 1,6 puandan fazla düştü → eski fiyata dön', () => {
-  const k = [rec('07:27', '2026-10-16', 62, 99, 6, 6), rec('19:27', '2026-10-16', 62, 98, 6, 6), rec('07:27', '2026-10-17', 62, 99, 6, 6), rec('19:27', '2026-10-17', 62, 98, 6, 6),
-    rec('07:27', '2026-10-18', 66, 88, 6, 6), rec('19:27', '2026-10-18', 66, 90, 6, 6), rec('07:27', '2026-10-19', 66, 91, 6, 6), rec('19:27', '2026-10-19', 66, 89, 6, 6)];
-  const o = R.restoranOzeti(k);
-  eq(o.oneri.yon, 'indir'); eq(o.oneri.adim, 4);
+test('Satış hızı/iletişim bonusu hedefi kaydırır: bonus +0,2 → hedef +0,2 → beklenen rating +0,2', () => {
+  const it = { id: 'a', tip: 'eko', seviye: 10, fiyat: 62, rating: 6, doluluk: 98 };
+  const a = R.restoranDegerlendir([it], ctxR({ ratingBonus: 0.99 }));
+  const b = R.restoranDegerlendir([it], ctxR({ ratingBonus: 1.19 }));
+  near(b.rows[0].beklenen.rating - a.rows[0].beklenen.rating, 0.2, 1e-9);
 });
-test('Aynı döngü kıyası (14 Eki 07:27): döngü ortalamasından sapma fiyat başına', () => {
-  const k = [[64, 100], [63, 100], [63, 85.92], [63, 100], [63, 91.69], [63, 100], [64, 98.16], [60, 96.62], [61, 100]]
-    .map(([f, d]) => rec('07:27', '2026-10-14', f, d));
-  const s = R.ayniDonguKiyasi(k);
-  eq(s.donguSayisi, 1);
-  const f64 = s.satirlar.find((x) => x.fiyat === 64);
-  near(f64.doluluk, 99.08, 0.01);
-  ok(f64.sapma > 0, '$64 döngü ortalamasının üstünde');
-});
-test('Sabah/akşam biten döngü ayrımı', () => {
-  eq(R.donguDilimi('07:27'), 'sabah'); eq(R.donguDilimi('19:27'), 'aksam'); eq(R.donguDilimi(''), null);
-  const d = R.dilimKiyasi([rec('07:27', 'x', 60, 100), rec('19:27', 'x', 60, 90)]);
-  eq([d.sabah.ort, d.aksam.ort, d.sabah.tam], [100, 90, 1]);
+test('Her restoran kendi menüsünü kullanabilir (menuOf bina başına)', () => {
+  const kucuk = [{ id: 117, birim: 10 }, { id: 142, birim: 900 }, { id: 124, birim: 50 }];
+  const rs = [{ id: 'a', tip: 'eko', seviye: 10, fiyat: 62, rating: 6, doluluk: 100 }, { id: 'b', tip: 'eko', seviye: 10, fiyat: 62, rating: 6, doluluk: 100 }];
+  const r = R.restoranDegerlendir(rs, ctxR({ menuOf: (it) => (it.id === 'b' ? kucuk : MENU25) }));
+  ok(r.rows[0].costDay !== r.rows[1].costDay, 'farklı menü farklı maliyet');
 });
 
 const failed = results.filter((r) => !r.ok);

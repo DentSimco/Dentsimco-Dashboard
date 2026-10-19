@@ -529,7 +529,6 @@
   <a href="#yonetim/ekip" data-sub="yonetim">Yönetim</a>
   <a href="#uretim" data-sub="uretim">Üretim</a>
   <a href="#perakende" data-sub="perakende">Perakende</a>
-  <a href="#restoran" data-sub="restoran">Restoran</a>
 </nav>
 <main id="app"></main>
 <footer class="fb-bar" data-no-t>
@@ -595,7 +594,7 @@
   import('./tema.js').then((m) => m.dugmeyiBagla(document.getElementById('theme-btn'))).catch(() => { /* tema düğmesi yüklenemezse site yine çalışır */ });
   import('./girdi.js').then((m) => m.girdiyiBagla()).catch(() => { /* yüklenemezse sayı kutuları eskisi gibi çalışır */ });
   import('./acilir.js').then((m) => m.acilirlariBagla()).catch(() => { /* yüklenemezse tarayıcının kendi listesi kullanılır */ });
-  const CALC = new Set(['uretim', 'perakende', 'restoran', 'yonetim']); // Kâr Hesaplayıcı'nın bölümleri
+  const CALC = new Set(['uretim', 'perakende', 'yonetim']); // Kâr Hesaplayıcı'nın bölümleri
   const PIYASA = new Set(['borsa', 'sinyal']); // Piyasa'nın bölümleri
 
   const MODULES = {
@@ -605,7 +604,6 @@
     uretim: () => import('./uretim.js').then((m) => m.mountUretim),
     yonetim: () => import('./yonetim.js').then((m) => m.mountYonetim),
     perakende: () => import('./perakende.js').then((m) => m.mountPerakende),
-    restoran: () => import('./restoran.js').then((m) => m.mountRestoran),
     sirketler: () => import('./sirketler.js').then((m) => m.mountSirketler),
     haberler: () => import('./haberler.js').then((m) => m.mountHaberler),
     hakkinda: () => import('./hakkinda.js').then((m) => m.mountHakkinda),

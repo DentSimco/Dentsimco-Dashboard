@@ -11,9 +11,8 @@ export const UPDATES = [
   {
     date: '19 Ekim 2026',
     items: [
-      'Kâr Hesaplayıcı › Restoran eklendi (test sürümü): restoranın döngü gideri oyunun Menu price ekranıyla aynı kurallarla hesaplanır (eko ve lüks). Maliyet borsadan, kontrat indirimiyle ya da elle girilir.',
-      'Restoran › Döngüler: döngü kayıtlarınızdan fiyat önerisi (zam, koru, indir). Oyundan kopyalanan döngü listesi topluca eklenebilir; kayıtlar yalnız bu tarayıcıda saklanır.',
-      'Restoran › Rating: ratingin zaman içindeki gidişi ve yükseltmenin (kapanışın) rating üzerindeki etkisi.',
+      'Kâr Hesaplayıcı › Perakende: restoran binaları eklendi (test sürümü). Menü fiyatı, seviye, rating, önceki rating, son doluluk ve menü girilir; kâr Perakende özetinde beklenen rating ve doluluğa göre hesaplanır. Yönetim gideri ve satış hızı mağazalarla ortaktır.',
+      'Perakende › Restoran: birden fazla restoran eklenebilir; tüm binalara aynı menü ya da her binaya ayrı menü seçilir. Maliyet borsadan, kontrat indirimiyle ya da elle girilir.',
     ],
   },
   {
