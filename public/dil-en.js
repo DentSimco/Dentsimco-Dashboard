@@ -1404,6 +1404,7 @@ export default {
   "Kâr Hesaplayıcı › Perakende: restoran binaları eklendi (test sürümü). Menü fiyatı, seviye, rating, son doluluk ve menü girilir; kâr Perakende özetinde beklenen rating ve doluluğa göre hesaplanır. Yönetim gideri ve satış hızı mağazalarla ortaktır.": "Profit Calculator › Retail: restaurant buildings added (test version). Enter menu price, level, rating, last occupancy and menu; profit is calculated in the Retail summary from the expected rating and occupancy. Admin overhead and sales speed are shared with the stores.",
   "Perakende › Restoran: birden fazla restoran eklenebilir; tüm binalara aynı menü ya da her binaya ayrı menü seçilir. Maliyet borsadan, kontrat indirimiyle ya da elle girilir.": "Retail › Restaurant: you can add several restaurants; use one menu for all buildings or a separate menu per building. Costs come from the exchange, with a contract discount, or are entered manually.",
   "Restoranlar": "Restaurants",
+  "Menü kalitesi Q{0}": "Menu quality Q{0}",
   "Sourcing Cost $": "Sourcing Cost $",
   "önce seviye girin": "enter the level first",
   "Ortak menü": "Shared menu",

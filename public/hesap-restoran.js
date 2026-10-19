@@ -162,14 +162,24 @@ export const yukseltmeGuvenli = (r) => kapanisSonrasi(r) >= RATING.esik + 0.05;
  *  2) önceki ve mevcut rating girildiyse: rating her döngü farkın k kadarını kapatır, hedef = önceki + (mevcut − önceki) ÷ k;
  *  3) eko: varsayılan hedef, bonus farkıyla kaydırılır; lüks: veri yok, mevcut rating değişmez varsayılır.
  */
-export function hedefRating(item, bonus = BONUS_REFERANS) {
+// Menü kalitesi: hedef ölçüldüğünde kullanılan menünün (11 Ekim: Q7, Q10, Q7, Q5, Q7, Q9) ortalama kalitesi.
+// Varsayım: eko hedef = KALITE_RATING × ortalama kalite + bonus (sabit terim yok); referans menüde RATING.hedef verir.
+export const REFERANS_KALITE = 7.5;
+export const KALITE_RATING = (RATING.hedef - BONUS_REFERANS) / REFERANS_KALITE;
+// Seçili ürünlerin ortalama kalitesi; kalite bilgisi yoksa null
+export function menuKalitesi(menu) {
+  const q = (menu || []).map((m) => Number(m?.kalite)).filter((x) => fin(x));
+  return q.length ? q.reduce((a, b) => a + b, 0) / q.length : null;
+}
+
+export function hedefRating(item, bonus = BONUS_REFERANS, kalite = REFERANS_KALITE) {
   const elle = pos(Number(item?.hedef));
   if (elle != null) return { deger: clamp(elle, 0, 10), kaynak: 'girilen' };
   const once = Number(item?.onceki);
   const simdi = Number(item?.rating);
   if (fin(once) && fin(simdi) && item?.onceki !== '' && item?.onceki != null) return { deger: clamp(once + (simdi - once) / RATING.k, 0, 10), kaynak: 'tahmin' };
   if (tipOf(item?.tip) === 'luks') return { deger: fin(simdi) ? simdi : RATING.hedef, kaynak: 'bilinmiyor' };
-  return { deger: clamp(RATING.hedef + (bonus - BONUS_REFERANS), 0, 10), kaynak: 'varsayilan' };
+  return { deger: clamp(KALITE_RATING * (fin(kalite) ? kalite : REFERANS_KALITE) + bonus, 0, 10), kaynak: 'varsayilan' };
 }
 
 /** Rating yerleşince beklenen doluluk (%). Eşiğin üstünde son doluluk korunur; altında düşük doluluk. */
@@ -188,7 +198,7 @@ export const GUN_DONGU = 24 / DONGU_SAAT;
 /**
  * @param {Array} restoranlar  [{ id, ad, tip, seviye, fiyat, rating, onceki, doluluk, hedef, menu? }]
  * @param {{ adminNet: number, averageSalary?: number, salaryModifier?: number, ratingBonus: number, mod: 'beklenen'|'simdi',
- *           menuOf: (item) => Array<{ id: number, birim: number|null }> }} ctx
+ *           menuOf: (item) => Array<{ id: number, birim: number|null, kalite?: number }> }} ctx
  * Dönen toplamlar Perakende'nin toplamlarıyla aynı adlarla: revenueDay, costDay (malzeme), wagesDay (yönetim dahil),
  * baseWagesDay (yönetimsiz), profitDay, levels.
  */
@@ -201,8 +211,10 @@ export function restoranDegerlendir(restoranlar, ctx) {
     const tip = tipOf(it.tip);
     const L = Math.max(0, Math.floor(Number(it.seviye) || 0));
     const fiyat = clamp(pos(Number(it.fiyat)) ?? FIYAT_MIN, FIYAT_MIN, FIYAT_MAX);
-    const g = donguGideri({ menu: ctx.menuOf(it), seviye: L, tip, saatlikMaas: saatlik, fiyat });
-    const hedef = hedefRating(it, ctx.ratingBonus);
+    const menu = ctx.menuOf(it);
+    const g = donguGideri({ menu, seviye: L, tip, saatlikMaas: saatlik, fiyat });
+    const kalite = menuKalitesi(menu);
+    const hedef = hedefRating(it, ctx.ratingBonus, kalite ?? REFERANS_KALITE);
     const simdiR = fin(Number(it.rating)) && it.rating !== '' && it.rating != null ? Number(it.rating) : hedef.deger;
     const sonD = fin(Number(it.doluluk)) && it.doluluk !== '' && it.doluluk != null ? clamp(Number(it.doluluk), 0, 100) : null;
     const senaryo = (rating, doluluk) => {
@@ -215,7 +227,7 @@ export function restoranDegerlendir(restoranlar, ctx) {
     const costDay = g.malzeme * GUN_DONGU;
     const wagesDay = (g.maas ?? 0) * GUN_DONGU;
     const baseWagesDay = taban * 24 * L * (tip === 'luks' ? LUKS_MAAS : 1);
-    rows.push({ id: it.id, ad: it.ad, tip, seviye: L, fiyat, gider: g, hedef, simdi, beklenen, secili, costDay, wagesDay, baseWagesDay,
+    rows.push({ id: it.id, ad: it.ad, tip, seviye: L, fiyat, gider: g, kalite, hedef, simdi, beklenen, secili, costDay, wagesDay, baseWagesDay,
       kapanis: { sonra: kapanisSonrasi(simdiR), guvenli: yukseltmeGuvenli(simdiR) } });
     T.levels += L;
     T.customersDay += secili.customersDay;
