@@ -303,9 +303,12 @@ export function hesapHtml(st, ad) {
 }
 
 // ---- Perakende: mağaza × ürün × kalite için ideal seviye (satış ve alım sınırsız) ----
-// Maliyet = borsanın güncel fiyatı; son işlem eskiyse (24 saatten fazla) fiyat güncel olmayabilir
+// Maliyet = anlık borsa fiyatı; o yoksa son işlem fiyatı (son işlem eskiyse, 24 saatten fazla, fiyat güncel olmayabilir)
 export function pkIslemNotu(hs, st) {
   if (!hs.sonT) return '';
+  if (hs.maliyetKaynak === 'borsa') {
+    return `<p class="op-note" role="note">${esc(`Maliyet, borsanın anlık fiyatıdır (en ucuz satış ilanı); ${fmtAgo(hs.sonT, st.simdi)} ölçüldü.`)}</p>`;
+  }
   const eski = st.simdi - hs.sonT > 24 * 3_600_000;
   const metin = eski
     ? `Borsada son işlem ${fmtAgo(hs.sonT, st.simdi)}: maliyet fiyatı güncel olmayabilir.`

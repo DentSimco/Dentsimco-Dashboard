@@ -57,6 +57,7 @@
     --sel: rgba(132, 196, 236, 0.10);
     --row-line: rgba(31, 44, 66, 0.7);
     --s-price: #55d3e4;
+    --s-ask: #f4f7ff;
     --s-low: #6fd98c;
     --s-high: #ebb552;
     --s-vwap: #e277cf;
@@ -117,6 +118,7 @@
     --sel: rgba(10, 79, 168, 0.09);
     --row-line: rgba(14, 35, 71, 0.10);
     --s-price: #0b5bbd;
+    --s-ask: #16233d;
     --s-low: #0d7a3a;
     --s-high: #b86f00;
     --s-vwap: #b0348f;
@@ -283,6 +285,7 @@
 
   .hero-price { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; margin: 6px 0 0; }
   .price { color: var(--price); font: 600 clamp(44px, 9vw, 64px)/1 var(--font-c); letter-spacing: -0.01em; }
+  .price.ask { color: var(--s-ask); }
   .price.none { color: var(--faint); font-size: clamp(32px, 6vw, 44px); }
   .chg { color: var(--muted); font: 600 18px/1 var(--font-c); }
   .chg.up { color: var(--up); }

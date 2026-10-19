@@ -119,8 +119,8 @@ export default {
   'Her sütun 2 saatlik satış.': 'Each bar is 2 hours of sales.',
   'Her sütun iki nokta arası (yaklaşık 10 dk) satış.': 'Each bar is the sales between two points (about 10 min).',
   'Günlük geçmiş, bot her gece bir gün ekledikçe uzar.': 'The daily history grows as the bot adds a day every night.',
-  '{0} Fiyat, kalitedeki son işlemin fiyatıdır. Satılan birim, işlem değeri ve VWAP gün içinde 5 dakikalık mumlardan tahmin edilir; tamamlanan günlerin değerleri kesindir. Gün sınırı UTC gece yarısı (senin saatinle {1}).{2}':
-    '{0} Price is the price of the last trade in that quality. Units sold, trade value and VWAP are estimated from 5-minute candles during the day; values for completed days are final. The day boundary is UTC midnight ({1} your time).{2}',
+  '{0} Borsa fiyatı, kalitesi seçilen kalite ve üstü olan satış ilanlarının en ucuzudur (anlık, grafikte basamaklı çizgi); son işlem fiyatı kalitedeki son işlemin fiyatıdır. Günlük kapanış son işlem fiyatıdır. Satılan birim, işlem değeri ve VWAP gün içinde 5 dakikalık mumlardan tahmin edilir; tamamlanan günlerin değerleri kesindir. Gün sınırı UTC gece yarısı (senin saatinle {1}).{2}':
+    '{0} The exchange price is the cheapest sell listing at the selected quality or higher (live; a stepped line on the chart); the last trade price is the price of the last trade in that quality. The daily close is the last trade price. Units sold, trade value and VWAP are estimated from 5-minute candles during the day; values for completed days are final. The day boundary is UTC midnight ({1} your time).{2}',
   'Farklı kaliteler karışacağı için ortalama fiyat gösterilmez': 'No average price is shown because different qualities would be mixed',
   'Son bakılanlar': 'Recently viewed',
   'Tüm ürünler': 'All products',
@@ -1525,4 +1525,17 @@ export default {
   '‹ Önceki': '‹ Previous',
   'Gün gün tablo': 'Day-by-day table',
   'Liste oluştur': 'Create a list',
+  'Borsa fiyatı': 'Exchange price',
+  'İlan yok': 'No listings',
+  'borsa fiyatı': 'exchange price',
+  'borsa fiyatı · son işlem {0}, {1}': 'exchange price · last trade {0}, {1}',
+  'satış ilanı yok': 'no sell listings',
+  'satış ilanı yok · son işlem: {0}': 'no sell listings · last trade: {0}',
+  '{0} 24 saatte (son işlem)': '{0} in 24 h (last trade)',
+  'Borsa (anlık)': 'Exchange (live)',
+  'anlık borsa': 'exchange (live)',
+  'Maliyet, borsanın anlık fiyatıdır (en ucuz satış ilanı); {0} ölçüldü.': 'The cost is the live exchange price (cheapest sell listing); measured {0}.',
+  "Canlı Borsa: Sim Companies'in anlık borsa fiyatı eklendi. Büyük fiyat ve grafikteki yeni (basamaklı) çizgi, kalite ve üstü satış ilanlarının en ucuzunu gösterir; son işlem fiyatı ayrı çizgi ve satırdır. Günlük kapanış hâlâ son işlem fiyatıdır.": "Live exchange: the live exchange price from Sim Companies was added. The big price and the new (stepped) chart line show the cheapest sell listing at that quality or higher; the last trade price is a separate line and column. The daily close is still the last trade price.",
+  'Canlı Borsa: Satış Arzı artık doluyor (kalitedeki toplam satış ilanı adedi). Kalite tablosuna Borsa fiyatı sütunu eklendi.': 'Live exchange: Supply for sale is now filled in (total units listed for sale in that quality). An Exchange price column was added to the quality table.',
+  'Kâr Hesaplayıcı: maliyet ve fiyatlar son işlem yerine anlık borsa fiyatından hesaplanıyor; anlık veri yoksa son işlem fiyatı kullanılır.': 'Profit calculator: costs and prices are now calculated from the live exchange price instead of the last trade; the last trade price is used when live data is missing.',
 };

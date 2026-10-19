@@ -5,7 +5,7 @@
 // Ekran metni Türkçedir; seçili dil Türkçe değilse i18n.js sayfayı çevirir. Sayı ve tarih biçimi seçili dile uyar.
 
 import { LOCALE, DIL, t } from './i18n.js';
-import { readDocs, PATHS, dataField, loadProduct, summarizeDay, utcDay, addDays, fmtDateTime, fmtAgo } from './veri.js';
+import { readDocs, PATHS, dataField, loadProduct, summarizeDay, utcDay, addDays, fmtDateTime, fmtAgo, anlikFiyat } from './veri.js';
 import * as Y from './yonetici.js';
 import * as I from './hesap-insaat.js';
 import { binaAdi } from './adlar.js';
@@ -158,12 +158,16 @@ export function mountInsaat(host, { realm = 0 } = {}) {
     else render();
   }
   const onFocusOut = () => { if (pendingRender) setTimeout(() => { pendingRender = false; render(); }, 0); };
+  // Anlık borsa fiyatı (Q0: tüm ilanların en ucuzu); anlık veri yoksa ya da eskiyse son işlem fiyatı
   function lastOf(id) {
     const qs = live?.items?.[id]?.[1];
     if (!qs) return null;
-    const q0 = qs[0];
-    if (q0?.[0] != null) return { price: q0[0], t: q0[4] ?? null };
-    for (const q of Object.keys(qs)) if (qs[q]?.[0] != null) return { price: qs[q][0], t: qs[q][4] ?? null };
+    const a = anlikFiyat(live, id, 0);
+    if (a) return { price: a.p, t: a.t, borsa: a.kaynak === 'borsa' };
+    for (const q of Object.keys(qs)) {
+      const x = anlikFiyat(live, id, q);
+      if (x) return { price: x.p, t: x.t, borsa: x.kaynak === 'borsa' };
+    }
     return null;
   }
   // Seçili kaynaktan, yoksa öbüründen; elle girilen her zaman önce gelir
@@ -172,10 +176,11 @@ export function mountInsaat(host, { realm = 0 } = {}) {
     if (manual != null) return { price: manual, source: 'Elle girildi' };
     const last = lastOf(m.id);
     const v = vwap[m.id];
-    const first = plan.priceMode === 'vwap' ? ['VWAP', v?.price] : ['Son işlem', last?.price];
-    const second = plan.priceMode === 'vwap' ? ['Son işlem', last?.price] : ['VWAP', v?.price];
-    if (first[1] != null) return { price: first[1], source: first[0], when: first[0] === 'Son işlem' ? last?.t : null };
-    if (second[1] != null) return { price: second[1], source: `${second[0]} (yedek)`, when: second[0] === 'Son işlem' ? last?.t : null };
+    const lastName = last?.borsa ? 'Borsa (anlık)' : 'Son işlem';
+    const first = plan.priceMode === 'vwap' ? ['VWAP', v?.price] : [lastName, last?.price];
+    const second = plan.priceMode === 'vwap' ? [lastName, last?.price] : ['VWAP', v?.price];
+    if (first[1] != null) return { price: first[1], source: first[0], when: first[0] === lastName ? last?.t : null };
+    if (second[1] != null) return { price: second[1], source: `${second[0]} (yedek)`, when: second[0] === lastName ? last?.t : null };
     return { price: null, source: 'Fiyat yok' };
   }
   const prices = () => Object.fromEntries(I.MALZEMELER.map((m) => [m.key, priceOf(m).price]));
@@ -280,7 +285,7 @@ export function mountInsaat(host, { realm = 0 } = {}) {
 
     const basketCard = `<section class="ur-card" aria-labelledby="h-in-sepet"><h2 id="h-in-sepet">Malzeme sepeti</h2>
       <p class="ur-sub">Alınacak = gerekli − depo stoğu${hurdaVar ? ' − hurdadan gelen' : ''}. Kalite fark etmez, Q0 yeterlidir.</p>
-      <div class="ur-field"><span>Fiyat kaynağı</span><div class="ur-seg" role="group" aria-label="Fiyat kaynağı">${[['last', 'Son işlem'], ['vwap', 'VWAP']].map(([v, t]) =>
+      <div class="ur-field"><span>Fiyat kaynağı</span><div class="ur-seg" role="group" aria-label="Fiyat kaynağı">${[['last', 'Borsa (anlık)'], ['vwap', 'VWAP']].map(([v, t]) =>
         `<button type="button" data-act="mode" data-v="${v}" aria-pressed="${plan.priceMode === v}">${t}</button>`).join('')}</div>
         <p class="ur-note">Fiyat kutusuna yazarsanız o malzeme için sizin fiyatınız kullanılır.</p></div>
       ${hurdaVar ? `<label class="ur-line" style="cursor:pointer"><span class="grow">Hurdadan gelen malzemeyi sepetten düş</span><input type="checkbox" data-act="scrap" ${plan.useScrap ? 'checked' : ''} style="width:22px;height:22px"></label>` : ''}
