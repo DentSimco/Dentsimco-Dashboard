@@ -69,7 +69,7 @@ export const RESTORAN_CSS = `
 // ---------------------------------------------------------------------------------------------------------------
 // Kayıt: setup.restoran
 // { menuMode: 'ortak' | 'ayri', menu: {id: {secili, kalite, kaynak, manuel}}, kontratPct, gorunum: 'beklenen' | 'simdi',
-//   items: [{ id, ad, tip, seviye, fiyat, rating, onceki, doluluk, hedef, menu? }] }
+//   items: [{ id, ad, tip, seviye, fiyat, rating, doluluk, menu? }] }
 // ---------------------------------------------------------------------------------------------------------------
 export function varsayilanMenu() {
   return Object.fromEntries(Object.keys(R.URUNLER).map((id) => [id, { secili: id in VARSAYILAN_MENU, kalite: VARSAYILAN_MENU[id] ?? 0, kaynak: 'borsa', manuel: null }]));
@@ -96,8 +96,8 @@ export function temizleRestoran(raw) {
   for (const it of Array.isArray(raw.items) ? raw.items : []) {
     if (!it || typeof it !== 'object') continue;
     s.items.push({ id: String(it.id || uid()), ad: String(it.ad || '').slice(0, 40), tip: tipOf(it.tip),
-      seviye: Math.max(0, Math.floor(Number(it.seviye) || 0)), fiyat: posOr(it.fiyat), rating: numOr(it.rating), onceki: numOr(it.onceki),
-      doluluk: numOr(it.doluluk) == null ? null : Math.min(100, Math.max(0, Number(it.doluluk))), hedef: posOr(it.hedef),
+      seviye: Math.max(0, Math.floor(Number(it.seviye) || 0)), fiyat: posOr(it.fiyat), rating: numOr(it.rating),
+      doluluk: numOr(it.doluluk) == null ? null : Math.min(100, Math.max(0, Number(it.doluluk))),
       menu: it.menu ? temizMenu(it.menu) : null });
   }
   if (s.menuMode === 'ayri') for (const it of s.items) it.menu ||= kopyaMenu(s.menu);
@@ -115,7 +115,7 @@ export function eskiKayittanAktar(realm) {
     rs.menu = temizMenu(raw.menu);
     rs.kontratPct = Math.min(50, Math.max(0, Number(raw.kontratPct) || 0));
     if (Number(raw.seviye) > 0) rs.items.push({ id: uid(), ad: '', tip: tipOf(raw.tip), seviye: Math.floor(Number(raw.seviye)), fiyat: posOr(raw.fiyat),
-      rating: null, onceki: null, doluluk: numOr(raw.doluluk), hedef: null, menu: null });
+      rating: null, doluluk: numOr(raw.doluluk), menu: null });
     return rs;
   } catch { return null; }
 }
@@ -178,7 +178,7 @@ function kart(rs, it, row, marketOf, acik) {
   const ayri = rs.menuMode === 'ayri';
   const a = (f) => `data-rf="${esc(it.id)}|${f}"`;
   const hedef = row.hedef;
-  const hedefEtiket = hedef.kaynak === 'girilen' ? 'girilen' : hedef.kaynak === 'tahmin' ? 'tahmin (önceki rating)' : hedef.kaynak === 'bilinmiyor' ? 'bilinmiyor' : 'tahmini';
+  const hedefEtiket = hedef.kaynak === 'bilinmiyor' ? 'bilinmiyor' : 'tahmini';
   const chips = [chip(`Rating ${num(row.simdi.rating, 2)} → ${num(row.beklenen.rating, 2)}`), chip(`Hedef ${hedefEtiket}`, 'muted'),
     chip(`Doluluk %${num(row.simdi.doluluk, 1)} → %${num(row.beklenen.doluluk, 1)}`, 'muted'),
     chip(`Kâr ${money(row.secili.profitDay)}/gün`, row.secili.profitDay > 0 ? 'up' : 'down')];
@@ -196,8 +196,6 @@ function kart(rs, it, row, marketOf, acik) {
       ${field('Menü fiyatı', a('fiyat'), inputVal(it.fiyat), { unit: '$', placeholder: '62' })}
       ${field('Son döngü doluluğu', a('doluluk'), inputVal(it.doluluk), { unit: '%' })}
       ${field('Rating', a('rating'), inputVal(it.rating))}
-      ${field('Önceki rating', a('onceki'), inputVal(it.onceki))}
-      ${field('Hedef rating (isteğe bağlı)', a('hedef'), inputVal(it.hedef))}
     </div>
     <div class="ur-chips">${chips.join('')}</div>${uyar}
     <div class="ur-metrics">
@@ -246,7 +244,7 @@ export function restoranTikla(rs, btn, env) {
   const act = btn.dataset.act || '';
   const scopeMenu = () => (btn.dataset.s === 'o' ? rs.menu : rs.items.find((x) => x.id === btn.dataset.s)?.menu);
   if (act === 'rk.ekle') {
-    const it = { id: uid(), ad: '', tip: 'eko', seviye: 0, fiyat: null, rating: null, onceki: null, doluluk: null, hedef: null, menu: kopyaMenu(rs.menu) };
+    const it = { id: uid(), ad: '', tip: 'eko', seviye: 0, fiyat: null, rating: null, doluluk: null, menu: kopyaMenu(rs.menu) };
     rs.items.push(it);
     env.acik.add(it.id);
   } else if (act === 'rk.mod') {
@@ -278,9 +276,8 @@ export function restoranDegis(rs, t, env) {
     if (f === 'ad') it.ad = t.value.trim().slice(0, 40);
     else if (f === 'seviye') it.seviye = Math.max(0, Math.floor(n ?? 0));
     else if (f === 'fiyat') it.fiyat = n != null && n > 0 ? n : null;
-    else if (f === 'hedef') it.hedef = n != null && n > 0 ? n : null;
     else if (f === 'doluluk') it.doluluk = n == null ? null : Math.min(100, Math.max(0, n));
-    else if (f === 'rating' || f === 'onceki') it[f] = n == null ? null : Math.max(0, n);
+    else if (f === 'rating') it[f] = n == null ? null : Math.max(0, n);
     else return false;
     return true;
   }
