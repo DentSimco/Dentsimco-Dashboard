@@ -472,9 +472,48 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       }
     }
     const scroll = window.scrollY;
+    const tabloKayma = view.querySelector('.tk-wrap')?.scrollLeft || 0; // tablo yeniden çizilince başa sıçramasın
     view.innerHTML = tabs + (data && !loadError && tab !== 'tuketim' ? bolumUyariHtml(company, 'perakende', kbOnay) : '') + body;
     window.scrollTo(0, scroll);
+    const tablo = view.querySelector('.tk-wrap');
+    if (tablo) {
+      tablo.scrollLeft = tabloKayma;
+      // seçili gün sütunu görünür alanın dışındaysa yumuşakça içeri alınır
+      const th = tablo.querySelector('th.selday');
+      if (th) {
+        const a = th.getBoundingClientRect(), b = tablo.getBoundingClientRect();
+        const ad = tablo.querySelector('th.nm')?.getBoundingClientRect().width || 0;
+        if (a.right > b.right) tablo.scrollTo({ left: tablo.scrollLeft + (a.right - b.right) + 8, behavior: 'smooth' });
+        else if (a.left < b.left + ad) tablo.scrollTo({ left: tablo.scrollLeft - (b.left + ad - a.left) - 8, behavior: 'smooth' });
+      }
+    }
     if (sheet) renderSheet();
+  }
+
+  // Tüketim grafiği: parmakla ya da fareyle sürükleyince gün gün gezilir; bırakınca o gün seçilir
+  let grafikGun = null;
+  function grafikGez(ev) {
+    const chart = ev.target.closest?.('[data-chart]');
+    if (!chart || !chart.contains(ev.target) && ev.type !== 'pointermove') return;
+    if (ev.type === 'pointerdown') { chart.setPointerCapture?.(ev.pointerId); chart.dataset.drag = '1'; }
+    if (chart.dataset.drag !== '1' && ev.pointerType !== 'mouse') return;
+    const bars = [...chart.children];
+    const r = chart.getBoundingClientRect();
+    const i = Math.max(0, Math.min(bars.length - 1, Math.floor(((ev.clientX - r.left) / r.width) * bars.length)));
+    const bar = bars[i];
+    if (!bar) return;
+    bars.forEach((b) => b.classList.remove('hot'));
+    bar.classList.add('hot');
+    const read = chart.parentElement.querySelector('[data-read]');
+    if (read) read.textContent = bar.dataset.txt;
+    grafikGun = bar.dataset.day;
+  }
+  function grafikBirak(ev) {
+    const chart = ev.target.closest?.('[data-chart]');
+    if (!chart || chart.dataset.drag !== '1') return;
+    chart.dataset.drag = '0';
+    if (grafikGun && grafikGun !== tuketimGun) { tuketimGun = grafikGun; softRender(); }
+    grafikGun = null;
   }
 
   const headChips = (c) => `<div class="ur-chips">${chip(`Toplam satış bonusu ${pctText(c.bonusPct)}`, c.bonusPct > 0 ? '' : 'muted')}${chip(`Yönetim gideri ${pctText(c.ctx.adminNet * 100)}`, 'muted')}
@@ -1075,6 +1114,10 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   document.addEventListener('pointercancel', onPointerUp, true);
   document.addEventListener('click', onAnyClick, true);
   root.addEventListener('click', onClick);
+  root.addEventListener('pointerdown', grafikGez);
+  root.addEventListener('pointermove', grafikGez);
+  root.addEventListener('pointerup', grafikBirak);
+  root.addEventListener('pointercancel', grafikBirak);
   root.addEventListener('change', onChange);
   root.addEventListener('input', onInput);
   document.addEventListener('keydown', onKey);
@@ -1100,6 +1143,10 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       document.removeEventListener('pointercancel', onPointerUp, true);
       document.removeEventListener('click', onAnyClick, true);
       root.removeEventListener('click', onClick);
+      root.removeEventListener('pointerdown', grafikGez);
+      root.removeEventListener('pointermove', grafikGez);
+      root.removeEventListener('pointerup', grafikBirak);
+      root.removeEventListener('pointercancel', grafikBirak);
       root.removeEventListener('change', onChange);
       root.removeEventListener('input', onInput);
       document.removeEventListener('keydown', onKey);
