@@ -5,7 +5,7 @@
 // Şirket kaydı (dentsimco.sirket.r{realm}) Üretim ve Perakende tarafından da okunur; yöneticiler yalnız burada girilir.
 
 import { LOCALE } from './i18n.js';
-import { readDocs, PATHS, dataField, loadProduct, summarizeDay, utcDay, addDays } from './veri.js';
+import { readDocs, PATHS, dataField, loadProduct, summarizeDay, utcDay, addDays, anlikFiyat } from './veri.js';
 import * as H from './hesap.js';
 import * as Y from './yonetici.js';
 import { CSS, parseNum, kisayolSatiri } from './uretim.js';
@@ -271,13 +271,13 @@ export function mountYonetim(root, { realm = 0 } = {}) {
   const researchList = () => Object.values(products || {}).filter((p) => p.research).sort((a, b) => a.name.localeCompare(b.name, 'tr'));
   const qualityList = () => Object.values(products || {}).filter((p) => H.hasQuality(p)).sort((a, b) => a.name.localeCompare(b.name, 'tr'));
   const nameOf = (id) => products?.[id]?.name || (id != null ? `#${id}` : '');
-  const livePrice = (id) => live?.items?.[id]?.[1]?.[0]?.[0] ?? null;
-  // Borsa fiyatı: bugünün VWAP'ı, yoksa dünün, yoksa son işlem fiyatı
+  const livePrice = (id) => anlikFiyat(live, id, 0);
+  // Borsa fiyatı: bugünün VWAP'ı, yoksa dünün, yoksa anlık borsa fiyatı (o da yoksa son işlem fiyatı)
   const marketOf = (id) => {
     if (id == null) return null;
     if (vwap[id]?.price != null) return vwap[id];
-    const p = livePrice(id);
-    return p != null ? { price: p, source: 'son işlem' } : null;
+    const a = livePrice(id);
+    return a ? { price: a.p, source: a.kaynak === 'borsa' ? 'anlık borsa' : 'son işlem' } : null;
   };
   async function ensureVwap() {
     const ids = new Set([company.research.researchId, ...company.research.upgrades.map((u) => u.researchId)].filter((x) => x != null));

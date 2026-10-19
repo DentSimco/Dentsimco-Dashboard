@@ -2,7 +2,7 @@
 // Ürün ve kalite seç, zaman aralığı seç: grafik, bugünkü özet, sinyal kartı ve kalite tablosu burada.
 
 import {
-  QUALITIES, START_YEAR, MIN, HOUR, DAY, utcDay, addDays, dayStart,
+  QUALITIES, START_YEAR, MIN, HOUR, DAY, ASK_FRESH_MS, utcDay, addDays, dayStart,
   loadBasics, loadProduct, summarizeDay,
   fmtPrice, fmtNum, fmtCompact, fmtPct, fmtShare, fmtTime, fmtDate, fmtDateTime, fmtMonth, fmtMonthYear, fmtAgo,
 } from './veri.js';
@@ -16,6 +16,7 @@ import { esc } from './esc.js';
 
 // Açıklama satırındaki sırayla. z: çizim sırası, büyük olan üstte.
 export const SERIES = [
+  { key: 'ask', kind: 'line', z: 10, color: 'var(--s-ask)', width: 2.2, glow: 8, step: true },
   { key: 'anlik', kind: 'line', z: 9, color: 'var(--s-price)', width: 2.2, glow: 9 },
   { key: 'dusuk', kind: 'line', z: 6, color: 'var(--s-low)', width: 1.5, dash: [4, 4], step: true, resets: true },
   { key: 'yuksek', kind: 'line', z: 7, color: 'var(--s-high)', width: 1.5, dash: [4, 4], step: true, resets: true },
@@ -27,6 +28,7 @@ const SERIES_BY_KEY = Object.fromEntries(SERIES.map((s) => [s.key, s]));
 
 function seriesLabel(key, { q, daily }) {
   switch (key) {
+    case 'ask': return 'Borsa fiyatı';
     case 'anlik': return daily ? 'Kapanış' : 'Son işlem fiyatı';
     case 'dusuk': return 'Gün en düşük';
     case 'yuksek': return 'Gün en yüksek';
@@ -66,7 +68,7 @@ export function needs(range, now) {
   return { days, years };
 }
 
-const emptyValues = () => ({ anlik: [], dusuk: [], yuksek: [], vwap: [], hacim: [], toplam: [] });
+const emptyValues = () => ({ ask: [], anlik: [], dusuk: [], yuksek: [], vwap: [], hacim: [], toplam: [] });
 const mapValues = (values, fn) => Object.fromEntries(Object.entries(values).map(([k, v]) => [k, fn(v)]));
 
 // Bir noktada seçili kalite. Kalite anahtarı yoksa o an ilan yoktur;
@@ -77,6 +79,7 @@ function metricsAt(qs, q) {
   const e = qs[q];
   return {
     p: e?.[0] ?? null,
+    ask: e?.[4] ?? null, // gün içi nokta: [fiyat, arz, satış, tutar, ask]
     s: e ? e[2] : tracked ? 0 : null,
     v: e ? e[3] : tracked ? 0 : null,
     total: tracked ? total : null,
@@ -97,6 +100,7 @@ export function intradaySeries(byDay, q) {
       }
       if (m.s != null) { sold += m.s; value += m.v || 0; }
       xs.push(t);
+      values.ask.push(m.ask);
       values.anlik.push(m.p);
       values.dusuk.push(lo);
       values.yuksek.push(hi);
@@ -147,6 +151,7 @@ export function dailySeries(rows, q) {
     for (const m of Object.values(qs)) if (m?.[5] != null) { tracked = true; total += m[5]; }
     const e = qs[q];
     xs.push(dayStart(day) + 12 * HOUR);
+    values.ask.push(null); // günlük satırda anlık borsa fiyatı yok; kapanış son işlem fiyatıdır
     values.anlik.push(e?.[3] ?? null);
     values.dusuk.push(e?.[2] ?? null);
     values.yuksek.push(e?.[1] ?? null);
@@ -198,7 +203,9 @@ export function withLive(byDay, snap) {
   const points = byDay.get(day);
   if (!points || (points.length && points[points.length - 1].t >= snap.t)) return byDay;
   const qs = {};
-  for (const [q, m] of Object.entries(snap.qs)) if (m?.[0] != null) qs[q] = [m[0], m[1] ?? null, null, null];
+  // canlı satır [fiyat, arz, satış, tutar, son işlem zamanı, ask] → gün içi nokta [fiyat, arz, satış, tutar, ask]
+  const askNow = snap.askT && snap.t - snap.askT <= ASK_FRESH_MS;
+  for (const [q, m] of Object.entries(snap.qs)) if (m?.[0] != null || m?.[5] != null) qs[q] = [m[0] ?? null, m[1] ?? null, null, null, askNow ? (m[5] ?? null) : null];
   if (!Object.keys(qs).length) return byDay;
   const out = new Map(byDay);
   out.set(day, [...points, { t: snap.t, qs }]);
@@ -207,20 +214,26 @@ export function withLive(byDay, snap) {
 
 function snapshotOf(basics, product, id) {
   const live = basics?.live?.items?.[id];
-  if (live) return { t: live[0], qs: live[1] || {} };
+  if (live) return { t: live[0], qs: live[1] || {}, askT: live[2] ?? null };
   let last = null;
   for (const points of product?.byDay.values() || []) for (const p of points) if (!last || p.t > last.t) last = p;
-  return last && { t: last.t, qs: last.qs };
+  if (!last) return null;
+  // gün içi nokta [fiyat, arz, satış, tutar, ask] → canlı satır biçimi [fiyat, arz, satış, tutar, son işlem zamanı, ask]
+  const qs = {};
+  for (const [q, m] of Object.entries(last.qs)) qs[q] = [m?.[0] ?? null, m?.[1] ?? null, m?.[2] ?? null, m?.[3] ?? null, null, m?.[4] ?? null];
+  return { t: last.t, qs, askT: last.t };
 }
 
-function change24h(product, q, snap) {
-  const now = snap?.qs?.[q]?.[0];
+// kind 'ask': anlık borsa fiyatının 24 saatlik değişimi (geçmiş gün içi noktalardaki ask'a göre); 'trade': son işlem fiyatının
+function change24h(product, q, snap, kind = 'trade') {
+  const now = kind === 'ask' ? snap?.qs?.[q]?.[5] : snap?.qs?.[q]?.[0];
   if (now == null) return null;
+  const slot = kind === 'ask' ? 4 : 0;
   const target = snap.t - DAY;
   let best = null;
   for (const points of product.byDay.values()) {
     for (const pt of points) {
-      const old = pt.qs[q]?.[0];
+      const old = pt.qs[q]?.[slot];
       if (old == null) continue;
       const d = Math.abs(pt.t - target);
       if (d <= 50 * MIN && (!best || d < best.d)) best = { d, p: old };
@@ -336,7 +349,7 @@ const TEMPLATE = `
     <h2 class="quality-title">Kaliteler, bugün</h2>
     <div class="table-wrap">
       <table class="qt">
-        <thead><tr><th scope="col">Kalite</th><th scope="col">Son işlem</th><th scope="col">Satış Arzı</th><th scope="col">Satılan Birim</th><th scope="col">VWAP</th><th scope="col">Satış payı</th></tr></thead>
+        <thead><tr><th scope="col">Kalite</th><th scope="col">Borsa fiyatı</th><th scope="col">Son işlem</th><th scope="col">Satış Arzı</th><th scope="col">Satılan Birim</th><th scope="col">VWAP</th><th scope="col">Satış payı</th></tr></thead>
         <tbody data-el="rows"></tbody>
         <tfoot data-el="total"></tfoot>
       </table>
@@ -520,7 +533,7 @@ export function mountBorsa(root, { realm = 0 } = {}) {
     el.heroQ.style.display = hide ? 'none' : '';
     for (const btn of el.quals.children) {
       const bq = Number(btn.dataset.q);
-      const has = snap?.qs?.[bq]?.[0] != null || todaySum[bq]?.[5] > 0;
+      const has = snap?.qs?.[bq]?.[0] != null || snap?.qs?.[bq]?.[5] != null || todaySum[bq]?.[5] > 0;
       btn.setAttribute('aria-checked', String(bq === q));
       btn.tabIndex = bq === q ? 0 : -1;
       btn.classList.toggle('empty', !has);
@@ -545,13 +558,26 @@ export function mountBorsa(root, { realm = 0 } = {}) {
     el.heroName.textContent = nameOf(id);
     el.heroQ.textContent = noQuality(id) ? '' : `Q${q}`;
     const cur = snap?.qs?.[q];
-    const p = cur?.[0] ?? null;
-    el.price.textContent = p != null ? fmtPrice(p) : snap ? 'İşlem yok' : '—';
-    const lt = cur?.[4];
-    el.lastTrade.textContent = Number.isFinite(lt) ? `son işlem: ${fmtAgo(lt, now)}` : '';
+    const trade = cur?.[0] ?? null; // son işlem fiyatı (SimcoTools)
+    const ask = cur?.[5] ?? null; // anlık borsa fiyatı (Sim Companies): kalitesi ≥ q olan en ucuz ilan
+    const askFresh = snap?.askT != null && now - snap.askT <= ASK_FRESH_MS;
+    const noListing = askFresh && ask == null; // anlık veri taze ama bu kalite ve üstünde satış ilanı yok
+    const showAsk = askFresh && ask != null;
+    const p = showAsk ? ask : trade;
+    el.price.textContent = p != null ? fmtPrice(p) : snap ? (noListing ? 'İlan yok' : 'İşlem yok') : '—';
     el.price.classList.toggle('none', p == null);
-    const ch = change24h(product, q, snap);
-    el.chg.textContent = ch == null ? '' : `${fmtPct(ch)} 24 saatte`;
+    el.price.classList.toggle('ask', showAsk);
+    const lt = cur?.[4];
+    if (showAsk) el.lastTrade.textContent = trade != null && Number.isFinite(lt) ? `borsa fiyatı · son işlem ${fmtPrice(trade)}, ${fmtAgo(lt, now)}` : 'borsa fiyatı';
+    else if (noListing) el.lastTrade.textContent = Number.isFinite(lt) ? `satış ilanı yok · son işlem: ${fmtAgo(lt, now)}` : 'satış ilanı yok';
+    else el.lastTrade.textContent = Number.isFinite(lt) ? `son işlem: ${fmtAgo(lt, now)}` : '';
+    let ch = showAsk ? change24h(product, q, snap, 'ask') : null;
+    let chNote = '';
+    if (ch == null) { // anlık fiyatın 24 saatlik geçmişi henüz yoksa son işlem fiyatının değişimi gösterilir
+      ch = change24h(product, q, snap, 'trade');
+      chNote = showAsk && ch != null ? ' (son işlem)' : '';
+    }
+    el.chg.textContent = ch == null ? '' : `${fmtPct(ch)} 24 saatte${chNote}`;
     el.chg.className = `chg${ch > 0 ? ' up' : ch < 0 ? ' down' : ''}`;
 
     const d = todaySum[q];
@@ -559,7 +585,7 @@ export function mountBorsa(root, { realm = 0 } = {}) {
     const hi = d?.[1] ?? null;
     el.lo.textContent = fmtPrice(lo);
     el.hi.textContent = fmtPrice(hi);
-    const pos = lo != null && hi != null && p != null ? (hi > lo ? (p - lo) / (hi - lo) : 0.5) : null;
+    const pos = lo != null && hi != null && trade != null ? (hi > lo ? (trade - lo) / (hi - lo) : 0.5) : null; // gün aralığı son işlem fiyatlarından
     el.mark.hidden = pos == null;
     if (pos != null) el.mark.style.left = `${Math.max(0, Math.min(1, pos)) * 100}%`;
 
@@ -567,9 +593,10 @@ export function mountBorsa(root, { realm = 0 } = {}) {
     figs.vwap.textContent = fmtPrice(sold > 0 ? d[6] / sold : null);
     figs.hacim.textContent = fmtNum(sold);
     figs.toplam.textContent = fmtNum(d?.[6] ?? null); // seçili kalitenin bugünkü satış tutarı ($)
-    figs.arz.textContent = cur?.[1] != null ? fmtNum(cur[1]) : '—'; // Simcotools ilan derinliği vermez: veri yoksa 0 değil —
+    const arz = askFresh ? (cur?.[1] ?? null) : null; // arz Sim Companies ilanlarından; veri eskiyse ya da yoksa 0 değil —
+    figs.arz.textContent = arz != null ? fmtNum(arz) : '—';
     const arzEtiket = figs.arz.previousElementSibling;
-    if (arzEtiket) arzEtiket.textContent = cur?.[1] != null ? 'Satış Arzı' : 'Satış Arzı · veri yok';
+    if (arzEtiket) arzEtiket.textContent = arz != null ? 'Satış Arzı' : 'Satış Arzı · veri yok';
     setFresh(freshness(snap?.t, now));
   }
 
@@ -577,6 +604,7 @@ export function mountBorsa(root, { realm = 0 } = {}) {
     const ctx = { q: noQuality(pick().id) ? null : pick().q, daily: shown?.daily };
     for (const btn of el.legend.children) {
       btn.querySelector('.lg-label').textContent = seriesLabel(btn.dataset.key, ctx);
+      btn.style.display = btn.dataset.key === 'ask' && shown?.daily ? 'none' : ''; // günlük özetlerde anlık borsa fiyatı yok
       btn.setAttribute('aria-pressed', String(chart.isVisible(btn.dataset.key)));
     }
     renderLegendValues();
@@ -605,7 +633,7 @@ export function mountBorsa(root, { realm = 0 } = {}) {
     const bars = rg.kind === 'daily' ? 'Her sütun bir günün satışı.'
       : rg.bucket ? 'Her sütun 2 saatlik satış.' : 'Her sütun iki nokta arası (yaklaşık 10 dk) satış.';
     const few = rg.kind === 'daily' && shown.xs.length <= 3 ? ' Günlük geçmiş, bot her gece bir gün ekledikçe uzar.' : '';
-    el.foot.textContent = `${bars} Fiyat, kalitedeki son işlemin fiyatıdır. Satılan birim, işlem değeri ve VWAP gün içinde 5 dakikalık mumlardan tahmin edilir; tamamlanan günlerin değerleri kesindir. Gün sınırı UTC gece yarısı (senin saatinle ${fmtTime(dayStart(utcDay(now)))}).${few}`;
+    el.foot.textContent = `${bars} Borsa fiyatı, kalitesi seçilen kalite ve üstü olan satış ilanlarının en ucuzudur (anlık, grafikte basamaklı çizgi); son işlem fiyatı kalitedeki son işlemin fiyatıdır. Günlük kapanış son işlem fiyatıdır. Satılan birim, işlem değeri ve VWAP gün içinde 5 dakikalık mumlardan tahmin edilir; tamamlanan günlerin değerleri kesindir. Gün sınırı UTC gece yarısı (senin saatinle ${fmtTime(dayStart(utcDay(now)))}).${few}`;
   }
 
   function renderTable() {
@@ -614,26 +642,29 @@ export function mountBorsa(root, { realm = 0 } = {}) {
     let totS = 0, totV = 0, totA = 0, tracked = false, arzSeen = false;
     const rows = QUALITIES.map((q) => {
       const p = liveQs[q]?.[0] ?? null;
-      const a = liveQs[q]?.[1] ?? null;
+      const askOk = snap?.askT != null && Date.now() - snap.askT <= ASK_FRESH_MS; // anlık veri taze değilse arz ve borsa fiyatı gösterilmez
+      const a = askOk ? (liveQs[q]?.[1] ?? null) : null;
+      const k = askOk ? (liveQs[q]?.[5] ?? null) : null;
       const s = todaySum[q]?.[5] ?? null;
       const v = todaySum[q]?.[6] ?? null;
       if (s != null) { tracked = true; totS += s; totV += v || 0; }
       if (a != null) { totA += a; arzSeen = true; }
-      return { q, p, a, s, v, lt: liveQs[q]?.[4] ?? null };
+      return { q, p, k, a, s, v, lt: liveQs[q]?.[4] ?? null };
     });
     const maxS = Math.max(0, ...rows.map((x) => x.s || 0));
     const nowT = Date.now();
-    el.rows.innerHTML = rows.map(({ q, p, a, s, v, lt }) => {
+    el.rows.innerHTML = rows.map(({ q, p, k, a, s, v, lt }) => {
       const share = tracked && totS > 0 && s != null ? s / totS : null;
       const bar = share == null || !(maxS > 0) ? '' // çubuk en büyük paya göre ölçeklenir
         : `<span class="sbar" aria-hidden="true"><i style="width:${((s / maxS) * 100).toFixed(1)}%"></i></span>`;
-      const none = p == null && !(a > 0) && !(s > 0);
+      const none = p == null && k == null && !(a > 0) && !(s > 0);
       return `<tr data-q="${q}" class="${q === sel ? 'sel' : ''}${none ? ' none' : ''}">`
         + `<th scope="row"><button type="button" data-q="${q}" aria-pressed="${q === sel}">Q${q}</button></th>`
+        + `<td class="ask">${fmtPrice(k)}</td>`
         + `<td>${fmtPrice(p)}${p != null && Number.isFinite(lt) ? `<small class="ago" title="Son işlem">${agoShort(lt, nowT)}</small>` : ''}</td><td>${fmtNum(a)}</td><td>${fmtNum(s)}</td><td>${fmtPrice(s > 0 ? v / s : null)}</td>`
         + `<td class="share">${bar}${fmtShare(share)}</td></tr>`;
     }).join('');
-    el.total.innerHTML = `<tr><th scope="row">Tümü</th><td></td><td>${arzSeen ? fmtNum(totA) : '—'}</td>`
+    el.total.innerHTML = `<tr><th scope="row">Tümü</th><td></td><td></td><td>${arzSeen ? fmtNum(totA) : '—'}</td>`
       + `<td>${tracked ? fmtNum(totS) : '—'}</td><td title="Farklı kaliteler karışacağı için ortalama fiyat gösterilmez">—</td>`
       + `<td>${tracked && totS > 0 ? fmtShare(1) : '—'}</td></tr>`;
   }

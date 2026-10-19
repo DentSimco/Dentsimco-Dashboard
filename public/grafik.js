@@ -299,8 +299,10 @@ export function createChart(host, { series, formatPrice, formatVolume, formatTic
 
     // Sağdaki fiyat ekseni için yer
     const ticks = niceTicks(view.pMin, view.pMax, Math.max(2, Math.min(6, Math.floor((pBottom - pTop) / 46))));
-    const lastIdx = lastIndex('anlik');
-    const lastVal = lastIdx >= 0 ? valueAt('anlik', lastIdx) : null;
+    // Sağdaki son fiyat etiketi: borsa fiyatı (ask) serisi görünüyor ve verisi varsa onun, yoksa son işlem fiyatının
+    const tagKey = series.some((s) => s.key === 'ask') && visible.get('ask') && lastIndex('ask') >= 0 ? 'ask' : 'anlik';
+    const lastIdx = lastIndex(tagKey);
+    const lastVal = lastIdx >= 0 ? valueAt(tagKey, lastIdx) : null;
     let gutter = 0;
     for (const v of ticks.values) gutter = Math.max(gutter, ctx.measureText(formatPrice(v, ticks.step)).width);
     if (lastVal != null) gutter = Math.max(gutter, ctx.measureText(formatPrice(lastVal)).width + 10);
@@ -431,7 +433,7 @@ export function createChart(host, { series, formatPrice, formatVolume, formatTic
     }
 
     // Fiyat ekseni (sağ) ve son fiyat etiketi
-    const tagA = lastVal != null ? alpha.get('anlik') : 0;
+    const tagA = lastVal != null ? alpha.get(tagKey) : 0;
     const tagY = lastVal != null ? Math.max(top + 9, Math.min(bottom - 9, py(lastVal))) : -99;
     if (lineAlpha > 0.01) {
       ctx.globalAlpha = lineAlpha;
@@ -446,7 +448,7 @@ export function createChart(host, { series, formatPrice, formatVolume, formatTic
       ctx.globalAlpha = 1;
     }
     if (tagA > 0.01) {
-      const color = resolveColor(series.find((s) => s.key === 'anlik')?.color) || '#55d3e4';
+      const color = resolveColor(series.find((s) => s.key === tagKey)?.color) || '#55d3e4';
       ctx.globalAlpha = tagA * 0.4;
       ctx.strokeStyle = color;
       ctx.setLineDash([2, 4]);

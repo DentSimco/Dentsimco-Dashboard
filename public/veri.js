@@ -1,10 +1,12 @@
 // DentSimco — veri katmanı (tüm modüller ortak kullanır)
 // Firestore'u anahtarsız REST ile okur. Kurallar herkese okuma izni verir, yazma kapalıdır.
 // Botun yazdığı biçim (bot/common.mjs başındaki "VERİ HARİTASI"):
-//   live/r{realm}                  data = {t, items: {id: [t, {q: [p,a,s,v]}]}}   son ölçüm
-//   intraday/r{realm}_{gün}_s{NN}  t{SSDD} = {id: {q: [p,a,s,v]}}               10 dk'lık noktalar
+//   live/r{realm}                  data = {t, items: {id: [t, {q: [p,a,s,v,lt,ask]}, askT]}}   son ölçüm
+//   intraday/r{realm}_{gün}_s{NN}  t{SSDD} = {id: {q: [p,a,s,v,ask]}}                          10 dk'lık noktalar
 //   daily/r{realm}_{id}_{yıl}      d{AAGG} = {q: [açılış,yüksek,düşük,kapanış,ortArz,satış,tutar]}
-//   p = en düşük fiyat, a = arz, s = tahmini satış adedi, v = tahmini satış tutarı. Saatler UTC.
+//   p = son işlem fiyatı (SimcoTools), a = o kalitedeki satıştaki toplam adet (arz), s = tahmini satış adedi, v = tahmini satış tutarı,
+//   lt = son işlemin zamanı, ask = anlık borsa fiyatı (Sim Companies: kalitesi ≥ q olan en ucuz ilan), askT = ask ölçümünün zamanı.
+//   Günlük kapanış = son işlem fiyatı. Saatler UTC.
 
 import { urunAdi } from './urun-adlari.js';
 import { LOCALE, DIL } from './i18n.js';
@@ -27,6 +29,26 @@ const pad2 = (n) => String(n).padStart(2, '0');
 export const utcDay = (ms) => new Date(ms).toISOString().slice(0, 10);
 export const dayStart = (day) => Date.parse(`${day}T00:00:00Z`);
 export const addDays = (day, n) => utcDay(dayStart(day) + n * DAY);
+
+// Canlı kalite satırındaki sıra numaraları (live/r{realm} → items[id][1][q])
+export const LIVE = { TRADE: 0, SUPPLY: 1, SOLD: 2, VALUE: 3, TRADE_T: 4, ASK: 5 };
+export const ASK_FRESH_MS = 20 * MIN; // anlık borsa fiyatı bundan eskiyse güncel sayılmaz (bot 5 dakikada bir ölçer)
+
+/**
+ * Hesaplar için fiyat: anlık borsa fiyatı (kalitesi ≥ q olan en ucuz ilan); taze değilse ya da ilan yoksa son işlem fiyatı.
+ * Dönüş: { p, kaynak: 'borsa' | 'son', t } ya da fiyat yoksa null. t = fiyatın ölçüldüğü / son işlemin zamanı (ms).
+ */
+export function anlikFiyat(live, id, q, now = Date.now()) {
+  const item = live?.items?.[id];
+  const row = item?.[1]?.[q];
+  const ask = Number(row?.[LIVE.ASK]);
+  const askT = Number(item?.[2]);
+  if (ask > 0 && askT > 0 && now - askT <= ASK_FRESH_MS) return { p: ask, kaynak: 'borsa', t: askT };
+  const last = Number(row?.[LIVE.TRADE]);
+  if (!(last > 0)) return null;
+  const lt = Number(row?.[LIVE.TRADE_T]);
+  return { p: last, kaynak: 'son', t: lt > 0 ? lt : (Number(item?.[0]) || null) };
+}
 
 export const PATHS = {
   live: (r) => `live/r${r}`,

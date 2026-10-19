@@ -4,7 +4,7 @@
 // Yöneticiler, nakit, bono ve banka seviyesi şirket kaydında (Yönetim sekmesi); buradaki hesaplar onu okur.
 
 import { LOCALE, t as ceviri } from './i18n.js';
-import { readDocs, PATHS, dataField, loadGamePhase } from './veri.js';
+import { readDocs, PATHS, dataField, loadGamePhase, anlikFiyat } from './veri.js';
 import * as H from './hesap.js';
 import * as Y from './yonetici.js';
 import { guideCard } from './rehber.js';
@@ -399,8 +399,9 @@ export function mountUretim(root, { realm = 0 } = {}) {
   }
 
   // ---- fiyatlar ----
-  const marketPrice = (id, q) => live?.items?.[id]?.[1]?.[q]?.[0] ?? null;
-  const priceTime = (id) => live?.items?.[id]?.[0] ?? null;
+  // Hesap fiyatı: anlık borsa fiyatı (kalitesi ≥ q olan en ucuz ilan); anlık veri yoksa ya da eskiyse son işlem fiyatı
+  const marketPrice = (id, q) => anlikFiyat(live, id, q, now())?.p ?? null;
+  const priceTime = (id) => live?.items?.[id]?.[2] ?? live?.items?.[id]?.[0] ?? null;
   const ago = (t) => {
     if (!t) return '';
     const m = Math.max(0, Math.round((now() - t) / 60000));

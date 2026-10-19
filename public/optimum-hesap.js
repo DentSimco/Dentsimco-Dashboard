@@ -24,6 +24,7 @@
 //
 import * as H from './hesap.js';
 import * as R from './hesap-perakende.js';
+import { anlikFiyat } from './veri.js';
 
 export const PAYLAR = [0.1, 0.25, 0.5, 1]; // hazır seçenekler; kullanıcı 1 – 100 arası kendi oranını da yazabilir
 export const VARSAYILAN_PAY = 0.25;
@@ -325,7 +326,7 @@ const sonuc = (e) => ({ id: e.x.id, q: e.x.q, L: e.L, kar: e.kar, sinir: e.sinir
  *   secenek: [{ harf, urunler: [{ id, kaliteler: [q], ana }] }]
  *   secim:   { harf, id, q }
  *   hesap:   { harf, id, q, L, kar, sinir, fiyat, maliyet, sonT, yalniz, yari, buyuk, kaliteler: [{ q, L, kar }], ayni, toplamSonra }
- *     sonT: borsada son işlemin zamanı (maliyet fiyatı buradan); yalniz: ek seviye 0 ise başka binası olmayan şirket için en kârlı seviye
+ *     sonT: maliyet fiyatının ölçüldüğü zaman (anlık borsa fiyatı; o yoksa son işlemin zamanı); maliyetKaynak: 'borsa' | 'son'; yalniz: ek seviye 0 ise başka binası olmayan şirket için en kârlı seviye
  *   bonus:   toplam satış hızı bonusu (yüzde: rekreasyon + elle + yönetim ekibi)
  */
 const PK_DISLANAN = new Set(['r', 'B']); // Restoran ayrı planlanır; Satış ofisi ölçülmez (Perakende sayfasıyla aynı)
@@ -340,8 +341,10 @@ function pkDurumu({ data, live, company, sirket, faz, pk, secim }) {
     teamSalesSpeedPct: Math.max(0, num(ekip.salesSpeedPct, 0)),
   });
   out.bonus = bonusPct;
-  const piyasa = (id, q) => { const p = Number(live?.items?.[id]?.[1]?.[q]?.[0]); return p > 0 ? p : null; };
-  const sonIslem = (id, q) => { const t = Number(live?.items?.[id]?.[1]?.[q]?.[4]); return t > 0 ? t : null; }; // borsada son işlemin zamanı
+  // Maliyet: anlık borsa fiyatı (kalitesi ≥ q olan en ucuz ilan); anlık veri yoksa ya da eskiyse son işlem fiyatı
+  const piyasa = (id, q) => anlikFiyat(live, id, q)?.p ?? null;
+  const sonIslem = (id, q) => anlikFiyat(live, id, q)?.t ?? null; // maliyet fiyatının ölçüldüğü / son işlemin zamanı
+  const maliyetKaynak = (id, q) => anlikFiyat(live, id, q)?.kaynak ?? null;
   const diger = { s: sirket.s, pay: SINIRSIZ, Lo: sirket.sirketVar ? sirket.toplamSeviye : 0, Wo: sirket.sirketVar ? sirket.tabanMaasSaat : 0 };
   const satirlar = [];
   for (const harf of R.retailLetters()) {
@@ -357,7 +360,7 @@ function pkDurumu({ data, live, company, sirket, faz, pk, secim }) {
         const a = r.sellable ? Math.max(0, r.marginHourPerLevel) : 0;
         const x = { id, q, harf, a, b: 0, w, g: a, pazar: 0, ph: 1 };
         const e = optimum(x, diger);
-        satirlar.push({ harf, id, q, x, L: e.L, kar: e.kar, sinir: e.sinir === 'pazar' ? 'yonetim' : e.sinir, fiyat: r.price, maliyet: r.cAct, sonT: sonIslem(id, q) });
+        satirlar.push({ harf, id, q, x, L: e.L, kar: e.kar, sinir: e.sinir === 'pazar' ? 'yonetim' : e.sinir, fiyat: r.price, maliyet: r.cAct, sonT: sonIslem(id, q), maliyetKaynak: maliyetKaynak(id, q) });
       }
     }
   }
@@ -394,7 +397,7 @@ function pkDurumu({ data, live, company, sirket, faz, pk, secim }) {
     if (b?.letter === h.harf && Number(b.product) === u.id && !b.construction && R.clampQuality(b.quality) === q) ayni += Math.max(0, Math.floor(num(b.level, 0)));
   }
   out.hesap = {
-    harf: h.harf, id: u.id, q, L: sec.L, kar: sec.kar, sinir: sec.sinir, fiyat: sec.fiyat, maliyet: sec.maliyet, sonT: sec.sonT,
+    harf: h.harf, id: u.id, q, L: sec.L, kar: sec.kar, sinir: sec.sinir, fiyat: sec.fiyat, maliyet: sec.maliyet, sonT: sec.sonT, maliyetKaynak: sec.maliyetKaynak,
     // ek seviye kâr getirmiyorsa: şirketin diğer binaları olmasaydı en kârlı seviye (bilgi için)
     yalniz: sec.L === 0 ? (({ L, kar: k }) => ({ L, kar: k }))(optimum(sec.x, { s: sirket.s, pay: SINIRSIZ })) : null,
     yari: sec.L >= 2 ? { L: Math.round(sec.L / 2), kar: kar(Math.round(sec.L / 2)) } : null,

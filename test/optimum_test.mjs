@@ -617,7 +617,7 @@ test('Perakende: sayfa durumu yalnız sonuç verir; seçici, liste, ürünler ve
   eq(s.pk.veriYok, false);
   for (const e of s.pk.liste) anahtarlar(e, ['harf', 'id', 'q', 'L', 'kar', 'sinir', 'fiyat'], 'liste');
   for (const e of s.pk.urunler) anahtarlar(e, ['harf', 'id', 'q', 'L', 'kar', 'sinir', 'fiyat'], 'ürün');
-  anahtarlar(s.pk.hesap, ['harf', 'id', 'q', 'L', 'kar', 'sinir', 'fiyat', 'maliyet', 'sonT', 'yalniz', 'yari', 'buyuk', 'kaliteler', 'ayni', 'toplamSonra'], 'hesap');
+  anahtarlar(s.pk.hesap, ['harf', 'id', 'q', 'L', 'kar', 'sinir', 'fiyat', 'maliyet', 'sonT', 'maliyetKaynak', 'yalniz', 'yari', 'buyuk', 'kaliteler', 'ayni', 'toplamSonra'], 'hesap');
   for (const y of s.pk.hesap.kaliteler) anahtarlar(y, ['q', 'L', 'kar'], 'kalite');
   for (const e of s.pk.secenek) { anahtarlar(e, ['harf', 'urunler'], 'seçenek'); for (const u of e.urunler) anahtarlar(u, ['id', 'kaliteler', 'ana'], 'ürün seçeneği'); }
   // en kârlı mağaza başta; restoran ve satış ofisi yok
