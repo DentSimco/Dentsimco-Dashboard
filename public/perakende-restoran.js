@@ -337,9 +337,11 @@ export const TUKETIM_CSS = `
 .tk-seg { display: flex; gap: 10px; flex-wrap: wrap; }
 .tk-seg .ur-seg { flex: 1 1 200px; }
 .tk-top { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
-.tk-bars { display: flex; align-items: flex-end; gap: 3px; height: 64px; border-bottom: 1px solid var(--line-2); }
+.tk-read { min-height: 22px; font: 600 15px var(--font-c); color: var(--accent); font-variant-numeric: tabular-nums; }
+.tk-bars { display: flex; align-items: flex-end; gap: 3px; height: 72px; border-bottom: 1px solid var(--line-2); touch-action: pan-y; cursor: crosshair; user-select: none; -webkit-user-select: none; }
 .tk-bars span { flex: 1 1 0; border-radius: 3px 3px 0 0; background: var(--accent); opacity: .45; min-height: 2px; }
 .tk-bars span.sel { opacity: 1; }
+.tk-bars span.hot { opacity: 1; background: var(--price, var(--accent)); }
 .tk-axis { display: flex; justify-content: space-between; color: var(--muted); font-size: 11px; }
 .tk-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--line-2); border-radius: 12px; background: var(--surface); }
 .tk-m { border-collapse: separate; border-spacing: 0; font-variant-numeric: tabular-nums; font-size: 13px; width: 100%; }
@@ -411,22 +413,25 @@ export function tuketimHtml(raw, { nameOf, metrik = 'adet', aralik = 28, urun = 
         <div class="ur-stat"><span>Azalan</span><span class="${azalan ? 'c-down' : ''}">${num(azalan)}</span></div>
         <div class="ur-stat"><span>Tutar</span><span>${tutarKisa(toplamTutar)}</span></div></div></div>`;
 
-  // seçili ürün özeti: tüm günler (en çok 28)
-  const d = p[sec];
-  const dizi = days.slice(-28).map((day) => d[day]?.[0] ?? null);
-  const v = dizi.filter(fin);
+  // seçili ürün özeti: tüm günler (en çok 28); değerler seçili gösterime göre (adet ya da dolar tutarı)
+  const g28 = days.slice(-28);
+  const vd = (day) => { const h = hucre(sec, day); return h == null ? null : val(h); };
+  const tam = (x) => (!fin(x) ? '—' : metrik === 'tutar' ? `$${NF[0].format(x)}` : `${num(x)} adet`);
+  const v = g28.map(vd).filter(fin);
   const lo = Math.min(...v), hi = Math.max(...v), span = hi - lo || 1;
-  const son7 = days.slice(-7).map((day) => d[day]?.[0]).filter(fin);
-  const bars = days.slice(-28).map((day) => {
-    const x = d[day]?.[0];
-    return `<span ${day === gunSec ? 'class="sel"' : ''} style="height:${fin(x) ? Math.round(10 + ((x - lo) / span) * 54) : 2}px"></span>`;
+  const son7 = days.slice(-7).map(vd).filter(fin);
+  const bars = g28.map((day) => {
+    const x = vd(day);
+    return `<span ${day === gunSec ? 'class="sel"' : ''} data-day="${day}" data-txt="${esc(`${gunKisa(day)} ${gunAdi(day)} · ${tam(x)}`)}" style="height:${fin(x) ? Math.round(10 + ((x - lo) / span) * 54) : 2}px"></span>`;
   }).join('');
-  const urunKutu = `<div class="ur-box" style="gap:8px"><div class="ur-row" style="justify-content:space-between"><span style="font:600 17px var(--font-c)">${esc(name(sec))}</span><span class="ur-note">${gunKisa(days[Math.max(0, days.length - 28)])} – ${gunKisa(last)}</span></div>
-      <div class="ur-metrics"><div class="ur-stat"><span>Son gün</span><span>${num(d[last]?.[0])}</span></div>
-        <div class="ur-stat"><span>7 gün ort.</span><span>${num(avg(son7))}</span></div>
-        <div class="ur-stat"><span>En yüksek</span><span>${num(hi)}</span></div></div>
-      <div class="tk-bars" role="img" aria-label="${esc(`${name(sec)}: ${num(lo)} – ${num(hi)}`)}">${bars}</div>
-      <div class="tk-axis"><span>${gunKisa(days[Math.max(0, days.length - 28)])}</span><span>${gunKisa(last)}</span></div></div>`;
+  const okuma = `${gunKisa(gunSec)} ${gunAdi(gunSec)} · ${tam(vd(gunSec))}`;
+  const urunKutu = `<div class="ur-box" style="gap:8px"><div class="ur-row" style="justify-content:space-between"><span style="font:600 17px var(--font-c)">${esc(name(sec))}</span><span class="ur-note">${gunKisa(g28[0])} – ${gunKisa(last)}</span></div>
+      <div class="ur-metrics"><div class="ur-stat"><span>Son gün</span><span>${fmt(vd(last))}</span></div>
+        <div class="ur-stat"><span>7 gün ort.</span><span>${fmt(avg(son7))}</span></div>
+        <div class="ur-stat"><span>En yüksek</span><span>${fmt(hi)}</span></div></div>
+      <div class="tk-read" data-read aria-live="polite">${esc(okuma)}</div>
+      <div class="tk-bars" data-chart role="img" aria-label="${esc(`${name(sec)}: ${fmt(lo)} – ${fmt(hi)}`)}">${bars}</div>
+      <div class="tk-axis"><span>${gunKisa(g28[0])}</span><span>${gunKisa(last)}</span></div></div>`;
 
   // matris
   let yedekVar = false;
