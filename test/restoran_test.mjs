@@ -127,6 +127,17 @@ test('Hedef: elle girilen önce; önceki+mevcut varsa tahmin; yoksa eko varsayı
   near(R.hedefRating({ tip: 'eko' }, 1.19).deger, 6.2, 1e-9); // bonus 0,2 artınca hedef 0,2 artar
   eq(R.hedefRating({ tip: 'luks', rating: 8.75 }), { deger: 8.75, kaynak: 'bilinmiyor' });
 });
+test('Kalite: 11 Ekim menüsü (Q7, Q10, Q7, Q5, Q7, Q9) ortalama 7,5 ve bonus 0,99 ile hedef 6; kalite düştükçe hedef düşer', () => {
+  const ref = [[117, 7], [119, 10], [142, 7], [143, 5], [124, 7], [125, 9]].map(([id, kalite]) => ({ id, birim: 1, kalite }));
+  near(R.menuKalitesi(ref), 7.5, 1e-9);
+  near(R.hedefRating({ tip: 'eko' }, 0.99, R.menuKalitesi(ref)).deger, 6, 1e-9);
+  near(R.hedefRating({ tip: 'eko' }, 0.32, 0).deger, 0.32, 1e-9); // Q0 menü: yalnız bonus
+  near(R.hedefRating({ tip: 'eko' }, 0.99, 10).deger, 10 * R.KALITE_RATING + 0.99, 1e-9);
+  eq(R.menuKalitesi([{ id: 117, birim: 1 }]), null);
+  const r = R.restoranDegerlendir([{ id: 'a', tip: 'eko', seviye: 2, fiyat: 62, rating: 0 }],
+    { adminNet: 0, ratingBonus: 0.32, mod: 'beklenen', menuOf: () => ref.map((m) => ({ ...m, kalite: 0 })) });
+  near(r.rows[0].hedef.deger, 0.32, 1e-9); eq(r.rows[0].kalite, 0);
+});
 test('Rating hedefe yaklaşır: 3,95 → 4,25 → 4,61 → 4,86 ölçümüyle aynı hedefi (~6) verir', () => {
   near(R.hedefRating({ onceki: 3.95, rating: 4.25 }).deger, 3.95 + 0.30 / R.RATING.k, 1e-9);
   near(R.hedefRating({ onceki: 3.95, rating: 4.25 }).deger, 5.64, 0.01);

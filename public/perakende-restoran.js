@@ -135,7 +135,7 @@ export function degerlendirRestoran(rs, c, marketOf) {
   const bina = c.buildings?.r || {};
   const menuOf = (it) => {
     const m = menuOfItem(rs, it);
-    return Object.keys(R.URUNLER).filter((id) => m[id]?.secili).map((id) => ({ id: Number(id), birim: birimOf(rs, m[id], id, marketOf) }));
+    return Object.keys(R.URUNLER).filter((id) => m[id]?.secili).map((id) => ({ id: Number(id), birim: birimOf(rs, m[id], id, marketOf), kalite: m[id].kalite }));
   };
   return R.restoranDegerlendir(rs.items, { adminNet: c.adminNet, averageSalary: c.averageSalary, salaryModifier: bina.salaryModifier,
     ratingBonus: c.ratingBonus, mod: rs.gorunum, menuOf });
@@ -179,6 +179,7 @@ function kart(rs, it, row, marketOf, acik) {
   const hedef = row.hedef;
   const hedefEtiket = hedef.kaynak === 'bilinmiyor' ? 'bilinmiyor' : 'tahmini';
   const chips = [chip(`Rating ${num(row.simdi.rating, 2)} → ${num(row.beklenen.rating, 2)}`), chip(`Hedef ${hedefEtiket}`, 'muted'),
+    row.kalite != null ? chip(`Menü kalitesi Q${num(row.kalite, 1)}`, 'muted') : '',
     chip(`Doluluk %${num(row.simdi.doluluk, 1)} → %${num(row.beklenen.doluluk, 1)}`, 'muted'),
     chip(`Kâr ${money(row.secili.profitDay)}/gün`, row.secili.profitDay > 0 ? 'up' : 'down')];
   if (row.kapanis.guvenli) chips.push(chip('Yükseltme ve kapanış güvenli', 'up'));
