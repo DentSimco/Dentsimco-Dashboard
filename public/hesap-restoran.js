@@ -19,11 +19,9 @@
 //   Doluluk: rating ~4,5 altında çöker (%40–70), üstünde fiyat ($60–64) ve ratingden bağımsız ~%96,5 [ölçüm]
 //   Menü fiyatı en az $60, en çok $350 [oyun rehberi]
 
-import { grossOverhead } from './hesap.js';
-
 export const DONGU_SAAT = 12;
-export const ORTALAMA_MAAS = 345; // oyun sabiti (meta/core AVERAGE_SALARY)
-export const RESTORAN_MAAS_KATSAYISI = 1.7; // bina katsayısı (meta/buildings, restoran)
+export const ORTALAMA_MAAS = 345; // yedek: veri okunamazsa (meta/core AVERAGE_SALARY)
+export const RESTORAN_MAAS_KATSAYISI = 1.7; // yedek: veri okunamazsa (meta/buildings, restoran)
 export const FIYAT_MIN = 60;
 export const FIYAT_MAX = 350;
 export const KOLTUK = { eko: 1000, luks: 500 }; // seviye başına
@@ -66,7 +64,6 @@ export const URUNLER = {
 // Rating ve doluluk modeli [ölçüm]: veri büyüdükçe bu sabitler güncellenir
 export const RATING = { k: 0.177, hedef: 6.0, gurultu: 0.21, esik: 4.5, guvenli: 5.2 };
 export const DOLULUK = { ust: 96.5, alt: 56 };
-export const ZAM_ESIGI_PUAN = (fiyat, doluluk = DOLULUK.ust) => doluluk / Math.max(1, fiyat); // $1 zammın kendini ödediği doluluk kaybı (puan)
 
 const fin = (x) => typeof x === 'number' && Number.isFinite(x);
 const pos = (x) => (fin(x) && x > 0 ? x : null);
@@ -102,22 +99,20 @@ export function ihtiyac(ids, seviye, tip = 'eko') {
   return out;
 }
 
-// Eko restoranın seviye başı saatlik maaşı: katsayı × ortalama maaş × (1 + net yönetim gideri).
-// Net yönetim gideri = brüt (toplam bina seviyesi − 1) ÷ 170 × (1 − COO tasarrufu).
-export function saatlikMaasTahmini(toplamBinaSeviyesi, tasarrufPct = 0) {
-  const T = Number(toplamBinaSeviyesi);
-  if (!(T >= 1)) return null;
-  const tasarruf = Math.min(100, Math.max(0, Number(tasarrufPct) || 0)) / 100;
-  return RESTORAN_MAAS_KATSAYISI * ORTALAMA_MAAS * (1 + grossOverhead(T) * (1 - tasarruf));
-}
+export const SATIS_HIZI_RATING = 0.02; // ekip dışı satış hızı % başına
+export const ILETISIM_RATING = 0.01; // etkili iletişim puanı başına
+export const BONUS_REFERANS = 0.99; // varsayılan hedefin (6) ölçüldüğü andaki bonus: 0,02 × %15 + 0,01 × 69
 
-// Bina ekranındaki saatlik maaştan eko restoranın seviye başı saatlik maaşı (lüks binadan girildiyse ×2)
-export function seviyeBasiSaatlikMaas(binaSaatlik, binaSeviye, binaTip = 'eko') {
-  const w = pos(binaSaatlik);
-  const L = pos(binaSeviye);
-  if (w == null || L == null) return null;
-  return (w / L) / (tipOf(binaTip) === 'luks' ? LUKS_MAAS : 1);
-}
+const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
+
+// Restoranın ratingine eklenen bonus: ekip dışı satış hızı (rekreasyon dahil) ve ekibin etkili iletişim puanı
+export const ratingBonusu = (ekipDisiHizPct, etkiliIletisim) =>
+  SATIS_HIZI_RATING * Math.max(0, Number(ekipDisiHizPct) || 0) + ILETISIM_RATING * Math.max(0, Number(etkiliIletisim) || 0);
+
+// Eko restoranın seviye başı saatlik maaşı: bina katsayısı × ortalama maaş × (1 + net yönetim gideri)
+export const saatlikMaasSeviye = ({ salaryModifier, averageSalary, adminNet } = {}) =>
+  (pos(salaryModifier) ?? RESTORAN_MAAS_KATSAYISI) * (pos(averageSalary) ?? ORTALAMA_MAAS) * (1 + Math.max(0, Number(adminNet) || 0));
+
 export function donguMaasi(seviyeBasiSaatlik, seviye, tip = 'eko') {
   const w = pos(seviyeBasiSaatlik);
   if (w == null) return null;
@@ -154,233 +149,81 @@ export function donguGideri({ menu = [], seviye, tip = 'eko', saatlikMaas = null
 
 // Doluluk yüzdesiyle döngü kârı
 export const donguKari = (gider, fiyat, dolulukPct) => fiyat * gider.koltuk * (dolulukPct / 100) - gider.toplam;
-// Hedef kâr için gereken fiyat (doluluk sabit)
-export function gerekliFiyat(gider, dolulukPct, hedefKar = 0) {
-  const k = gider.koltuk * (dolulukPct / 100);
-  return k > 0 ? (gider.toplam + hedefKar) / k : null;
-}
 
 // ---------------------------------------------------------------------------------------------------------------
-// Döngü kayıtları
+// Rating ve doluluk beklentisi
 // ---------------------------------------------------------------------------------------------------------------
-
-// Gelirden seviye: gelir = fiyat × koltuk × doluluk. Tam sayıya yakın değilse null (yanlış giriş işareti)
-export function seviyeTahmini({ gelir, fiyat, doluluk, tip = 'eko' }) {
-  if (!pos(gelir) || !pos(fiyat) || !pos(doluluk)) return null;
-  const L = gelir / (fiyat * KOLTUK[tipOf(tip)] * (doluluk / 100));
-  const yuvarlak = Math.round(L);
-  return yuvarlak > 0 && Math.abs(L - yuvarlak) < 0.03 ? yuvarlak : null;
-}
-
-// Tek kaydın türetilmiş değerleri: gider, seviye başı gider, rating değişimi, döngü puanı tahmini
-export function kayitAnalizi(k, restoran = {}) {
-  const tip = tipOf(restoran.tip);
-  const seviye = pos(restoran.seviye) ?? seviyeTahmini({ ...k, tip });
-  const gider = fin(k.gelir) && fin(k.kar) ? k.gelir - k.kar : null;
-  const delta = fin(k.ratingOnce) && fin(k.ratingSonra) ? k.ratingSonra - k.ratingOnce : null;
-  const gelirSeviyesi = seviyeTahmini({ ...k, tip });
-  return {
-    seviye,
-    seviyeUyusmaz: gelirSeviyesi != null && pos(restoran.seviye) != null && gelirSeviyesi !== restoran.seviye,
-    gider,
-    giderSeviye: gider != null && seviye ? gider / seviye : null,
-    delta,
-    // bu döngünün "yorum puanı": rating bu değere doğru k kadar yaklaştı
-    puan: delta != null ? k.ratingOnce + delta / RATING.k : null,
-  };
-}
-
-// Döngü bitiş saatine göre grup: sabah biten (gece döngüsü) ya da akşam biten (gündüz döngüsü). saat "07:27" biçiminde
-export function donguDilimi(saat) {
-  const m = /^(\d{1,2})[:.](\d{2})$/.exec(String(saat || '').trim());
-  if (!m) return null;
-  const h = Number(m[1]);
-  return h < 12 ? 'sabah' : 'aksam';
-}
-// Aynı döngüyü tanımlayan anahtar: tarih + saat (dakika farkı ±40 dk içinde aynı döngü sayılır)
-export function donguAnahtari(k) {
-  const m = /^(\d{1,2})[:.](\d{2})$/.exec(String(k.saat || '').trim());
-  if (!k.tarih || !m) return null;
-  const dk = Number(m[1]) * 60 + Number(m[2]);
-  return `${k.tarih}#${Math.round(dk / 80)}`;
-}
-
-const sirala = (a, b) => `${a.tarih || ''} ${(a.saat || '').padStart(5, '0')}`.localeCompare(`${b.tarih || ''} ${(b.saat || '').padStart(5, '0')}`);
-
-// Hedef rating tahmini: her kayıtta T = r + Δ/k; ortalama ve belirsizlik (rating hedeften uzaktayken daha güvenilir)
-export function hedefTahmini(kayitlar, k = RATING.k) {
-  const t = kayitlar.map((x) => kayitAnalizi(x)).map((a) => a.puan).filter(fin);
-  if (!t.length) return null;
-  const ort = t.reduce((s, x) => s + x, 0) / t.length;
-  const sapma = RATING.gurultu / k / Math.sqrt(t.length); // tek kaydın belirsizliği gürültü/k
-  return { hedef: ort, belirsizlik: sapma, n: t.length };
-}
-
-// Rating yolu: n döngü boyunca beklenen değer (gürültüsüz)
-export function ratingYolu(r0, hedef, n, { k = RATING.k, kapanis = false } = {}) {
-  let r = Number(r0) || 0;
-  if (kapanis) r *= KAPANIS_CARPANI;
-  const out = [r];
-  for (let i = 0; i < n; i++) { r += k * (hedef - r); out.push(r); }
-  return out;
-}
-// Eşiğe kaç döngüde varılır (yukarı ya da aşağı); hiç varılmazsa null
-export function esigeDongu(r0, hedef, esik = RATING.esik, { k = RATING.k, en = 200 } = {}) {
-  let r = Number(r0) || 0;
-  const yukari = r < esik;
-  if (yukari ? hedef <= esik : hedef >= esik) return null;
-  for (let i = 1; i <= en; i++) {
-    r += k * (hedef - r);
-    if (yukari ? r >= esik : r < esik) return i;
-  }
-  return null;
-}
-// Ratinge göre beklenen doluluk (iki rejimli basit model)
-export const beklenenDoluluk = (rating) => (rating >= RATING.esik ? DOLULUK.ust : DOLULUK.alt);
-// Kapanış (yükseltme) güvenli mi: kapanış sonrası rating güvenli eşiğin üstünde kalmalı
 export const kapanisSonrasi = (r) => r * KAPANIS_CARPANI;
 export const yukseltmeGuvenli = (r) => kapanisSonrasi(r) >= RATING.esik + 0.05;
 
 /**
- * Restoranın son döngülerinden durum ve fiyat önerisi.
- * Çıktı: oneri = { yon: 'zam' | 'sabit' | 'indir' | 'bekle' | 'rating', adim }.
+ * Restoranın ratingin yerleşeceği hedef.
+ *  1) elle girilen hedef;
+ *  2) önceki ve mevcut rating girildiyse: rating her döngü farkın k kadarını kapatır, hedef = önceki + (mevcut − önceki) ÷ k;
+ *  3) eko: varsayılan hedef, bonus farkıyla kaydırılır; lüks: veri yok, mevcut rating değişmez varsayılır.
  */
-export function restoranOzeti(kayitlar, { son = 4 } = {}) {
-  const hepsi = [...kayitlar].filter((k) => fin(k.doluluk) && fin(k.fiyat)).sort(sirala);
-  const sonlar = hepsi.slice(-son);
-  const n = sonlar.length;
-  if (!n) return { n: 0, oneri: { yon: 'bekle', adim: 0 } };
-  const analiz = sonlar.map((k) => kayitAnalizi(k));
-  const deltalar = analiz.map((a) => a.delta).filter(fin);
-  const ortDelta = deltalar.length ? deltalar.reduce((s, x) => s + x, 0) / deltalar.length : null;
-  const ortDoluluk = sonlar.reduce((s, k) => s + k.doluluk, 0) / n;
-  const tamDolu = sonlar.filter((k) => k.doluluk >= 99.995).length;
-  const sonKayit = sonlar[n - 1];
-  const rating = fin(sonKayit.ratingSonra) ? sonKayit.ratingSonra : fin(sonKayit.ratingOnce) ? sonKayit.ratingOnce : null;
-  const fiyat = sonKayit.fiyat;
-  const hedef = hedefTahmini(hepsi.slice(-8));
-  const ozet = { n, ortDoluluk, tamDolu, ortDelta, rating, fiyat, hedef };
-
-  let oneri;
-  if (n < 2) oneri = { yon: 'bekle', adim: 0 };
-  else if (rating != null && rating < RATING.esik) {
-    oneri = { yon: 'rating', adim: 0 };
-  } else if (ortDelta != null && Math.abs(ortDelta) > 0.2) {
-    oneri = { yon: 'bekle', adim: 0 };
-  } else if (tamDolu >= Math.min(3, n) || ortDoluluk >= 99) {
-    const adim = tamDolu === n && n >= 3 ? 2 : 1;
-    oneri = { yon: 'zam', adim };
-  } else if (ortDoluluk >= 95) {
-    oneri = { yon: 'sabit', adim: 0 };
-  } else {
-    // Fiyat yakın zamanda arttıysa ve doluluk o zamandan beri $ başına 1,6 puandan fazla düştüyse geri dön
-    const onceki = hepsi.slice(0, -n).filter((k) => k.fiyat < fiyat);
-    const oncekiOrt = onceki.length ? onceki.slice(-son).reduce((s, k) => s + k.doluluk, 0) / Math.min(son, onceki.length) : null;
-    const oncekiFiyat = onceki.length ? onceki[onceki.length - 1].fiyat : null;
-    if (oncekiOrt != null && (oncekiOrt - ortDoluluk) > ZAM_ESIGI_PUAN(fiyat) * (fiyat - oncekiFiyat)) {
-      oneri = { yon: 'indir', adim: fiyat - oncekiFiyat };
-    } else if (ortDoluluk < 90 && n >= 3) {
-      oneri = { yon: 'indir', adim: 1 };
-    } else {
-      oneri = { yon: 'sabit', adim: 0 };
-    }
-  }
-  return { ...ozet, oneri };
+export function hedefRating(item, bonus = BONUS_REFERANS) {
+  const elle = pos(Number(item?.hedef));
+  if (elle != null) return { deger: clamp(elle, 0, 10), kaynak: 'girilen' };
+  const once = Number(item?.onceki);
+  const simdi = Number(item?.rating);
+  if (fin(once) && fin(simdi) && item?.onceki !== '' && item?.onceki != null) return { deger: clamp(once + (simdi - once) / RATING.k, 0, 10), kaynak: 'tahmin' };
+  if (tipOf(item?.tip) === 'luks') return { deger: fin(simdi) ? simdi : RATING.hedef, kaynak: 'bilinmiyor' };
+  return { deger: clamp(RATING.hedef + (bonus - BONUS_REFERANS), 0, 10), kaynak: 'varsayilan' };
 }
 
-// Aynı döngüde farklı fiyatlardaki restoranları kıyaslar: her kaydın doluluğundan o döngünün ortalaması çıkarılır,
-// fiyat başına ortalama sapma hesaplanır. Rakiplerin ve pazarın o döngüdeki ortak etkisi böylece silinir.
-export function ayniDonguKiyasi(kayitlar) {
-  const gruplar = new Map();
-  for (const k of kayitlar) {
-    const a = donguAnahtari(k);
-    if (!a || !fin(k.doluluk) || !fin(k.fiyat)) continue;
-    if (!gruplar.has(a)) gruplar.set(a, []);
-    gruplar.get(a).push(k);
-  }
-  const fiyatlar = new Map();
-  let donguSayisi = 0;
-  for (const g of gruplar.values()) {
-    if (g.length < 2 || new Set(g.map((k) => k.fiyat)).size < 2) continue; // tek fiyatlı döngü fiyat hakkında bilgi vermez
-    donguSayisi += 1;
-    const ort = g.reduce((s, k) => s + k.doluluk, 0) / g.length;
-    for (const k of g) {
-      const f = fiyatlar.get(k.fiyat) || { fiyat: k.fiyat, n: 0, sapma: 0, doluluk: 0 };
-      f.n += 1; f.sapma += k.doluluk - ort; f.doluluk += k.doluluk;
-      fiyatlar.set(k.fiyat, f);
-    }
-  }
-  const satirlar = [...fiyatlar.values()].map((f) => ({ fiyat: f.fiyat, n: f.n, sapma: f.sapma / f.n, doluluk: f.doluluk / f.n }))
-    .sort((a, b) => a.fiyat - b.fiyat);
-  return { donguSayisi, satirlar };
-}
-
-// Sabah/akşam biten döngülerin karşılaştırması
-export function dilimKiyasi(kayitlar) {
-  const out = { sabah: { n: 0, ort: null, tam: 0 }, aksam: { n: 0, ort: null, tam: 0 } };
-  for (const d of ['sabah', 'aksam']) {
-    const g = kayitlar.filter((k) => donguDilimi(k.saat) === d && fin(k.doluluk));
-    out[d] = { n: g.length, ort: g.length ? g.reduce((s, k) => s + k.doluluk, 0) / g.length : null, tam: g.filter((k) => k.doluluk >= 99.995).length };
-  }
-  return out;
+/** Rating yerleşince beklenen doluluk (%). Eşiğin üstünde son doluluk korunur; altında düşük doluluk. */
+export function beklenenDoluluk(beklenenRating, mevcutRating, sonDoluluk) {
+  const son = fin(Number(sonDoluluk)) && sonDoluluk !== '' && sonDoluluk != null ? clamp(Number(sonDoluluk), 0, 100) : null;
+  if (beklenenRating < RATING.esik) return son != null && mevcutRating < RATING.esik ? son : DOLULUK.alt;
+  if (mevcutRating >= RATING.esik) return son ?? DOLULUK.ust;
+  return DOLULUK.ust;
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// Yapıştırılan döngü satırlarını okuma
+// Binalar: Perakende özetine giren değerlendirme
 // ---------------------------------------------------------------------------------------------------------------
-// Oyunun döngü kutusu (İngilizce ya da Türkçe), ör.:
-//   6.46 (-0.17) 6.29 … 75.57% Occupancy $62 Menu price Revenue: $796,455 Profit: (-) $123,539
-// Bir metinde birden çok döngü olabilir; her biri "rating (değişim) rating" ile başlar.
-const SAYI = '\\d{1,3}(?:[.,]\\d{3})+(?:[.,]\\d+)?|\\d+(?:[.,]\\d+)?'; // düz metin: kod gizleyici etiketli şablonları bozabilir
-const RATING_RE = /(\d{1,2}[.,]\d{2})\s*\(\s*([+\-−]?\s*\d{1,2}[.,]\d{2})\s*\)\s*(\d{1,2}[.,]\d{2})/g;
+export const GUN_DONGU = 24 / DONGU_SAAT;
 
-function sayiOku(s) {
-  let t = String(s).trim().replace(/−/g, '-').replace(/\s/g, '');
-  if (!t) return null;
-  const virgul = (t.match(/,/g) || []).length;
-  const nokta = (t.match(/\./g) || []).length;
-  if (virgul && nokta) t = t.lastIndexOf(',') > t.lastIndexOf('.') ? t.replace(/\./g, '').replace(',', '.') : t.replace(/,/g, '');
-  else if (virgul > 1 || (virgul === 1 && /,\d{3}$/.test(t))) t = t.replace(/,/g, '');
-  else if (virgul === 1) t = t.replace(',', '.');
-  else if (nokta > 1 || (nokta === 1 && /\.\d{3}$/.test(t) && t.replace(/^-/, '').split('.')[0].length <= 3 && Number(t.split('.')[0]) >= 1)) t = t.replace(/\./g, '');
-  const n = Number(t);
-  return Number.isFinite(n) ? n : null;
-}
-
-export function satirlariCoz(metin) {
-  const s = String(metin || '');
-  const basla = [...s.matchAll(RATING_RE)];
-  const out = [];
-  for (let i = 0; i < basla.length; i++) {
-    const m = basla[i];
-    const parca = s.slice(m.index + m[0].length, i + 1 < basla.length ? basla[i + 1].index : s.length);
-    const ratingOnce = sayiOku(m[1]);
-    const ratingSonra = sayiOku(m[3]);
-    const doluluk = sayiOku((new RegExp(`(${SAYI})\\s*%`).exec(parca) || new RegExp(`%\\s*(${SAYI})`).exec(parca) || [])[1]);
-    const fiyatM = new RegExp(`\\$\\s*(${SAYI})\\s*(?:Menu|Menü)`, 'i').exec(parca) || new RegExp(`(?:Menu price|Menü fiyatı)\\s*:?\\s*\\$?\\s*(${SAYI})`, 'i').exec(parca);
-    const gelirM = new RegExp(`(?:Revenue|Gelir)\\s*:?\\s*\\$?\\s*(${SAYI})`, 'i').exec(parca);
-    const karM = new RegExp(`(?:Profit|Kâr|Kar)\\s*:?\\s*(\\(\\s*[-\\u2212]\\s*\\)|[-\\u2212])?\\s*\\$?\\s*(${SAYI})`, 'i').exec(parca);
-    const kayit = {
-      ratingOnce, ratingSonra, onceSaat: onceSaatOku(parca),
-      doluluk, fiyat: fiyatM ? sayiOku(fiyatM[1]) : null,
-      gelir: gelirM ? sayiOku(gelirM[1]) : null,
-      kar: karM ? (karM[1] ? -1 : 1) * sayiOku(karM[2]) : null,
+/**
+ * @param {Array} restoranlar  [{ id, ad, tip, seviye, fiyat, rating, onceki, doluluk, hedef, menu? }]
+ * @param {{ adminNet: number, averageSalary?: number, salaryModifier?: number, ratingBonus: number, mod: 'beklenen'|'simdi',
+ *           menuOf: (item) => Array<{ id: number, birim: number|null }> }} ctx
+ * Dönen toplamlar Perakende'nin toplamlarıyla aynı adlarla: revenueDay, costDay (malzeme), wagesDay (yönetim dahil),
+ * baseWagesDay (yönetimsiz), profitDay, levels.
+ */
+export function restoranDegerlendir(restoranlar, ctx) {
+  const saatlik = saatlikMaasSeviye(ctx);
+  const taban = saatlikMaasSeviye({ ...ctx, adminNet: 0 });
+  const rows = [];
+  const T = { levels: 0, customersDay: 0, revenueDay: 0, costDay: 0, wagesDay: 0, baseWagesDay: 0, profitDay: 0 };
+  for (const it of restoranlar || []) {
+    const tip = tipOf(it.tip);
+    const L = Math.max(0, Math.floor(Number(it.seviye) || 0));
+    const fiyat = clamp(pos(Number(it.fiyat)) ?? FIYAT_MIN, FIYAT_MIN, FIYAT_MAX);
+    const g = donguGideri({ menu: ctx.menuOf(it), seviye: L, tip, saatlikMaas: saatlik, fiyat });
+    const hedef = hedefRating(it, ctx.ratingBonus);
+    const simdiR = fin(Number(it.rating)) && it.rating !== '' && it.rating != null ? Number(it.rating) : hedef.deger;
+    const sonD = fin(Number(it.doluluk)) && it.doluluk !== '' && it.doluluk != null ? clamp(Number(it.doluluk), 0, 100) : null;
+    const senaryo = (rating, doluluk) => {
+      const gelirDong = fiyat * g.koltuk * (doluluk / 100);
+      return { rating, doluluk, customersDay: g.koltuk * (doluluk / 100) * GUN_DONGU, revenueDay: gelirDong * GUN_DONGU, profitDay: (gelirDong - g.toplam) * GUN_DONGU };
     };
-    if (kayit.doluluk == null && kayit.gelir == null) continue; // "collecting…" satırı: döngü henüz bitmedi
-    out.push(kayit);
+    const simdi = senaryo(simdiR, sonD ?? beklenenDoluluk(simdiR, simdiR, null));
+    const beklenen = senaryo(hedef.deger, beklenenDoluluk(hedef.deger, simdiR, sonD));
+    const secili = ctx.mod === 'simdi' ? simdi : beklenen;
+    const costDay = g.malzeme * GUN_DONGU;
+    const wagesDay = (g.maas ?? 0) * GUN_DONGU;
+    const baseWagesDay = taban * 24 * L * (tip === 'luks' ? LUKS_MAAS : 1);
+    rows.push({ id: it.id, ad: it.ad, tip, seviye: L, fiyat, gider: g, hedef, simdi, beklenen, secili, costDay, wagesDay, baseWagesDay,
+      kapanis: { sonra: kapanisSonrasi(simdiR), guvenli: yukseltmeGuvenli(simdiR) } });
+    T.levels += L;
+    T.customersDay += secili.customersDay;
+    T.revenueDay += secili.revenueDay;
+    T.costDay += costDay;
+    T.wagesDay += wagesDay;
+    T.baseWagesDay += baseWagesDay;
+    T.profitDay += secili.revenueDay - costDay - wagesDay;
   }
-  return out;
-}
-
-// Döngü kutusundaki "about 3 hours ago", "a day ago", "2 days ago" (ya da Türkçesi) → kaç saat önce bittiği (yaklaşık)
-export function onceSaatOku(metin) {
-  const s = String(metin || '').toLowerCase();
-  let m = /(\d+)\s*(?:hours?|saat)\s*(?:ago|önce)/.exec(s);
-  if (m) return Number(m[1]);
-  if (/\b(?:an|one|bir)\s*(?:hour|saat)\s*(?:ago|önce)/.exec(s)) return 1;
-  m = /(\d+)\s*(?:days?|gün)\s*(?:ago|önce)/.exec(s);
-  if (m) return Number(m[1]) * 24;
-  if (/\b(?:a|one|bir)\s*(?:day|gün)\s*(?:ago|önce)/.exec(s)) return 24;
-  if (/(?:minutes?|dakika)\s*(?:ago|önce)/.exec(s)) return 0;
-  return null;
+  return { rows, totals: T };
 }

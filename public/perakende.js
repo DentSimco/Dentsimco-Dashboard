@@ -11,6 +11,7 @@ import * as H from './hesap.js';
 import * as Y from './yonetici.js';
 import { CSS, parseNum, kisayolKucuk, kisayolSatiri, bolumUyariHtml } from './uretim.js';
 import * as R from './hesap-perakende.js';
+import * as RS from './perakende-restoran.js';
 import { guideCard } from './rehber.js';
 import { binaAdi } from './adlar.js';
 import { urunAdi } from './urun-adlari.js';
@@ -111,7 +112,7 @@ const EXTRA_CSS = `
 // { economyPhase: null (verinin fazı) | 0 | 1 | 2, recreation: { park, temple, lake }, salesSpeedPct: 0,
 //   academyLevel: 0,
 //   buildings: [{ id, letter, product, quality, level, cost: null (borsa fiyatı), price: null (en kârlı fiyat) }] }
-const defaultSetup = () => ({ economyPhase: null, recreation: { park: 0, temple: 0, lake: 0 }, salesSpeedPct: 0, academyLevel: 0, buildings: [] });
+const defaultSetup = () => ({ economyPhase: null, recreation: { park: 0, temple: 0, lake: 0 }, salesSpeedPct: 0, academyLevel: 0, buildings: [], restoran: RS.varsayilanRestoran() });
 const isRetail = (letter) => !!R.buildingProducts(letter, 1).length && !EXCLUDED.has(letter);
 
 function cleanBuilding(b) {
@@ -126,6 +127,7 @@ function sanitize(raw) {
   for (const [k] of REC) s.recreation[k] = Math.min(3, toInt(raw.recreation?.[k]));
   s.salesSpeedPct = Math.max(0, Number(raw.salesSpeedPct) || 0);
   s.academyLevel = toInt(raw.academyLevel);
+  s.restoran = RS.temizleRestoran(raw.restoran);
   for (const b of Array.isArray(raw.buildings) ? raw.buildings : []) {
     if (Array.isArray(b?.products)) {
       // önceki sürümün biçimi: bina başına ürün listesi → her ürün ayrı bina
@@ -144,7 +146,9 @@ function sanitize(raw) {
 function loadSetup(r) {
   let raw = null;
   try { raw = JSON.parse(localStorage.getItem(STORE_KEY(r)) || 'null'); } catch { raw = null; }
-  return sanitize(raw); // Perakende kurulumu Üretim'den bağımsızdır
+  const s = sanitize(raw); // Perakende kurulumu Üretim'den bağımsızdır
+  if (!raw) { const eski = RS.eskiKayittanAktar(r); if (eski) s.restoran = RS.temizleRestoran(eski); } // eski Restoran sayfasındaki menü ve fiyat
+  return s;
 }
 function saveSetup(r, setup) {
   try { localStorage.setItem(STORE_KEY(r), JSON.stringify(setup)); return true; } catch { return false; }
@@ -249,6 +253,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   let loadToken = 0;
   let destroyed = false;
   let toastTimer = null;
+  const restoranAcik = new Set(); // ayrı menülü restoran kartlarında açık menüler
   let kbOnay = false; // öteki bölümün binalarını kaldırma onayı bekleniyor
   let kbGeri = null; // kaldırılanı geri almak için eski durum
   let sheet = null; // { draft: { index, id, letter, product, quality, level, cost, price } }
@@ -264,7 +269,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
 
   const style = document.createElement('style');
   style.dataset.module = 'perakende';
-  style.textContent = CSS + EXTRA_CSS;
+  style.textContent = CSS + EXTRA_CSS + RS.RESTORAN_CSS;
   document.head.append(style);
   root.innerHTML = '<div class="ur"></div><div data-sheet></div><div data-toast></div>';
   const view = root.querySelector('.ur');
@@ -341,7 +346,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     const team = H.teamEffects(company.executives, { bankLevel: company.finance?.bankLevel });
     const teamPct = Math.max(0, Number(team.salesSpeedPct) || 0);
     const bonusPct = R.retailBonusPct({ otherSpeedPct: baseSpeed, teamSalesSpeedPct: teamPct });
-    const retailLevels = setup.buildings.reduce((t, b) => t + b.level, 0);
+    const retailLevels = setup.buildings.reduce((t, b) => t + b.level, 0) + RS.restoranSeviye(setup.restoran);
     let adm = { totalLevels: retailLevels + setup.academyLevel, gross: 0, net: 0 };
     try {
       const o = Y.otherAdminLevels(company, 'perakende'); // Üretim binaları da yönetim giderine girer
@@ -349,7 +354,8 @@ export function mountPerakende(root, { realm = 0 } = {}) {
         executives: company.executives, finance: company.finance, admin: { mode: 'executives' } }, data.norm);
     } catch { /* yönetim gideri hesaplanamadı: 0 */ }
     const ctx = { saturation: data.saturation, weather: R.noWeather, bonusPct, adminNet: adm.net || 0, qualityWeight: data.qualityWeight,
-      buildings: data.norm.buildings, averageSalary: data.norm.averageSalary };
+      buildings: data.norm.buildings, averageSalary: data.norm.averageSalary,
+      ratingBonus: RS.ratingBonusu(baseSpeed, team.effective?.cmo) };
     return { econ, phase, recPct, baseSpeed, teamPct, bonusPct, retailLevels, prodLevels: Y.otherAdminLevels(company, 'perakende').levels, adm, ctx };
   }
   const baseWage = (c, letter, product, quality) => R.storeWage({ modelW: R.getModel(c.econ, product, quality)?.W,
@@ -386,10 +392,21 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     return good.slice(0, top);
   }
 
+  // Mağazalar + restoranlar: toplamlar birleşir (adet ve marj yalnız mağazalara aittir)
+  function evaluateAll(c) {
+    const ev = R.evaluateRetail(engineSetup(c), c.ctx);
+    const rs = RS.degerlendirRestoran(setup.restoran, c.ctx, marketOf);
+    const a = ev.totals;
+    const b = rs.totals;
+    return { ...ev, restoran: rs, totals: { ...a, levels: a.levels + b.levels, revenueDay: a.revenueDay + b.revenueDay, costDay: a.costDay + b.costDay,
+      wagesDay: a.wagesDay + b.wagesDay, profitDay: a.profitDay + b.profitDay } };
+  }
+  const hasPlan = () => setup.buildings.length > 0 || setup.restoran.items.length > 0;
+
   // Yönetim ekibinin değeri için şirket kaydı buradan beslenir (ekip dışı satış hızı, günlük perakende marjı, yönetim gideri payı)
   function syncCompany() {
     if (!data) return;
-    if (!setup.buildings.length) { // tüm mağazalar silindi ya da kurulum sıfırlandı: Yönetim'deki eski marj kalmasın
+    if (!hasPlan()) { // tüm mağazalar silindi ya da kurulum sıfırlandı: Yönetim'deki eski marj kalmasın
       try {
         const fresh = Y.loadCompanyRecord(r).company;
         if (fresh.retail?.marginDay) {
@@ -402,7 +419,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     }
     try {
       const c = context();
-      const ev = R.evaluateRetail(engineSetup(c), c.ctx);
+      const ev = evaluateAll(c);
       const fresh = Y.loadCompanyRecord(r).company;
       fresh.retail = { ...(fresh.retail || {}), otherSpeedPct: Math.round(c.baseSpeed * 100) / 100, marginDay: Math.round(ev.totals.marginDay) };
       Y.saveCompanyRecord(r, fresh);
@@ -410,10 +427,10 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     } catch (e) { console.error(e); }
   }
   function commit(next, { sync = true } = {}) {
-    const had = setup.buildings.length > 0;
+    const had = hasPlan();
     setup = sanitize(next);
     if (!saveSetup(r, setup)) toast('Tarayıcı kaydı açık değil; değişiklikler sayfa kapanınca kaybolur.');
-    if (sync || (had && !setup.buildings.length)) syncCompany();
+    if (sync || (had && !hasPlan())) syncCompany();
     softRender();
   }
   const clone = () => JSON.parse(JSON.stringify(setup));
@@ -432,7 +449,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     } else {
       try {
         const c = context();
-        const ev = R.evaluateRetail(engineSetup(c), c.ctx);
+        const ev = evaluateAll(c);
         body = tab === 'kurulum' ? viewKurulum(c) : tab === 'pphpl' ? viewPphpl(c) : tab === 'ozet' ? viewOzet(c, ev) : viewBinalar(c, ev);
       } catch (e) {
         console.error(e);
@@ -549,12 +566,13 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       ${guideCard({ title: 'Perakende', lead: 'Mağazalarınızın hangi ürünle ne kadar kazandıracağını hesaplar. PPHPL, bir bina seviyesinin saatlik kârıdır (maaş düşülmüş).',
         chips: [[`Toplam satış bonusu ${pctText(c.bonusPct)}`, c.bonusPct > 0 ? '' : 'muted'], [`Yönetim gideri ${pctText(c.ctx.adminNet * 100)}`, 'muted'],
           data.hasRetailInfo ? null : ['Doygunluk botta yok', 'down']] })}
-      ${setup.buildings.length ? `<div class="ur-stats">
+      ${hasPlan() ? `<div class="ur-stats">
         <div class="ur-stat"><span>Günlük kâr</span><span class="${cls(t.profitDay)}">${money(t.profitDay)}</span></div>
         <div class="ur-stat"><span>Toplam maaş</span><span>${money(t.wagesDay)}</span></div>
         <div class="ur-stat"><span>Kullanılan seviye</span><span>${num(t.levels)}</span></div></div>` : ''}
       <button type="button" class="ur-btn primary" data-act="add" style="width:100%">${icon('plus')}Bina ekle</button>
-      ${setup.buildings.length ? `<div class="ur-bgrid">${cards}</div>` : empty}
+      ${setup.buildings.length ? `<div class="ur-bgrid">${cards}</div>` : setup.restoran.items.length ? '' : empty}
+      ${RS.restoranBinalarHtml(setup.restoran, ev.restoran, marketOf, restoranAcik)}
       ${kisayolSatiri('perakendePphpl', 'perakendeOzet')}`;
   }
 
@@ -588,6 +606,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     const t = ev.totals;
     let baseDay = 0;
     setup.buildings.forEach((b) => { baseDay += baseWage(c, b.letter, b.product, b.quality) * b.level * 24; });
+    baseDay += ev.restoran.totals.baseWagesDay;
     const adminDay = Math.max(0, t.wagesDay - baseDay);
     const sim = Y.executiveSimulation({ executives: company.executives, finance: company.finance,
       admin: { totalLevels: c.adm.totalLevels, wagesDay: t.wagesDay }, retail: { marginDay: t.marginDay, otherSpeedPct: c.baseSpeed } });
@@ -599,7 +618,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   function viewOzet(c, ev) {
     const [, periodLabel, k] = PERIODS.find(([key]) => key === period);
     const periodName = periodLabel.toLocaleLowerCase('tr');
-    if (!setup.buildings.length) {
+    if (!hasPlan()) {
       return `<div class="ur-card ur-empty"><h2>Özet için bina ekleyin</h2><p class="ur-sub">Binalar sekmesinde mağazalarınızı eklediğinizde gelir tablosu burada oluşur.</p>
         <a class="ur-btn primary" href="#perakende/binalar" style="text-decoration:none;margin-top:10px">Binalar'a git</a></div>`;
     }
@@ -689,7 +708,8 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       noMarket ? `${noMarket} üründe borsa fiyatı yok; modeldeki maliyet kullanıldı.` : null,
       `Ekonomi fazı: ${H.ECONOMY_PHASES[c.econ]}${setup.economyPhase == null ? ' (otomatik)' : ''}.`,
       `Satış hızı: kurulum ${pctText(c.baseSpeed)}, ekip ${pctText(c.teamPct)}; hesapta toplam ${pctText(c.bonusPct)}.`,
-      'Satış ofisi ve restoran bu hesaba girmez.',
+      setup.restoran.items.length ? `Restoran: ${setup.restoran.gorunum === 'simdi' ? 'son döngü doluluğu ve mevcut rating' : 'beklenen rating ve doluluk'} ile hesaplandı; yönetim gideri ve satış hızı mağazalarla ortaktır.` : null,
+      'Satış ofisi bu hesaba girmez.',
       data.hasRetailInfo ? null : 'Doygunluk (talep) verisi botta bulunamadı; hesaplar eksik olabilir.',
       'Vergi (muhasebe ücreti) kâra dahil değil; nakde bağlıdır. Günlük vergi ve muhasebecinin değeri bu sayfadaki Yönetim ve vergi kartında.',
     ].filter(Boolean);
@@ -702,6 +722,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
         <div class="ur-card" style="padding:12px;gap:2px"><span class="ur-note" style="font-weight:600">Satılan</span><span style="font:600 22px var(--font-c)">${num(t.unitsDay * k)} adet</span><span class="ur-note">Kullanılan seviye ${num(t.levels)}</span></div></div>
       ${income}${costs}
       <section style="display:flex;flex-direction:column;gap:10px"><h2>Ürün bazında kârlılık</h2><p class="ur-sub">Her binadaki ürünün maliyeti, satış fiyatı ve maaş payı.</p>${products}</section>
+      ${RS.restoranOzetHtml(setup.restoran, ev.restoran, k, periodName)}
       ${execs}
       <section class="ur-card" aria-labelledby="h-notes"><h2 id="h-notes">Hesap notları</h2>${notes.map((n) => `<p class="ur-note">• ${esc(n)}</p>`).join('')}</section>
       <div class="ur-row"><button type="button" class="ur-btn grow" data-act="copySummary">${icon('copy')}Özeti kopyala</button><a class="ur-btn grow" href="#perakende/binalar" style="text-decoration:none">Binalara dön</a></div>`;
@@ -926,7 +947,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     }
     if (act === 'copySummary') {
       const c0 = context();
-      const text = summaryText(c0, R.evaluateRetail(engineSetup(c0), c0.ctx));
+      const text = summaryText(c0, evaluateAll(c0));
       copyText(text).then((ok) => toast(ok ? 'Özet kopyalandı.' : 'Kopyalanamadı; metni elle seçip kopyalayın.'));
       return;
     }
@@ -934,6 +955,10 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       period = btn.dataset.v;
       try { localStorage.setItem(PERIOD_KEY, period); } catch { /* gizli sekme */ }
       return softRender();
+    }
+    if (/^r[kfm]\./.test(act)) {
+      const nx = clone();
+      if (RS.restoranTikla(nx.restoran, btn, { marketOf, acik: restoranAcik })) return commit(nx);
     }
     const next = clone();
     if (act === 'phase') { next.economyPhase = btn.dataset.v === 'auto' ? null : Number(btn.dataset.v); return commit(next); }
@@ -959,6 +984,11 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       else if (k === 'price') d.price = posNum(parseNum(t.value, { ref: calc(c, { ...d, price: null }).rMax }));
       if (pointerActive) { pendingRender = true; return; }
       return renderSheet();
+    }
+    if (t?.dataset?.rk || t?.dataset?.rf || t?.dataset?.rm) {
+      const nx = clone();
+      if (RS.restoranDegis(nx.restoran, t, { marketOf })) commit(nx);
+      return;
     }
     const f = t?.dataset?.f;
     if (!f) return;
@@ -990,7 +1020,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   }
   function onKey(ev) {
     if (ev.key === 'Escape' && sheet) { ev.preventDefault(); closeSheet(); }
-    if (ev.key === 'Enter' && ev.target.matches?.('.ur input[data-f], .ur-panel input[data-d]')) ev.target.blur();
+    if (ev.key === 'Enter' && ev.target.matches?.('.ur input[data-f], .ur input[data-rf], .ur input[data-rm], .ur input[data-rk], .ur-panel input[data-d]')) ev.target.blur();
   }
   function onHash() {
     const [key, sub] = location.hash.slice(1).split('/');
