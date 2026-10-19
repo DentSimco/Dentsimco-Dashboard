@@ -16,7 +16,7 @@ import { esc } from './esc.js';
 
 // Açıklama satırındaki sırayla. z: çizim sırası, büyük olan üstte.
 export const SERIES = [
-  { key: 'ask', kind: 'line', z: 9, color: 'var(--s-ask)', width: 1.8, glow: 2, step: true },
+  { key: 'ask', kind: 'line', z: 9, color: 'var(--s-ask)', width: 1.6, glow: 0, step: true },
   { key: 'anlik', kind: 'line', z: 10, color: 'var(--s-price)', width: 2.2, glow: 9 },
   { key: 'dusuk', kind: 'line', z: 6, color: 'var(--s-low)', width: 1.5, dash: [4, 4], step: true, resets: true },
   { key: 'yuksek', kind: 'line', z: 7, color: 'var(--s-high)', width: 1.5, dash: [4, 4], step: true, resets: true },
