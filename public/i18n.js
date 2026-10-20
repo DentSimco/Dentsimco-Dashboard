@@ -9,27 +9,58 @@
 //   'Ürün seç'                       tam eşleşme (boşluklar sadeleştirilerek)
 //   'Son nokta: {0}'                 kalıp; {0} yerindeki parça da ayrıca çevrilir
 //   'Fiyat {0:yukarıda|aşağıda}'     kalıp; {0} yalnız bu seçeneklerden biri olabilir
-// Yeni dil eklemek: dil-xx.js dosyası + DILLER listesine bir satır + aşağıdaki SOZLUKLER'e bir satır.
+//
+// Diller: oyunun (Sim Companies) desteklediği 13 dil. Sözlük yalnız seçili dil için yüklenir: dil-xx.js arayüz metni ile
+// birlikte oyunun o dildeki ürün (URUNLER, ürün no → ad) ve bina (BINALAR, bina harfi → ad) adlarını da taşır.
+// Bir dil dosyasında eksik kalan metin İngilizce görünür (dil-en.js altta kalır), Türkçe hiç görünmez.
+// Yeni dil eklemek: dil-xx.js dosyası + DILLER, YERELLER ve (gerekirse) KISA'ya birer satır.
 
-import EN from './dil-en.js';
-
-export const DILLER = [['tr', 'Türkçe'], ['en', 'English']];
-const SOZLUKLER = { en: EN };
-const YERELLER = { tr: 'tr-TR', en: 'en-US' };
+// [kod, oyundaki adı, o dilde "Dil" sözcüğü] — sıra menüdeki sıradır (oyunun dil listesiyle aynı, Türkçe başta)
+export const DILLER = [
+  ['tr', 'Türkçe', 'Dil'], ['en', 'English', 'Language'], ['de', 'Deutsch', 'Sprache'], ['fr', 'Français', 'Langue'],
+  ['pt', 'Português', 'Idioma'], ['it', 'Italiano', 'Lingua'], ['es', 'Español', 'Idioma'], ['cs', 'Česky', 'Jazyk'],
+  ['zh-cn', '中文(简体)', '语言'], ['zh-tw', '中文(繁體)', '語言'], ['pl', 'Polski', 'Język'], ['ru', 'Русский', 'Язык'],
+  ['ja', '日本語', '言語'],
+];
+const YERELLER = {
+  tr: 'tr-TR', en: 'en-US', de: 'de-DE', fr: 'fr-FR', pt: 'pt-BR', it: 'it-IT', es: 'es-ES', cs: 'cs-CZ',
+  'zh-cn': 'zh-CN', 'zh-tw': 'zh-TW', pl: 'pl-PL', ru: 'ru-RU', ja: 'ja-JP',
+};
+const KISA = { 'zh-cn': '简', 'zh-tw': '繁' }; // dil düğmesinde görünen kısa ad (yoksa kodun büyük harfi)
 const KEY = 'dentsimco.dil';
+const VAR = (v) => DILLER.some(([k]) => k === v);
+
+// Tarayıcı dili ("de-AT", "zh-Hant-HK", "pt-BR") → sitedeki dil; desteklenmeyen dilde İngilizce
+export function tarayiciDili(dil) {
+  const n = String(dil || '').toLowerCase();
+  if (n.startsWith('zh')) return /^zh-(tw|hk|mo|hant)/.test(n) ? 'zh-tw' : 'zh-cn';
+  const k = n.split(/[-_]/)[0];
+  return VAR(k) ? k : 'en';
+}
 
 function secilenDil() {
   if (typeof document === 'undefined') return 'tr'; // sınamalar ve sunucu: kaynak dil
   try {
     const v = localStorage.getItem(KEY);
-    if (DILLER.some(([k]) => k === v)) return v;
+    if (VAR(v)) return v;
   } catch { /* gizli sekme */ }
-  const n = String(globalThis.navigator?.language || '').toLowerCase();
-  return n.startsWith('tr') ? 'tr' : 'en';
+  return tarayiciDili(globalThis.navigator?.language);
 }
 
 export const DIL = secilenDil();
 export const LOCALE = YERELLER[DIL] || 'tr-TR';
+
+// Seçili dilin sözlüğü. İngilizce her zaman altta: dil dosyasında olmayan metin İngilizce görünür. Dil dosyası
+// yüklenemezse site İngilizce çalışır; İngilizce de yüklenemezse bu modül yüklenmez ve site Türkçe kalır (index.html).
+const [EN, EK] = DIL === 'tr' ? [null, null]
+  : await Promise.all([import('./dil-en.js'), DIL === 'en' ? null : import(`./dil-${DIL}.js`).catch(() => null)]);
+const SOZLUK = EN && (EK ? { ...EN.default, ...EK.default } : EN.default);
+
+// Oyundaki ürün ve bina adları, seçili dilde (Türkçede null: Türkçe adlar urun-adlari.js ve adlar.js'de)
+export const DIL_ADLARI = {
+  urun: (EK || EN)?.URUNLER || null,
+  bina: (EK || EN)?.BINALAR || null,
+};
 
 // ---- Sözlük derleme ----
 const sade = (s) => String(s).replace(/\s+/g, ' ').trim();
@@ -66,7 +97,10 @@ export function sozlukDerle(sozluk) {
   return { tam, kaliplar };
 }
 
-const DERLI = DIL === 'tr' ? null : sozlukDerle(SOZLUKLER[DIL]);
+const DERLI = SOZLUK ? sozlukDerle(SOZLUK) : null;
+// Seçili dildeki oyun adları sayfa çevirisine girmez: İspanyolcada "Masa" (Hamur) gibi bir ürün adı Türkçe bir anahtarla
+// aynı yazılsa da olduğu gibi kalır (o anahtarın metni kodda t() ile çevrilip data-no-t ile korunur).
+const KORU = new Set([...Object.values(DIL_ADLARI.urun || {}), ...Object.values(DIL_ADLARI.bina || {})].map((s) => sade(s)));
 const ONBELLEK = new Map();
 const HARF = /[A-Za-zÇĞİÖŞÜçğıöşü]/;
 
@@ -115,6 +149,7 @@ export function cevirMetin(metin, d = DERLI, dil = DIL) {
   if (!d || metin == null) return metin;
   const raw = String(metin);
   if (d === DERLI && ONBELLEK.has(raw)) return ONBELLEK.get(raw);
+  if (d === DERLI && KORU.has(sade(raw))) return raw;
   const bas = raw.match(/^\s*/)[0];
   const son = raw.match(/\s*$/)[0];
   const ic = cevirIc(raw, d, 0);
@@ -162,10 +197,8 @@ export function agaciCevir(kok) {
     else oznitelikler(n);
   }
 }
-// Sim Companies şirket profili: oyun dil önekini adresin başına koyar (Türkçede /tr/, İngilizcede önek yok).
-// Yeni dil eklenince buraya oyundaki öneki yaz (Almanca ve İngilizcede önek yok, Lehçe /pl/).
-const PROFIL_ONEKI = { tr: '/tr', en: '', de: '', pl: '/pl' };
-export const profilAdresi = (dil = DIL, sirket = 'Dentium-Citrosuco') => `https://www.simcompanies.com${PROFIL_ONEKI[dil] ?? ''}/company/0/${sirket}/`;
+// Sim Companies şirket profili: oyun dil kodunu adresin başına koyar (/tr/, /de/, /zh-cn/ …); yalnız İngilizcede önek yok.
+export const profilAdresi = (dil = DIL, sirket = 'Dentium-Citrosuco') => `https://www.simcompanies.com${dil === 'en' || !VAR(dil) ? '' : `/${dil}`}/company/0/${sirket}/`;
 
 export function izle(kok = document.documentElement) {
   document.documentElement.lang = DIL;
@@ -188,9 +221,10 @@ export function dilSec(dil) {
 }
 export function dilMenusuBagla(dugme, menu) {
   if (!dugme || !menu) return;
-  dugme.textContent = DIL.toUpperCase();
-  dugme.setAttribute('aria-label', DIL === 'tr' ? 'Dil: Türkçe' : 'Language: English');
-  menu.innerHTML = DILLER.map(([k, ad]) => `<li role="none"><button type="button" role="menuitemradio" data-dil="${k}" aria-checked="${k === DIL}"><span>${ad}</span><b>${k.toUpperCase()}</b></button></li>`).join('');
+  const [, ad, sozcuk] = DILLER.find(([k]) => k === DIL) || DILLER[0];
+  dugme.textContent = KISA[DIL] || DIL.toUpperCase();
+  dugme.setAttribute('aria-label', `${sozcuk}: ${ad}`);
+  menu.innerHTML = DILLER.map(([k, a]) => `<li role="none"><button type="button" role="menuitemradio" data-dil="${k}" lang="${k}" aria-checked="${k === DIL}"><span>${a}</span><b>${k.toUpperCase()}</b></button></li>`).join('');
   const ac = (acik) => {
     menu.hidden = !acik;
     dugme.setAttribute('aria-expanded', String(acik));

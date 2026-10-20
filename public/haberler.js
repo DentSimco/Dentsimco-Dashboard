@@ -7,10 +7,11 @@
 //                    [ haber sütunu 1 ][ haber sütunu 2          ][ yazısı   ]
 //                    [                 ][                         ][ sıralama ]
 // Telefonda hepsi tek sütuna iner: şerit, manşet, haberler, köşe, sıralamalar.
-// Haber metinleri Türkçe ve İngilizce gelir; seçili dile göre biri gösterilir (data-no-t: çeviri katmanı dokunmaz).
+// Haber metinleri Türkçe ve İngilizce gelir; Türkçede Türkçesi, diğer bütün dillerde İngilizcesi gösterilir (data-no-t:
+// çeviri katmanı dokunmaz). Kategori ve etiket gibi kısa arayüz metinleri seçili dile sözlükle çevrilir.
 
 import { PATHS, readDocs, dataField, VeriHatasi, fmtPrice, fmtAgo, fmtDateTime } from './veri.js';
-import { DIL, LOCALE } from './i18n.js';
+import { DIL, LOCALE, t } from './i18n.js';
 import { urunAdi } from './urun-adlari.js';
 import { esc } from './esc.js';
 
@@ -18,10 +19,9 @@ const TICKER_N = 18;
 
 // Ürün adı bot belgesinde tek dilde (Türkçe) gelir; şerit ve grafik başlığı bu işlevle seçili dile çevrilir.
 export const haberUrunAdi = (id, ad) => urunAdi(id, ad);
-const dil = (h) => (DIL === 'en' ? h?.en : h?.tr) || h?.tr || { baslik: '', spot: '', govde: [] };
+const dil = (h) => (DIL !== 'tr' && h?.en) || h?.tr || { baslik: '', spot: '', govde: [] };
 
-const KATEGORI_EN = { 'PİYASA': 'MARKETS', 'ÜRETİM': 'PRODUCTION', 'ŞİRKETLER': 'COMPANIES', 'EKONOMİ': 'ECONOMY', 'PERAKENDE': 'RETAIL', 'ANALİZ': 'ANALYSIS' };
-const kategori = (k) => (DIL === 'en' ? KATEGORI_EN[k] || k : k);
+const kategori = (k) => (DIL === 'tr' ? k : t(k)); // PİYASA, ÜRETİM, … sözlükte (dil-xx.js › Haber kategorileri)
 
 // ---- Saf yardımcılar (sınanır) ----------------------------------------------------------------
 
@@ -260,10 +260,10 @@ function spark(g) {
 
 // Elle manşetteki şirket kartları: logo (yoksa ya da yüklenemezse baş harf), ad, etiket, günlük değer artışı
 function companyChips(list) {
-  const lbl = DIL === 'en' ? 'Daily value gain' : 'Günlük değer artışı';
+  const lbl = t('Günlük değer artışı');
   return `<div class="nw-co" aria-label="${esc(lbl)}">${list.map((c) => `<div class="nw-co-i">
     <span class="nw-logo-w"><b aria-hidden="true">${esc([...c.ad][0] || '?')}</b>${/^https:\/\//.test(c.logo) ? `<img class="nw-logo-img" src="${esc(c.logo)}" alt="" width="56" height="56" loading="lazy" referrerpolicy="no-referrer">` : ''}</span>
-    <span class="nw-co-t"><b data-no-t>${esc(c.ad)}</b><small data-no-t>${esc((DIL === 'en' ? c.etiket?.en : c.etiket?.tr) || '')}</small></span>
+    <span class="nw-co-t"><b data-no-t>${esc(c.ad)}</b><small data-no-t>${esc((DIL !== 'tr' && c.etiket?.en) || c.etiket?.tr || '')}</small></span>
     <span class="nw-co-v" data-no-t><small>${esc(lbl)}</small>+${esc(c.artis)}</span></div>`).join('')}</div>`;
 }
 
@@ -319,7 +319,7 @@ function viewFront(st) {
       <aside class="nw-aside">
         ${kose ? `<section class="nw-kose" aria-label="Köşe yazısı">
           <div class="nw-sec"><h4>Köşe Yazısı</h4><small>Yorum</small></div>
-          <div class="nw-byline"><i>M</i><span><b style="color:var(--text)">Masa</b> · ${esc(fmtAgo(kose.t))}</span></div>
+          <div class="nw-byline"><i>M</i><span><b style="color:var(--text)" data-no-t>${esc(t('Masa'))}</b> · ${esc(fmtAgo(kose.t))}</span></div>
           <a class="nw-h" href="#haberler/${esc(kose.id)}"><h3 data-no-t>${esc(kt.baslik)}</h3></a>
           ${kt.govde.slice(0, 2).map((p) => `<p data-no-t>${esc(p)}</p>`).join('')}
           <a class="nw-more" href="#haberler/${esc(kose.id)}">Devamını oku →</a>
@@ -344,7 +344,7 @@ function viewArticle(st, id) {
     ${isKose ? '<div class="nw-kicker"><span>KÖŞE YAZISI</span></div>' : kicker(h)}
     <h1 data-no-t>${esc(t.baslik)}</h1>
     ${t.spot ? `<p class="nw-spot" data-no-t>${esc(t.spot)}</p>` : ''}
-    <div class="nw-meta">${isKose ? '<b style="color:var(--text)">Masa</b> · ' : ''}${esc(fmtDateTime(h.t))}</div>
+    <div class="nw-meta">${isKose ? `<b style="color:var(--text)" data-no-t>${esc(t('Masa'))}</b> · ` : ''}${esc(fmtDateTime(h.t))}</div>
     ${h.grafik ? chartBox(h.grafik, { big: true }) : ''}
     <div class="nw-body">${t.govde.map((p) => `<p data-no-t>${esc(p)}</p>`).join('')}</div>
     ${more.length ? `<nav class="nw-more-list" aria-label="Diğer haberler"><div class="nw-sec"><h4>Diğer haberler</h4></div>${more.map((x) => `<a href="#haberler/${esc(x.id)}" data-no-t>${esc(dil(x).baslik)}</a>`).join('')}</nav>` : ''}

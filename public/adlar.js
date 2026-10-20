@@ -3,7 +3,7 @@
 // gibi çevrilmemiş adlar da oyundaki gibidir. Oyunda olmayan hiçbir bina eklenmedi.
 // Anahtar: oyunun bina harfi (constants/buildings içindeki dbLetter).
 
-import { DIL } from './i18n.js';
+import { DIL, DIL_ADLARI } from './i18n.js';
 
 export const BINA_ADLARI = {
   // Üretim
@@ -44,6 +44,7 @@ export const BINA_ADLARI_EN = {
   3: 'Temple', 4: 'Park', 5: 'Lake', n: 'Bank', y: 'Academy',
 };
 
-const ADLAR = DIL === 'tr' ? BINA_ADLARI : BINA_ADLARI_EN;
+// Diğer dillerde adlar oyunun o dildeki dil dosyasından gelir (dil-xx.js › BINALAR); orada olmayan harf İngilizce görünür.
+const ADLAR = DIL === 'tr' ? BINA_ADLARI : { ...BINA_ADLARI_EN, ...(DIL === 'en' ? {} : DIL_ADLARI.bina) };
 // Adı olmayan bir harf ekranda "Bina X" olarak görünür (hiçbir zaman boş kalmaz; ön ek çeviri katmanında çevrilir)
 export const binaAdi = (letter, onEk = 'Bina') => ADLAR[letter] || BINA_ADLARI[letter] || `${onEk} ${letter}`;

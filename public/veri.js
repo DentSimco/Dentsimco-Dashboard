@@ -12,7 +12,7 @@
 //   Günlük kapanış = son işlem fiyatı. Saatler UTC.
 
 import { urunAdi } from './urun-adlari.js';
-import { LOCALE, DIL } from './i18n.js';
+import { LOCALE, t } from './i18n.js';
 
 export const PROJECT_ID = 'dentsimco-e1c85';
 export const START_YEAR = 2026; // botun veri toplamaya başladığı yıl
@@ -452,10 +452,10 @@ export const fmtMonthYear = (ms) => df('my', { month: 'short', year: 'numeric' }
 
 export function fmtAgo(ms, now = Date.now()) {
   const m = Math.round((now - ms) / MIN);
-  const en = DIL === 'en';
-  if (m < 1) return en ? 'just now' : 'az önce';
-  if (m < 60) return en ? `${m} min ago` : `${m} dk önce`;
+  // Türkçe yazılır, seçili dile sözlükle çevrilir (t Türkçede metni olduğu gibi döndürür)
+  if (m < 1) return t('az önce');
+  if (m < 60) return t(`${m} dk önce`);
   const h = Math.floor(m / 60);
-  if (h < 24) return en ? `${h} h ago` : `${h} sa önce`;
-  return en ? `${Math.floor(h / 24)} d ago` : `${Math.floor(h / 24)} gün önce`;
+  if (h < 24) return t(`${h} sa önce`);
+  return t(`${Math.floor(h / 24)} gün önce`);
 }

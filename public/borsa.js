@@ -6,7 +6,7 @@ import {
   loadBasics, loadProduct, summarizeDay,
   fmtPrice, fmtNum, fmtCompact, fmtPct, fmtShare, fmtTime, fmtDate, fmtDateTime, fmtMonth, fmtMonthYear, fmtAgo,
 } from './veri.js';
-import { DIL } from './i18n.js';
+import { DIL, t } from './i18n.js';
 import { createChart } from './grafik.js';
 import { loadSignals, signalCard } from './sinyal.js';
 import { hasQuality } from './hesap.js';
@@ -333,7 +333,7 @@ const TEMPLATE = `
 
   <div class="plot" data-el="plot" aria-busy="true">
     <div class="ranges" data-el="ranges" role="radiogroup" aria-label="Zaman aralığı">
-      ${RANGES.map((r) => `<button type="button" role="radio" data-range="${r.key}" aria-checked="false" aria-label="${r.name}" tabindex="-1"><span data-no-t>${(DIL === 'en' ? r.en : r.label) || r.key}</span></button>`).join('')}
+      ${RANGES.map((r) => `<button type="button" role="radio" data-range="${r.key}" aria-checked="false" aria-label="${r.name}" tabindex="-1"><span data-no-t>${DIL === 'tr' ? r.label || r.key : r.key === 'T' ? t('Tümü') : r.en}</span></button>`).join('')}
     </div>
     <div class="legend" data-el="legend">
       ${SERIES.map((s) => `<button type="button" class="lg" data-key="${s.key}" aria-pressed="true">

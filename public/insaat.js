@@ -23,15 +23,15 @@ const money = (x, d = 0, sign = false) => {
 };
 const price = (x) => (!fin(x) ? '—' : money(x, Math.abs(x) < 1000 ? 2 : 0));
 const pct = (x) => (!fin(x) ? '—' : `${x > 0 ? '+' : x < 0 ? '−' : ''}%${NF[1].format(Math.abs(x) * 100)}`);
-// Süre: Türkçede hesap motorunun metni ("3 gün 20 saat"); diğer dillerde kısa biçim ("3 d 20 h"). Sözlükle çevrilmez
-// çünkü tekil/çoğul ayrımı kalıpla yapılamıyor.
+// Süre: Türkçede hesap motorunun metni ("3 gün 20 saat"); diğer dillerde kısa biçim ("3 d 20 h"), birimleri sözlükten
+// ('{0} g', '{0} sa'). Uzun biçim çevrilmez çünkü tekil/çoğul ayrımı kalıpla yapılamıyor.
 const sure = (sn) => {
   if (DIL === 'tr') return I.sureMetni(sn);
   if (!Number.isFinite(sn) || sn <= 0) return '—';
   const saat = Math.round(sn / 3600);
   const gun = Math.floor(saat / 24);
   const kalan = saat % 24;
-  return gun ? `${gun} d${kalan ? ` ${kalan} h` : ''}` : `${saat} h`;
+  return gun ? `${t(`${gun} g`)}${kalan ? ` ${t(`${kalan} sa`)}` : ''}` : t(`${saat} sa`);
 };
 const uid = () => `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 const chip = (text, kind = '') => `<span class="ur-chip ${kind}">${esc(text)}</span>`;

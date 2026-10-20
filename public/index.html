@@ -180,7 +180,7 @@
   .lang-btn { height: 32px; min-width: 44px; padding: 0 8px; border-radius: 0 8px 8px 0; color: var(--muted); font: 600 14px/1 var(--font-c); display: inline-flex; align-items: center; justify-content: center; gap: 3px; }
   .lang-btn::after { content: ""; width: 6px; height: 6px; border-right: 1.6px solid currentColor; border-bottom: 1.6px solid currentColor; transform: translateY(-2px) rotate(45deg); margin-left: 2px; }
   .lang-btn:hover, .lang-btn[aria-expanded="true"] { color: var(--text); }
-  .lang-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 60; min-width: 150px; margin: 0; padding: 4px; list-style: none; background: var(--raise-2); border: 1px solid var(--line-3); border-radius: 11px; box-shadow: 0 8px 24px var(--shadow); }
+  .lang-menu { position: absolute; right: 0; top: calc(100% + 6px); z-index: 60; min-width: 170px; max-height: min(70vh, 540px); overflow-y: auto; overscroll-behavior: contain; margin: 0; padding: 4px; list-style: none; background: var(--raise-2); border: 1px solid var(--line-3); border-radius: 11px; box-shadow: 0 8px 24px var(--shadow); }
   .lang-menu[hidden] { display: none; }
   .lang-menu button { width: 100%; min-height: 40px; padding: 0 10px; border-radius: 8px; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--text); font: 500 15px/1 var(--font-c); text-align: left; }
   .lang-menu button b { color: var(--muted); font-weight: 600; font-size: 13px; }
@@ -549,8 +549,8 @@
   }
   // Yakalanmayan bir hata olursa ekranın altında kısa bir uyarı göster (telefonda konsol olmadığı için).
   (function () {
-    var en = false; // dil seçimi (i18n.js ile aynı kural): kayıtlı seçim, yoksa tarayıcı dili
-    try { var d = localStorage.getItem('dentsimco.dil'); en = d ? d === 'en' : !/^tr/i.test(navigator.language || ''); } catch (e) { en = !/^tr/i.test(navigator.language || ''); }
+    var en = false; // Türkçe dışındaki her dilde bu kısa uyarı İngilizce (i18n.js ile aynı kural: kayıtlı seçim, yoksa tarayıcı dili)
+    try { var d = localStorage.getItem('dentsimco.dil'); en = d ? d !== 'tr' : !/^tr/i.test(navigator.language || ''); } catch (e) { en = !/^tr/i.test(navigator.language || ''); }
     var shown = false;
     function show(text) {
       if (shown || !document.body) return;
