@@ -23,6 +23,7 @@ const PERIOD_KEY = 'dentsimco.perakende.period';
 export const TABS = [['kurulum', 'Kurulum'], ['binalar', 'Binalar'], ['pphpl', 'PPHPL Max'], ['restoran', 'Restoran'], ['tuketim', 'Tüketimler'], ['ozet', 'Özet']];
 // Üst sekmeler; Binalar ve Restoran'ın altında ikişer alt sekme var
 const GROUPS = [['kurulum', 'Kurulum', ['kurulum']], ['binalar', 'Binalar', ['binalar', 'pphpl']], ['restoran', 'Restoran', ['restoran', 'tuketim']], ['ozet', 'Özet', ['ozet']]];
+const RESTORAN_BINALAR_ACIK = false; // Restoran > Binalar geliştirme aşamasında: erişime kapalı, yalnız Tüketimler açık
 const SUBS = { binalar: [['binalar', 'Binalar'], ['pphpl', 'PPHPL Max']], restoran: [['restoran', 'Binalar'], ['tuketim', 'Tüketimler']] };
 const PERIODS = [['hour', 'Saatlik', 1 / 24], ['day', 'Günlük', 1], ['week', 'Haftalık', 7], ['month', 'Aylık', 30]];
 const REC = [['park', 'Park'], ['temple', 'Tapınak'], ['lake', 'Göl']];
@@ -453,7 +454,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     pendingRender = false;
     const group = GROUPS.find(([, , views]) => views.includes(tab)) || GROUPS[1];
     const tabs = `<nav class="ur-tabs" aria-label="Perakende bölümleri">${GROUPS.map(([k, t, views]) =>
-      `<a href="#perakende/${views.includes(tab) ? tab : views[0]}" ${views.includes(tab) ? 'aria-current="page"' : ''}>${t}</a>`).join('')}</nav>`
+      `<a href="#perakende/${views.includes(tab) ? tab : k === 'restoran' && !RESTORAN_BINALAR_ACIK ? 'tuketim' : views[0]}" ${views.includes(tab) ? 'aria-current="page"' : ''}>${t}</a>`).join('')}</nav>`
       + (SUBS[group[0]] ? `<nav class="ur-subtabs" aria-label="${esc(group[1])} alt bölümleri">${SUBS[group[0]].map(([k, t]) =>
         `<a href="#perakende/${k}" ${k === tab ? 'aria-current="page"' : ''}>${t}</a>`).join('')}</nav>` : '');
     let body;
@@ -631,6 +632,9 @@ export function mountPerakende(root, { realm = 0 } = {}) {
 
   // ---- RESTORAN ----
   function viewRestoran(c, ev) {
+    if (!RESTORAN_BINALAR_ACIK) {
+      return `<div class="ur-card ur-empty"><h2>Geliştiriliyor</h2><p class="ur-sub">Restoran binaları bölümü şu an geliştirme aşamasında; erişime kapalı. Restoran tüketimlerini Tüketimler sekmesinden görebilirsiniz.</p><a class="ur-btn" href="#perakende/tuketim">Tüketimlere git</a></div>`;
+    }
     const t = ev.restoran.totals;
     return `
       ${setup.restoran.items.length ? `<div class="ur-stats">
