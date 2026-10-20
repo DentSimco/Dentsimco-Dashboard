@@ -490,9 +490,6 @@
   }
   @media (max-width: 400px) { .ranges { gap: 0; padding: 2px; } .ranges button { font-size: 13px; } }
 
-  @media (prefers-reduced-motion: reduce) {
-    *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
-  }
   /* Geri bildirim şeridi: tüm sayfaların altında sabit; Sim Companies'taki şirket profiline gider */
   .fb-bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; display: flex; justify-content: center; align-items: center; min-height: 34px; padding: 6px 16px calc(6px + env(safe-area-inset-bottom)); background: var(--surface); border-top: 1px solid var(--line-2); font-size: 13px; color: var(--muted); }
   .fb-bar a { color: var(--accent); text-decoration: none; font-weight: 500; }

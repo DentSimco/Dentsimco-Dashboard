@@ -14,7 +14,7 @@ import { DIL, LOCALE } from './i18n.js';
 import { urunAdi } from './urun-adlari.js';
 import { esc } from './esc.js';
 
-const TICKER_N = 18;
+const TICKER_N = 36;
 
 // Ürün adı bot belgesinde tek dilde (Türkçe) gelir; şerit ve grafik başlığı bu işlevle seçili dile çevrilir.
 export const haberUrunAdi = (id, ad) => urunAdi(id, ad);
@@ -49,6 +49,75 @@ export function tickerItems(fiyatlar, live, n = TICKER_N, rnd = Math.random) {
   return [...sec, ...rest].slice(0, n);
 }
 
+// Kayan şerit: kendiliğinden sola akar; fare/parmakla tutulup sağa sola kaydırılır, bırakınca hızını koruyup yavaşlayarak
+// akışa geri döner. İçerik iki kez art arda dizildiği için kayma yarım genişlikte başa sarar. Dönen işlev şeridi durdurur.
+export const SERIT_HIZ = 55; // px/sn, kendiliğinden akış (sola)
+export function seritKaydir(view, track, { hiz = SERIT_HIZ, raf = requestAnimationFrame, caf = cancelAnimationFrame, now = () => performance.now() } = {}) {
+  let x = 0; // track'in anlık kayması (px, ≤ 0)
+  let v = -hiz; // anlık hız (px/sn)
+  let tutuyor = false;
+  let surukleniyor = false; // eşik aşıldı: artık tıklama değil sürükleme
+  let hover = false;
+  let id = null;
+  let baslangic = 0, son = { x: 0, t: 0 }, dx0 = 0, durdu = false, t0 = null;
+  const yarim = () => track.scrollWidth / 2 || 1;
+  const sar = () => { const w = yarim(); x = ((x % w) - w) % w; };
+  const yaz = () => { track.style.transform = `translate3d(${x.toFixed(2)}px,0,0)`; };
+  function kare(t) {
+    if (durdu) return;
+    const dt = t0 == null ? 0 : Math.min(0.05, (t - t0) / 1000);
+    t0 = t;
+    if (!tutuyor) {
+      const hedef = hover ? 0 : -hiz;
+      // Hız hedef akışa üstel olarak yaklaşır: bırakınca ivme kaybolur, şerit yavaşça normal akışa döner
+      v = hedef + (v - hedef) * Math.exp(-dt * 1.6);
+      x += v * dt;
+    }
+    sar(); yaz();
+    id = raf(kare);
+  }
+  const down = (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    tutuyor = true; surukleniyor = false; dx0 = e.clientX; baslangic = x; son = { x: e.clientX, t: now() }; v = 0;
+  };
+  const move = (e) => {
+    if (!tutuyor) return;
+    if (!surukleniyor && Math.abs(e.clientX - dx0) > 5) {
+      surukleniyor = true;
+      view.classList.add('tutuluyor');
+      try { view.setPointerCapture(e.pointerId); } catch { /* yok */ }
+    }
+    if (!surukleniyor) return;
+    const t = now();
+    const dt = (t - son.t) / 1000;
+    x = baslangic + (e.clientX - dx0);
+    if (dt > 0.008) { const anlik = (e.clientX - son.x) / dt; v = v * 0.4 + anlik * 0.6; son = { x: e.clientX, t }; }
+    sar(); yaz();
+  };
+  const up = () => {
+    if (!tutuyor) return;
+    tutuyor = false;
+    view.classList.remove('tutuluyor');
+    if (now() - son.t > 120) v = 0; // bırakmadan önce durduysa fırlatma yok
+    v = Math.max(-3000, Math.min(3000, v));
+    if (!surukleniyor) v = -hiz;
+  };
+  // Sürükleme sonrası bırakılan parmak bağlantıya tıklama sayılmasın
+  const tikla = (e) => { if (surukleniyor) { e.preventDefault(); e.stopPropagation(); surukleniyor = false; } };
+  const gir = (e) => { if (e.pointerType === 'mouse') hover = true; };
+  const cik = (e) => { if (e.pointerType === 'mouse') hover = false; };
+  view.addEventListener('pointerdown', down);
+  view.addEventListener('pointermove', move);
+  view.addEventListener('pointerup', up);
+  view.addEventListener('pointercancel', up);
+  view.addEventListener('click', tikla, true);
+  view.addEventListener('dragstart', (e) => e.preventDefault());
+  view.addEventListener('pointerenter', gir);
+  view.addEventListener('pointerleave', cik);
+  id = raf(kare);
+  return () => { durdu = true; caf(id); };
+}
+
 // Kapanış serisinden SVG yolu: [çizgi, alan] (viewBox 0 0 w h). Seri boş ya da tek noktaysa null.
 export function sparkPaths(seri, w = 100, h = 40, pad = 2) {
   const ys = (seri || []).map((p) => Number(p?.[1])).filter((v) => Number.isFinite(v) && v > 0);
@@ -80,24 +149,21 @@ const CSS = `
   max-width: 1240px; margin: 0 auto; padding: 0 20px 48px; }
 :root[data-theme="light"] .nw { --nw-acc: #0a4fa8; --nw-up: #0b5fe0; --nw-dn: #d92d3f; --nw-band: #0e1b30; --nw-band-text: #f3f6fb; --nw-band-line: #22324d; }
 .nw-ticker { position: relative; margin: 0 -20px; background: var(--nw-band); color: var(--nw-band-text); border-bottom: 1px solid var(--nw-band-line); overflow: hidden; height: 40px; display: flex; align-items: stretch; }
-/* CANLI rozeti sabit durur; yalnız sağındaki pencere kayar. Pencere elle kaydırılamaz (dokunmatikte de), dikey sayfa kaydırma serbest. */
-.nw-view { position: relative; flex: 1 1 auto; min-width: 0; overflow: hidden; display: flex; align-items: center; touch-action: pan-y; overscroll-behavior-x: none; }
+/* CANLI rozeti sabit durur; yalnız sağındaki pencere kayar. Şerit kendiliğinden akar, tutulup sağa sola sürüklenebilir; bırakınca ivmeyle akmaya devam eder (bkz. serit()). */
+.nw-view { position: relative; flex: 1 1 auto; min-width: 0; overflow: hidden; display: flex; align-items: center; touch-action: pan-y; overscroll-behavior-x: none; cursor: grab; user-select: none; -webkit-user-select: none; }
+.nw-view.tutuluyor { cursor: grabbing; }
+.nw-view .nw-tk { -webkit-user-drag: none; }
 .nw-view::before, .nw-view::after { content: ""; position: absolute; top: 0; bottom: 0; width: 32px; z-index: 2; pointer-events: none; }
 .nw-view::before { left: 0; background: linear-gradient(90deg, var(--nw-band), transparent); }
 .nw-view::after { right: 0; background: linear-gradient(-90deg, var(--nw-band), transparent); }
 .nw-live { position: relative; z-index: 3; flex: none; display: flex; align-items: center; gap: 7px; height: 100%; padding: 0 14px 0 20px; background: #e10600; color: #fff; font: 600 13px/1 var(--font-c); letter-spacing: .12em; } /* yalnız CANLI rozeti: klasik canlı yayın kırmızısı */
 .nw-live i { width: 7px; height: 7px; border-radius: 50%; background: #fff; animation: nw-pulse 1.6s ease-in-out infinite; }
 @keyframes nw-pulse { 50% { opacity: .25; } }
-.nw-track { display: flex; width: max-content; animation: nw-scroll var(--nw-dur, 60s) linear infinite; }
-.nw-view:hover .nw-track { animation-play-state: paused; }
-@media (hover: none) { .nw-view:hover .nw-track { animation-play-state: running; } }
-@keyframes nw-scroll { to { transform: translateX(-50%); } }
+.nw-track { display: flex; width: max-content; will-change: transform; }
 .nw-tk { display: inline-flex; align-items: baseline; gap: 7px; padding: 0 18px; border-right: 1px solid var(--nw-band-line); color: inherit; text-decoration: none; white-space: nowrap; font: 500 14px var(--font-c); font-variant-numeric: tabular-nums; }
 .nw-tk b { font-weight: 600; }
 .nw-tk .nw-q { font-style: normal; font-size: 11.5px; padding: 1px 4px; border: 1px solid var(--nw-band-line); border-radius: 3px; color: #9fb3cf; }
 .nw-tk .u { color: #3ee08f; } .nw-tk .d { color: #ff6577; } .nw-tk .f { color: #7f8ea6; } /* şeritte yükselen yeşil, düşen kırmızı (yalnız sayılar) */
-/* Sitenin genel "hareketi azalt" kuralı animasyonları sıfırlar; şerit yine yavaşça kaysın (istenen davranış). */
-@media (prefers-reduced-motion: reduce) { .nw .nw-track { animation-duration: calc(var(--nw-dur, 60s) * 1.5) !important; } .nw-live i { animation: none; } }
 
 .nw-mast { display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 18px 0 10px; border-bottom: 3px double var(--line-3); }
 .nw-logo { font: 600 30px/1 var(--font-c); letter-spacing: -.01em; color: var(--text); }
@@ -300,7 +366,7 @@ function viewFront(st) {
   const kt = kose && dil(kose);
   const today = new Date().toLocaleDateString(LOCALE, { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' });
   return `
-    ${ticker.length ? `<div class="nw-ticker" role="marquee" aria-label="Borsa şeridi"><span class="nw-live"><i></i>CANLI</span><div class="nw-view"><div class="nw-track" style="--nw-dur:${Math.max(40, ticker.length * 4.5)}s">${tk}${tk.replace(/class="nw-tk"/g, 'class="nw-tk" aria-hidden="true"')}</div></div></div>` : ''}
+    ${ticker.length ? `<div class="nw-ticker" role="marquee" aria-label="Borsa şeridi"><span class="nw-live"><i></i>CANLI</span><div class="nw-view"><div class="nw-track">${tk}${tk.replace(/class="nw-tk"/g, 'class="nw-tk" aria-hidden="true"')}</div></div></div>` : ''}
     <header class="nw-mast">
       <div class="nw-logo">Dent<span>Simco</span><em>NEWS</em></div>
       <div class="nw-dateline"><b>${esc(today)}</b> · R${realm + 1}<br>Son baskı ${esc(fmtDateTime(news.t))}</div>
@@ -418,6 +484,7 @@ export function mountHaberler(root, { realm: startRealm = 0 } = {}) {
   let alive = true;
   let token = 0;
   let st = null;
+  let seritDurdur = null;
   loadSerif();
   const style = document.createElement('style');
   style.dataset.module = 'haberler';
@@ -434,7 +501,10 @@ export function mountHaberler(root, { realm: startRealm = 0 } = {}) {
       return;
     }
     const id = sub();
+    if (seritDurdur) { seritDurdur(); seritDurdur = null; }
     box.innerHTML = id ? viewArticle(st, id) : viewFront(st);
+    const sv = box.querySelector('.nw-view'), st2 = box.querySelector('.nw-track');
+    if (sv && st2) seritDurdur = seritKaydir(sv, st2);
     // Logo yüklenemezse (ağ, engelleyici) görsel gizlenir; altındaki baş harf görünür kalır
     box.querySelectorAll('img.nw-logo-img').forEach((img) => img.addEventListener('error', () => { img.hidden = true; }));
   }
@@ -464,6 +534,6 @@ export function mountHaberler(root, { realm: startRealm = 0 } = {}) {
 
   return {
     setRealm(next) { if (next === realm) return; realm = next; if (sub()) { try { history.replaceState(null, '', '#haberler'); } catch { /* yok */ } } reload(); },
-    destroy() { alive = false; window.removeEventListener('hashchange', onHash); style.remove(); root.replaceChildren(); },
+    destroy() { alive = false; if (seritDurdur) seritDurdur(); window.removeEventListener('hashchange', onHash); style.remove(); root.replaceChildren(); },
   };
 }
