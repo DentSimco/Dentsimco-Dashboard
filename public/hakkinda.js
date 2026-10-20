@@ -1,13 +1,19 @@
 import { esc } from './esc.js';
 // DentSimco — Hakkımızda: Nedir, Güncellemeler, Kaynakça.
 // Metin ve güncelleme listesi bu dosyanın başındadır; yeni güncelleme eklemek için UPDATES listesinin EN ÜSTÜNE yeni kayıt yazın.
-// Metin Türkçedir; İngilizcesi dil-en.js sözlüğündedir. Yeni bir madde eklerseniz İngilizcesini de sözlüğe yazın,
-// yoksa İngilizce modda o madde Türkçe görünür.
+// Metin Türkçedir; diğer dillerdeki karşılıkları dil-en.js ve dil-xx.js sözlüklerindedir. Yeni bir madde eklerseniz
+// sözlüklere de yazın; dil-xx.js'de olmayan madde İngilizce, dil-en.js'de de olmayan madde Türkçe görünür.
 
 const TABS = [['nedir', 'Nedir'], ['guncellemeler', 'Güncellemeler'], ['kaynakca', 'Kaynakça']];
 
 // En yeni en üstte. { date: 'gün ay yıl', items: ['...', '...'] }
 export const UPDATES = [
+  {
+    date: '20 Ekim 2026',
+    items: [
+      'Dil seçimi oyunun desteklediği 13 dile genişledi: Türkçe, İngilizce, Almanca, Fransızca, Portekizce, İtalyanca, İspanyolca, Çekçe, Çince (basitleştirilmiş ve geleneksel), Lehçe, Rusça ve Japonca. Ürün ve bina adları her dilde oyunun kendi adlarıyla görünür; haber metinleri Türkçe dışındaki dillerde İngilizcedir.',
+    ],
+  },
   {
     date: '19 Ekim 2026',
     items: [
