@@ -141,7 +141,6 @@ export function createChart(host, { series, formatPrice, formatVolume, formatTic
       destroy() { clearNode(host); },
     };
   }
-  const reduceMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
 
   const drawOrder = [...series].sort((a, b) => (a.z ?? 0) - (b.z ?? 0));
   const visible = new Map(series.map((s) => [s.key, s.visible !== false]));
@@ -202,7 +201,7 @@ export function createChart(host, { series, formatPrice, formatVolume, formatTic
   function start({ doMorph = false, doReveal = false, dur = 420, instant = false } = {}) {
     const to = targetView();
     const alphaTo = new Map(series.map((s) => [s.key, visible.get(s.key) ? 1 : 0]));
-    if (instant || reduceMotion) {
+    if (instant) {
       cancelAnimationFrame(raf);
       view = to;
       alphaTo.forEach((a, k) => alpha.set(k, a));
