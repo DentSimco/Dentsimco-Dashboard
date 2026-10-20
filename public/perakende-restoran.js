@@ -351,13 +351,16 @@ export const TUKETIM_CSS = `
   border-right: 1px solid var(--line-2); font: 600 14px var(--font-c); }
 .tk-m thead .nm { z-index: 3; }
 .tk-m .nm button { all: unset; cursor: pointer; display: block; width: 100%; overflow: hidden; text-overflow: ellipsis; color: var(--text); }
-.tk-m tr.selrow td, .tk-m tr.selrow th.nm { background: var(--sel); }
+.tk-m tr.selrow td { background: var(--sel); }
+/* Yapışkan ürün adı hücresi saydam olmamalı: kayan fiyatlar altından görünür. Seçili satır rengi opak zemin üstüne bindirilir. */
+.tk-m tr.selrow th.nm { background: var(--surface) linear-gradient(var(--sel), var(--sel)); }
 .tk-m tr.selrow .nm button { color: var(--accent); }
 .tk-m th.selday, .tk-m td.selday { box-shadow: inset 2px 0 0 var(--accent), inset -2px 0 0 var(--accent); }
 .tk-m thead th button { all: unset; cursor: pointer; display: flex; flex-direction: column; align-items: flex-end; width: 100%; color: inherit; line-height: 1.15; }
 .tk-m thead th.selday button { color: var(--accent); }
 .tk-m thead th small { font: 500 10.5px var(--font); }
-.tk-m .cat td { height: 30px; text-align: left; background: var(--raise); color: var(--accent); font: 600 12px var(--font-c); letter-spacing: .08em; text-transform: uppercase; position: sticky; left: 0; }
+.tk-m .cat td { height: 30px; text-align: left; background: var(--raise); color: var(--accent); font: 600 12px var(--font-c); letter-spacing: .08em; text-transform: uppercase; }
+.tk-m .cat td span { display: inline-block; position: sticky; left: 8px; } /* kategori başlığı yatay kaydırmada solda sabit kalır */
 .tk-m tfoot td, .tk-m tfoot th { font-weight: 600; border-bottom: 0; }
 .tk-m .up { color: var(--up); } .tk-m .dn { color: var(--down); } .tk-m .mu { color: var(--muted); }
 .tk-m .sum { color: var(--muted); }
@@ -440,7 +443,7 @@ export function tuketimHtml(raw, { nameOf, metrik = 'adet', aralik = 28, urun = 
     const sub = order.filter((id) => (key ? katOf(id) === key : !katOf(id)));
     if (!sub.length) return '';
     const kolon = gorunen.length + 2;
-    return `<tr class="cat"><td colspan="${kolon}">${esc(adi)}</td></tr>${sub.map((id) => {
+    return `<tr class="cat"><td colspan="${kolon}"><span>${esc(adi)}</span></td></tr>${sub.map((id) => {
       const hs = gorunen.map((day) => hucre(id, day));
       const vals = hs.map(val).filter(fin);
       const mn = Math.min(...vals), mx = Math.max(...vals), sp = mx - mn || 1;
