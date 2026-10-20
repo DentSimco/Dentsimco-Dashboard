@@ -1590,6 +1590,10 @@ export default {
   'EKONOMİ': 'ECONOMIA',
   'PERAKENDE': 'VENDITA AL DETTAGLIO',
   'ANALİZ': 'ANALISI',
+
+  // ---- Hakkımızda › Güncellemeler: 20 Ekim 2026 ----
+  '20 Ekim 2026': '20 ottobre 2026',
+  'Dil seçimi oyunun desteklediği 13 dile genişledi: Türkçe, İngilizce, Almanca, Fransızca, Portekizce, İtalyanca, İspanyolca, Çekçe, Çince (basitleştirilmiş ve geleneksel), Lehçe, Rusça ve Japonca. Ürün ve bina adları her dilde oyunun kendi adlarıyla görünür; haber metinleri Türkçe dışındaki dillerde İngilizcedir.': 'La scelta della lingua ora comprende tutte le 13 lingue del gioco: turco, inglese, tedesco, francese, portoghese, italiano, spagnolo, ceco, cinese (semplificato e tradizionale), polacco, russo e giapponese. I nomi di prodotti ed edifici usano quelli del gioco in ogni lingua; le notizie sono in inglese in tutte le lingue diverse dal turco.',
 };
 
 // ---- Oyundaki ürün adları (ürün no → ad) ----

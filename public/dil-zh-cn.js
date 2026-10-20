@@ -1590,6 +1590,10 @@ export default {
   'EKONOMİ': '经济',
   'PERAKENDE': '零售',
   'ANALİZ': '分析',
+
+  // ---- Hakkımızda › Güncellemeler: 20 Ekim 2026 ----
+  '20 Ekim 2026': '2026 年 10 月 20 日',
+  'Dil seçimi oyunun desteklediği 13 dile genişledi: Türkçe, İngilizce, Almanca, Fransızca, Portekizce, İtalyanca, İspanyolca, Çekçe, Çince (basitleştirilmiş ve geleneksel), Lehçe, Rusça ve Japonca. Ürün ve bina adları her dilde oyunun kendi adlarıyla görünür; haber metinleri Türkçe dışındaki dillerde İngilizcedir.': '语言选择现已涵盖游戏支持的全部 13 种语言：土耳其语、英语、德语、法语、葡萄牙语、意大利语、西班牙语、捷克语、中文（简体和繁体）、波兰语、俄语和日语。各语言中的产品和建筑名称均采用游戏自身的名称；除土耳其语外，其他语言的新闻正文均为英文。',
 };
 
 // ---- Oyundaki ürün adları (ürün no → ad) ----

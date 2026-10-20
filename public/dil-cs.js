@@ -1590,6 +1590,10 @@ export default {
   'EKONOMİ': 'EKONOMIKA',
   'PERAKENDE': 'MALOOBCHOD',
   'ANALİZ': 'ANALÝZA',
+
+  // ---- Hakkımızda › Güncellemeler: 20 Ekim 2026 ----
+  '20 Ekim 2026': '20. října 2026',
+  'Dil seçimi oyunun desteklediği 13 dile genişledi: Türkçe, İngilizce, Almanca, Fransızca, Portekizce, İtalyanca, İspanyolca, Çekçe, Çince (basitleştirilmiş ve geleneksel), Lehçe, Rusça ve Japonca. Ürün ve bina adları her dilde oyunun kendi adlarıyla görünür; haber metinleri Türkçe dışındaki dillerde İngilizcedir.': 'Výběr jazyka teď zahrnuje všech 13 jazyků hry: turečtinu, angličtinu, němčinu, francouzštinu, portugalštinu, italštinu, španělštinu, češtinu, čínštinu (zjednodušenou i tradiční), polštinu, ruštinu a japonštinu. Názvy produktů a budov jsou v každém jazyce převzaty ze hry; zprávy jsou ve všech jazycích kromě turečtiny anglicky.',
 };
 
 // ---- Oyundaki ürün adları (ürün no → ad) ----

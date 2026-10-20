@@ -149,7 +149,6 @@ export function cevirMetin(metin, d = DERLI, dil = DIL) {
   if (!d || metin == null) return metin;
   const raw = String(metin);
   if (d === DERLI && ONBELLEK.has(raw)) return ONBELLEK.get(raw);
-  if (d === DERLI && KORU.has(sade(raw))) return raw;
   const bas = raw.match(/^\s*/)[0];
   const son = raw.match(/\s*$/)[0];
   const ic = cevirIc(raw, d, 0);
@@ -163,6 +162,8 @@ export function cevirMetin(metin, d = DERLI, dil = DIL) {
 }
 // Kodda (tuval, onay penceresi gibi DOM dışı yerlerde) kullanmak için kısa ad
 export const t = (metin) => cevirMetin(metin);
+// Sayfadaki metin: seçili dilin oyun adı olduğu gibi kalır (KORU), gerisi çevrilir
+export const sayfaMetni = (metin) => (metin != null && KORU.has(sade(metin)) ? metin : cevirMetin(metin));
 
 // ---- Sayfayı çevirme ----
 const OZNITELIK = ['title', 'aria-label', 'placeholder', 'alt'];
@@ -174,7 +175,7 @@ function metinDugumu(n) {
   if (!p || p.closest(ATLA)) return;
   const v = n.nodeValue;
   if (!v || !/\S/.test(v)) return;
-  const c = cevirMetin(v);
+  const c = sayfaMetni(v);
   if (c !== v) n.nodeValue = c;
 }
 function oznitelikler(el) {
@@ -182,7 +183,7 @@ function oznitelikler(el) {
   for (const a of OZNITELIK) {
     if (!el.hasAttribute(a)) continue;
     const v = el.getAttribute(a);
-    const c = cevirMetin(v);
+    const c = sayfaMetni(v);
     if (c !== v) el.setAttribute(a, c);
   }
 }
