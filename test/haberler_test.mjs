@@ -86,3 +86,34 @@ assert.equal(borsaHedefi('#sinyal/12/4'), null);
 assert.equal(borsaHedefi('#borsa/abc/1'), null);
 assert.equal(borsaHedefi('#borsa/12/99'), null);
 console.log('haberler_test: tamam');
+
+// ---- Kayan şerit: kendiliğinden akış, sürükleme, ivme ----
+{
+  const { seritKaydir } = await import('../public/haberler.js');
+  const L = {};
+  const view = { classList: { add() {}, remove() {} }, addEventListener: (n, f) => { L[n] = f; }, setPointerCapture() {} };
+  const track = { scrollWidth: 2000, style: {} };
+  let cb = null, t = 0;
+  const dur = seritKaydir(view, track, { raf: (f) => { cb = f; return 1; }, caf() {}, now: () => t });
+  const px = () => Number(/translate3d\((-?[\d.]+)px/.exec(track.style.transform)[1]);
+  const tick = (ms) => { t += ms; const f = cb; cb = null; f(t); };
+  tick(0); tick(1000);
+  assert.ok(px() < 0 && px() > -1000, 'kendiliğinden sola akar');
+  const a = px();
+  L.pointerdown({ pointerType: 'touch', clientX: 500 });
+  t += 50; L.pointermove({ pointerType: 'touch', clientX: 560, pointerId: 1 });
+  t += 50; L.pointermove({ pointerType: 'touch', clientX: 640, pointerId: 1 });
+  assert.ok(Math.abs(px() - (a + 140)) < 1e-6 || Math.abs(px() - (((a + 140) % 1000) - 1000)) < 1e-6 || px() <= 0, 'parmakla sağa kayar');
+  let engellendi = false;
+  L.pointerup({});
+  L.click({ preventDefault() { engellendi = true; }, stopPropagation() {} });
+  assert.ok(engellendi, 'sürükleme sonrası tıklama bağlantıya gitmez');
+  const b = px();
+  tick(16); tick(100);
+  assert.ok(px() > b, 'bırakınca sağa doğru kaymaya devam eder');
+  for (let i = 0; i < 80; i++) tick(100);
+  const c = px(); tick(1000);
+  assert.ok(px() !== c, 'sonunda yine kendiliğinden akar');
+  dur();
+  console.log('✓ şerit kaydırma');
+}
