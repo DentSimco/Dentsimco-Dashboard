@@ -169,7 +169,7 @@ t('kademe: profildeki değer gerçek seviye değil; en yüksek kademe "+" ile ya
   assert.equal(kademeMetni('v', 50, ust), '50', 'kademesi olmayan binada değer gerçek seviyedir');
   const h = binalarHtml({ n: 'A', t: 0, b: [['r', 15, null, null, 0]] }, 0, ust);
   assert.match(h, /15\+/);
-  assert.match(h, /Bina bazında gerçek seviye görünmez/);
+  assert.doesNotMatch(h, /Kaynak:|Tarama:|Simcotools/, 'ayrıntı penceresinde kaynak ve tarama yazısı yok');
 });
 
 t('seviye çözümü: toplam seviye (yönetim gideri) akademi dahil; banka, dinlenme ve ücretsiz pazar hariç; tür toplamı aralık', () => {
@@ -249,7 +249,6 @@ t('şirket ayrıntısı: çözülmüş tür toplamı ve bina başına aralık', 
   const h = binalarHtml({ n: 'A', t: 0, ao: 1 + 49 / 170, b: [['6', 15, null, null, 0, 0], ['6', 6, null, null, 0, 0]] }, 0, {}, ham);
   assert.match(h, /<b>50<\/b>/, 'tür toplamı kesin');
   assert.match(h, /<b>25<\/b>/, 'ortalama: 50 ÷ 2');
-  assert.match(h, /Tek sayı kesin seviyedir/);
   assert.match(h, /Bina başına/);
   assert.doesNotMatch(h, /Kademeler/);
 });
@@ -259,9 +258,7 @@ t('mevsimlik pazarlara seviye gösterilmez', () => {
   const h = binalarHtml({ n: 'A', t: 0, b: [['t', 3, null, null, 0, 0], ['r', 15, null, null, 0, 0]] }, 0, { r: 15, t: 3 });
   assert.doesNotMatch(h, /3\+/, 'pazar "3+" yazmaz');
   assert.match(h, /15\+/);
-  assert.match(h, /Mevsimlik pazarların seviyesi profilde gösterilmez/);
   assert.match(h, /<td>1<\/td><td>—<\/td>/, 'pazar satırı: adet 1, seviye —');
-  assert.doesNotMatch(binalarHtml({ n: 'A', t: 0, b: [['r', 15, null, null, 0, 0]] }, 0, { r: 15 }), /Mevsimlik pazarların/);
 });
 
 t('ücretsiz hediye pazar: bayraklı kayıtta "5" ve rozet, satın alınan "—"', () => {

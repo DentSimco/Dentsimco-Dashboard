@@ -374,7 +374,7 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
     box.innerHTML = `<h1>Diğer</h1><p class="dg-note">${esc(e instanceof VeriHatasi ? e.message : `${ne} açılamadı. Biraz sonra tekrar dene.`)}</p>`;
   }
   const yukleniyor = () => { box.innerHTML = '<h1>Diğer</h1><p class="dg-note">Yükleniyor…</p>'; };
-  const botNotu = (t) => (Number.isFinite(t) ? `<p class="dg-note"><span>${esc(`Son güncelleme: ${fmtDateTime(t)}.`)}</span> <span>Veri: Sim Companies ve Simcotools.</span></p>` : '');
+  const botNotu = (t) => (Number.isFinite(t) ? `<p class="dg-note"><span>${esc(`Son güncelleme: ${fmtDateTime(t)}.`)}</span> </p>` : '');
   const veriYok = '<p class="dg-note">Bu bölümün verisi henüz toplanmadı. Biraz sonra tekrar bakın.</p>';
 
   // ---- Çizim ----
@@ -679,7 +679,7 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
       <section class="dg-card"><h2>Realm özeti</h2>
         <div class="dg-seg" role="group" aria-label="Ölçüt">${METRIK.map(([i, t]) => `<button type="button" data-evre-metrik="${i}" aria-pressed="${i === mi}">${t}</button>`).join('')}</div>
         <div class="dg-seg" role="group" aria-label="Aralık">${ARALIKLAR.map(([v, t]) => `<button type="button" data-ozet-aralik="${v}" aria-pressed="${v === durum.ozetAralik}">${t}</button>`).join('')}</div>
-        ${grafik}<p class="dg-note">Simcotools'un günlük realm özeti (Eylül 2022'den bu yana). Yarım kalmış günler gösterilmez.</p></section>
+        ${grafik}</section>
 ` : veriYok],
       olay: ['Olaylar', `
       <section class="dg-card"><h2>Üretim olayları</h2>

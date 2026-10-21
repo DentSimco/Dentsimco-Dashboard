@@ -345,7 +345,7 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
     box.querySelector('thead').innerHTML = `<tr>${TABLO_BASLIK.map(([t, k, c]) => `<th${k ? ` data-k="${k}"` : ''} class="${c || ''}" ${k && k === state.key ? `aria-sort="${state.dir > 0 ? 'ascending' : 'descending'}"` : ''}>${t}</th>`).join('')}</tr>`;
     box.querySelector('tbody').innerHTML = view.slice(from, from + PAGE).map((r) => satirHtml(r)).join('') || '<tr><td colspan="9" class="l dim">Eşleşen şirket yok.</td></tr>';
     box.querySelector('#sk-dir').textContent = state.dir > 0 ? '↑' : '↓';
-    box.querySelector('#sk-note').textContent = `${NUM.format(view.length)} şirket · Veri: Simcotools · ${data.date ? new Date(data.date).toLocaleDateString(LOCALE, { timeZone: 'UTC' }) : ''}. Ayrıntıları (EVA, bina, patent, bono) henüz gelmemiş şirketlerde "—" görünür. Ayrıntı ve son 30 günün grafiği için şirkete dokunun.`;
+    box.querySelector('#sk-note').textContent = `${NUM.format(view.length)} şirket. Ayrıntıları (EVA, bina, patent, bono) henüz gelmemiş şirketlerde "—" görünür. Ayrıntı ve son 30 günün grafiği için şirkete dokunun.`;
     box.querySelector('.sk-pager').innerHTML = `<button type="button" data-p="-1" ${state.page <= 1 ? 'disabled' : ''}>‹ Önceki</button><span>${state.page} / ${pages}</span><button type="button" data-p="1" ${state.page >= pages ? 'disabled' : ''}>Sonraki ›</button>`;
   }
 
@@ -557,11 +557,9 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
       <div class="sk-idrow"><span>Şirket numarası (ID)</span><b>${r[0]}</b><button type="button" class="sk-btn" data-copy>Kopyala</button></div>
       <div data-gecmis></div>
       <div>${lines}</div>
-      ${r[12] === 1 ? '' : '<p class="sk-note">Bu şirketin ayrıntıları (EVA, bina, patent, işçi, bono) henüz gelmedi; sonraki günlük güncellemede tamamlanabilir.</p>'}
       <section data-binalar><p class="sk-note">Binaları yükleniyor…</p></section>
       <details class="sk-det"><summary>Gün gün tablo</summary><div data-gt-body></div>
-        <p class="sk-note">Son ${G.GUN_SAYISI} gün. Ayrıntısı o gün gelmemiş şirketlerde "—" görünür.</p></details>
-      <p class="sk-note">Veri: Simcotools${data.date ? ` · ${new Date(data.date).toLocaleDateString(LOCALE, { timeZone: 'UTC' })}` : ''}</p></div></div>`;
+      </details></div></div>`;
     document.body.style.overflow = 'hidden';
     sheetHost.querySelector('[data-close]').focus();
     gecmisCiz();
