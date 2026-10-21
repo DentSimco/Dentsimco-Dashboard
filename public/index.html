@@ -509,6 +509,7 @@
     <a href="#optimum" data-nav="optimum">Optimum Seviye</a>
     <a href="#uretim" data-nav="kar">Kâr Hesaplayıcı</a>
     <a href="#sirketler" data-nav="sirketler">Şirketler</a>
+    <a href="#diger" data-nav="diger">Diğer</a>
   </nav>
   <div class="realm" role="group" aria-label="Realm">
     <button type="button" data-realm="0" aria-pressed="true" title="Realm 1">R1</button>
@@ -605,6 +606,7 @@
     yonetim: () => import('./yonetim.js').then((m) => m.mountYonetim),
     perakende: () => import('./perakende.js').then((m) => m.mountPerakende),
     sirketler: () => import('./sirketler.js').then((m) => m.mountSirketler),
+    diger: () => import('./diger.js').then((m) => m.mountDiger),
     haberler: () => import('./haberler.js').then((m) => m.mountHaberler),
     hakkinda: () => import('./hakkinda.js').then((m) => m.mountHakkinda),
   };
