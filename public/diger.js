@@ -4,6 +4,7 @@
 //   meta/bina_r{realm}   bina türü başına sayı ve günlük geçmişi;  meta/ihale_r{realm}  açık bina açık artırmaları
 //   meta/evre_r{realm}   ekonomi evreleri, günlük realm özeti (2022'den), üretim olayları, yarışmalar
 //   meta/sert_r{realm}   sertifika türleri ve son verilenler;  meta/sert_r{realm}_k{tür}  türün kazananları
+//   meta/sb_ozet_r{realm} şirketlerin binaları özeti (bot/sirket_bina.mjs, günde bir tarama): bina türü başına sahip ve en büyükler, GO seviyeleri
 // Ürün adları ve borsa fiyatı (GO değeri) canlı borsa verisinden (loadBasics) gelir. Oyunun proje, kurum ve sertifika adları
 // diger-adlar.js'de (diğer diller dil-xx.js › DIGER_ADLARI). Şirket ve oyun adları çevrilmez (data-no-t).
 // Adres: #diger/go[/ilan|yuruyen|gecmis|urunler] | #diger/bina | #diger/evre | #diger/sertifika[/{tür}]
@@ -188,6 +189,12 @@ export function binaSatirlari(bina, sabitler, products) {
   }));
 }
 
+// Şirket binaları özeti (meta/sb_ozet_r) → [{harf, sirket, bina, seviye, enYuksek}] toplam seviyeye göre
+export function sbTurleri(sb) {
+  return Object.entries(sb?.kinds || {}).map(([harf, [sirket, bina, seviye, enYuksek]]) => ({ harf, sirket, bina, seviye, enYuksek }))
+    .filter((x) => x.bina > 0).sort((a, b) => b.seviye - a.seviye || b.sirket - a.sirket);
+}
+
 // Bolluk düzeyinin alt eşiği (%): oyundaki adlar (Exceptional, VeryGood…)
 export const bollukEsigi = (ad) => BOLLUK[String(ad).replace(/\s+/g, '')] ?? null;
 
@@ -276,6 +283,8 @@ const CSS = G.GRAFIK_CSS + `
 .dg-legend { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 13px; color: var(--muted); }
 .dg-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
 .dg-evre { font: 600 24px var(--font-c); }
+.dg tr.dg-sec { background: var(--sel); }
+.dg tr[data-sb-tur] { cursor: pointer; }
 .dg-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; }
 `;
 
@@ -289,6 +298,7 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
     binaSira: ['n', -1], ihaleBina: '', ihaleSira: ['kapanis', 1], ihaleSayfa: 1, binaAralik: 365,
     evreMetrik: 1, evreAralik: 0, ozetAralik: 365, olaySayfa: 1,
     sertSira: ['rar', 1], sertUrun: '', sertAra: '', sertSayfa: 1,
+    sbTur: '',
   };
 
   const style = document.createElement('style');
@@ -309,7 +319,7 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
   const yollar = {
     go: () => PATHS.meta(`go_r${realm}`), bina: () => PATHS.meta(`bina_r${realm}`), ihale: () => PATHS.meta(`ihale_r${realm}`),
     evre: () => PATHS.meta(`evre_r${realm}`), sert: () => PATHS.meta(`sert_r${realm}`), tur: (k) => PATHS.meta(`sert_r${realm}_k${k}`),
-    sabit: () => PATHS.meta('buildings'),
+    sabit: () => PATHS.meta('buildings'), sb: () => PATHS.meta(`sb_ozet_r${realm}`),
   };
   // Saatte bir değişen belgeler 10 dakikadan eskiyse yeniden okunur (veri.js önbelleği meta için 6 saat tutar)
   const okundu = new Map();
@@ -368,15 +378,15 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
   // ---- Government Order ----
   let goVeri = null;
   async function goCiz(my) {
-    const [get] = await Promise.all([oku([yollar.go(), yollar.tur(65)]), temelOku()]);
+    const [get] = await Promise.all([oku([yollar.go(), yollar.tur(65), yollar.sb()]), temelOku()]);
     if (!gecerli(my)) return;
     const doc = get(yollar.go());
     const now = Date.now();
-    goVeri = { doc, list: goListeleri(doc?.orders, now), lider: get(yollar.tur(65)) };
+    goVeri = { doc, list: goListeleri(doc?.orders, now), lider: get(yollar.tur(65)), sb: get(yollar.sb()) };
     goBoya();
   }
   function goBoya() {
-    const { doc, list, lider } = goVeri;
+    const { doc, list, lider, sb } = goVeri;
     if (!doc) { box.innerHTML = `<h1>Government Order</h1>${veriYok}`; return; }
     const alt = rota.go || durum.goAlt || (list.ilan.length ? 'ilan' : 'yuruyen');
     const say = { ilan: list.ilan.length, yuruyen: list.yuruyen.length, gecmis: list.gecmis.length, urunler: urunTalepleri(doc.orders).length };
@@ -390,6 +400,7 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
       <nav class="dg-sub" aria-label="Government Order bölümleri">${GO_ALT.map(sekme).join('')}</nav>
       ${govde}
       ${liderKarti(lider)}
+      ${goSeviyeKarti(sb)}
       ${botNotu(doc.t)}`;
   }
 
@@ -457,6 +468,16 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
         <td data-no-t>${esc(tarih(x.son))}</td><td>${fiyat(x.kind, 0) ? fmtPrice(fiyat(x.kind, 0)) : '<span class="dim">—</span>'}</td></tr>`).join('')}</tbody></table></div>`;
   }
 
+  // Şirketlerin GO seviyesi (oyunun şirket profilindeki governmentOrderTierIndex; şirket binaları taramasından)
+  function goSeviyeKarti(sb) {
+    const satir = Object.entries(sb?.go || {}).map(([k, n]) => [Number(k), n]).sort((a, b) => b[0] - a[0]);
+    if (!satir.length) return '';
+    const toplam = satir.reduce((a, x) => a + x[1], 0);
+    return `<section class="dg-card"><h2>Şirketlerin GO seviyesi</h2>
+      <p class="dg-note">Oyun her şirkete bir GO seviyesi verir; teklifin seviyesi ekipteki en büyük şirketin seviyesidir ve istenen miktarı belirler. Dağılım, botun taradığı şirketlerden.</p>
+      <div class="dg-wrap"><table><thead><tr><th class="l">GO seviyesi</th><th>Şirket</th><th>Pay</th></tr></thead><tbody>${satir.map(([k, n]) => `<tr><td class="l" data-no-t>T${k}</td><td>${NUM.format(n)}</td><td>${fmtShare(n / toplam)}</td></tr>`).join('')}</tbody></table></div></section>`;
+  }
+
   function liderKarti(doc) {
     const rows = doc?.rows?.slice(0, 12) || [];
     if (!rows.length) return '';
@@ -469,13 +490,13 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
   // ---- Binalar ----
   let binaVeri = null;
   async function binaCiz(my) {
-    const [get] = await Promise.all([oku([yollar.bina(), yollar.ihale(), yollar.evre(), yollar.sabit()]), temelOku()]);
+    const [get] = await Promise.all([oku([yollar.bina(), yollar.ihale(), yollar.evre(), yollar.sabit(), yollar.sb()]), temelOku()]);
     if (!gecerli(my)) return;
-    binaVeri = { bina: get(yollar.bina()), ihale: get(yollar.ihale()), evre: get(yollar.evre()), sabit: get(yollar.sabit()) };
+    binaVeri = { bina: get(yollar.bina()), ihale: get(yollar.ihale()), evre: get(yollar.evre()), sabit: get(yollar.sabit()), sb: get(yollar.sb()) };
     binaBoya();
   }
   function binaBoya() {
-    const { bina, ihale, evre, sabit } = binaVeri;
+    const { bina, ihale, evre, sabit, sb } = binaVeri;
     if (!bina && !ihale) { box.innerHTML = `<h1>Binalar</h1>${veriYok}`; return; }
     const days = (evre?.days || []).filter((d) => d[3] > 0);
     const sonGun = days.at(-1);
@@ -510,8 +531,25 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
           <td class="${tone(r.f1)}">${r.f1 == null ? '<span class="dim">—</span>' : signed(r.f1)}</td><td class="${tone(r.f7)}">${r.f7 == null ? '<span class="dim">—</span>' : signed(r.f7)}</td>
           <td>${r.cu == null ? '—' : NUM.format(r.cu)}</td><td>${sureMetni(r.sure)}</td>
           <td class="l ww"><div class="dg-cips">${r.urunler.slice(0, 8).map((id) => `<span class="dg-cip">${oyun(urun(id))}</span>`).join('')}${r.urunler.length > 8 ? `<span class="dg-cip" data-no-t>+${r.urunler.length - 8}</span>` : ''}</div></td></tr>`).join('')}</tbody></table></div></section>` : ''}
+      ${sirketBinaKarti(sb)}
       ${ihaleKarti(ihale)}
       ${botNotu(bina?.t ?? ihale?.t)}`;
+  }
+
+  // Şirketlerin binaları: botun günlük taramasından bina türü başına sahip şirket, toplam seviye ve en büyükler
+  function sirketBinaKarti(sb) {
+    const turler = sbTurleri(sb);
+    if (!turler.length) return '';
+    const sec = turler.find((x) => x.harf === durum.sbTur) || turler[0];
+    const top = sb.top?.[sec.harf] || [];
+    return `<section class="dg-card" data-sb><h2>Şirketlerin binaları</h2>
+      <p class="dg-note"><span>${esc(`Taranan şirket: ${NUM.format(sb.sirket)}${sb.toplam ? ` / ${NUM.format(sb.toplam)}` : ''}.`)}</span> <span>Bot sıralamadaki tüm şirketlerin herkese açık profilini günde bir tarar (büyükten küçüğe); bina seviyeleri oradan gelir. Bina türüne dokunun: en büyük sahipleri görün.</span></p>
+      <div class="dg-wrap"><table><thead><tr><th class="l">Bina</th><th>Sahip şirket</th><th>Bina sayısı</th><th>Toplam seviye</th><th>Ortalama seviye</th><th>En yüksek seviye</th></tr></thead>
+      <tbody>${turler.map((x) => `<tr data-sb-tur="${esc(x.harf)}" tabindex="0" role="button" aria-pressed="${x.harf === sec.harf}"${x.harf === sec.harf ? ' class="dg-sec"' : ''}><td class="l">${oyun(binaAdi(x.harf))}</td><td>${NUM.format(x.sirket)}</td><td>${NUM.format(x.bina)}</td><td>${NUM.format(x.seviye)}</td>
+        <td>${(x.seviye / x.bina).toLocaleString(LOCALE, { maximumFractionDigits: 1 })}</td><td>${NUM.format(x.enYuksek)}</td></tr>`).join('')}</tbody></table></div>
+      <h3>${oyun(binaAdi(sec.harf))}</h3>
+      <div class="dg-wrap"><table><thead><tr><th class="l">Sıra</th><th class="l">Şirket</th><th>Toplam seviye</th><th>Bina sayısı</th></tr></thead><tbody>${top.map((t, i) => `<tr><td class="l">${i + 1}</td><td class="l">${oyun(t[1])}<small class="alt" data-no-t>ID ${t[0]}</small></td><td>${NUM.format(t[2])}</td><td>${NUM.format(t[3])}</td></tr>`).join('')}</tbody></table></div>
+    </section>`;
   }
 
   const IHALE_SIRA = { kapanis: 6, teklif: 4, seviye: 2, garanti: 5 };
@@ -714,11 +752,15 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
     if (oa) { durum.ozetAralik = Number(oa.dataset.ozetAralik); return yenidenBoya(); }
     const em = e.target.closest('[data-evre-metrik]');
     if (em) { durum.evreMetrik = Number(em.dataset.evreMetrik); return yenidenBoya(); }
+    const sbt = e.target.closest('[data-sb-tur]');
+    if (sbt) { durum.sbTur = sbt.dataset.sbTur; yenidenBoya(); box.querySelector('[data-sb] h3')?.scrollIntoView({ block: 'nearest' }); return undefined; }
     const git = e.target.closest('[data-git]');
     if (git && !e.target.closest('a')) location.hash = git.dataset.git;
     return undefined;
   });
   box.addEventListener('keydown', (e) => {
+    const sbt = e.target.closest?.('[data-sb-tur]');
+    if (sbt && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); sbt.click(); return; }
     const git = e.target.closest?.('[data-git]');
     if (git && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); location.hash = git.dataset.git; }
   });

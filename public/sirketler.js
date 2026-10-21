@@ -11,6 +11,7 @@ import { LOCALE } from './i18n.js';
 import * as G from './sirket-gecmis.js';
 import * as Li from './sirket-liste.js';
 import * as Gr from './gruplar.js';
+import * as SB from './sirket-bina.js';
 import { esc } from './esc.js';
 
 const PAGE = 50;
@@ -197,7 +198,7 @@ const CSS_ESKI = `
 .sk-panel td.d { font-size: 13px; }
 .sk-panel a { color: var(--accent); }
 `;
-const CSS_TUMU = CSS + CSS_ESKI;
+const CSS_TUMU = CSS + CSS_ESKI + SB.CSS;
 
 async function yukle(realm) {
   const idx = dataField((await readDocs([PATHS.meta(`ranking_r${realm}`)])).get(PATHS.meta(`ranking_r${realm}`)));
@@ -557,6 +558,7 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
       <div data-gecmis></div>
       <div>${lines}</div>
       ${r[12] === 1 ? '' : '<p class="sk-note">Bu şirketin ayrıntıları (EVA, bina, patent, işçi, bono) henüz gelmedi; sonraki günlük güncellemede tamamlanabilir.</p>'}
+      <section data-binalar><p class="sk-note">Binaları yükleniyor…</p></section>
       <details class="sk-det"><summary>Gün gün tablo</summary><div data-gt-body></div>
         <p class="sk-note">Son ${G.GUN_SAYISI} gün; bot günde bir kez ekler. Ayrıntısı o gün gelmemiş şirketlerde "—" görünür.</p></details>
       <p class="sk-note">Veri: Simcotools${data.date ? ` · ${new Date(data.date).toLocaleDateString(LOCALE, { timeZone: 'UTC' })}` : ''}</p></div></div>`;
@@ -566,6 +568,9 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
     const my = r[0];
     G.gecmisYukle(realm, [my]).then((g) => { if (alive && sheet?.id === my) { sheet.gecmis = g.get(my) || []; gecmisCiz(); } })
       .catch(() => { if (alive && sheet?.id === my) { sheet.gecmis = []; gecmisCiz(); } });
+    const binaKutu = () => (alive && sheet?.id === my ? sheetHost.querySelector('[data-binalar]') : null);
+    SB.sirketBinalari(realm, my).then((k) => { const el = binaKutu(); if (el) el.innerHTML = SB.binalarHtml(k); })
+      .catch(() => { const el = binaKutu(); if (el) el.innerHTML = '<p class="sk-note">Binaları açılamadı. Biraz sonra tekrar deneyin.</p>'; });
   }
   sheetHost.addEventListener('click', (e) => {
     if (e.target.closest('[data-close]') || e.target.matches('[data-sheet-bg]')) return closeSheet();
