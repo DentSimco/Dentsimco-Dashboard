@@ -1732,6 +1732,7 @@ export default {
   'Kapanış zamanı': '结束时间',
   'Tutar ($)': '价值 ($)',
   // ---- Şirketlerin binaları (Şirketler › ayrıntı, Diğer › Binalar, GO seviyesi) ----
+  'Mevsimlik pazarların seviyesi profilde gösterilmez.': '季节性市场的等级不会在资料中显示。',
   'Üst kademedeki {0} binanın toplam seviyesi': '最高等级档的 {0} 栋建筑总等级',
   'Toplam seviye, profildeki yönetim giderinden hesaplanır (yönetim gideri = 1 + (toplam seviye − 1) ÷ 170). Akademi ve satın alınmış mevsimlik pazarlar dahildir; banka, dinlenme binaları ve oyunun ücretsiz verdiği ilk mevsimlik pazar dahil değildir. Üst kademedeki binaların toplamı, bu toplamdan alt kademedeki binaların olası seviyeleri çıkarılarak bulunur; bu yüzden bir aralıktır.': '总等级根据资料中的管理费用计算（管理费用 = 1 + (总等级 − 1) ÷ 170）。包含学院和已购买的季节性市场；不包含银行、休闲建筑以及游戏免费赠送的第一个季节性市场。最高等级档建筑的总和是用该总等级减去较低等级档建筑的可能等级得到的，因此是一个区间。',
   'Toplam seviye (kesin)': '总等级（精确）',

@@ -13,7 +13,7 @@ import { PATHS, readDocs, dataField, loadBasics, anlikFiyat, VeriHatasi, fmtPric
 import { DIL, LOCALE, DIL_ADLARI } from './i18n.js';
 import { binaAdi } from './adlar.js';
 import { urunAdi } from './urun-adlari.js';
-import { ustKademeler, kademeMetni, KADEME_NOTU } from './sirket-bina.js';
+import { ustKademeler, kademeMetni, mevsimlikMi, KADEME_NOTU, MEVSIMLIK_NOTU } from './sirket-bina.js';
 import { esc } from './esc.js';
 import * as G from './sirket-gecmis.js';
 import { PROJELER, GO_KURAL, BOLLUK, ADLAR_TR, ADLAR_EN } from './diger-adlar.js';
@@ -630,9 +630,9 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
     return `<section class="dg-card" data-sb><h2>Şirketlerin binaları</h2>
       <p class="dg-note">Bina türüne dokunun: en büyük sahipleri görün.</p>
       <div class="dg-wrap"><table><thead><tr><th class="l">Bina</th><th>Sahip şirket</th><th>Bina sayısı</th><th>Toplam seviye (en az)</th><th>Ortalama seviye (en az)</th><th>En yüksek kademe</th></tr></thead>
-      <tbody>${turler.map((x) => `<tr data-sb-tur="${esc(x.harf)}" tabindex="0" role="button" aria-pressed="${x.harf === sec.harf}"${x.harf === sec.harf ? ' class="dg-sec"' : ''}><td class="l">${oyun(binaAdi(x.harf))}</td><td>${NUM.format(x.sirket)}</td><td>${NUM.format(x.bina)}</td><td>${NUM.format(x.seviye)}</td>
-        <td>${(x.seviye / x.bina).toLocaleString(LOCALE, { maximumFractionDigits: 1 })}</td><td data-no-t>${kademeMetni(x.harf, x.enYuksek, ust)}</td></tr>`).join('')}</tbody></table></div>
-      <p class="dg-note">${KADEME_NOTU}</p>
+      <tbody>${turler.map((x) => `<tr data-sb-tur="${esc(x.harf)}" tabindex="0" role="button" aria-pressed="${x.harf === sec.harf}"${x.harf === sec.harf ? ' class="dg-sec"' : ''}><td class="l">${oyun(binaAdi(x.harf))}</td><td>${NUM.format(x.sirket)}</td><td>${NUM.format(x.bina)}</td>${mevsimlikMi(x.harf) ? '<td>—</td><td>—</td><td>—</td>' : `<td>${NUM.format(x.seviye)}</td>
+        <td>${(x.seviye / x.bina).toLocaleString(LOCALE, { maximumFractionDigits: 1 })}</td><td data-no-t>${kademeMetni(x.harf, x.enYuksek, ust)}</td>`}</tr>`).join('')}</tbody></table></div>
+      <p class="dg-note">${KADEME_NOTU} ${MEVSIMLIK_NOTU}</p>
       <h3>${oyun(binaAdi(sec.harf))}</h3>
       <div class="dg-wrap"><table><thead><tr><th class="l">Sıra</th><th class="l">Şirket</th><th>Toplam seviye (en az)</th><th>Bina sayısı</th><th>Şirketin toplam seviyesi (kesin)</th></tr></thead><tbody>${top.map((t, i) => `<tr><td class="l">${i + 1}</td><td class="l">${oyun(t[1])}<small class="alt" data-no-t>ID ${t[0]}</small></td><td>${NUM.format(t[2])}</td><td>${NUM.format(t[3])}</td><td>${t[4] == null ? '<span class="dim">—</span>' : NUM.format(t[4])}</td></tr>`).join('')}</tbody></table></div>
     </section>`;

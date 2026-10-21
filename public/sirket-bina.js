@@ -14,6 +14,10 @@ import { esc } from './esc.js';
 export const KADEME_NOTU = 'Oyunun herkese açık profili bina seviyesini görsel kademenin alt sınırıyla verir (1, 2, 3, 6, 10, 15; akademide 20 gibi): 15+ yazan bina 15 ya da daha yüksek seviyededir. Bina bazında gerçek seviye görünmez; tablodaki toplamlar ve ortalamalar en az değerlerdir, sıralamalar da bunlara göredir.';
 export const TOPLAM_NOTU = 'Toplam seviye, profildeki yönetim giderinden hesaplanır (yönetim gideri = 1 + (toplam seviye − 1) ÷ 170). Akademi ve satın alınmış mevsimlik pazarlar dahildir; banka, dinlenme binaları ve oyunun ücretsiz verdiği ilk mevsimlik pazar dahil değildir. Üst kademedeki binaların toplamı, bu toplamdan alt kademedeki binaların olası seviyeleri çıkarılarak bulunur; bu yüzden bir aralıktır.';
 export const PARCA = 128;
+// Mevsimlik pazarlara (Cadılar Bayramı, Yılbaşı, Plaj Bar, Bahar) profilde seviye basılmaz; boyut bilgi taşımaz (Halloween pazarı hep 3, Yılbaşı hep 1).
+export const MEVSIMLIK = new Set(['t', 'u', 'z', 'I']);
+export const mevsimlikMi = (harf) => MEVSIMLIK.has(harf);
+export const MEVSIMLIK_NOTU = 'Mevsimlik pazarların seviyesi profilde gösterilmez.';
 export const parcaYolu = (r, id) => PATHS.meta(`sb_r${r}_${String(Number(id) % PARCA).padStart(3, '0')}`);
 
 // Oyunun meşguliyet kodları (binanın o anki işi)
@@ -127,7 +131,7 @@ const signed = (x) => ISARETLI.format(x / 100);
 export function binalarHtml(k, now = Date.now(), ust = {}, sabit = null) {
   if (!k) return '<p class="sk-note">Bu şirketin bina bilgisi henüz yok.</p>';
   const gruplar = binaGruplari(k.b);
-  const toplamKademe = gruplar.reduce((a, g) => a + g.toplam, 0);
+  const toplamKademe = gruplar.reduce((a, g) => a + (mevsimlikMi(g.harf) ? 0 : g.toplam), 0);
   const sh = sabit ? seviyeHesabi(k, binaSabitleri(sabit)) : null;
   const ortMetni = (x) => NUM.format(Math.round(x * 10) / 10);
   const aralik = (a, u) => (u - a < 0.5 ? NUM.format(Math.round(u)) : `${NUM.format(Math.round(a))} – ${NUM.format(Math.round(u))}`);
@@ -148,9 +152,9 @@ export function binalarHtml(k, now = Date.now(), ust = {}, sabit = null) {
       ${k.sm != null ? kv('Satış değiştiricisi', `<span data-no-t>${signed(k.sm)}</span>`) : ''}
     </div>
     ${gruplar.length ? `<div class="sk-wrap"><table class="sb-t"><thead><tr><th class="l">Bina</th><th>Adet</th><th>Toplam seviye (en az)</th><th class="l">Kademeler</th><th class="l">Durum</th></tr></thead><tbody>${gruplar.map((g) => `<tr>
-      <td class="l">${esc(binaAdi(g.harf))}${g.luks ? ' <span class="sb-durum">Lüks</span>' : ''}</td><td>${g.adet}</td><td>${g.toplam}</td>
-      <td class="l" data-no-t>${g.seviyeler.map((v) => kademeMetni(g.harf, v, ust)).join(', ')}</td><td class="l">${mesgulMetni(g)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="sk-note">Şirketin binası yok.</p>'}
-    <p class="sk-note">${KADEME_NOTU}</p>
+      <td class="l">${esc(binaAdi(g.harf))}${g.luks ? ' <span class="sb-durum">Lüks</span>' : ''}</td><td>${g.adet}</td><td>${mevsimlikMi(g.harf) ? '—' : g.toplam}</td>
+      <td class="l" data-no-t>${mevsimlikMi(g.harf) ? '—' : g.seviyeler.map((v) => kademeMetni(g.harf, v, ust)).join(', ')}</td><td class="l">${mesgulMetni(g)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="sk-note">Şirketin binası yok.</p>'}
+    <p class="sk-note">${KADEME_NOTU}${gruplar.some((g) => mevsimlikMi(g.harf)) ? ` ${MEVSIMLIK_NOTU}` : ''}</p>
     ${sh ? `<p class="sk-note">${TOPLAM_NOTU}</p>` : ''}
     <p class="sk-note"><span>${esc(`Tarama: ${fmtDateTime(k.t)}.`)}</span> <span>Kaynak: oyunun herkese açık şirket profili; binada üretilen ürün profilde görünmez.</span></p>`;
 }
