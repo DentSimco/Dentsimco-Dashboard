@@ -637,7 +637,7 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
     const sec = turler.find((x) => x.harf === durum.sbTur) || turler[0];
     const top = sb.top?.[sec.harf] || [];
     return `<section class="dg-card" data-sb><h2>Şirketlerin binaları</h2>
-      <p class="dg-note"><span>${esc(`Taranan şirket: ${NUM.format(sb.sirket)}${sb.toplam ? ` / ${NUM.format(sb.toplam)}` : ''}.`)}</span> <span>Bina türüne dokunun: en büyük sahipleri görün.</span></p>
+      <p class="dg-note">Bina türüne dokunun: en büyük sahipleri görün.</p>
       <div class="dg-wrap"><table><thead><tr><th class="l">Bina</th><th>Sahip şirket</th><th>Bina sayısı</th><th>Toplam seviye</th><th>Ortalama seviye</th><th>En yüksek seviye</th></tr></thead>
       <tbody>${turler.map((x) => `<tr data-sb-tur="${esc(x.harf)}" tabindex="0" role="button" aria-pressed="${x.harf === sec.harf}"${x.harf === sec.harf ? ' class="dg-sec"' : ''}><td class="l">${oyun(binaAdi(x.harf))}</td><td>${NUM.format(x.sirket)}</td><td>${NUM.format(x.bina)}</td><td>${NUM.format(x.seviye)}</td>
         <td>${(x.seviye / x.bina).toLocaleString(LOCALE, { maximumFractionDigits: 1 })}</td><td>${NUM.format(x.enYuksek)}</td></tr>`).join('')}</tbody></table></div>

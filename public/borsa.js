@@ -507,8 +507,8 @@ export function mountBorsa(root, { realm = 0 } = {}) {
 
   function emptyMessage() {
     return range().kind === 'daily'
-      ? 'Bu aralık için günlük özet henüz yok. Bot her gece bir önceki günü ekler.'
-      : 'Bu aralıkta ölçüm yok. Bot 5 dakikada bir ölçer.';
+      ? 'Bu aralık için günlük özet henüz yok.'
+      : 'Bu aralıkta ölçüm yok.';
   }
 
   function chartLabel() {
@@ -634,7 +634,7 @@ export function mountBorsa(root, { realm = 0 } = {}) {
     const rg = range();
     const bars = rg.kind === 'daily' ? 'Her sütun bir günün satışı.'
       : rg.bucket ? 'Her sütun 2 saatlik satış.' : 'Her sütun iki nokta arası (yaklaşık 10 dk) satış.';
-    const few = rg.kind === 'daily' && shown.xs.length <= 3 ? ' Günlük geçmiş, bot her gece bir gün ekledikçe uzar.' : '';
+    const few = rg.kind === 'daily' && shown.xs.length <= 3 ? ' Günlük geçmiş her gün biraz daha uzar.' : '';
     el.foot.textContent = `${bars} Borsa fiyatı, kalitesi seçilen kalite ve üstü olan satış emirlerinin en ucuzudur (anlık, grafikte basamaklı çizgi); son işlem fiyatı kalitedeki son işlemin fiyatıdır. Günlük kapanış son işlem fiyatıdır. Lot, işlem hacmi ve VWAP gün içinde 5 dakikalık mumlardan tahmin edilir; tamamlanan günlerin değerleri kesindir. Gün sınırı UTC gece yarısı (senin saatinle ${fmtTime(dayStart(utcDay(now)))}).${few}`;
   }
 

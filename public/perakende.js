@@ -518,7 +518,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   }
 
   const headChips = (c) => `<div class="ur-chips">${chip(`Toplam satış bonusu ${pctText(c.bonusPct)}`, c.bonusPct > 0 ? '' : 'muted')}${chip(`Yönetim gideri ${pctText(c.ctx.adminNet * 100)}`, 'muted')}
-    ${data.hasRetailInfo ? '' : chip('Doygunluk botta yok', 'down')}</div>`;
+    ${data.hasRetailInfo ? '' : chip('Doygunluk verisi yok', 'down')}</div>`;
 
   function phaseNote(c) {
     const g = data.gamePhase;
@@ -620,7 +620,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     return `
       ${guideCard({ title: 'Perakende', lead: 'Mağazalarınızın hangi ürünle ne kadar kazandıracağını hesaplar. PPHPL, bir bina seviyesinin saatlik kârıdır (maaş düşülmüş).',
         chips: [[`Toplam satış bonusu ${pctText(c.bonusPct)}`, c.bonusPct > 0 ? '' : 'muted'], [`Yönetim gideri ${pctText(c.ctx.adminNet * 100)}`, 'muted'],
-          data.hasRetailInfo ? null : ['Doygunluk botta yok', 'down']] })}
+          data.hasRetailInfo ? null : ['Doygunluk verisi yok', 'down']] })}
       ${setup.buildings.length ? `<div class="ur-stats">
         <div class="ur-stat"><span>Günlük kâr</span><span class="${cls(t.profitDay)}">${money(t.profitDay)}</span></div>
         <div class="ur-stat"><span>Toplam maaş</span><span>${money(t.wagesDay)}</span></div>
@@ -786,7 +786,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       `Satış hızı: kurulum ${pctText(c.baseSpeed)}, ekip ${pctText(c.teamPct)}; hesapta toplam ${pctText(c.bonusPct)}.`,
       setup.restoran.items.length ? `Restoran: ${setup.restoran.gorunum === 'simdi' ? 'son döngü doluluğu ve mevcut rating' : 'beklenen rating ve doluluk'} ile hesaplandı; yönetim gideri ve satış hızı mağazalarla ortaktır.` : null,
       'Satış ofisi bu hesaba girmez.',
-      data.hasRetailInfo ? null : 'Doygunluk (talep) verisi botta bulunamadı; hesaplar eksik olabilir.',
+      data.hasRetailInfo ? null : 'Doygunluk (talep) verisi bulunamadı; hesaplar eksik olabilir.',
       'Vergi (muhasebe ücreti) kâra dahil değil; nakde bağlıdır. Günlük vergi ve muhasebecinin değeri bu sayfadaki Yönetim ve vergi kartında.',
     ].filter(Boolean);
 
