@@ -1732,11 +1732,12 @@ export default {
   'Kapanış zamanı': '结束时间',
   'Tutar ($)': '价值 ($)',
   // ---- Şirketlerin binaları (Şirketler › ayrıntı, Diğer › Binalar, GO seviyesi) ----
+  'Üst kademedeki {0} binanın toplam seviyesi': '最高等级档的 {0} 栋建筑总等级',
+  'Toplam seviye, profildeki yönetim giderinden hesaplanır (yönetim gideri = 1 + (toplam seviye − 1) ÷ 170). Akademi ve satın alınmış mevsimlik pazarlar dahildir; banka, dinlenme binaları ve oyunun ücretsiz verdiği ilk mevsimlik pazar dahil değildir. Üst kademedeki binaların toplamı, bu toplamdan alt kademedeki binaların olası seviyeleri çıkarılarak bulunur; bu yüzden bir aralıktır.': '总等级根据资料中的管理费用计算（管理费用 = 1 + (总等级 − 1) ÷ 170）。包含学院和已购买的季节性市场；不包含银行、休闲建筑以及游戏免费赠送的第一个季节性市场。最高等级档建筑的总和是用该总等级减去较低等级档建筑的可能等级得到的，因此是一个区间。',
   'Toplam seviye (kesin)': '总等级（精确）',
   'Üst kademedeki binaların ortalama seviyesi': '最高等级档建筑的平均等级',
   'Şirketin toplam seviyesi (kesin)': '公司总等级（精确）',
   'Oyunun herkese açık profili bina seviyesini görsel kademenin alt sınırıyla verir (1, 2, 3, 6, 10, 15; akademide 20 gibi): 15+ yazan bina 15 ya da daha yüksek seviyededir. Bina bazında gerçek seviye görünmez; tablodaki toplamlar ve ortalamalar en az değerlerdir, sıralamalar da bunlara göredir.': '游戏的公开资料以建筑外观等级档的下限给出建筑等级（1、2、3、6、10、15；学院最高 20）：显示为 15+ 的建筑等级为 15 或更高。单栋建筑的真实等级不可见；表中的总数和平均值均为最小值，排名也按这些值计算。',
-  'Toplam seviye, profildeki yönetim giderinden hesaplanır (yönetim gideri = 1 + (toplam seviye − 1) ÷ 170) ve dinlenme binaları, mevsimlik pazarlar ve akademi hariç tüm binaları kapsar. Üst kademedeki binaların ortalaması bu toplamdan alt kademedeki binaların olası seviyeleri çıkarılarak bulunur; bu yüzden bir aralıktır.': '总等级根据资料中的管理费用计算（管理费用 = 1 + (总等级 − 1) ÷ 170），涵盖除休闲建筑、季节性市场和学院以外的所有建筑。最高等级档建筑的平均值是用该总数减去较低等级档建筑的可能等级得到的，因此是一个区间。',
   'Toplam seviye (en az)': '总等级（至少）',
   'Kademeler': '等级档',
   'Ortalama seviye (en az)': '平均等级（至少）',

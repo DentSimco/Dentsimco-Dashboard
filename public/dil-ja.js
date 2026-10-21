@@ -1732,11 +1732,12 @@ export default {
   'Kapanış zamanı': '終了日時',
   'Tutar ($)': '価値 ($)',
   // ---- Şirketlerin binaları (Şirketler › ayrıntı, Diğer › Binalar, GO seviyesi) ----
+  'Üst kademedeki {0} binanın toplam seviyesi': '最上位ティアの建物 {0} 棟の合計レベル',
+  'Toplam seviye, profildeki yönetim giderinden hesaplanır (yönetim gideri = 1 + (toplam seviye − 1) ÷ 170). Akademi ve satın alınmış mevsimlik pazarlar dahildir; banka, dinlenme binaları ve oyunun ücretsiz verdiği ilk mevsimlik pazar dahil değildir. Üst kademedeki binaların toplamı, bu toplamdan alt kademedeki binaların olası seviyeleri çıkarılarak bulunur; bu yüzden bir aralıktır.': '合計レベルはプロフィールの管理費から計算されます（管理費 = 1 + (合計レベル − 1) ÷ 170）。アカデミーと購入した季節限定マーケットを含み、銀行、レクリエーション建物、ゲームが無料で与える最初の季節限定マーケットは含みません。最上位ティアの建物の合計は、この合計レベルから下位ティアの建物の取りうるレベルを差し引いて求めるため、幅のある値になります。',
   'Toplam seviye (kesin)': '合計レベル（正確）',
   'Üst kademedeki binaların ortalama seviyesi': '最上位ティアの建物の平均レベル',
   'Şirketin toplam seviyesi (kesin)': '企業の合計レベル（正確）',
   'Oyunun herkese açık profili bina seviyesini görsel kademenin alt sınırıyla verir (1, 2, 3, 6, 10, 15; akademide 20 gibi): 15+ yazan bina 15 ya da daha yüksek seviyededir. Bina bazında gerçek seviye görünmez; tablodaki toplamlar ve ortalamalar en az değerlerdir, sıralamalar da bunlara göredir.': 'ゲームの公開プロフィールは、建物のレベルを見た目のティアの下限値で示します（1、2、3、6、10、15。アカデミーは最大 20）。15+ と表示される建物はレベル 15 以上です。個々の建物の実際のレベルは見えません。表の合計と平均は最低値であり、ランキングもこの値に基づきます。',
-  'Toplam seviye, profildeki yönetim giderinden hesaplanır (yönetim gideri = 1 + (toplam seviye − 1) ÷ 170) ve dinlenme binaları, mevsimlik pazarlar ve akademi hariç tüm binaları kapsar. Üst kademedeki binaların ortalaması bu toplamdan alt kademedeki binaların olası seviyeleri çıkarılarak bulunur; bu yüzden bir aralıktır.': '合計レベルはプロフィールの管理費から計算されます（管理費 = 1 + (合計レベル − 1) ÷ 170）。レクリエーション建物、季節限定マーケット、アカデミーを除くすべての建物が対象です。最上位ティアの建物の平均は、この合計から下位ティアの建物の取りうるレベルを差し引いて求めるため、幅のある値になります。',
   'Toplam seviye (en az)': '合計レベル（最低）',
   'Kademeler': 'ティア',
   'Ortalama seviye (en az)': '平均レベル（最低）',

@@ -1732,11 +1732,12 @@ export default {
   'Kapanış zamanı': 'Закрывается',
   'Tutar ($)': 'Стоимость ($)',
   // ---- Şirketlerin binaları (Şirketler › ayrıntı, Diğer › Binalar, GO seviyesi) ----
+  'Üst kademedeki {0} binanın toplam seviyesi': 'Общий уровень {0} зданий высшего диапазона',
+  'Toplam seviye, profildeki yönetim giderinden hesaplanır (yönetim gideri = 1 + (toplam seviye − 1) ÷ 170). Akademi ve satın alınmış mevsimlik pazarlar dahildir; banka, dinlenme binaları ve oyunun ücretsiz verdiği ilk mevsimlik pazar dahil değildir. Üst kademedeki binaların toplamı, bu toplamdan alt kademedeki binaların olası seviyeleri çıkarılarak bulunur; bu yüzden bir aralıktır.': 'Общий уровень рассчитывается по административным расходам из профиля (расходы = 1 + (общий уровень − 1) ÷ 170). Он включает академию и купленные сезонные рынки; не включает банк, здания отдыха и первый сезонный рынок, который игра выдаёт бесплатно. Сумма по зданиям высшего диапазона находится вычитанием из этого общего уровня возможных уровней зданий более низких диапазонов; поэтому это интервал.',
   'Toplam seviye (kesin)': 'Общий уровень (точно)',
   'Üst kademedeki binaların ortalama seviyesi': 'Средний уровень зданий высшего диапазона',
   'Şirketin toplam seviyesi (kesin)': 'Общий уровень компании (точно)',
   'Oyunun herkese açık profili bina seviyesini görsel kademenin alt sınırıyla verir (1, 2, 3, 6, 10, 15; akademide 20 gibi): 15+ yazan bina 15 ya da daha yüksek seviyededir. Bina bazında gerçek seviye görünmez; tablodaki toplamlar ve ortalamalar en az değerlerdir, sıralamalar da bunlara göredir.': 'Публичный профиль игры показывает уровень здания как нижнюю границу его визуального диапазона (1, 2, 3, 6, 10, 15; у академии до 20): здание с пометкой 15+ имеет уровень 15 или выше. Настоящий уровень отдельного здания не виден; суммы и средние значения в таблицах — минимальные, а рейтинги строятся по ним.',
-  'Toplam seviye, profildeki yönetim giderinden hesaplanır (yönetim gideri = 1 + (toplam seviye − 1) ÷ 170) ve dinlenme binaları, mevsimlik pazarlar ve akademi hariç tüm binaları kapsar. Üst kademedeki binaların ortalaması bu toplamdan alt kademedeki binaların olası seviyeleri çıkarılarak bulunur; bu yüzden bir aralıktır.': 'Общий уровень рассчитывается по административным расходам из профиля (расходы = 1 + (общий уровень − 1) ÷ 170) и охватывает все здания, кроме зданий отдыха, сезонных рынков и академии. Среднее по зданиям высшего диапазона находится вычитанием из этой суммы возможных уровней зданий более низких диапазонов; поэтому это интервал.',
   'Toplam seviye (en az)': 'Общий уровень (минимум)',
   'Kademeler': 'Диапазоны',
   'Ortalama seviye (en az)': 'Средний уровень (минимум)',

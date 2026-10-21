@@ -164,32 +164,44 @@ t('kademe: profildeki değer gerçek seviye değil; en yüksek kademe "+" ile ya
   assert.deepEqual(ust, { r: 15, y: 20 });
   assert.equal(kademeMetni('r', 15, ust), '15+');
   assert.equal(kademeMetni('r', 10, ust), '10');
-  assert.equal(kademeMetni('y', 20, ust), '20+');
+  assert.equal(kademeMetni('y', 20, ust), '20', 'akademinin sınırı 20: kesin');
   assert.equal(kademeMetni('v', 50, ust), '50', 'kademesi olmayan binada değer gerçek seviyedir');
   const h = binalarHtml({ n: 'A', t: 0, b: [['r', 15, null, null, 0]] }, 0, ust);
   assert.match(h, /15\+/);
   assert.match(h, /Bina bazında gerçek seviye görünmez/);
 });
 
-t('kesin toplam seviye yönetim giderinden; üst kademe ortalaması aralık olarak', () => {
+t('kesin toplam seviye yönetim giderinden: akademi dahil; banka, dinlenme ve ücretsiz pazar hariç; üst kademe toplamı aralık', () => {
   assert.equal(toplamSeviye(3.0235294117647058), 345);
   assert.equal(toplamSeviye(null), null);
-  const sabit = { a: { dbLetter: '6', category: 'production', levelImages: [1, 2, 3, 6, 10, 15].map((level) => ({ level })) }, b: { dbLetter: 'y', category: 'other', levelImages: [1, 5, 10, 15, 20].map((level) => ({ level })) },
-    c: { dbLetter: 't', category: 'seasonal', levelImages: [{ level: 1 }, { level: 3 }] }, d: { dbLetter: '3', category: 'recreation', levelImages: [{ level: 1 }, { level: 3 }] } };
-  // Dentium Citrosuco: 14 içecek fabrikası 15+, akademi 20, Halloween pazarı 3, tapınak 3; yönetim gideri 3,0235…
-  const b = [...Array(14)].map(() => ['6', 15, null, null, 0]).concat([['y', 20, null, null, 0], ['t', 3, null, null, 0], ['3', 3, 'b', 1, 0]]);
-  const h = seviyeHesabi({ ao: 3.0235294117647058, b }, binaSabitleri(sabit));
-  assert.equal(h.L, 345);
-  assert.equal(h.ustAdet, 14);
-  assert.equal(Math.round(h.ortAlt * 100) / 100, 24.64);
-  assert.equal(h.ortAlt, h.ortUst, 'alt kademede boşluk yoksa aralık tek değer');
-  // Alt kademede boşluk varsa aralık açılır: 6 → en çok 9 (3 fazla seviye olabilir)
-  const h2 = seviyeHesabi({ ao: 1 + (15 + 6 + 20 - 1) / 170, b: [['6', 15], ['6', 6]] }, binaSabitleri(sabit));
-  assert.equal(h2.L, 41);
-  assert.deepEqual([h2.ortAlt, h2.ortUst], [15 + (41 - 21 - 3), 15 + (41 - 21)], 'aralık: boşluk 3');
-  assert.equal(seviyeHesabi({ ao: 1, b: [['6', 15]] }, binaSabitleri(sabit)).ortAlt, null, 'tutarsız veri (L < kademe toplamı): ortalama verilmez');
-  assert.equal(seviyeHesabi({ ao: null, b }, binaSabitleri(sabit)), null);
-  assert.equal(seviyeHesabi({ ao: 3, b: [['6', 10]] }, binaSabitleri(sabit)).ustAdet, 0, 'üst kademede bina yoksa ortalama yok');
+  const lv = (...l) => l.map((level) => ({ level }));
+  const sabit = binaSabitleri({
+    a: { dbLetter: '6', category: 'production', levelImages: lv(1, 2, 3, 6, 10, 15) }, b: { dbLetter: 'y', category: 'other', levelImages: lv(1, 5, 10, 15, 20) },
+    n: { dbLetter: 'n', category: 'other', levelImages: lv(1, 2, 3, 6, 10, 15) }, c: { dbLetter: 't', category: 'seasonal', levelImages: lv(1, 2, 3) },
+    d: { dbLetter: '3', category: 'recreation', levelImages: lv(1, 2, 3) }, e: { dbLetter: 'l', category: 'production', levelImages: lv(1, 2, 3, 6, 10, 15) },
+  });
+  const ao = (L) => 1 + (L - 1) / 170;
+  // 14 içecek fabrikası 15+, akademi 20, banka 15+ (sayılmaz), tapınak (sayılmaz), ücretsiz pazar (sayılmaz): L = 345
+  const bina = [...Array(14)].map(() => ['6', 15, null, null, 0, 0]).concat([['y', 20, null, null, 0, 0], ['n', 15, null, null, 0, 0], ['3', 3, 'b', 1, 0, 0], ['t', 3, null, null, 0, 1]]);
+  const h = seviyeHesabi({ ao: ao(345), b: bina }, sabit);
+  assert.deepEqual([h.L, h.ustAdet, h.ustAlt, h.ustUst, h.tekTur, h.tutarsiz], [345, 14, 325, 325, '6', false]);
+  // Alt kademede boşluk: 6 → en çok 9 (3 fazla seviye olabilir): üst kademe toplamı aralık
+  const h2 = seviyeHesabi({ ao: ao(50), b: [['6', 15, null, null, 0, 0], ['6', 6, null, null, 0, 0], ['y', 20, null, null, 0, 0]] }, sabit);
+  assert.deepEqual([h2.L, h2.ustAlt, h2.ustUst], [50, 21, 24], 'fazla 9: 3\'ü alt kademedeki 6\'ya sığabilir, en az 6\'sı üst kademede');
+  // Satın alınmış mevsimlik pazar en az 1 sayılır, üst sınırı yok; ücretsiz olan sayılmaz (bayraksız eski kayıtta biri ücretsiz varsayılır)
+  const pazar = seviyeHesabi({ ao: ao(40), b: [['t', 3, null, null, 0, 1], ['t', 3, null, null, 0, 0], ['t', 3, null, null, 0, 0]] }, sabit);
+  assert.deepEqual([pazar.ustAdet, pazar.ustAlt, pazar.ustUst, pazar.tekTur], [2, 40, 40, 't']);
+  const eski = seviyeHesabi({ ao: ao(40), b: [['t', 3], ['t', 3], ['t', 3]] }, sabit);
+  assert.deepEqual([eski.ustAdet, eski.ustUst], [2, 40]);
+  // Fırlatma rampası en çok 10: 10 yazan bina kesindir (üst kademe değil); 6 → en çok 9 değil 10 sınırına kadar
+  const ramp = seviyeHesabi({ ao: ao(30), b: [['l', 10, null, null, 0, 0], ['l', 6, null, null, 0, 0]] }, sabit);
+  assert.deepEqual([ramp.ustAdet, ramp.tutarsiz], [0, true], 'L=30 iki rampaya sığmaz: tutarsız veri işaretlenir');
+  assert.equal(seviyeHesabi({ ao: ao(16), b: [['l', 10, null, null, 0, 0], ['l', 6, null, null, 0, 0]] }, sabit).tutarsiz, false);
+  assert.equal(seviyeHesabi({ ao: 1, b: [['t', 3, null, null, 0, 1]] }, sabit).ustAdet, 0, 'boş şirket');
+  assert.equal(seviyeHesabi({ ao: null, b: bina }, sabit), null);
+  assert.equal(kademeMetni('y', 20, { y: 20 }), '20', 'üst sınırı olan bina "+" almaz');
+  assert.equal(kademeMetni('n', 15, { n: 15 }), '15+', 'banka 40\'a kadar çıkar');
+  assert.equal(kademeMetni('l', 10, { l: 15 }), '10');
 });
 
 console.log(`${n}/${n} test geçti.`);
