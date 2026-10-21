@@ -349,7 +349,7 @@ const TEMPLATE = `
     <h2 class="quality-title">Kaliteler, bugün</h2>
     <div class="table-wrap">
       <table class="qt">
-        <thead><tr><th scope="col">Kalite</th><th scope="col">Borsa fiyatı</th><th scope="col">Son işlem</th><th scope="col">Derinlik</th><th scope="col">Lot</th><th scope="col">VWAP</th><th scope="col">Pay</th></tr></thead>
+        <thead><tr><th scope="col">Kalite</th><th scope="col">Borsa fiyatı</th><th scope="col">Son işlem</th><th scope="col">Derinlik</th><th scope="col">Lot</th><th scope="col">İşlem Hacmi ($)</th><th scope="col">VWAP</th><th scope="col">Pay</th></tr></thead>
         <tbody data-el="rows"></tbody>
         <tfoot data-el="total"></tfoot>
       </table>
@@ -663,11 +663,11 @@ export function mountBorsa(root, { realm = 0 } = {}) {
       return `<tr data-q="${q}" class="${q === sel ? 'sel' : ''}${none ? ' none' : ''}">`
         + `<th scope="row"><button type="button" data-q="${q}" aria-pressed="${q === sel}">Q${q}</button></th>`
         + `<td class="ask">${fmtPrice(k)}${k != null && snap?.askT && nowT - snap.askT > ASK_LIVE_MS ? `<small class="ago" title="Borsa fiyatının ölçüldüğü zaman">${agoShort(snap.askT, nowT)}</small>` : ''}</td>`
-        + `<td>${fmtPrice(p)}${p != null && Number.isFinite(lt) ? `<small class="ago" title="Son işlem">${agoShort(lt, nowT)}</small>` : ''}</td><td>${fmtNum(a)}</td><td>${fmtNum(s)}</td><td>${fmtPrice(s > 0 ? v / s : null)}</td>`
+        + `<td>${fmtPrice(p)}${p != null && Number.isFinite(lt) ? `<small class="ago" title="Son işlem">${agoShort(lt, nowT)}</small>` : ''}</td><td>${fmtNum(a)}</td><td>${fmtNum(s)}</td><td>${fmtNum(v)}</td><td>${fmtPrice(s > 0 ? v / s : null)}</td>`
         + `<td class="share">${bar}${fmtShare(share)}</td></tr>`;
     }).join('');
     el.total.innerHTML = `<tr><th scope="row">Tümü</th><td></td><td></td><td>${arzSeen ? fmtNum(totA) : '—'}</td>`
-      + `<td>${tracked ? fmtNum(totS) : '—'}</td><td title="Farklı kaliteler karışacağı için ortalama fiyat gösterilmez">—</td>`
+      + `<td>${tracked ? fmtNum(totS) : '—'}</td><td>${tracked ? fmtNum(totV) : '—'}</td><td title="Farklı kaliteler karışacağı için ortalama fiyat gösterilmez">—</td>`
       + `<td>${tracked && totS > 0 ? fmtShare(1) : '—'}</td></tr>`;
   }
 
