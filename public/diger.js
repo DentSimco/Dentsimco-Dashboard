@@ -13,7 +13,7 @@ import { PATHS, readDocs, dataField, loadBasics, anlikFiyat, VeriHatasi, fmtPric
 import { DIL, LOCALE, DIL_ADLARI } from './i18n.js';
 import { binaAdi } from './adlar.js';
 import { urunAdi } from './urun-adlari.js';
-import { ustKademeler, kademeMetni, mevsimlikMi, KADEME_NOTU, MEVSIMLIK_NOTU } from './sirket-bina.js';
+import { mevsimlikMi, KADEME_NOTU, MEVSIMLIK_NOTU } from './sirket-bina.js';
 import { esc } from './esc.js';
 import * as G from './sirket-gecmis.js';
 import { PROJELER, GO_KURAL, BOLLUK, ADLAR_TR, ADLAR_EN } from './diger-adlar.js';
@@ -189,44 +189,37 @@ export function aykiriAt(noktalar) {
 }
 
 // ---- Bina (saf) ----
-// Gün anahtarları (YYYYMMDD) arasında bugünden önceki en yakın gün; yoksa null
-function oncekiGun(hist, gun, enAzFark) {
-  const keys = Object.keys(hist || {}).map(Number).filter((d) => d < gun).sort((a, b) => b - a);
-  const hedef = enAzFark ? gunEkle(gun, -enAzFark) : null;
-  return (hedef ? keys.find((d) => d <= hedef) : keys[0]) ?? null;
-}
-export function gunEkle(gun, n) {
-  const d = new Date(Date.UTC(Math.floor(gun / 10000), Math.floor(gun / 100) % 100 - 1, gun % 100) + n * DAY);
-  return d.getUTCFullYear() * 10000 + (d.getUTCMonth() + 1) * 100 + d.getUTCDate();
-}
 const KATEGORI = { production: 'Üretim', sales: 'Satış', research: 'Araştırma', recreation: 'Dinlenme', seasonal: 'Mevsimlik', other: 'Diğer' };
 export const kategoriAdi = (k) => KATEGORI[k] || k || '—';
-
-// Bina tablosu satırları: [{harf, kat, n, pay, f1 (dünden fark), f7 (7 gün önceden fark), cu, sure, urunler}]
-export function binaSatirlari(bina, sabitler, products) {
-  const hist = bina?.hist || {};
-  const gun = Number(bina?.date) || null;
-  const d1 = gun && oncekiGun(hist, gun, 1);
-  const d7 = gun && oncekiGun(hist, gun, 7);
-  const urunSay = {};
-  for (const p of Object.values(products || {})) if (p?.building) (urunSay[p.building] ||= []).push(p.id);
-  const sabit = {};
-  for (const b of Object.values(sabitler || {})) if (b?.dbLetter != null) sabit[b.dbLetter] = b;
-  return Object.entries(bina?.counts || {}).map(([harf, [n, pay]]) => ({
-    harf, n, pay,
-    kat: sabit[harf]?.category || null,
-    f1: d1 && hist[d1]?.[harf] != null ? n - hist[d1][harf] : null,
-    f7: d7 && hist[d7]?.[harf] != null ? n - hist[d7][harf] : null,
-    cu: sabit[harf]?.costUnits ?? null,
-    sure: sabit[harf]?.buildDuration ?? null,
-    urunler: urunSay[harf] || [],
-  }));
-}
 
 // Şirket binaları özeti (meta/sb_ozet_r) → [{harf, sirket, bina, seviye, enYuksek}] toplam seviyeye göre
 export function sbTurleri(sb) {
   return Object.entries(sb?.kinds || {}).map(([harf, [sirket, bina, seviye, enYuksek]]) => ({ harf, sirket, bina, seviye, enYuksek }))
     .filter((x) => x.bina > 0).sort((a, b) => b.seviye - a.seviye || b.sirket - a.sirket);
+}
+
+// Bina türleri tablosu (realm sayıları + şirketlerdeki seviyeler tek satırda). bina: meta/bina_r (counts: {harf: [sayı, pay]}), sb: meta/sb_ozet_r (kinds),
+// sabit: meta/buildings. Satır: {harf, kat, n (realmdaki sayı), pay, sirket (sahip şirket), ort (taranan şirketlerdeki ortalama seviye, en az)};
+// mevsimlik pazarlarda seviye yoktur (profilde gösterilmez), bilgi yoksa null.
+export function binaTurleri(bina, sb, sabit) {
+  const kat = {};
+  for (const b of Object.values(sabit || {})) if (b?.dbLetter != null) kat[b.dbLetter] = b.category || null;
+  const sk = Object.fromEntries(sbTurleri(sb).map((x) => [x.harf, x]));
+  return Object.entries(bina?.counts || {}).map(([harf, [n, pay]]) => {
+    const x = sk[harf];
+    const seviyeli = x && !mevsimlikMi(harf);
+    return { harf, kat: kat[harf] ?? null, n, pay, sirket: x ? x.sirket : null, seviye: seviyeli ? x.seviye : null, ort: seviyeli && x.bina > 0 ? x.seviye / x.bina : null };
+  });
+}
+// Sütuna göre sıralama (yön 1 artan, -1 azalan); bina ve kategori adları dile göre, boş değerler hep sonda
+export function binaSirala(rows, anahtar, yon, ad = (r) => r.harf, kategori = (r) => r.kat) {
+  const deger = (r) => (anahtar === 'harf' ? ad(r) : anahtar === 'kat' ? kategori(r) : r[anahtar]);
+  return [...rows].sort((a, b) => {
+    const x = deger(a); const y = deger(b);
+    if (x == null || y == null) return x == null && y == null ? b.n - a.n : x == null ? 1 : -1;
+    const c = typeof x === 'string' ? String(x).localeCompare(String(y), LOCALE) : x - y;
+    return c * yon || b.n - a.n;
+  });
 }
 
 // Bolluk düzeyinin alt eşiği (%): oyundaki adlar (Exceptional, VeryGood…)
@@ -254,7 +247,6 @@ const tarih = (ms) => (Number.isFinite(ms) ? new Date(ms).toLocaleDateString(LOC
 const oyun = (s) => `<span data-no-t>${esc(s)}</span>`; // oyundan gelen ad: çeviri katmanı dokunmaz
 const NADIR = new Intl.NumberFormat(LOCALE, { style: 'percent', maximumSignificantDigits: 2 });
 const nadirlik = (x) => (x == null || !Number.isFinite(x) ? '—' : NADIR.format(x));
-const sureMetni = (sn) => (sn == null ? '—' : sn >= 3600 ? `${Math.round(sn / 360) / 10} sa` : `${Math.round(sn / 60)} dk`);
 
 const CSS = G.GRAFIK_CSS + `
 .dg { max-width: 1100px; margin: 0 auto; padding: 8px 14px 40px; display: flex; flex-direction: column; gap: 12px; }
@@ -318,6 +310,7 @@ const CSS = G.GRAFIK_CSS + `
 .dg-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
 .dg-evre { font: 600 24px var(--font-c); }
 .dg tr.dg-sec { background: var(--sel); }
+@media (max-width: 640px) { .dg-bt th:nth-child(2), .dg-bt td:nth-child(2) { display: none; } .dg-bt th, .dg-bt td { padding: 8px 7px; } }
 .dg tr[data-sb-tur], .dg tr[data-urun-ekle] { cursor: pointer; }
 .dg-btn { min-height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--raise); color: var(--muted); font: 600 14px var(--font); cursor: pointer; }
 .dg-btn[aria-pressed="true"] { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
@@ -590,9 +583,8 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
     const bugunToplam = bina?.counts ? Object.values(bina.counts).reduce((a, x) => a + x[0], 0) : null;
     const toplamFark = dunToplam && bugunToplam ? bugunToplam - dunToplam : null;
     const aktif = evre?.realm?.activeCompanies ?? sonGun?.[1] ?? null;
-    const rows = binaSatirlari(bina, sabit, temel?.products);
     const [k, yon] = durum.binaSira;
-    rows.sort((a, b) => ((a[k] ?? -Infinity) - (b[k] ?? -Infinity)) * yon || b.n - a.n);
+    const rows = binaSirala(binaTurleri(bina, sb, sabit), k, yon, (r) => binaAdi(r.harf), (r) => (r.kat ? kategoriAdi(r.kat) : null));
     const th = (key, t, cls = '') => `<th data-sort="bina:${key}" class="${cls}" ${key === k ? `aria-sort="${yon > 0 ? 'ascending' : 'descending'}"` : ''}>${t}</th>`;
     const aralik = durum.binaAralik;
     const sinir = aralik ? yyyymmdd(Date.now() - aralik * DAY) : 0;
@@ -608,33 +600,26 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
       ${grafik ? `<section class="dg-card"><h2>Realmdaki toplam bina</h2>
         <div class="dg-seg" role="group" aria-label="Aralık">${ARALIKLAR.map(([v, t]) => `<button type="button" data-bina-aralik="${v}" aria-pressed="${v === aralik}">${t}</button>`).join('')}</div>
         ${grafik}<p class="dg-note">Günlük realm özeti (Simcotools). Tüm şirketlerin bina sayısı toplamıdır; Simcotools'ta yarım kalmış günler gösterilmez.</p></section>` : ''}
-      ${rows.length ? `<section class="dg-card"><h2>Bina türleri</h2>
-        <p class="dg-note">Realmdaki her bina türünün sayısı. Değişim sütunları Ekim 2026'dan itibaren biriken kayıtlardan hesaplanır. Sütun başlığına dokunarak sıralayın.</p>
-        <div class="dg-wrap"><table><thead><tr>${th('harf', 'Bina', 'l')}${th('kat', 'Kategori', 'l')}${th('n', 'Sayı')}${th('pay', 'Pay')}${th('f1', 'Dünden')}${th('f7', '7 gün')}${th('cu', 'Maliyet birimi')}${th('sure', 'Yapım süresi')}<th class="l">Ürünler</th></tr></thead>
-        <tbody>${rows.map((r) => `<tr><td class="l">${oyun(binaAdi(r.harf))}</td><td class="l">${kategoriAdi(r.kat)}</td><td>${NUM.format(r.n)}</td><td>${fmtShare(r.pay)}</td>
-          <td class="${tone(r.f1)}">${r.f1 == null ? '<span class="dim">—</span>' : signed(r.f1)}</td><td class="${tone(r.f7)}">${r.f7 == null ? '<span class="dim">—</span>' : signed(r.f7)}</td>
-          <td>${r.cu == null ? '—' : NUM.format(r.cu)}</td><td>${sureMetni(r.sure)}</td>
-          <td class="l ww"><div class="dg-cips">${r.urunler.slice(0, 8).map((id) => `<span class="dg-cip">${oyun(urun(id))}</span>`).join('')}${r.urunler.length > 8 ? `<span class="dg-cip" data-no-t>+${r.urunler.length - 8}</span>` : ''}</div></td></tr>`).join('')}</tbody></table></div></section>` : ''}
-      ${sirketBinaKarti(sb, sabit)}
+      ${binaTurleriKarti(rows, sb, th)}
       ${ihaleKarti(ihale)}
       ${botNotu(bina?.t ?? ihale?.t)}`;
   }
 
-  // Şirketlerin binaları: botun günlük taramasından bina türü başına sahip şirket, toplam seviye ve en büyükler
-  function sirketBinaKarti(sb, sabit) {
-    const ust = ustKademeler(sabit);
-    const turler = sbTurleri(sb);
-    if (!turler.length) return '';
-    const sec = turler.find((x) => x.harf === durum.sbTur) || turler[0];
-    const top = sb.top?.[sec.harf] || [];
-    return `<section class="dg-card" data-sb><h2>Şirketlerin binaları</h2>
-      <p class="dg-note">Bina türüne dokunun: en büyük sahipleri görün.</p>
-      <div class="dg-wrap"><table><thead><tr><th class="l">Bina</th><th>Sahip şirket</th><th>Bina sayısı</th><th>Toplam seviye (en az)</th><th>Ortalama seviye (en az)</th><th>En yüksek kademe</th></tr></thead>
-      <tbody>${turler.map((x) => `<tr data-sb-tur="${esc(x.harf)}" tabindex="0" role="button" aria-pressed="${x.harf === sec.harf}"${x.harf === sec.harf ? ' class="dg-sec"' : ''}><td class="l">${oyun(binaAdi(x.harf))}</td><td>${NUM.format(x.sirket)}</td><td>${NUM.format(x.bina)}</td>${mevsimlikMi(x.harf) ? '<td>—</td><td>—</td><td>—</td>' : `<td>${NUM.format(x.seviye)}</td>
-        <td>${(x.seviye / x.bina).toLocaleString(LOCALE, { maximumFractionDigits: 1 })}</td><td data-no-t>${kademeMetni(x.harf, x.enYuksek, ust)}</td>`}</tr>`).join('')}</tbody></table></div>
-      <p class="dg-note">${KADEME_NOTU} ${MEVSIMLIK_NOTU}</p>
-      <h3>${oyun(binaAdi(sec.harf))}</h3>
-      <div class="dg-wrap"><table><thead><tr><th class="l">Sıra</th><th class="l">Şirket</th><th>Toplam seviye (en az)</th><th>Bina sayısı</th><th>Şirketin toplam seviyesi (kesin)</th></tr></thead><tbody>${top.map((t, i) => `<tr><td class="l">${i + 1}</td><td class="l">${oyun(t[1])}<small class="alt" data-no-t>ID ${t[0]}</small></td><td>${NUM.format(t[2])}</td><td>${NUM.format(t[3])}</td><td>${t[4] == null ? '<span class="dim">—</span>' : NUM.format(t[4])}</td></tr>`).join('')}</tbody></table></div>
+  // Bina türleri: realmdaki sayı ve pay ile şirketlerdeki seviyeler (botun günlük taramasından) tek tabloda; türe dokununca en büyük sahipler
+  function binaTurleriKarti(rows, sb, th) {
+    if (!rows.length) return '';
+    const sbVar = Boolean(sb?.kinds);
+    const sec = sbVar ? (rows.find((r) => r.harf === durum.sbTur && sb.top?.[r.harf]) || rows.find((r) => sb.top?.[r.harf]))?.harf : null;
+    const top = sec ? sb.top[sec] || [] : [];
+    const hucre = (v, f) => (v == null ? '<span class="dim">—</span>' : f(v));
+    return `<section class="dg-card" data-sb><h2>Bina türleri</h2>
+      <p class="dg-note">Realmdaki her bina türünün sayısı${sbVar ? ' ve şirketlerdeki seviyesi' : ''}. Sütun başlığına dokunarak sıralayın${sbVar ? ', bina türüne dokunarak en büyük sahiplerini görün' : ''}.</p>
+      <div class="dg-wrap"><table class="dg-bt"><thead><tr>${th('harf', 'Bina', 'l')}${th('kat', 'Kategori', 'l')}${th('n', 'Sayı')}${th('pay', 'Pay')}${sbVar ? `${th('sirket', 'Sahip şirket')}${th('seviye', 'Toplam seviye (en az)')}${th('ort', 'Ortalama seviye (en az)')}` : ''}</tr></thead>
+      <tbody>${rows.map((r) => `<tr${sbVar && sb.top?.[r.harf] ? ` data-sb-tur="${esc(r.harf)}" tabindex="0" role="button" aria-pressed="${r.harf === sec}"` : ''}${r.harf === sec ? ' class="dg-sec"' : ''}><td class="l">${oyun(binaAdi(r.harf))}</td><td class="l">${kategoriAdi(r.kat)}</td><td>${NUM.format(r.n)}</td><td>${fmtShare(r.pay)}</td>
+        ${sbVar ? `<td>${hucre(r.sirket, (v) => NUM.format(v))}</td><td>${hucre(r.seviye, (v) => NUM.format(v))}</td><td>${hucre(r.ort, (v) => v.toLocaleString(LOCALE, { maximumFractionDigits: 1 }))}</td>` : ''}</tr>`).join('')}</tbody></table></div>
+      ${sbVar ? `<p class="dg-note">${KADEME_NOTU} ${MEVSIMLIK_NOTU}</p>` : ''}
+      ${sec ? `<h3>${oyun(binaAdi(sec))}</h3>
+      <div class="dg-wrap"><table><thead><tr><th class="l">Sıra</th><th class="l">Şirket</th><th>Toplam seviye (en az)</th><th>Bina sayısı</th><th>Şirketin toplam seviyesi (kesin)</th></tr></thead><tbody>${top.map((t, i) => `<tr><td class="l">${i + 1}</td><td class="l">${oyun(t[1])}<small class="alt" data-no-t>ID ${t[0]}</small></td><td>${NUM.format(t[2])}</td><td>${NUM.format(t[3])}</td><td>${t[4] == null ? '<span class="dim">—</span>' : NUM.format(t[4])}</td></tr>`).join('')}</tbody></table></div>` : ''}
     </section>`;
   }
 

@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {
   digerRota, goDurum, goListeleri, teklifBitisi, teslimBitisi, gerekenMiktar, goDegeri, carpanAraligi, urunTalepleri, urunAyrintisi, urunBul,
-  projeAnahtari, projeAdi, aykiriAt, sbTurleri, kurumAdi, sertAdi, evreOzeti, kalanMetni, binaSatirlari, gunEkle, bollukEsigi, donemMetni, kategoriAdi,
+  projeAnahtari, projeAdi, aykiriAt, sbTurleri, kurumAdi, sertAdi, evreOzeti, kalanMetni, binaTurleri, binaSirala, bollukEsigi, donemMetni, kategoriAdi,
 } from '../public/diger.js';
 import { PROJELER, ADLAR_TR, ADLAR_EN } from '../public/diger-adlar.js';
 import { binaGruplari, binalarHtml, parcaYolu, PARCA, ustKademeler, kademeMetni, toplamSeviye, binaSabitleri, seviyeHesabi, mevsimlikMi, HEDIYE_SEVIYE } from '../public/sirket-bina.js';
@@ -115,17 +115,20 @@ t('kalan süre metni', () => {
   assert.equal(kalanMetni(-5), null);
 });
 
-t('bina tablosu: dünden ve 7 günden fark, sabitler, ürünler', () => {
-  assert.equal(gunEkle(20261001, -1), 20260930);
-  assert.equal(gunEkle(20261228, 7), 20270104);
-  const bina = { date: 20261021, counts: { E: [100, 0.5], P: [50, 0.25] }, hist: { 20261021: { E: 100, P: 50 }, 20261020: { E: 90 }, 20261014: { E: 80, P: 60 } } };
-  const sabit = { E: { dbLetter: 'E', category: 'production', costUnits: 2, buildDuration: 3600 } };
-  const rows = binaSatirlari(bina, sabit, { 1: { id: 1, building: 'E' }, 2: { id: 2, building: 'P' } });
-  const E = rows.find((r) => r.harf === 'E');
-  const P = rows.find((r) => r.harf === 'P');
-  assert.deepEqual([E.n, E.f1, E.f7, E.cu, E.kat, E.urunler], [100, 10, 20, 2, 'production', [1]]);
-  assert.deepEqual([P.f1, P.f7], [null, -10], 'dün kaydı olmayan türde fark yok');
-  assert.deepEqual(binaSatirlari({ date: 20261021, counts: { E: [1, 1] }, hist: {} }, null, null)[0].f1, null, 'ilk gün fark yok');
+t('bina türleri tablosu: realm sayısı ve şirketlerdeki seviye tek satırda; sıralama', () => {
+  const bina = { counts: { E: [100, 0.5], P: [50, 0.25], t: [30, 0.15], r: [20, 0.1] } };
+  const sb = { kinds: { E: [10, 40, 400, 15, {}], t: [5, 8, 24, 3, {}], P: [0, 0, 0, 0, {}] } };
+  const sabit = { a: { dbLetter: 'E', category: 'production' }, b: { dbLetter: 't', category: 'seasonal' }, c: { dbLetter: 'P', category: 'production' } };
+  const rows = binaTurleri(bina, sb, sabit);
+  const E = rows.find((r) => r.harf === 'E'); const P = rows.find((r) => r.harf === 'P'); const T = rows.find((r) => r.harf === 't'); const R = rows.find((r) => r.harf === 'r');
+  assert.deepEqual([E.n, E.pay, E.kat, E.sirket, E.seviye, E.ort], [100, 0.5, 'production', 10, 400, 10]);
+  assert.deepEqual([T.sirket, T.seviye, T.ort], [5, null, null], 'mevsimlik pazarda seviye yok');
+  assert.deepEqual([P.sirket, P.seviye, P.ort], [null, null, null], 'şirketlerde hiç yoksa bilgi yok');
+  assert.deepEqual([R.kat, R.sirket, R.ort], [null, null, null], 'taranmamış tür: seviye bilgisi yok');
+  assert.deepEqual(binaSirala(rows, 'ort', -1).map((r) => r.harf), ['E', 'P', 't', 'r'], 'boş değerler hep sonda, kendi içinde sayıya göre azalan');
+  assert.deepEqual(binaSirala(rows, 'n', 1).map((r) => r.harf), ['r', 't', 'P', 'E']);
+  assert.deepEqual(binaSirala(rows, 'harf', 1, (r) => ({ E: 'Enerji', P: 'Tarla', t: 'Cadı', r: 'Restoran' })[r.harf]).map((r) => r.harf), ['t', 'E', 'r', 'P'], 'ada göre');
+  assert.deepEqual(binaTurleri({ counts: { E: [1, 1] } }, null, null)[0].sirket, null, 'tarama yokken şirket sütunları boş');
   assert.equal(kategoriAdi('sales'), 'Satış');
 });
 
