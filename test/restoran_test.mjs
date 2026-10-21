@@ -198,6 +198,51 @@ test('Her restoran kendi menüsünü kullanabilir (menuOf bina başına)', () =>
   ok(r.rows[0].costDay !== r.rows[1].costDay, 'farklı menü farklı maliyet');
 });
 
+section('En avantajlı menü');
+// Sentetik borsa: taban fiyat × (1 + 0,08 × kalite); yüksek kalite pahalı, ürünler arası fark büyük
+const TABAN = { 117: 7, 121: 140, 134: 46, 122: 113, 119: 32, 123: 274, 129: 1960, 130: 1790, 131: 1950, 142: 645, 143: 600, 149: 675, 132: 2030, 124: 33, 125: 25, 126: 49 };
+const fiyatOf = (id, q) => TABAN[id] * (1 + 0.08 * q);
+const ortQ = (m) => m.reduce((t, x) => t + x.kalite, 0) / m.length;
+test('Gereken ortalama kalite: hedef 6,0 ve bonus 0,99 → ~7,3', () => {
+  near(R.gerekenOrtKalite(6, 0.99), (6 - R.KALITE_TABAN - 0.99) / R.KALITE_RATING, 1e-9);
+  near(R.gerekenOrtKalite(6, 0.99), 7.3, 0.01);
+  eq(R.gerekenOrtKalite(1, 0.99), 0, 'negatifse sıfır');
+});
+test('Doğrulanmış yapı: her kategoriden tam 2 ürün, ortalama kalite hedefi sağlar', () => {
+  const r = R.enIyiMenu({ fiyatOf, hedef: 6, yapi: 'dogrulanmis' });
+  const say = R.kategoriSayilari(r.menu.map((m) => m.id));
+  eq(say, { salata: 2, ana: 2, icecek: 2 });
+  ok(ortQ(r.menu) >= R.gerekenOrtKalite(6) - 1e-9, 'kalite yetersiz');
+  near(r.seviyeBasi, R.menuSeviyeBasi(r.menu, fiyatOf), 1e-6, 'maliyet tutarlı');
+});
+test('En ucuz: eldeki 6 ürünlü oyuncu menüsünden pahalı olamaz; hedef yükselince maliyet artar', () => {
+  const oyuncu = [117, 119, 142, 143, 124, 125].map((id, i) => ({ id, kalite: [7, 10, 7, 5, 7, 9][i] }));
+  const a = R.enIyiMenu({ fiyatOf, hedef: 6 });
+  ok(a.seviyeBasi <= R.menuSeviyeBasi(oyuncu, fiyatOf) + 1e-6, 'oyuncu menüsünden pahalı');
+  ok(R.enIyiMenu({ fiyatOf, hedef: 5.2 }).seviyeBasi < a.seviyeBasi, '5,2 hedefi 6,0\'dan ucuz olmalı');
+  ok(R.enIyiMenu({ fiyatOf, hedef: 6.4 }).seviyeBasi > a.seviyeBasi, '6,4 hedefi pahalı olmalı');
+});
+test('Serbest yapı doğrulanmış yapıdan pahalı olamaz (kümesi onu içerir)', () => {
+  const d = R.enIyiMenu({ fiyatOf, hedef: 6, yapi: 'dogrulanmis' });
+  const s = R.enIyiMenu({ fiyatOf, hedef: 6, yapi: 'serbest' });
+  ok(s.seviyeBasi <= d.seviyeBasi + 1e-6, 'serbest daha pahalı');
+  ok(R.menuEksikleri(s.menu.map((m) => m.id)).length === 0, 'her kategoriden ürün');
+});
+test('Fiyatı olmayan kalite seçilmez; hiç fiyat yoksa null', () => {
+  const kisitli = (id, q) => (q <= 5 ? fiyatOf(id, q) : null);
+  const r = R.enIyiMenu({ fiyatOf: kisitli, hedef: 5.2 });
+  ok(r.menu.every((m) => m.kalite <= 5), 'Q5 üstü seçilmemeli');
+  eq(R.enIyiMenu({ fiyatOf: kisitli, hedef: 6.4 }), null, 'Q5 ile ortalama 9 olamaz');
+  eq(R.enIyiMenu({ fiyatOf: () => null }), null);
+});
+test('Tüketimden toplam seviye: 1000 seviyelik 2-2-2 menü tüketimi 1000 olarak geri bulunur', () => {
+  const L = 1000, ids = [117, 119, 142, 143, 124, 125], gunluk = {};
+  const adet = R.ihtiyac(ids, L, 'eko');
+  for (const id of ids) gunluk[id] = adet[id] * R.GUN_DONGU;
+  near(R.toplamSeviyeTuketimden(gunluk), L, 5);
+  eq(R.toplamSeviyeTuketimden({}), null);
+});
+
 const failed = results.filter((r) => !r.ok);
 let last = '';
 for (const r of results) {

@@ -252,3 +252,91 @@ export function restoranDegerlendir(restoranlar, ctx) {
   }
   return { rows, totals: T };
 }
+
+// ---------------------------------------------------------------------------------------------------------------
+// En avantajlı menü
+// ---------------------------------------------------------------------------------------------------------------
+// Gelir menüden bağımsızdır (fiyat × koltuk × doluluk; rating eşiğin üstündeyken doluluk ~%96,5) ve maaş da öyle; menüyle yalnız yemek
+// gideri değişir. Bu yüzden en kârlı menü, ratingi hedefin altına düşürmeyen EN UCUZ menüdür.
+//   Seviye başı döngü gideri = Σ kategori çarpanı(n) × Σ oran × birim fiyat(kalite)
+//   Hedef rating = KALITE_TABAN + KALITE_RATING × ortalama menü kalitesi + bonus  →  gereken ortalama kalite
+// Kalite başına fiyat "kalitesi ≥ q olan en ucuz ilan" olmalı (kalite arttıkça düşmez); fiyatı olmayan kalite seçilmez.
+export const MENU_MAX_KALITE = 12;
+export const gerekenOrtKalite = (hedef, bonus = BONUS_REFERANS) => Math.max(0, (hedef - KALITE_TABAN - bonus) / KALITE_RATING);
+
+/**
+ * @param {{ fiyatOf: (id: number, q: number) => number|null, hedef?: number, bonus?: number, yapi?: 'dogrulanmis'|'serbest' }} o
+ *   yapi 'dogrulanmis': her kategoriden tam 2 ürün (çarpan oyunda doğrulanmış tek düzen); 'serbest': 1–tümü (1, 3, 4+ çarpanları hipotez).
+ * @returns {{ menu: Array<{ id: number, kalite: number, birim: number }>, seviyeBasi: number, ortKalite: number, hedefRating: number } | null}
+ */
+export function enIyiMenu({ fiyatOf, hedef = RATING.hedef, bonus = BONUS_REFERANS, yapi = 'dogrulanmis' } = {}) {
+  const gerek = gerekenOrtKalite(hedef, bonus);
+  const birim = (id, q) => { const b = fiyatOf(id, q); return fin(b) && b > 0 ? b : null; };
+  // kategori → ürün sayısı n → kalite toplamı s → { maliyet (çarpan dahil), atama }
+  const katEgri = KATEGORILER.map((k) => {
+    const out = new Map();
+    const kombinasyonlar = (arr, n, bas = 0, cur = [], acc = []) => {
+      if (cur.length === n) { acc.push(cur); return acc; }
+      for (let i = bas; i < arr.length; i++) kombinasyonlar(arr, n, i + 1, [...cur, arr[i]], acc);
+      return acc;
+    };
+    const sayilar = yapi === 'serbest' ? k.urunler.map((_, i) => i + 1) : [2];
+    for (const n of sayilar) {
+      const egri = new Map();
+      for (const alt of kombinasyonlar(k.urunler, n)) {
+        let dp = new Map([[0, { c: 0, a: [] }]]);
+        for (const id of alt) {
+          const nd = new Map();
+          for (const [s, { c, a }] of dp) {
+            for (let q = 0; q <= MENU_MAX_KALITE; q++) {
+              const b = birim(id, q);
+              if (b == null) continue;
+              const cc = c + URUNLER[id].oran * b, ss = s + q;
+              if (!nd.has(ss) || cc < nd.get(ss).c) nd.set(ss, { c: cc, a: [...a, { id, kalite: q, birim: b }] });
+            }
+          }
+          dp = nd;
+        }
+        for (const [s, { c, a }] of dp) {
+          const maliyet = c * kategoriCarpani(n);
+          if (!egri.has(s) || maliyet < egri.get(s).c) egri.set(s, { c: maliyet, a });
+        }
+      }
+      out.set(n, egri);
+    }
+    return out;
+  });
+  let en = null;
+  const dallan = (i, N, S, C, A) => {
+    if (i === katEgri.length) {
+      if (S >= gerek * N - 1e-9 && (!en || C < en.c)) en = { c: C, a: A };
+      return;
+    }
+    for (const [n, egri] of katEgri[i]) {
+      // aynı n için s'ler arası: bir kategori içinde yalnız kalite toplamı ve maliyet değişir; hepsi denenir (en çok ~72 değer)
+      for (const [s, { c, a }] of egri) dallan(i + 1, N + n, S + s, C + c, A.concat(a));
+    }
+  };
+  dallan(0, 0, 0, 0, []);
+  if (!en) return null;
+  return { menu: en.a, seviyeBasi: en.c, ortKalite: en.a.reduce((t, m) => t + m.kalite, 0) / en.a.length, hedefRating: hedef };
+}
+
+// Aynı fiyatlarla verilen menünün seviye başı döngü gideri (kıyas için); fiyatı olmayan ürün varsa null
+export function menuSeviyeBasi(menu, fiyatOf) {
+  const say = kategoriSayilari(menu.map((m) => m.id));
+  let t = 0;
+  for (const m of menu) {
+    const u = URUNLER[m.id], b = fiyatOf(m.id, m.kalite);
+    if (!u || !fin(b)) return null;
+    t += u.oran * b * kategoriCarpani(say[u.kat]);
+  }
+  return t;
+}
+
+// Tüketimden (son gün, tüm oyuncular) toplam restoran seviyesi (eko eşdeğeri): bir restoran bir kategoride n ürün seçince
+// n × çarpan(n) ≈ 2–2,2 olduğundan kategori tüketimi ÷ oran ÷ döngü sayısı ÷ 2 ≈ seviye. Üç kategorinin ortancası alınır [ölçüm].
+export function toplamSeviyeTuketimden(son) {
+  const v = KATEGORILER.map((k) => k.urunler.reduce((t, id) => t + (Number(son?.[id]) || 0) / URUNLER[id].oran, 0) / GUN_DONGU / 2).filter((x) => x > 0).sort((a, b) => a - b);
+  return v.length ? v[Math.floor(v.length / 2)] : null;
+}
