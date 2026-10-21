@@ -16,6 +16,7 @@ t('adres', () => {
   assert.deepEqual(digerRota('#diger/go/gecmis'), { tab: 'go', go: 'gecmis', tur: null });
   assert.deepEqual(digerRota('#diger/sertifika/65'), { tab: 'sertifika', go: null, tur: 65 });
   assert.deepEqual(digerRota('#diger/bina'), { tab: 'bina', go: null, tur: null });
+  for (const k of ['evre', 'ozet', 'olay', 'yarisma']) assert.deepEqual(digerRota(`#diger/${k}`), { tab: k, go: null, tur: null });
   assert.deepEqual(digerRota('#diger/xyz'), { tab: 'go', go: null, tur: null });
 });
 

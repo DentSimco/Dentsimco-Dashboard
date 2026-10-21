@@ -1694,6 +1694,7 @@ export default {
   'Ortalama süre': 'Duración media',
   'Tüm evreler ({0})': 'Todas las fases ({0})',
   'Evre zaman çizelgesi': 'Línea de tiempo de fases',
+  'Olaylar': 'Eventos',
   'Realm özeti': 'Resumen del realm',
   'Toplam şirket değeri': 'Valor total de las empresas',
   'Simcotools\'un günlük realm özeti (Eylül 2022\'den bu yana). Yarım kalmış günler gösterilmez.': 'Resumen diario del realm de Simcotools (desde septiembre de 2022). Los días incompletos no se muestran.',

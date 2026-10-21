@@ -7,7 +7,7 @@
 //   meta/sb_ozet_r{realm} şirketlerin binaları özeti (bot/sirket_bina.mjs, günde bir tarama): bina türü başına sahip ve en büyükler, GO seviyeleri
 // Ürün adları ve borsa fiyatı (GO değeri) canlı borsa verisinden (loadBasics) gelir. Oyunun proje, kurum ve sertifika adları
 // diger-adlar.js'de (diğer diller dil-xx.js › DIGER_ADLARI). Şirket ve oyun adları çevrilmez (data-no-t).
-// Adres: #diger/go[/ilan|yuruyen|gecmis|urunler] | #diger/bina | #diger/evre | #diger/sertifika[/{tür}]
+// Adres: #diger/go[/ilan|yuruyen|gecmis|urunler] | #diger/bina | #diger/evre | #diger/ozet | #diger/olay | #diger/yarisma | #diger/sertifika[/{tür}]
 
 import { PATHS, readDocs, dataField, loadBasics, anlikFiyat, VeriHatasi, fmtPrice, fmtNum, fmtCompact, fmtShare, fmtDate, fmtDateTime, DAY, HOUR, MIN } from './veri.js';
 import { DIL, LOCALE, DIL_ADLARI } from './i18n.js';
@@ -18,7 +18,8 @@ import { esc } from './esc.js';
 import * as G from './sirket-gecmis.js';
 import { PROJELER, GO_KURAL, ADLAR_TR, ADLAR_EN } from './diger-adlar.js';
 
-export const SEKMELER = [['go', 'Government Order'], ['bina', 'Binalar'], ['evre', 'Ekonomik Evreler'], ['sertifika', 'Sertifikalar']];
+const EVRE_SEKMELERI = ['evre', 'ozet', 'olay', 'yarisma']; // hepsi meta/evre_r{realm} belgesinden çizilir
+export const SEKMELER = [['go', 'Government Order'], ['bina', 'Binalar'], ['evre', 'Ekonomik Evreler'], ['ozet', 'Realm özeti'], ['olay', 'Olaylar'], ['yarisma', 'Yarışmalar'], ['sertifika', 'Sertifikalar']];
 const GO_ALT = [['ilan', 'İlanda'], ['yuruyen', 'Yürüyen'], ['gecmis', 'Geçmiş'], ['urunler', 'İstenen ürünler']];
 export const EVRELER = ['Durgunluk', 'Normal', 'Büyüme'];
 const EVRE_NO = { recession: 0, normal: 1, boom: 2 };
@@ -384,7 +385,7 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
     try {
       if (rota.tab === 'go') await goCiz(my);
       else if (rota.tab === 'bina') await binaCiz(my);
-      else if (rota.tab === 'evre') await evreCiz(my);
+      else if (EVRE_SEKMELERI.includes(rota.tab)) await evreCiz(my);
       else await sertCiz(my);
     } catch (e) {
       if (!alive || my !== token) return;
@@ -629,7 +630,7 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
   const METRIK = [[1, 'Aktif şirket', (v) => NUM.format(v), (v) => fmtCompact(v)], [2, 'Toplam şirket değeri', usd, usdK], [3, 'Toplam bina', (v) => NUM.format(v), (v) => fmtCompact(v)], [4, 'Satılan bono', usd, usdK]];
   function evreBoya() {
     const e = evreVeri;
-    if (!e) { box.innerHTML = `<h1>Ekonomik Evreler</h1>${veriYok}`; return; }
+    if (!e) { box.innerHTML = `<h1>${rota.tab === 'evre' ? 'Ekonomik Evreler' : (SEKMELER.find(([k]) => k === rota.tab) || [])[1]}</h1>${veriYok}`; return; }
     const now = Date.now();
     const oz = evreOzeti(e.ranges, now);
     const s = oz.simdiki;
@@ -654,7 +655,8 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
     durum.olaySayfa = sayfa;
     const olaySatir = (x) => `<tr><td class="l">${oyun(urun(x[1]))}</td><td class="l">${oyun(binaAdi(x[5]))}</td><td class="${tone(x[2])}" data-no-t>${x[2] > 0 ? '+' : '−'}${Math.abs(x[2])}%</td><td data-no-t>${esc(tarih(x[3]))}</td><td data-no-t>${esc(tarih(x[4]))}</td></tr>`;
     const olayTablo = (list) => `<div class="dg-wrap"><table><thead><tr><th class="l">Ürün</th><th class="l">Bina</th><th>Üretim hızı</th><th>Başlangıç</th><th>Bitiş</th></tr></thead><tbody>${list.map(olaySatir).join('')}</tbody></table></div>`;
-    box.innerHTML = `<h1>Ekonomik Evreler</h1>
+    const sekmeler = {
+      evre: ['Ekonomik Evreler', `
       <section class="dg-card">
         <span class="dg-note">Şu anki evre</span>
         <div class="dg-evre" style="color:${sNo == null ? 'var(--text)' : EVRE_RENK[sNo]}">${s ? EVRELER[sNo] : '—'}</div>
@@ -672,18 +674,28 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
         <div class="dg-wrap"><table><thead><tr><th class="l">Evre</th><th>Başlangıç</th><th>Bitiş</th><th>Süre</th></tr></thead><tbody>${gecmis.map((r) => `<tr><td class="l"><i class="dg-dot" style="background:${EVRE_RENK[EVRE_NO[r[0]]]}"></i>${EVRELER[EVRE_NO[r[0]]]}</td>
           <td data-no-t>${esc(tarih(r[1]))}</td><td data-no-t>${esc(tarih(r[2]))}</td><td>${Math.round(((r[2] ?? now) - r[1]) / (7 * DAY))} hafta</td></tr>`).join('')}</tbody></table></div></details>
       </section>
-      ${grafik ? `<section class="dg-card"><h2>Realm özeti</h2>
+`],
+      ozet: ['Realm özeti', grafik ? `
+      <section class="dg-card"><h2>Realm özeti</h2>
         <div class="dg-seg" role="group" aria-label="Ölçüt">${METRIK.map(([i, t]) => `<button type="button" data-evre-metrik="${i}" aria-pressed="${i === mi}">${t}</button>`).join('')}</div>
         <div class="dg-seg" role="group" aria-label="Aralık">${ARALIKLAR.map(([v, t]) => `<button type="button" data-ozet-aralik="${v}" aria-pressed="${v === durum.ozetAralik}">${t}</button>`).join('')}</div>
-        ${grafik}<p class="dg-note">Simcotools'un günlük realm özeti (Eylül 2022'den bu yana). Yarım kalmış günler gösterilmez.</p></section>` : ''}
+        ${grafik}<p class="dg-note">Simcotools'un günlük realm özeti (Eylül 2022'den bu yana). Yarım kalmış günler gösterilmez.</p></section>
+` : veriYok],
+      olay: ['Olaylar', `
       <section class="dg-card"><h2>Üretim olayları</h2>
         <p class="dg-note">Oyunun rastgele olayları bir ürünün üretim hızını üç hafta boyunca artırır ya da azaltır. Kâr Hesaplayıcı etkin olayları hesaba katar.</p>
         ${aktifOlay.length ? olayTablo(aktifOlay) : '<p class="dg-note">Şu an etkin olay yok.</p>'}
         ${gelecekOlay.length ? `<h3>Yaklaşan</h3>${olayTablo(gelecekOlay)}` : ''}
         ${eskiOlay.length ? `<details><summary class="dg-note">${esc(`Geçmiş olaylar (${NUM.format(eskiOlay.length)})`)}</summary>${olayTablo(eskiOlay.slice((sayfa - 1) * SAYFA, sayfa * SAYFA))}${sayfalar('olay', sayfa, Math.ceil(eskiOlay.length / SAYFA))}</details>` : ''}
       </section>
-      ${(e.contests || []).length ? `<section class="dg-card"><h2>Yarışmalar</h2>
-        <div class="dg-wrap"><table><thead><tr><th class="l">Yarışma</th><th class="l">Ürün</th><th>Başlangıç</th><th>Bitiş</th></tr></thead><tbody>${e.contests.map((c) => `<tr><td class="l w">${oyun(c[1])}${c[4] > now ? ` <span class="dg-cip">${c[3] > now ? 'Yaklaşan' : 'Sürüyor'}</span>` : ''}</td><td class="l">${oyun(urun(c[2]))}</td><td data-no-t>${esc(tarih(c[3]))}</td><td data-no-t>${esc(tarih(c[4]))}</td></tr>`).join('')}</tbody></table></div></section>` : ''}
+`],
+      yarisma: ['Yarışmalar', (e.contests || []).length ? `
+      <section class="dg-card"><h2>Yarışmalar</h2>
+        <div class="dg-wrap"><table><thead><tr><th class="l">Yarışma</th><th class="l">Ürün</th><th>Başlangıç</th><th>Bitiş</th></tr></thead><tbody>${e.contests.map((c) => `<tr><td class="l w">${oyun(c[1])}${c[4] > now ? ` <span class="dg-cip">${c[3] > now ? 'Yaklaşan' : 'Sürüyor'}</span>` : ''}</td><td class="l">${oyun(urun(c[2]))}</td><td data-no-t>${esc(tarih(c[3]))}</td><td data-no-t>${esc(tarih(c[4]))}</td></tr>`).join('')}</tbody></table></div></section>
+` : veriYok],
+    };
+    const [baslik, icerik] = sekmeler[rota.tab];
+    box.innerHTML = `<h1>${baslik}</h1>${icerik}
       ${botNotu(e.t)}`;
   }
 
@@ -756,7 +768,7 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
   function yenidenBoya() {
     if (rota.tab === 'go' && goVeri) goBoya();
     else if (rota.tab === 'bina' && binaVeri) binaBoya();
-    else if (rota.tab === 'evre' && evreVeri) evreBoya();
+    else if (EVRE_SEKMELERI.includes(rota.tab) && evreVeri) evreBoya();
     else if (rota.tab === 'sertifika' && sertVeri) { if (rota.tur != null) turBoya(); else sertBoya(); }
     box.querySelectorAll('.sg-kutu').forEach(G.grafikBagla);
     sayac();
