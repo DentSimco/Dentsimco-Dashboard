@@ -326,7 +326,7 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
   let rota = digerRota(location.hash);
   const durum = {
     goAlt: null, goSayfa: 1, goAra: '', carpan: carpanOku(), urunSec: [], urunAra: '', urunAcik: true, urunHata: '',
-    binaSira: ['n', -1], binaAralik: 365,
+    binaSira: ['n', -1],
     evreMetrik: 1, evreAralik: 0, ozetAralik: 365, olaySayfa: 1,
     sertSira: ['rar', 1], sertUrun: '', sertAra: '', sertSayfa: 1,
     sbTur: '',
@@ -584,37 +584,37 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
     const [k, yon] = durum.binaSira;
     const rows = binaSirala(binaTurleri(bina, sb, sabit), k, yon, (r) => binaAdi(r.harf), (r) => (r.kat ? kategoriAdi(r.kat) : null));
     const th = (key, t, cls = '') => `<th data-sort="bina:${key}" class="${cls}" ${key === k ? `aria-sort="${yon > 0 ? 'ascending' : 'descending'}"` : ''}>${t}</th>`;
-    const aralik = durum.binaAralik;
-    const sinir = aralik ? yyyymmdd(Date.now() - aralik * DAY) : 0;
-    const grafik = days.length > 1 ? G.cizgiGrafik([{ ad: 'Toplam bina', renk: G.RENKLER[0], noktalar: aykiriAt(days.map((d) => [d[0], d[3]])).filter((d) => d[0] >= sinir) }],
-      { bicim: (v) => fmtCompact(v), oku: (v) => NUM.format(v), doldur: true, ad: 'Toplam bina' }) : '';
     box.innerHTML = `<h1>Binalar</h1>
       <div class="dg-tiles">
         <div class="dg-tile"><span>Toplam bina</span><b data-no-t>${toplam == null ? '—' : NUM.format(toplam)}</b>${toplamFark != null ? `<small><span class="${tone(toplamFark)}" data-no-t>${signed(toplamFark)}</span> · dünden</small>` : ''}</div>
         <div class="dg-tile"><span>Aktif şirket</span><b data-no-t>${aktif == null ? '—' : NUM.format(aktif)}</b></div>
         <div class="dg-tile"><span>Şirket başına bina</span><b data-no-t>${toplam && aktif ? (toplam / aktif).toLocaleString(LOCALE, { maximumFractionDigits: 1 }) : '—'}</b></div>
       </div>
-      ${grafik ? `<section class="dg-card"><h2>Realmdaki toplam bina</h2>
-        <div class="dg-seg" role="group" aria-label="Aralık">${ARALIKLAR.map(([v, t]) => `<button type="button" data-bina-aralik="${v}" aria-pressed="${v === aralik}">${t}</button>`).join('')}</div>
-        ${grafik}<p class="dg-note">Günlük realm özeti (Simcotools). Tüm şirketlerin bina sayısı toplamıdır; Simcotools'ta yarım kalmış günler gösterilmez.</p></section>` : ''}
-      ${binaTurleriKarti(rows, sb, th)}
+      ${binaTurleriKarti(rows, sb, th, bina)}
       ${botNotu(bina?.t)}`;
   }
 
   // Bina türleri: realmdaki sayı ve pay ile şirketlerdeki seviyeler (botun günlük taramasından) tek tabloda; türe dokununca en büyük sahipler
-  function binaTurleriKarti(rows, sb, th) {
+  function binaTurleriKarti(rows, sb, th, bina) {
     if (!rows.length) return '';
     const sbVar = Boolean(sb?.kinds);
-    const sec = sbVar ? (rows.find((r) => r.harf === durum.sbTur && sb.top?.[r.harf]) || rows.find((r) => sb.top?.[r.harf]))?.harf : null;
-    const top = sec ? sb.top[sec] || [] : [];
+    const sec = (rows.find((r) => r.harf === durum.sbTur) || rows.reduce((a, r) => (r.n > a.n ? r : a))).harf;
+    const top = sb?.top?.[sec] || [];
+    const gun = { ...(bina?.hist || {}) };
+    if (bina?.date && bina.counts?.[sec]) gun[bina.date] = { ...(gun[bina.date] || {}), [sec]: bina.counts[sec][0] };
+    const noktalar = Object.keys(gun).map(Number).sort((x, y) => x - y).filter((d) => gun[d][sec] != null).map((d) => [d, gun[d][sec]]);
+    const grafik = noktalar.length > 1 ? G.cizgiGrafik([{ ad: binaAdi(sec), renk: G.RENKLER[0], noktalar }], { bicim: (v) => fmtCompact(v), oku: (v) => NUM.format(v), doldur: true, ad: binaAdi(sec) }) : '';
     const hucre = (v, f) => (v == null ? '<span class="dim">—</span>' : f(v));
     return `<section class="dg-card" data-sb><h2>Bina türleri</h2>
+      <h3>${oyun(binaAdi(sec))}</h3>
+      ${grafik || '<p class="dg-note">Bu bina için henüz yeterli günlük veri yok.</p>'}
+      <p class="dg-note">Günlük bina sayısı (botun günlük toplaması; kayıt başladığı günden itibaren). Tablodan bir bina seçerek grafiğini görün.</p>
       <p class="dg-note">Realmdaki her bina türünün sayısı${sbVar ? ' ve şirketlerdeki seviyesi' : ''}. Sütun başlığına dokunarak sıralayın${sbVar ? ', bina türüne dokunarak en büyük sahiplerini görün' : ''}.</p>
       <div class="dg-wrap"><table class="dg-bt"><thead><tr>${th('harf', 'Bina', 'l')}${th('kat', 'Kategori', 'l')}${th('n', 'Sayı')}${th('pay', 'Pay')}${sbVar ? `${th('sirket', 'Sahip şirket')}${th('seviye', 'Toplam seviye (en az)')}${th('ort', 'Ortalama seviye (en az)')}` : ''}</tr></thead>
-      <tbody>${rows.map((r) => `<tr${sbVar && sb.top?.[r.harf] ? ` data-sb-tur="${esc(r.harf)}" tabindex="0" role="button" aria-pressed="${r.harf === sec}"` : ''}${r.harf === sec ? ' class="dg-sec"' : ''}><td class="l">${oyun(binaAdi(r.harf))}</td><td class="l">${kategoriAdi(r.kat)}</td><td>${NUM.format(r.n)}</td><td>${fmtShare(r.pay)}</td>
+      <tbody>${rows.map((r) => `<tr data-sb-tur="${esc(r.harf)}" tabindex="0" role="button" aria-pressed="${r.harf === sec}"${r.harf === sec ? ' class="dg-sec"' : ''}><td class="l">${oyun(binaAdi(r.harf))}</td><td class="l">${kategoriAdi(r.kat)}</td><td>${NUM.format(r.n)}</td><td>${fmtShare(r.pay)}</td>
         ${sbVar ? `<td>${hucre(r.sirket, (v) => NUM.format(v))}</td><td>${hucre(r.seviye, (v) => NUM.format(v))}</td><td>${hucre(r.ort, (v) => v.toLocaleString(LOCALE, { maximumFractionDigits: 1 }))}</td>` : ''}</tr>`).join('')}</tbody></table></div>
       ${sbVar ? `<p class="dg-note">${KADEME_NOTU} ${MEVSIMLIK_NOTU}</p>` : ''}
-      ${sec ? `<h3>${oyun(binaAdi(sec))}</h3>
+      ${top.length ? `<h3>${esc(`${binaAdi(sec)} — en büyük sahipler`)}</h3>
       <div class="dg-wrap"><table><thead><tr><th class="l">Sıra</th><th class="l">Şirket</th><th>Toplam seviye (en az)</th><th>Bina sayısı</th><th>Şirketin toplam seviyesi (kesin)</th></tr></thead><tbody>${top.map((t, i) => `<tr><td class="l">${i + 1}</td><td class="l">${oyun(t[1])}<small class="alt" data-no-t>ID ${t[0]}</small></td><td>${NUM.format(t[2])}</td><td>${NUM.format(t[3])}</td><td>${t[4] == null ? '<span class="dim">—</span>' : NUM.format(t[4])}</td></tr>`).join('')}</tbody></table></div>` : ''}
     </section>`;
   }
@@ -797,8 +797,6 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
       durum[alan] += Number(d);
       return yenidenBoya();
     }
-    const ba = e.target.closest('[data-bina-aralik]');
-    if (ba) { durum.binaAralik = Number(ba.dataset.binaAralik); return yenidenBoya(); }
     const ea = e.target.closest('[data-evre-aralik]');
     if (ea) { durum.evreAralik = Number(ea.dataset.evreAralik); return yenidenBoya(); }
     const oa = e.target.closest('[data-ozet-aralik]');
@@ -812,7 +810,7 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
     if (uk) { urunKaldir(Number(uk.dataset.urunKaldir)); return undefined; }
     if (e.target.closest('[data-urun-tumu]')) { durum.urunSec = []; durum.urunHata = ''; durum.urunAcik = true; return yenidenBoya(); }
     const sbt = e.target.closest('[data-sb-tur]');
-    if (sbt) { durum.sbTur = sbt.dataset.sbTur; yenidenBoya(); box.querySelector('[data-sb] h3')?.scrollIntoView({ block: 'nearest' }); return undefined; }
+    if (sbt) { const y = window.scrollY; durum.sbTur = sbt.dataset.sbTur; yenidenBoya(); window.scrollTo(0, y); return undefined; }
     const git = e.target.closest('[data-git]');
     if (git && !e.target.closest('a')) location.hash = git.dataset.git;
     return undefined;
