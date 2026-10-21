@@ -382,8 +382,8 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
     box.innerHTML = `<h1>Diğer</h1><p class="dg-note">${esc(e instanceof VeriHatasi ? e.message : `${ne} açılamadı. Biraz sonra tekrar dene.`)}</p>`;
   }
   const yukleniyor = () => { box.innerHTML = '<h1>Diğer</h1><p class="dg-note">Yükleniyor…</p>'; };
-  const botNotu = (t) => (Number.isFinite(t) ? `<p class="dg-note"><span>${esc(`Son güncelleme: ${fmtDateTime(t)}.`)}</span> <span>Veri: Sim Companies ve Simcotools; bot saatte bir günceller.</span></p>` : '');
-  const veriYok = '<p class="dg-note">Bu bölümün verisi henüz toplanmadı. Bot saatte bir çalışır; biraz sonra tekrar bakın.</p>';
+  const botNotu = (t) => (Number.isFinite(t) ? `<p class="dg-note"><span>${esc(`Son güncelleme: ${fmtDateTime(t)}.`)}</span> <span>Veri: Sim Companies ve Simcotools.</span></p>` : '');
+  const veriYok = '<p class="dg-note">Bu bölümün verisi henüz toplanmadı. Biraz sonra tekrar bakın.</p>';
 
   // ---- Çizim ----
   async function ciz() {
@@ -438,7 +438,7 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
       <p class="dg-note">Devlet siparişleri her çarşamba 16:00'da (TR saati) çıkar. 5 gün teklif toplanır, pazartesi 16:00'da kazanan ekip seçilir ve teslim süresi başlar. Teklif 3-7 şirketlik ekiplerle verilir; kazanan teklifin %10'u teminat olarak alınır. Gereken miktar = temel miktar × çarpan (çarpan kazanan ekibin seviyesine göre).</p>
       <nav class="dg-sub" aria-label="Government Order bölümleri">${GO_ALT.map(sekme).join('')}</nav>
       ${govde}
-      ${goSeviyeKarti(sb)}
+      ${alt === 'ilan' ? '' : goSeviyeKarti(sb)}
       ${botNotu(doc.t)}`;
   }
 
@@ -490,7 +490,7 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
       <td class="l ww"><div class="dg-cips">${(o.r || []).map(([k, kq, temel]) => `<span class="dg-cip">${oyun(urun(k))} <b>Q${kq}</b>${temel != null && o.m ? ` <span data-no-t>${fmtCompact(gerekenMiktar(temel, o.m))}</span>` : ''}</span>`).join('')}</div></td>
       <td>${o.d ?? '—'} gün</td><td>${o.m ? `<span data-no-t>${NUM.format(o.m)}×</span>` : '<span class="dim">—</span>'}</td><td>${o.e != null ? `<span data-no-t>${usdK(o.e)}</span>` : '<span class="dim">—</span>'}</td></tr>`;
     return `<div class="dg-row"><input type="search" data-go-ara placeholder="Proje, kurum ya da ürün ara" aria-label="Proje, kurum ya da ürün ara" value="${esc(durum.goAra)}" autocomplete="off"></div>
-      <p class="dg-note"><span>${esc(`${NUM.format(sec.length)} sipariş.`)}</span> <span>Miktar ve çarpan yalnız botun gördüğü siparişlerde vardır (Ekim 2026'dan itibaren); daha eskilerin proje ve ürünleri Simcotools'tan gelir.</span></p>
+      <p class="dg-note"><span>${esc(`${NUM.format(sec.length)} sipariş.`)}</span></p>
       <div class="dg-wrap"><table><thead><tr><th class="l">Sipariş no</th><th class="l">Çıkış</th><th class="l">Proje</th><th class="l">İstenen ürünler</th><th>Teslim süresi</th><th>Çarpan</th><th>Tahmini temel değer</th></tr></thead>
       <tbody>${sec.slice((sayfa - 1) * SAYFA, sayfa * SAYFA).map(satir).join('') || '<tr><td colspan="7" class="l dim">Eşleşen sipariş yok.</td></tr>'}</tbody></table></div>
       ${sayfalar('go', sayfa, Math.ceil(sec.length / SAYFA))}`;
@@ -577,7 +577,7 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
     if (!satir.length) return '';
     const toplam = satir.reduce((a, x) => a + x[1], 0);
     return `<section class="dg-card"><h2>Şirketlerin GO seviyesi</h2>
-      <p class="dg-note">Oyun her şirkete bir GO seviyesi verir; teklifin seviyesi ekipteki en büyük şirketin seviyesidir ve istenen miktarı belirler. Dağılım, botun taradığı şirketlerden.</p>
+      <p class="dg-note">Oyun her şirkete bir GO seviyesi verir; teklifin seviyesi ekipteki en büyük şirketin seviyesidir ve istenen miktarı belirler.</p>
       <div class="dg-wrap"><table><thead><tr><th class="l">GO seviyesi</th><th>Şirket</th><th>Pay</th></tr></thead><tbody>${satir.map(([k, n]) => `<tr><td class="l" data-no-t>T${k}</td><td>${NUM.format(n)}</td><td>${fmtShare(n / toplam)}</td></tr>`).join('')}</tbody></table></div></section>`;
   }
 
@@ -619,7 +619,7 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
         <div class="dg-seg" role="group" aria-label="Aralık">${ARALIKLAR.map(([v, t]) => `<button type="button" data-bina-aralik="${v}" aria-pressed="${v === aralik}">${t}</button>`).join('')}</div>
         ${grafik}<p class="dg-note">Günlük realm özeti (Simcotools). Tüm şirketlerin bina sayısı toplamıdır; Simcotools'ta yarım kalmış günler gösterilmez.</p></section>` : ''}
       ${rows.length ? `<section class="dg-card"><h2>Bina türleri</h2>
-        <p class="dg-note">Realmdaki her bina türünün sayısı. Değişim sütunları botun kendi kayıtlarından hesaplanır (Ekim 2026'dan itibaren birikir). Sütun başlığına dokunarak sıralayın.</p>
+        <p class="dg-note">Realmdaki her bina türünün sayısı. Değişim sütunları Ekim 2026'dan itibaren biriken kayıtlardan hesaplanır. Sütun başlığına dokunarak sıralayın.</p>
         <div class="dg-wrap"><table><thead><tr>${th('harf', 'Bina', 'l')}${th('kat', 'Kategori', 'l')}${th('n', 'Sayı')}${th('pay', 'Pay')}${th('f1', 'Dünden')}${th('f7', '7 gün')}${th('cu', 'Maliyet birimi')}${th('sure', 'Yapım süresi')}<th class="l">Ürünler</th></tr></thead>
         <tbody>${rows.map((r) => `<tr><td class="l">${oyun(binaAdi(r.harf))}</td><td class="l">${kategoriAdi(r.kat)}</td><td>${NUM.format(r.n)}</td><td>${fmtShare(r.pay)}</td>
           <td class="${tone(r.f1)}">${r.f1 == null ? '<span class="dim">—</span>' : signed(r.f1)}</td><td class="${tone(r.f7)}">${r.f7 == null ? '<span class="dim">—</span>' : signed(r.f7)}</td>
@@ -637,7 +637,7 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
     const sec = turler.find((x) => x.harf === durum.sbTur) || turler[0];
     const top = sb.top?.[sec.harf] || [];
     return `<section class="dg-card" data-sb><h2>Şirketlerin binaları</h2>
-      <p class="dg-note"><span>${esc(`Taranan şirket: ${NUM.format(sb.sirket)}${sb.toplam ? ` / ${NUM.format(sb.toplam)}` : ''}.`)}</span> <span>Bot sıralamadaki tüm şirketlerin herkese açık profilini günde bir tarar (büyükten küçüğe); bina seviyeleri oradan gelir. Bina türüne dokunun: en büyük sahipleri görün.</span></p>
+      <p class="dg-note"><span>${esc(`Taranan şirket: ${NUM.format(sb.sirket)}${sb.toplam ? ` / ${NUM.format(sb.toplam)}` : ''}.`)}</span> <span>Bina türüne dokunun: en büyük sahipleri görün.</span></p>
       <div class="dg-wrap"><table><thead><tr><th class="l">Bina</th><th>Sahip şirket</th><th>Bina sayısı</th><th>Toplam seviye</th><th>Ortalama seviye</th><th>En yüksek seviye</th></tr></thead>
       <tbody>${turler.map((x) => `<tr data-sb-tur="${esc(x.harf)}" tabindex="0" role="button" aria-pressed="${x.harf === sec.harf}"${x.harf === sec.harf ? ' class="dg-sec"' : ''}><td class="l">${oyun(binaAdi(x.harf))}</td><td>${NUM.format(x.sirket)}</td><td>${NUM.format(x.bina)}</td><td>${NUM.format(x.seviye)}</td>
         <td>${(x.seviye / x.bina).toLocaleString(LOCALE, { maximumFractionDigits: 1 })}</td><td>${NUM.format(x.enYuksek)}</td></tr>`).join('')}</tbody></table></div>
@@ -712,7 +712,7 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
         <div class="dg-evre" style="color:${sNo == null ? 'var(--text)' : EVRE_RENK[sNo]}">${s ? EVRELER[sNo] : '—'}</div>
         ${s ? `<div class="dg-kv"><div><span>Başlangıç</span><b data-no-t>${esc(fmtDateTime(s[1]))}</b></div><div><span>Bitiş</span><b data-no-t>${esc(fmtDateTime(s[2]))}</b><span class="dg-kalan" data-bitis="${s[2]}"></span></div>
           <div><span>Süre</span><b>${Math.round((s[2] - s[1]) / (7 * DAY))} hafta</b></div></div>` : ''}
-        <p class="dg-note">Evre cuma 18:00'de (TR saati) değişebilir; bot yeni evreyi Simcotools yayınlayınca alır. Evre maaşları, üretim hızını ve perakende talebini etkiler; Kâr Hesaplayıcı güncel evreyi kendiliğinden kullanır.</p>
+        <p class="dg-note">Evre cuma 18:00'de (TR saati) değişebilir. Evre maaşları, üretim hızını ve perakende talebini etkiler; Kâr Hesaplayıcı güncel evreyi kendiliğinden kullanır.</p>
       </section>
       <section class="dg-card"><h2>Evre geçmişi</h2>
         <div class="dg-seg" role="group" aria-label="Aralık"><button type="button" data-evre-aralik="0" aria-pressed="${!tumu}">Son 1 yıl</button><button type="button" data-evre-aralik="1" aria-pressed="${tumu}">Tüm zamanlar</button></div>
