@@ -1732,6 +1732,7 @@ export default {
   'Kapanış zamanı': 'Закрывается',
   'Tutar ($)': 'Стоимость ($)',
   // ---- Şirketlerin binaları (Şirketler › ayrıntı, Diğer › Binalar, GO seviyesi) ----
+  'Mevsimlik pazarların seviyesi profilde gösterilmez.': 'Уровень сезонных рынков в профиле не показывается.',
   'Üst kademedeki {0} binanın toplam seviyesi': 'Общий уровень {0} зданий высшего диапазона',
   'Toplam seviye, profildeki yönetim giderinden hesaplanır (yönetim gideri = 1 + (toplam seviye − 1) ÷ 170). Akademi ve satın alınmış mevsimlik pazarlar dahildir; banka, dinlenme binaları ve oyunun ücretsiz verdiği ilk mevsimlik pazar dahil değildir. Üst kademedeki binaların toplamı, bu toplamdan alt kademedeki binaların olası seviyeleri çıkarılarak bulunur; bu yüzden bir aralıktır.': 'Общий уровень рассчитывается по административным расходам из профиля (расходы = 1 + (общий уровень − 1) ÷ 170). Он включает академию и купленные сезонные рынки; не включает банк, здания отдыха и первый сезонный рынок, который игра выдаёт бесплатно. Сумма по зданиям высшего диапазона находится вычитанием из этого общего уровня возможных уровней зданий более низких диапазонов; поэтому это интервал.',
   'Toplam seviye (kesin)': 'Общий уровень (точно)',

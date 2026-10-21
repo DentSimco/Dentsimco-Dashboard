@@ -5,7 +5,7 @@ import {
   projeAnahtari, projeAdi, aykiriAt, sbTurleri, kurumAdi, sertAdi, evreOzeti, kalanMetni, binaSatirlari, gunEkle, bollukEsigi, donemMetni, kategoriAdi,
 } from '../public/diger.js';
 import { PROJELER, ADLAR_TR, ADLAR_EN } from '../public/diger-adlar.js';
-import { binaGruplari, binalarHtml, parcaYolu, PARCA, ustKademeler, kademeMetni, toplamSeviye, binaSabitleri, seviyeHesabi } from '../public/sirket-bina.js';
+import { binaGruplari, binalarHtml, parcaYolu, PARCA, ustKademeler, kademeMetni, toplamSeviye, binaSabitleri, seviyeHesabi, mevsimlikMi } from '../public/sirket-bina.js';
 
 const DAY = 86400000;
 let n = 0;
@@ -202,6 +202,16 @@ t('kesin toplam seviye yönetim giderinden: akademi dahil; banka, dinlenme ve ü
   assert.equal(kademeMetni('y', 20, { y: 20 }), '20', 'üst sınırı olan bina "+" almaz');
   assert.equal(kademeMetni('n', 15, { n: 15 }), '15+', 'banka 40\'a kadar çıkar');
   assert.equal(kademeMetni('l', 10, { l: 15 }), '10');
+});
+
+t('mevsimlik pazarlara seviye gösterilmez', () => {
+  assert.ok(mevsimlikMi('t') && mevsimlikMi('u') && !mevsimlikMi('r'));
+  const h = binalarHtml({ n: 'A', t: 0, b: [['t', 3, null, null, 0, 0], ['r', 15, null, null, 0, 0]] }, 0, { r: 15, t: 3 });
+  assert.doesNotMatch(h, /3\+/, 'pazar "3+" yazmaz');
+  assert.match(h, /15\+/);
+  assert.match(h, /Mevsimlik pazarların seviyesi profilde gösterilmez/);
+  assert.match(h, /<td>1<\/td><td>—<\/td>/, 'pazar satırı: adet 1, seviye —');
+  assert.doesNotMatch(binalarHtml({ n: 'A', t: 0, b: [['r', 15, null, null, 0, 0]] }, 0, { r: 15 }), /Mevsimlik pazarların/);
 });
 
 console.log(`${n}/${n} test geçti.`);

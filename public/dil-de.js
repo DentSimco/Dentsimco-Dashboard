@@ -1732,6 +1732,7 @@ export default {
   'Kapanış zamanı': 'Endet am',
   'Tutar ($)': 'Wert ($)',
   // ---- Şirketlerin binaları (Şirketler › ayrıntı, Diğer › Binalar, GO seviyesi) ----
+  'Mevsimlik pazarların seviyesi profilde gösterilmez.': 'Die Stufe saisonaler Märkte wird im Profil nicht angezeigt.',
   'Üst kademedeki {0} binanın toplam seviyesi': 'Gesamtstufe der {0} Gebäude der obersten Kategorie',
   'Toplam seviye, profildeki yönetim giderinden hesaplanır (yönetim gideri = 1 + (toplam seviye − 1) ÷ 170). Akademi ve satın alınmış mevsimlik pazarlar dahildir; banka, dinlenme binaları ve oyunun ücretsiz verdiği ilk mevsimlik pazar dahil değildir. Üst kademedeki binaların toplamı, bu toplamdan alt kademedeki binaların olası seviyeleri çıkarılarak bulunur; bu yüzden bir aralıktır.': 'Die Gesamtstufe wird aus dem Verwaltungsaufwand im Profil berechnet (Aufwand = 1 + (Gesamtstufe − 1) ÷ 170). Sie umfasst die Akademie und gekaufte saisonale Märkte; nicht enthalten sind die Bank, Erholungsgebäude und der erste saisonale Markt, den das Spiel kostenlos vergibt. Die Summe der Gebäude der obersten Kategorie ergibt sich, indem die möglichen Stufen der Gebäude niedrigerer Kategorien von dieser Summe abgezogen werden; deshalb ist sie eine Spanne.',
   'Toplam seviye (kesin)': 'Gesamtstufe (exakt)',

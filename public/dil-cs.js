@@ -1732,6 +1732,7 @@ export default {
   'Kapanış zamanı': 'Končí',
   'Tutar ($)': 'Hodnota ($)',
   // ---- Şirketlerin binaları (Şirketler › ayrıntı, Diğer › Binalar, GO seviyesi) ----
+  'Mevsimlik pazarların seviyesi profilde gösterilmez.': 'Úroveň sezónních trhů se v profilu nezobrazuje.',
   'Üst kademedeki {0} binanın toplam seviyesi': 'Celková úroveň {0} budov nejvyššího pásma',
   'Toplam seviye, profildeki yönetim giderinden hesaplanır (yönetim gideri = 1 + (toplam seviye − 1) ÷ 170). Akademi ve satın alınmış mevsimlik pazarlar dahildir; banka, dinlenme binaları ve oyunun ücretsiz verdiği ilk mevsimlik pazar dahil değildir. Üst kademedeki binaların toplamı, bu toplamdan alt kademedeki binaların olası seviyeleri çıkarılarak bulunur; bu yüzden bir aralıktır.': 'Celková úroveň se počítá z administrativních nákladů v profilu (náklady = 1 + (celková úroveň − 1) ÷ 170). Zahrnuje akademii a zakoupené sezónní trhy; nezahrnuje banku, rekreační budovy ani první sezónní trh, který hra dává zdarma. Součet budov nejvyššího pásma se zjistí odečtením možných úrovní budov nižších pásem od tohoto součtu; proto je to rozmezí.',
   'Toplam seviye (kesin)': 'Celková úroveň (přesně)',
