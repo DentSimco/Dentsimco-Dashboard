@@ -248,8 +248,9 @@ t('şirket ayrıntısı: çözülmüş tür toplamı ve bina başına aralık', 
   const ham = { a: { dbLetter: '6', category: 'production', costUnits: 10, levelImages: lv(1, 2, 3, 6, 10, 15) } };
   const h = binalarHtml({ n: 'A', t: 0, ao: 1 + 49 / 170, b: [['6', 15, null, null, 0, 0], ['6', 6, null, null, 0, 0]] }, 0, {}, ham);
   assert.match(h, /<b>50<\/b>/, 'tür toplamı kesin');
-  assert.match(h, /41 – 44, 6 – 9/);
-  assert.match(h, /Bina değeri hesaba katılmadı/);
+  assert.match(h, /<b>25<\/b>/, 'ortalama: 50 ÷ 2');
+  assert.match(h, /Tek sayı kesin seviyedir/);
+  assert.match(h, /Bina başına/);
   assert.doesNotMatch(h, /Kademeler/);
 });
 

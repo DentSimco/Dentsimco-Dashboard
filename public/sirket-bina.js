@@ -13,11 +13,7 @@ import { esc } from './esc.js';
 import { MAX_SEVIYE, binaSabitleri, seviyeCoz } from './seviye-coz.js';
 
 export const KADEME_NOTU = 'Oyunun herkese açık profili bina seviyesini görsel kademenin alt sınırıyla verir (1, 2, 3, 6, 10, 15; akademide 20 gibi): 15+ yazan bina 15 ya da daha yüksek seviyededir. Bina bazında gerçek seviye görünmez; tablodaki toplamlar ve ortalamalar en az değerlerdir, sıralamalar da bunlara göredir.';
-export const COZUM_NOTU = 'Gerçek seviyeler çözülerek bulunur: kesin toplam seviye (yönetim giderinden) ve bina değeri (bina başına maliyet × seviye) iki denklem verir; profildeki kademeler her binanın en az ve en çok seviyesini sınırlar. Tek sayı kesin seviyedir, aralık olası en düşük ve en yüksek seviyedir. Aynı türdeki binalar birbirinden ayrılamaz: tür toplamı bina başına aralıklardan daha kesindir.';
-export const TOPLAM_NOTU = 'Toplam seviye, profildeki yönetim giderinden hesaplanır (yönetim gideri = 1 + (toplam seviye − 1) ÷ 170). Akademi ve satın alınmış mevsimlik pazarlar dahildir; banka, dinlenme binaları ve oyunun ücretsiz verdiği ilk mevsimlik pazar dahil değildir.';
-export const OZET_COZUM_NOTU = 'Tür toplamları yönetim giderindeki kesin toplam seviyeden (ve güvenilir olduğunda bina değerinden) çözülür: tablodaki toplamlar ve ortalamalar çözülmüş en az değerlerdir. Sahipler tablosunda tek sayı kesin toplamdır, aralık olası en düşük ve en yüksek toplamdır.';
-export const BV_VAR_NOTU = 'Bina değeri de hesaba katıldı.';
-export const BV_YOK_NOTU = 'Bina değeri hesaba katılmadı: oyun onu günde bir kez kaydeder ve şirket o andan beri değişmiş olabilir. Şirket iki tarama arasında değişmezse kullanılır.';
+export const ARALIK_NOTU = 'Tek sayı kesin seviyedir. "≥ 15" en az 15 demektir. "15 – 130" gibi bir aralık, seviyenin tam olarak bilinemediğini ve bu iki sayının arasında olduğunu gösterir.';
 export const PARCA = 128;
 // Mevsimlik pazarlara (Cadılar Bayramı, Yılbaşı, Plaj Bar, Bahar) profilde seviye basılmaz; boyut bilgi taşımaz (Halloween pazarı hep 3, Yılbaşı hep 1).
 export const MEVSIMLIK = new Set(['t', 'u', 'z', 'I']);
@@ -103,21 +99,14 @@ export function binalarHtml(k, now = Date.now(), ust = {}, sabit = null) {
     if ((coz || g.ucretsiz === g.adet) && HEDIYE_SEVIYE[g.harf]) return `<span data-no-t>${NUM.format(HEDIYE_SEVIYE[g.harf] * g.adet)}</span>`;
     return mevsimlikMi(g.harf) ? '—' : `<span data-no-t>≥ ${NUM.format(g.toplam)}</span>`;
   };
-  // Aynı aralıktaki binalar birleştirilir ("15 – 130 ×14"); birden çok binada tür ortalaması (Ø) da yazılır
+  // Bina başına ortalama seviye (tür toplamı ÷ adet); toplam kesin değilse aralık
   const seviyeHucre = (g) => {
     if (coz) {
-      const sayac = new Map();
-      for (const x of g.kalemler) {
-        const y = bina.get(x.i);
-        const metin = y ? aralik(y.alt, y.ust) : hediye(g, x);
-        const e = sayac.get(metin) || { metin, n: 0, ust: y ? y.ust : -1 };
-        e.n++;
-        sayac.set(metin, e);
-      }
-      const liste = [...sayac.values()].sort((p, q) => q.ust - p.ust).map((e) => (e.n > 1 ? `${e.metin} ×${e.n}` : e.metin)).join(', ');
       const t = coz.turler[g.harf];
-      const ort = t && t.adet > 1 ? (t.alt === t.ust ? `Ø ${NUM.format(t.alt / t.adet)}` : Number.isFinite(t.ust) ? `Ø ${NUM.format(t.alt / t.adet)} – ${NUM.format(t.ust / t.adet)}` : '') : '';
-      return ort ? `${liste} · ${ort}` : liste;
+      if (!t) return hediye(g);
+      const bol = (x) => NUM.format(Math.round((x / t.adet) * 10) / 10);
+      if (t.alt === t.ust) return `<b>${bol(t.alt)}</b>`;
+      return Number.isFinite(t.ust) ? `${bol(t.alt)} – ${bol(t.ust)}` : `≥ ${bol(t.alt)}`;
     }
     return mevsimlikMi(g.harf) ? g.kalemler.map((x) => (x.ucretsiz ? hediye(g, x) : '—')).join(', ') : g.seviyeler.map((v) => kademeMetni(g.harf, v, ust)).join(', ');
   };
@@ -134,11 +123,10 @@ export function binalarHtml(k, now = Date.now(), ust = {}, sabit = null) {
       ${k.pm != null ? kv('Üretim değiştiricisi', `<span data-no-t>${signed(k.pm)}</span>`) : ''}
       ${k.sm != null ? kv('Satış değiştiricisi', `<span data-no-t>${signed(k.sm)}</span>`) : ''}
     </div>
-    ${gruplar.length ? `<div class="sk-wrap"><table class="sb-t"><thead><tr><th class="l">Bina</th><th>Adet</th><th>${coz ? 'Toplam seviye' : 'Toplam seviye (en az)'}</th><th class="l">${coz ? 'Seviyeler' : 'Kademeler'}</th><th class="l">Durum</th></tr></thead><tbody>${gruplar.map((g) => `<tr>
+    ${gruplar.length ? `<div class="sk-wrap"><table class="sb-t"><thead><tr><th class="l">Bina</th><th>Adet</th><th>${coz ? 'Toplam seviye' : 'Toplam seviye (en az)'}</th><th class="l">${coz ? 'Bina başına' : 'Kademeler'}</th><th class="l">Durum</th></tr></thead><tbody>${gruplar.map((g) => `<tr>
       <td class="l">${esc(binaAdi(g.harf))}${g.luks ? ' <span class="sb-durum">Lüks</span>' : ''}${g.ucretsiz ? ' <span class="sb-durum">Ücretsiz hediye</span>' : ''}</td><td>${g.adet}</td><td>${toplamHucre(g)}</td>
       <td class="l" data-no-t>${seviyeHucre(g)}</td><td class="l">${mesgulMetni(g)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="sk-note">Şirketin binası yok.</p>'}
-    ${coz ? `<p class="sk-note"><span>${COZUM_NOTU}</span> <span>${coz.bvKullanildi ? BV_VAR_NOTU : BV_YOK_NOTU}</span></p>
-    <p class="sk-note">${TOPLAM_NOTU}</p>` : `<p class="sk-note">${KADEME_NOTU}${gruplar.some((g) => mevsimlikMi(g.harf)) ? ` ${MEVSIMLIK_NOTU}` : ''}</p>`}
+    ${coz ? `<p class="sk-note">${ARALIK_NOTU}</p>` : `<p class="sk-note">${KADEME_NOTU}${gruplar.some((g) => mevsimlikMi(g.harf)) ? ` ${MEVSIMLIK_NOTU}` : ''}</p>`}
     <p class="sk-note"><span>${esc(`Tarama: ${fmtDateTime(k.t)}.`)}</span> <span>Kaynak: oyunun herkese açık şirket profili; binada üretilen ürün profilde görünmez.</span></p>`;
 }
 
