@@ -123,20 +123,21 @@ test('Hedef: elle girilen önce; önceki+mevcut varsa tahmin; yoksa eko varsayı
   eq(R.hedefRating({ hedef: 7.2, tip: 'eko' }), { deger: 7.2, kaynak: 'girilen' });
   const t = R.hedefRating({ onceki: 5, rating: 5.177, tip: 'eko' });
   near(t.deger, 6, 1e-9); eq(t.kaynak, 'tahmin');
-  near(R.hedefRating({ tip: 'eko' }, 0.99).deger, 6, 1e-9);
-  near(R.hedefRating({ tip: 'eko' }, 1.19).deger, 6.2, 1e-9); // bonus 0,2 artınca hedef 0,2 artar
+  near(R.hedefRating({ tip: 'eko' }, 0.99).deger, 6.045, 1e-9); // kalite bilinmiyorsa referans menü (Q7,5)
+  near(R.hedefRating({ tip: 'eko' }, 1.19).deger, 6.245, 1e-9); // bonus 0,2 artınca hedef 0,2 artar
   eq(R.hedefRating({ tip: 'luks', rating: 8.75 }), { deger: 8.75, kaynak: 'bilinmiyor' });
 });
-test('Kalite: 11 Ekim menüsü (Q7, Q10, Q7, Q5, Q7, Q9) ortalama 7,5 ve bonus 0,99 ile hedef 6; kalite düştükçe hedef düşer', () => {
+test('Kalite: 11 Ekim menüsü (Q7, Q10, Q7, Q5, Q7, Q9) ortalama 7,5 ve bonus 0,99 ile hedef ~6; seviye 2 testi (Q0,5, bonus 0,32) ~3,8', () => {
   const ref = [[117, 7], [119, 10], [142, 7], [143, 5], [124, 7], [125, 9]].map(([id, kalite]) => ({ id, birim: 1, kalite }));
   near(R.menuKalitesi(ref), 7.5, 1e-9);
-  near(R.hedefRating({ tip: 'eko' }, 0.99, R.menuKalitesi(ref)).deger, 6, 1e-9);
-  near(R.hedefRating({ tip: 'eko' }, 0.32, 0).deger, 0.32, 1e-9); // Q0 menü: yalnız bonus
-  near(R.hedefRating({ tip: 'eko' }, 0.99, 10).deger, 10 * R.KALITE_RATING + 0.99, 1e-9);
+  near(R.hedefRating({ tip: 'eko' }, 0.99, R.menuKalitesi(ref)).deger, 6.045, 1e-9);
+  near(R.hedefRating({ tip: 'eko' }, 0.32, 0).deger, 3.65, 1e-9); // Q0 menü: taban + bonus
+  near(R.hedefRating({ tip: 'eko' }, 0.32, 0.5).deger, 3.765, 1e-9); // seviye 2 testi: ilk döngü artışı 0,177 × 3,765 ≈ 0,67 (gözlenen 0,64)
+  near(R.hedefRating({ tip: 'eko' }, 0.99, 10).deger, R.KALITE_TABAN + 10 * R.KALITE_RATING + 0.99, 1e-9);
   eq(R.menuKalitesi([{ id: 117, birim: 1 }]), null);
   const r = R.restoranDegerlendir([{ id: 'a', tip: 'eko', seviye: 2, fiyat: 62, rating: 0 }],
     { adminNet: 0, ratingBonus: 0.32, mod: 'beklenen', menuOf: () => ref.map((m) => ({ ...m, kalite: 0 })) });
-  near(r.rows[0].hedef.deger, 0.32, 1e-9); eq(r.rows[0].kalite, 0);
+  near(r.rows[0].hedef.deger, 3.65, 1e-9); eq(r.rows[0].kalite, 0);
 });
 test('Rating hedefe yaklaşır: 3,95 → 4,25 → 4,61 → 4,86 ölçümüyle aynı hedefi (~6) verir', () => {
   near(R.hedefRating({ onceki: 3.95, rating: 4.25 }).deger, 3.95 + 0.30 / R.RATING.k, 1e-9);
@@ -145,7 +146,9 @@ test('Rating hedefe yaklaşır: 3,95 → 4,25 → 4,61 → 4,86 ölçümüyle ay
 test('Beklenen doluluk: eşiğin üstünde son doluluk korunur, altında düşük; eşiğin altından çıkınca varsayılan üst', () => {
   eq(R.beklenenDoluluk(6, 6.5, 91), 91);
   eq(R.beklenenDoluluk(6, 6.5, null), R.DOLULUK.ust);
-  eq(R.beklenenDoluluk(4, 6, 98), R.DOLULUK.alt);
+  near(R.beklenenDoluluk(4, 6, 98), R.dolulukRating(4), 1e-9);
+  near(R.dolulukRating(0), 13, 1e-9); near(R.dolulukRating(4.61), 96.5, 1e-9); near(R.dolulukRating(8), 96.5, 1e-9);
+  ok(R.dolulukRating(4.1) > R.dolulukRating(3.5) && R.dolulukRating(3.5) > R.dolulukRating(1), 'doluluk ratingle artar');
   eq(R.beklenenDoluluk(4, 4.2, 60), 60);
   eq(R.beklenenDoluluk(6, 4, 46), R.DOLULUK.ust);
 });
@@ -179,7 +182,7 @@ test('Şimdi ve beklenen: rating hedefi eşiğin altındaysa beklenen kâr düş
   const bek = R.restoranDegerlendir([it], ctxR({ mod: 'beklenen' }));
   const sim = R.restoranDegerlendir([it], ctxR({ mod: 'simdi' }));
   ok(bek.totals.profitDay < sim.totals.profitDay, 'beklenen daha düşük');
-  eq(bek.rows[0].beklenen.doluluk, R.DOLULUK.alt);
+  near(bek.rows[0].beklenen.doluluk, R.dolulukRating(3.5), 1e-9);
   eq(sim.rows[0].simdi.doluluk, 98);
 });
 test('Satış hızı/iletişim bonusu hedefi kaydırır: bonus +0,2 → hedef +0,2 → beklenen rating +0,2', () => {

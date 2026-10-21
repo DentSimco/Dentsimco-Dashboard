@@ -9,6 +9,12 @@ const TABS = [['nedir', 'Nedir'], ['guncellemeler', 'Güncellemeler'], ['kaynakc
 // En yeni en üstte. { date: 'gün ay yıl', items: ['...', '...'] }
 export const UPDATES = [
   {
+    date: '21 Ekim 2026',
+    items: [
+      'Restoran: beklenen rating formülü ölçümlerle güncellendi (düşük kalite menüde daha yüksek, yüksek kalitede daha düşük hedef) ve rating eşiğin altındayken doluluk artık ratingle birlikte yükselen bir eğriyle hesaplanır.',
+    ],
+  },
+  {
     date: '20 Ekim 2026',
     items: [
       'Dil seçimi oyunun desteklediği 13 dile genişledi: Türkçe, İngilizce, Almanca, Fransızca, Portekizce, İtalyanca, İspanyolca, Çekçe, Çince (basitleştirilmiş ve geleneksel), Lehçe, Rusça ve Japonca. Ürün ve bina adları her dilde oyunun kendi adlarıyla görünür; haber metinleri Türkçe dışındaki dillerde İngilizcedir.',
