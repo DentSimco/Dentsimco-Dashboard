@@ -13,7 +13,7 @@ import { PATHS, readDocs, dataField, loadBasics, anlikFiyat, VeriHatasi, fmtPric
 import { DIL, LOCALE, DIL_ADLARI } from './i18n.js';
 import { binaAdi } from './adlar.js';
 import { urunAdi } from './urun-adlari.js';
-import { mevsimlikMi, KADEME_NOTU, MEVSIMLIK_NOTU } from './sirket-bina.js';
+import { mevsimlikMi, KADEME_NOTU, MEVSIMLIK_NOTU, OZET_COZUM_NOTU } from './sirket-bina.js';
 import { esc } from './esc.js';
 import * as G from './sirket-gecmis.js';
 import { PROJELER, GO_KURAL, ADLAR_TR, ADLAR_EN } from './diger-adlar.js';
@@ -613,9 +613,9 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
       <div class="dg-wrap"><table class="dg-bt"><thead><tr>${th('harf', 'Bina', 'l')}${th('kat', 'Kategori', 'l')}${th('n', 'Sayı')}${th('pay', 'Pay')}${sbVar ? `${th('sirket', 'Sahip şirket')}${th('seviye', 'Toplam seviye (en az)')}${th('ort', 'Ortalama seviye (en az)')}` : ''}</tr></thead>
       <tbody>${rows.map((r) => `<tr data-sb-tur="${esc(r.harf)}" tabindex="0" role="button" aria-pressed="${r.harf === sec}"${r.harf === sec ? ' class="dg-sec"' : ''}><td class="l">${oyun(binaAdi(r.harf))}</td><td class="l">${kategoriAdi(r.kat)}</td><td>${NUM.format(r.n)}</td><td>${fmtShare(r.pay)}</td>
         ${sbVar ? `<td>${hucre(r.sirket, (v) => NUM.format(v))}</td><td>${hucre(r.seviye, (v) => NUM.format(v))}</td><td>${hucre(r.ort, (v) => v.toLocaleString(LOCALE, { maximumFractionDigits: 1 }))}</td>` : ''}</tr>`).join('')}</tbody></table></div>
-      ${sbVar ? `<p class="dg-note">${KADEME_NOTU} ${MEVSIMLIK_NOTU}</p>` : ''}
+      ${sbVar ? `<p class="dg-note"><span>${KADEME_NOTU}</span> <span>${OZET_COZUM_NOTU}</span> <span>${MEVSIMLIK_NOTU}</span></p>` : ''}
       ${top.length ? `<h3>${esc(`${binaAdi(sec)} — en büyük sahipler`)}</h3>
-      <div class="dg-wrap"><table><thead><tr><th class="l">Sıra</th><th class="l">Şirket</th><th>Toplam seviye (en az)</th><th>Bina sayısı</th><th>Şirketin toplam seviyesi (kesin)</th></tr></thead><tbody>${top.map((t, i) => `<tr><td class="l">${i + 1}</td><td class="l">${oyun(t[1])}<small class="alt" data-no-t>ID ${t[0]}</small></td><td>${NUM.format(t[2])}</td><td>${NUM.format(t[3])}</td><td>${t[4] == null ? '<span class="dim">—</span>' : NUM.format(t[4])}</td></tr>`).join('')}</tbody></table></div>` : ''}
+      <div class="dg-wrap"><table><thead><tr><th class="l">Sıra</th><th class="l">Şirket</th><th>Toplam seviye</th><th>Bina sayısı</th><th>Şirketin toplam seviyesi (kesin)</th></tr></thead><tbody>${top.map((t, i) => `<tr><td class="l">${i + 1}</td><td class="l">${oyun(t[1])}<small class="alt" data-no-t>ID ${t[0]}</small></td><td data-no-t>${t[5] == null ? `≥ ${NUM.format(t[2])}` : t[5] === t[2] ? `<b>${NUM.format(t[2])}</b>` : `${NUM.format(t[2])} – ${NUM.format(t[5])}`}</td><td>${NUM.format(t[3])}</td><td>${t[4] == null ? '<span class="dim">—</span>' : NUM.format(t[4])}</td></tr>`).join('')}</tbody></table></div>` : ''}
     </section>`;
   }
 
