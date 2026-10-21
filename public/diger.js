@@ -417,15 +417,15 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
   // ---- Government Order ----
   let goVeri = null;
   async function goCiz(my) {
-    const [get] = await Promise.all([oku([yollar.go(), yollar.sb()]), temelOku()]);
+    const [get] = await Promise.all([oku([yollar.go()]), temelOku()]);
     if (!gecerli(my)) return;
     const doc = get(yollar.go());
     const now = Date.now();
-    goVeri = { doc, list: goListeleri(doc?.orders, now), sb: get(yollar.sb()) };
+    goVeri = { doc, list: goListeleri(doc?.orders, now) };
     goBoya();
   }
   function goBoya() {
-    const { doc, list, sb } = goVeri;
+    const { doc, list } = goVeri;
     if (!doc) { box.innerHTML = `<h1>Government Order</h1>${veriYok}`; return; }
     const alt = rota.go || durum.goAlt || (list.ilan.length ? 'ilan' : 'yuruyen');
     const say = { ilan: list.ilan.length, yuruyen: list.yuruyen.length, gecmis: list.gecmis.length, urunler: urunTalepleri(doc.orders).length };
@@ -438,7 +438,6 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
       <p class="dg-note">Devlet siparişleri her çarşamba 16:00'da (TR saati) çıkar. 5 gün teklif toplanır, pazartesi 16:00'da kazanan ekip seçilir ve teslim süresi başlar. Teklif 3-7 şirketlik ekiplerle verilir; kazanan teklifin %10'u teminat olarak alınır. Gereken miktar = temel miktar × çarpan (çarpan kazanan ekibin seviyesine göre).</p>
       <nav class="dg-sub" aria-label="Government Order bölümleri">${GO_ALT.map(sekme).join('')}</nav>
       ${govde}
-      ${alt === 'ilan' ? '' : goSeviyeKarti(sb)}
       ${botNotu(doc.t)}`;
   }
 
@@ -569,16 +568,6 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
       ${ozet}
       ${sec.map((k) => urunKarti(k, orders, toplam)).join('')}
       <details data-urun-liste${!sec.length || durum.urunAcik ? ' open' : ''}><summary class="dg-note">${esc(`Tüm ürünler (${NUM.format(list.length)})`)}</summary>${tablo}</details>`;
-  }
-
-  // Şirketlerin GO seviyesi (oyunun şirket profilindeki governmentOrderTierIndex; şirket binaları taramasından)
-  function goSeviyeKarti(sb) {
-    const satir = Object.entries(sb?.go || {}).map(([k, n]) => [Number(k), n]).sort((a, b) => b[0] - a[0]);
-    if (!satir.length) return '';
-    const toplam = satir.reduce((a, x) => a + x[1], 0);
-    return `<section class="dg-card"><h2>Şirketlerin GO seviyesi</h2>
-      <p class="dg-note">Oyun her şirkete bir GO seviyesi verir; teklifin seviyesi ekipteki en büyük şirketin seviyesidir ve istenen miktarı belirler.</p>
-      <div class="dg-wrap"><table><thead><tr><th class="l">GO seviyesi</th><th>Şirket</th><th>Pay</th></tr></thead><tbody>${satir.map(([k, n]) => `<tr><td class="l" data-no-t>T${k}</td><td>${NUM.format(n)}</td><td>${fmtShare(n / toplam)}</td></tr>`).join('')}</tbody></table></div></section>`;
   }
 
   // ---- Binalar ----
