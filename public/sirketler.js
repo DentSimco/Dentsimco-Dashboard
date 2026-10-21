@@ -483,7 +483,7 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
       ${grafik}
       <div class="sk-legend">${seriler.map((s) => `<span><i style="background:${s.renk}"></i>${esc(s.ad)}</span>`).join('')}</div>
       <div class="sk-wrap"><table><thead><tr><th class="l">Şirket</th><th>Sıra</th><th>Şirket değeri</th><th>${esc(m.ad)}</th><th>${G.GUN_SAYISI} gün değişimi</th></tr></thead><tbody>${kiyas.ids.map(satir).join('')}</tbody></table></div>
-      <p class="sk-note">${esc(`Geçmiş en çok ${G.GUN_SAYISI} gündür; bot her gün ekler.`)} Şirketin ayrıntısı için satıra dokunun.</p>`;
+      <p class="sk-note">${esc(`Geçmiş en çok ${G.GUN_SAYISI} gündür.`)} Şirketin ayrıntısı için satıra dokunun.</p>`;
     kutu.querySelectorAll('.sg-kutu').forEach(G.grafikBagla);
   }
 
@@ -560,7 +560,7 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
       ${r[12] === 1 ? '' : '<p class="sk-note">Bu şirketin ayrıntıları (EVA, bina, patent, işçi, bono) henüz gelmedi; sonraki günlük güncellemede tamamlanabilir.</p>'}
       <section data-binalar><p class="sk-note">Binaları yükleniyor…</p></section>
       <details class="sk-det"><summary>Gün gün tablo</summary><div data-gt-body></div>
-        <p class="sk-note">Son ${G.GUN_SAYISI} gün; bot günde bir kez ekler. Ayrıntısı o gün gelmemiş şirketlerde "—" görünür.</p></details>
+        <p class="sk-note">Son ${G.GUN_SAYISI} gün. Ayrıntısı o gün gelmemiş şirketlerde "—" görünür.</p></details>
       <p class="sk-note">Veri: Simcotools${data.date ? ` · ${new Date(data.date).toLocaleDateString(LOCALE, { timeZone: 'UTC' })}` : ''}</p></div></div>`;
     document.body.style.overflow = 'hidden';
     sheetHost.querySelector('[data-close]').focus();
@@ -681,7 +681,7 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
     try {
       const got = await yukle(realm);
       if (!alive || my !== token) return;
-      if (!got) { box.innerHTML = '<h1>Şirketler</h1><p class="sk-note">Şirket sıralaması henüz toplanmadı. Bot her gün öğleye doğru (TR) çalışır; ilk çalışmadan sonra burada görünür.</p>'; return; }
+      if (!got) { box.innerHTML = '<h1>Şirketler</h1><p class="sk-note">Şirket sıralaması henüz toplanmadı. Biraz sonra tekrar bakın.</p>'; return; }
       data = got;
       ciz();
     } catch (e) {
