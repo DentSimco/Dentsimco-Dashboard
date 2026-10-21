@@ -1732,11 +1732,12 @@ export default {
   'Kapanış zamanı': 'Closes at',
   'Tutar ($)': 'Value ($)',
   // ---- Şirketlerin binaları (Şirketler › ayrıntı, Diğer › Binalar, GO seviyesi) ----
+  'Üst kademedeki {0} binanın toplam seviyesi': 'Total level of the {0} top-tier buildings',
+  'Toplam seviye, profildeki yönetim giderinden hesaplanır (yönetim gideri = 1 + (toplam seviye − 1) ÷ 170). Akademi ve satın alınmış mevsimlik pazarlar dahildir; banka, dinlenme binaları ve oyunun ücretsiz verdiği ilk mevsimlik pazar dahil değildir. Üst kademedeki binaların toplamı, bu toplamdan alt kademedeki binaların olası seviyeleri çıkarılarak bulunur; bu yüzden bir aralıktır.': 'The total level is calculated from the administration overhead in the profile (overhead = 1 + (total level − 1) ÷ 170). It includes the academy and purchased seasonal markets; it does not include the bank, recreation buildings and the first seasonal market the game gives for free. The total of the top-tier buildings is found by subtracting the possible levels of lower-tier buildings from this total, so it is a range.',
   'Toplam seviye (kesin)': 'Total level (exact)',
   'Üst kademedeki binaların ortalama seviyesi': 'Average level of top-tier buildings',
   'Şirketin toplam seviyesi (kesin)': 'Company\'s total level (exact)',
   'Oyunun herkese açık profili bina seviyesini görsel kademenin alt sınırıyla verir (1, 2, 3, 6, 10, 15; akademide 20 gibi): 15+ yazan bina 15 ya da daha yüksek seviyededir. Bina bazında gerçek seviye görünmez; tablodaki toplamlar ve ortalamalar en az değerlerdir, sıralamalar da bunlara göredir.': 'The game\'s public profile gives a building\'s level as the lower bound of its visual tier (1, 2, 3, 6, 10, 15; for the academy, up to 20): a building shown as 15+ is level 15 or higher. The real level of an individual building is not visible; totals and averages in the tables are minimums, and rankings follow them.',
-  'Toplam seviye, profildeki yönetim giderinden hesaplanır (yönetim gideri = 1 + (toplam seviye − 1) ÷ 170) ve dinlenme binaları, mevsimlik pazarlar ve akademi hariç tüm binaları kapsar. Üst kademedeki binaların ortalaması bu toplamdan alt kademedeki binaların olası seviyeleri çıkarılarak bulunur; bu yüzden bir aralıktır.': 'The total level is calculated from the administration overhead in the profile (overhead = 1 + (total level − 1) ÷ 170) and covers all buildings except recreation buildings, seasonal markets and the academy. The average of top-tier buildings is found by subtracting the possible levels of lower-tier buildings from this total, so it is a range.',
   'Toplam seviye (en az)': 'Total level (at least)',
   'Kademeler': 'Tiers',
   'Ortalama seviye (en az)': 'Average level (at least)',

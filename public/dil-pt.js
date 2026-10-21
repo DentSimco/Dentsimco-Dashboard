@@ -1732,11 +1732,12 @@ export default {
   'Kapanış zamanı': 'Termina em',
   'Tutar ($)': 'Valor ($)',
   // ---- Şirketlerin binaları (Şirketler › ayrıntı, Diğer › Binalar, GO seviyesi) ----
+  'Üst kademedeki {0} binanın toplam seviyesi': 'Nível total dos {0} edifícios da faixa mais alta',
+  'Toplam seviye, profildeki yönetim giderinden hesaplanır (yönetim gideri = 1 + (toplam seviye − 1) ÷ 170). Akademi ve satın alınmış mevsimlik pazarlar dahildir; banka, dinlenme binaları ve oyunun ücretsiz verdiği ilk mevsimlik pazar dahil değildir. Üst kademedeki binaların toplamı, bu toplamdan alt kademedeki binaların olası seviyeleri çıkarılarak bulunur; bu yüzden bir aralıktır.': 'O nível total é calculado a partir do custo administrativo do perfil (custo = 1 + (nível total − 1) ÷ 170). Inclui a academia e os mercados sazonais comprados; não inclui o banco, os edifícios de lazer nem o primeiro mercado sazonal que o jogo dá de graça. O total dos edifícios da faixa mais alta é obtido subtraindo desse total os níveis possíveis dos edifícios das faixas inferiores; por isso é um intervalo.',
   'Toplam seviye (kesin)': 'Nível total (exato)',
   'Üst kademedeki binaların ortalama seviyesi': 'Nível médio dos edifícios da faixa mais alta',
   'Şirketin toplam seviyesi (kesin)': 'Nível total da empresa (exato)',
   'Oyunun herkese açık profili bina seviyesini görsel kademenin alt sınırıyla verir (1, 2, 3, 6, 10, 15; akademide 20 gibi): 15+ yazan bina 15 ya da daha yüksek seviyededir. Bina bazında gerçek seviye görünmez; tablodaki toplamlar ve ortalamalar en az değerlerdir, sıralamalar da bunlara göredir.': 'O perfil público do jogo informa o nível de um edifício como o limite inferior da sua faixa visual (1, 2, 3, 6, 10, 15; na academia, até 20): um edifício mostrado como 15+ tem nível 15 ou mais. O nível real de cada edifício não é visível; os totais e médias das tabelas são valores mínimos e os rankings os seguem.',
-  'Toplam seviye, profildeki yönetim giderinden hesaplanır (yönetim gideri = 1 + (toplam seviye − 1) ÷ 170) ve dinlenme binaları, mevsimlik pazarlar ve akademi hariç tüm binaları kapsar. Üst kademedeki binaların ortalaması bu toplamdan alt kademedeki binaların olası seviyeleri çıkarılarak bulunur; bu yüzden bir aralıktır.': 'O nível total é calculado a partir do custo administrativo do perfil (custo = 1 + (nível total − 1) ÷ 170) e abrange todos os edifícios, exceto os de lazer, os mercados sazonais e a academia. A média dos edifícios da faixa mais alta é obtida subtraindo desse total os níveis possíveis dos edifícios das faixas inferiores; por isso é um intervalo.',
   'Toplam seviye (en az)': 'Nível total (no mínimo)',
   'Kademeler': 'Faixas',
   'Ortalama seviye (en az)': 'Nível médio (no mínimo)',

@@ -1732,11 +1732,12 @@ export default {
   'Kapanış zamanı': 'Končí',
   'Tutar ($)': 'Hodnota ($)',
   // ---- Şirketlerin binaları (Şirketler › ayrıntı, Diğer › Binalar, GO seviyesi) ----
+  'Üst kademedeki {0} binanın toplam seviyesi': 'Celková úroveň {0} budov nejvyššího pásma',
+  'Toplam seviye, profildeki yönetim giderinden hesaplanır (yönetim gideri = 1 + (toplam seviye − 1) ÷ 170). Akademi ve satın alınmış mevsimlik pazarlar dahildir; banka, dinlenme binaları ve oyunun ücretsiz verdiği ilk mevsimlik pazar dahil değildir. Üst kademedeki binaların toplamı, bu toplamdan alt kademedeki binaların olası seviyeleri çıkarılarak bulunur; bu yüzden bir aralıktır.': 'Celková úroveň se počítá z administrativních nákladů v profilu (náklady = 1 + (celková úroveň − 1) ÷ 170). Zahrnuje akademii a zakoupené sezónní trhy; nezahrnuje banku, rekreační budovy ani první sezónní trh, který hra dává zdarma. Součet budov nejvyššího pásma se zjistí odečtením možných úrovní budov nižších pásem od tohoto součtu; proto je to rozmezí.',
   'Toplam seviye (kesin)': 'Celková úroveň (přesně)',
   'Üst kademedeki binaların ortalama seviyesi': 'Průměrná úroveň budov nejvyššího pásma',
   'Şirketin toplam seviyesi (kesin)': 'Celková úroveň společnosti (přesně)',
   'Oyunun herkese açık profili bina seviyesini görsel kademenin alt sınırıyla verir (1, 2, 3, 6, 10, 15; akademide 20 gibi): 15+ yazan bina 15 ya da daha yüksek seviyededir. Bina bazında gerçek seviye görünmez; tablodaki toplamlar ve ortalamalar en az değerlerdir, sıralamalar da bunlara göredir.': 'Veřejný profil ve hře udává úroveň budovy jako dolní hranici jejího vizuálního pásma (1, 2, 3, 6, 10, 15; u akademie až 20): budova uvedená jako 15+ má úroveň 15 nebo vyšší. Skutečná úroveň jednotlivé budovy není vidět; součty a průměry v tabulkách jsou minimální hodnoty a žebříčky se jimi řídí.',
-  'Toplam seviye, profildeki yönetim giderinden hesaplanır (yönetim gideri = 1 + (toplam seviye − 1) ÷ 170) ve dinlenme binaları, mevsimlik pazarlar ve akademi hariç tüm binaları kapsar. Üst kademedeki binaların ortalaması bu toplamdan alt kademedeki binaların olası seviyeleri çıkarılarak bulunur; bu yüzden bir aralıktır.': 'Celková úroveň se počítá z administrativních nákladů v profilu (náklady = 1 + (celková úroveň − 1) ÷ 170) a zahrnuje všechny budovy kromě rekreačních, sezónních trhů a akademie. Průměr budov nejvyššího pásma se zjistí odečtením možných úrovní budov nižších pásem od tohoto součtu; proto je to rozmezí.',
   'Toplam seviye (en az)': 'Celková úroveň (alespoň)',
   'Kademeler': 'Pásma',
   'Ortalama seviye (en az)': 'Průměrná úroveň (alespoň)',
