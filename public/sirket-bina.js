@@ -46,7 +46,7 @@ const signed = (x) => ISARETLI.format(x / 100);
 
 // Ayrıntı penceresindeki bölüm (k: kayıt ya da null)
 export function binalarHtml(k, now = Date.now()) {
-  if (!k) return '<p class="sk-note">Bu şirketin binaları henüz taranmadı.</p>';
+  if (!k) return '<p class="sk-note">Bu şirketin bina bilgisi henüz yok.</p>';
   const gruplar = binaGruplari(k.b);
   const toplamSeviye = gruplar.reduce((a, g) => a + g.toplam, 0);
   const kv = (t, v) => `<div class="sk-kv"><span>${t}</span><span>${v}</span></div>`;

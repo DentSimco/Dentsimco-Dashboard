@@ -150,7 +150,7 @@ t('grafikte yarım kalmış gün ayıklanır', () => {
 t('şirket binaları: türe göre gruplar, özet tablosu, parça yolu', () => {
   const g = binaGruplari([['6', 15, 'b', 9e12, 0], ['6', 10, null, null, 0], ['r', 15, null, null, 1], ['y', 20, 'u', 1, 0]]);
   assert.deepEqual(g.map((x) => [x.harf, x.adet, x.toplam, x.seviyeler, x.mesgul.length, x.luks]), [['6', 2, 25, [15, 10], 1, 0], ['y', 1, 20, [20], 1, 0], ['r', 1, 15, [15], 0, 1]]);
-  assert.match(binalarHtml(null), /henüz taranmadı/);
+  assert.match(binalarHtml(null), /henüz yok/);
   const h = binalarHtml({ n: 'A', t: 0, lv: 25, rt: 'AAA', go: 4, b: [['6', 15, 'b', 9e12, 0]] }, 0);
   assert.match(h, /İnşa \/ yükseltme/);
   assert.match(h, />T4</);
