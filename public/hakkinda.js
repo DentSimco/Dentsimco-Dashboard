@@ -9,6 +9,12 @@ const TABS = [['nedir', 'Nedir'], ['guncellemeler', 'Güncellemeler'], ['kaynakc
 // En yeni en üstte. { date: 'gün ay yıl', items: ['...', '...'] }
 export const UPDATES = [
   {
+    date: '21 Ekim 2026',
+    items: [
+      'Yeni bölüm: Diğer. Government Order (ilandaki, yürüyen ve geçmiş tüm devlet siparişleri; gereken miktar, verilen çarpan ve anlık borsa fiyatıyla değeri; en çok istenen ürünler), Binalar (bina türlerinin sayısı, toplam bina geçmişi, açık bina açık artırmaları), Ekonomik Evreler (şu anki evre, 2022\'den bu yana evre geçmişi, realm özeti, üretim olayları, yarışmalar) ve Sertifikalar (tüm türler, nadirlik, kazananlar). Veri saatte bir güncellenir.',
+    ],
+  },
+  {
     date: '20 Ekim 2026',
     items: [
       'Dil seçimi oyunun desteklediği 13 dile genişledi: Türkçe, İngilizce, Almanca, Fransızca, Portekizce, İtalyanca, İspanyolca, Çekçe, Çince (basitleştirilmiş ve geleneksel), Lehçe, Rusça ve Japonca. Ürün ve bina adları her dilde oyunun kendi adlarıyla görünür; haber metinleri Türkçe dışındaki dillerde İngilizcedir.',

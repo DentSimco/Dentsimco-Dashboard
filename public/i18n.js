@@ -60,6 +60,7 @@ const SOZLUK = EN && (EK ? { ...EN.default, ...EK.default } : EN.default);
 export const DIL_ADLARI = {
   urun: (EK || EN)?.URUNLER || null,
   bina: (EK || EN)?.BINALAR || null,
+  diger: EK?.DIGER_ADLARI || null, // Diğer › GO ve sertifika adları (yalnız İngilizceden farklı olanlar; İngilizcesi diger-adlar.js'de)
 };
 
 // ---- Sözlük derleme ----
