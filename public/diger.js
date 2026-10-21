@@ -13,6 +13,7 @@ import { PATHS, readDocs, dataField, loadBasics, anlikFiyat, VeriHatasi, fmtPric
 import { DIL, LOCALE, DIL_ADLARI } from './i18n.js';
 import { binaAdi } from './adlar.js';
 import { urunAdi } from './urun-adlari.js';
+import { ustKademeler, kademeMetni, KADEME_NOTU } from './sirket-bina.js';
 import { esc } from './esc.js';
 import * as G from './sirket-gecmis.js';
 import { PROJELER, GO_KURAL, BOLLUK, ADLAR_TR, ADLAR_EN } from './diger-adlar.js';
@@ -614,24 +615,26 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
           <td class="${tone(r.f1)}">${r.f1 == null ? '<span class="dim">—</span>' : signed(r.f1)}</td><td class="${tone(r.f7)}">${r.f7 == null ? '<span class="dim">—</span>' : signed(r.f7)}</td>
           <td>${r.cu == null ? '—' : NUM.format(r.cu)}</td><td>${sureMetni(r.sure)}</td>
           <td class="l ww"><div class="dg-cips">${r.urunler.slice(0, 8).map((id) => `<span class="dg-cip">${oyun(urun(id))}</span>`).join('')}${r.urunler.length > 8 ? `<span class="dg-cip" data-no-t>+${r.urunler.length - 8}</span>` : ''}</div></td></tr>`).join('')}</tbody></table></div></section>` : ''}
-      ${sirketBinaKarti(sb)}
+      ${sirketBinaKarti(sb, sabit)}
       ${ihaleKarti(ihale)}
       ${botNotu(bina?.t ?? ihale?.t)}`;
   }
 
   // Şirketlerin binaları: botun günlük taramasından bina türü başına sahip şirket, toplam seviye ve en büyükler
-  function sirketBinaKarti(sb) {
+  function sirketBinaKarti(sb, sabit) {
+    const ust = ustKademeler(sabit);
     const turler = sbTurleri(sb);
     if (!turler.length) return '';
     const sec = turler.find((x) => x.harf === durum.sbTur) || turler[0];
     const top = sb.top?.[sec.harf] || [];
     return `<section class="dg-card" data-sb><h2>Şirketlerin binaları</h2>
       <p class="dg-note">Bina türüne dokunun: en büyük sahipleri görün.</p>
-      <div class="dg-wrap"><table><thead><tr><th class="l">Bina</th><th>Sahip şirket</th><th>Bina sayısı</th><th>Toplam seviye</th><th>Ortalama seviye</th><th>En yüksek seviye</th></tr></thead>
+      <div class="dg-wrap"><table><thead><tr><th class="l">Bina</th><th>Sahip şirket</th><th>Bina sayısı</th><th>Toplam seviye (en az)</th><th>Ortalama seviye (en az)</th><th>En yüksek kademe</th></tr></thead>
       <tbody>${turler.map((x) => `<tr data-sb-tur="${esc(x.harf)}" tabindex="0" role="button" aria-pressed="${x.harf === sec.harf}"${x.harf === sec.harf ? ' class="dg-sec"' : ''}><td class="l">${oyun(binaAdi(x.harf))}</td><td>${NUM.format(x.sirket)}</td><td>${NUM.format(x.bina)}</td><td>${NUM.format(x.seviye)}</td>
-        <td>${(x.seviye / x.bina).toLocaleString(LOCALE, { maximumFractionDigits: 1 })}</td><td>${NUM.format(x.enYuksek)}</td></tr>`).join('')}</tbody></table></div>
+        <td>${(x.seviye / x.bina).toLocaleString(LOCALE, { maximumFractionDigits: 1 })}</td><td data-no-t>${kademeMetni(x.harf, x.enYuksek, ust)}</td></tr>`).join('')}</tbody></table></div>
+      <p class="dg-note">${KADEME_NOTU}</p>
       <h3>${oyun(binaAdi(sec.harf))}</h3>
-      <div class="dg-wrap"><table><thead><tr><th class="l">Sıra</th><th class="l">Şirket</th><th>Toplam seviye</th><th>Bina sayısı</th></tr></thead><tbody>${top.map((t, i) => `<tr><td class="l">${i + 1}</td><td class="l">${oyun(t[1])}<small class="alt" data-no-t>ID ${t[0]}</small></td><td>${NUM.format(t[2])}</td><td>${NUM.format(t[3])}</td></tr>`).join('')}</tbody></table></div>
+      <div class="dg-wrap"><table><thead><tr><th class="l">Sıra</th><th class="l">Şirket</th><th>Toplam seviye (en az)</th><th>Bina sayısı</th></tr></thead><tbody>${top.map((t, i) => `<tr><td class="l">${i + 1}</td><td class="l">${oyun(t[1])}<small class="alt" data-no-t>ID ${t[0]}</small></td><td>${NUM.format(t[2])}</td><td>${NUM.format(t[3])}</td></tr>`).join('')}</tbody></table></div>
     </section>`;
   }
 

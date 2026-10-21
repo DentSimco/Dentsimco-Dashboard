@@ -1732,18 +1732,21 @@ export default {
   'Kapanış zamanı': 'Endet am',
   'Tutar ($)': 'Wert ($)',
   // ---- Şirketlerin binaları (Şirketler › ayrıntı, Diğer › Binalar, GO seviyesi) ----
+  'Toplam seviye (en az)': 'Gesamtstufe (mindestens)',
+  'Kademeler': 'Stufen-Kategorien',
+  'Ortalama seviye (en az)': 'Durchschnittsstufe (mindestens)',
+  'En yüksek kademe': 'Höchste Kategorie',
+  'Oyunun herkese açık profili bina seviyesini görsel kademenin alt sınırıyla verir (1, 2, 3, 6, 10, 15; akademide 20 gibi): 15+ yazan bina 15 ya da daha yüksek seviyededir. Gerçek seviye yalnız şirketin kendisine görünür, bu yüzden toplamlar ve ortalamalar en az değerlerdir; sıralamalar da bu değerlere göredir.': 'Das öffentliche Profil des Spiels gibt die Gebäudestufe als Untergrenze der visuellen Kategorie an (1, 2, 3, 6, 10, 15; bei der Akademie bis 20): ein Gebäude mit 15+ hat Stufe 15 oder höher. Die tatsächliche Stufe sieht nur das Unternehmen selbst; Summen und Durchschnitte sind daher Mindestwerte, und die Ranglisten folgen diesen Werten.',
   'Binaları': 'Gebäude',
   'Binaları yükleniyor…': 'Gebäude werden geladen…',
   'Binaları açılamadı. Biraz sonra tekrar deneyin.': 'Die Gebäude konnten nicht geöffnet werden. Versuche es etwas später erneut.',
   'Bu şirketin bina bilgisi henüz yok.': 'Die Gebäudeinformationen dieser Firma sind noch nicht verfügbar.',
-  'Toplam seviye': 'Gesamtstufe',
   'Şirket seviyesi': 'Unternehmensstufe',
   'Kredi notu': 'Kreditrating',
   'GO seviyesi': 'GO-Stufe',
   'Dinlenme bonusu': 'Erholungsbonus',
   'Üretim değiştiricisi': 'Produktionsmodifikator',
   'Satış değiştiricisi': 'Verkaufsmodifikator',
-  'Seviyeler': 'Stufen',
   'İnşa / yükseltme': 'Bau / Ausbau',
   'Üretimde': 'Produziert',
   'Satışta': 'Verkauft',
@@ -1762,8 +1765,6 @@ export default {
   'Şirketlerin binaları': 'Gebäude der Unternehmen',
   'Bina türüne dokunun: en büyük sahipleri görün.': 'Tippe auf einen Gebäudetyp, um die größten Besitzer zu sehen.',
   'Sahip şirket': 'Besitzer',
-  'Ortalama seviye': 'Durchschnittliche Stufe',
-  'En yüksek seviye': 'Höchste Stufe',
 };
 
 // ---- Oyundaki ürün adları (ürün no → ad) ----

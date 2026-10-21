@@ -569,7 +569,7 @@ export function mountSirketler(root, { realm: startRealm = 0 } = {}) {
     G.gecmisYukle(realm, [my]).then((g) => { if (alive && sheet?.id === my) { sheet.gecmis = g.get(my) || []; gecmisCiz(); } })
       .catch(() => { if (alive && sheet?.id === my) { sheet.gecmis = []; gecmisCiz(); } });
     const binaKutu = () => (alive && sheet?.id === my ? sheetHost.querySelector('[data-binalar]') : null);
-    SB.sirketBinalari(realm, my).then((k) => { const el = binaKutu(); if (el) el.innerHTML = SB.binalarHtml(k); })
+    Promise.all([SB.sirketBinalari(realm, my), SB.ustKademeleriYukle().catch(() => ({}))]).then(([k, ust]) => { const el = binaKutu(); if (el) el.innerHTML = SB.binalarHtml(k, Date.now(), ust); })
       .catch(() => { const el = binaKutu(); if (el) el.innerHTML = '<p class="sk-note">Binaları açılamadı. Biraz sonra tekrar deneyin.</p>'; });
   }
   sheetHost.addEventListener('click', (e) => {

@@ -5,7 +5,7 @@ import {
   projeAnahtari, projeAdi, aykiriAt, sbTurleri, kurumAdi, sertAdi, evreOzeti, kalanMetni, binaSatirlari, gunEkle, bollukEsigi, donemMetni, kategoriAdi,
 } from '../public/diger.js';
 import { PROJELER, ADLAR_TR, ADLAR_EN } from '../public/diger-adlar.js';
-import { binaGruplari, binalarHtml, parcaYolu, PARCA } from '../public/sirket-bina.js';
+import { binaGruplari, binalarHtml, parcaYolu, PARCA, ustKademeler, kademeMetni } from '../public/sirket-bina.js';
 
 const DAY = 86400000;
 let n = 0;
@@ -157,6 +157,18 @@ t('şirket binaları: türe göre gruplar, özet tablosu, parça yolu', () => {
   assert.equal(parcaYolu(0, 4479420), `meta/sb_r0_${String(4479420 % PARCA).padStart(3, '0')}`);
   const s = sbTurleri({ kinds: { 6: [2, 3, 55, 30, {}], r: [1, 1, 5, 5, {}], x: [0, 0, 0, 0, {}] } });
   assert.deepEqual(s.map((x) => [x.harf, x.sirket, x.seviye]), [['6', 2, 55], ['r', 1, 5]]);
+});
+
+t('kademe: profildeki değer gerçek seviye değil; en yüksek kademe "+" ile yazılır', () => {
+  const ust = ustKademeler({ a: { dbLetter: 'r', levelImages: [{ level: 1 }, { level: 6 }, { level: 15 }] }, b: { dbLetter: 'y', levelImages: [{ level: 5 }, { level: 20 }] }, c: { dbLetter: 'v' } });
+  assert.deepEqual(ust, { r: 15, y: 20 });
+  assert.equal(kademeMetni('r', 15, ust), '15+');
+  assert.equal(kademeMetni('r', 10, ust), '10');
+  assert.equal(kademeMetni('y', 20, ust), '20+');
+  assert.equal(kademeMetni('v', 50, ust), '50', 'kademesi olmayan binada değer gerçek seviyedir');
+  const h = binalarHtml({ n: 'A', t: 0, b: [['r', 15, null, null, 0]] }, 0, ust);
+  assert.match(h, /15\+/);
+  assert.match(h, /gerçek seviye yalnız şirketin kendisine görünür/i);
 });
 
 console.log(`${n}/${n} test geçti.`);

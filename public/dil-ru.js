@@ -1732,18 +1732,21 @@ export default {
   'Kapanış zamanı': 'Закрывается',
   'Tutar ($)': 'Стоимость ($)',
   // ---- Şirketlerin binaları (Şirketler › ayrıntı, Diğer › Binalar, GO seviyesi) ----
+  'Toplam seviye (en az)': 'Общий уровень (минимум)',
+  'Kademeler': 'Диапазоны',
+  'Ortalama seviye (en az)': 'Средний уровень (минимум)',
+  'En yüksek kademe': 'Высший диапазон',
+  'Oyunun herkese açık profili bina seviyesini görsel kademenin alt sınırıyla verir (1, 2, 3, 6, 10, 15; akademide 20 gibi): 15+ yazan bina 15 ya da daha yüksek seviyededir. Gerçek seviye yalnız şirketin kendisine görünür, bu yüzden toplamlar ve ortalamalar en az değerlerdir; sıralamalar da bu değerlere göredir.': 'Публичный профиль игры показывает уровень здания как нижнюю границу его визуального диапазона (1, 2, 3, 6, 10, 15; у академии до 20): здание с пометкой 15+ имеет уровень 15 или выше. Настоящий уровень виден только самой компании, поэтому суммы и средние значения — минимальные, а рейтинги строятся по ним.',
   'Binaları': 'Здания',
   'Binaları yükleniyor…': 'Загрузка зданий…',
   'Binaları açılamadı. Biraz sonra tekrar deneyin.': 'Не удалось открыть здания. Попробуй ещё раз чуть позже.',
   'Bu şirketin bina bilgisi henüz yok.': 'Информация о зданиях этой компании пока недоступна.',
-  'Toplam seviye': 'Общий уровень',
   'Şirket seviyesi': 'Уровень компании',
   'Kredi notu': 'Кредитный рейтинг',
   'GO seviyesi': 'Уровень GO',
   'Dinlenme bonusu': 'Бонус отдыха',
   'Üretim değiştiricisi': 'Модификатор производства',
   'Satış değiştiricisi': 'Модификатор продаж',
-  'Seviyeler': 'Уровни',
   'İnşa / yükseltme': 'Строительство / расширение',
   'Üretimde': 'Производит',
   'Satışta': 'Продаёт',
@@ -1762,8 +1765,6 @@ export default {
   'Şirketlerin binaları': 'Здания компаний',
   'Bina türüne dokunun: en büyük sahipleri görün.': 'Коснись типа здания, чтобы увидеть крупнейших владельцев.',
   'Sahip şirket': 'Владельцы',
-  'Ortalama seviye': 'Средний уровень',
-  'En yüksek seviye': 'Высший уровень',
 };
 
 // ---- Oyundaki ürün adları (ürün no → ad) ----

@@ -1732,18 +1732,21 @@ export default {
   'Kapanış zamanı': '終了日時',
   'Tutar ($)': '価値 ($)',
   // ---- Şirketlerin binaları (Şirketler › ayrıntı, Diğer › Binalar, GO seviyesi) ----
+  'Toplam seviye (en az)': '合計レベル（最低）',
+  'Kademeler': 'ティア',
+  'Ortalama seviye (en az)': '平均レベル（最低）',
+  'En yüksek kademe': '最高ティア',
+  'Oyunun herkese açık profili bina seviyesini görsel kademenin alt sınırıyla verir (1, 2, 3, 6, 10, 15; akademide 20 gibi): 15+ yazan bina 15 ya da daha yüksek seviyededir. Gerçek seviye yalnız şirketin kendisine görünür, bu yüzden toplamlar ve ortalamalar en az değerlerdir; sıralamalar da bu değerlere göredir.': 'ゲームの公開プロフィールは、建物のレベルを見た目のティアの下限値で示します（1、2、3、6、10、15。アカデミーは最大 20）。15+ と表示される建物はレベル 15 以上です。実際のレベルは企業自身にしか見えないため、合計と平均は最低値であり、ランキングもこの値に基づきます。',
   'Binaları': '建物',
   'Binaları yükleniyor…': '建物を読み込み中…',
   'Binaları açılamadı. Biraz sonra tekrar deneyin.': '建物を開けませんでした。少し後でもう一度お試しください。',
   'Bu şirketin bina bilgisi henüz yok.': 'この企業の建物情報はまだありません。',
-  'Toplam seviye': '合計レベル',
   'Şirket seviyesi': '企業レベル',
   'Kredi notu': '信用格付け',
   'GO seviyesi': 'GO ティア',
   'Dinlenme bonusu': 'レクリエーションボーナス',
   'Üretim değiştiricisi': '生産補正',
   'Satış değiştiricisi': '販売補正',
-  'Seviyeler': 'レベル',
   'İnşa / yükseltme': '建設 / 拡張中',
   'Üretimde': '生産中',
   'Satışta': '販売中',
@@ -1762,8 +1765,6 @@ export default {
   'Şirketlerin binaları': '企業の建物',
   'Bina türüne dokunun: en büyük sahipleri görün.': '建物タイプをタップすると最大の所有者が表示されます。',
   'Sahip şirket': '所有者',
-  'Ortalama seviye': '平均レベル',
-  'En yüksek seviye': '最高レベル',
 };
 
 // ---- Oyundaki ürün adları (ürün no → ad) ----

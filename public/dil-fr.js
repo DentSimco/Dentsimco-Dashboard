@@ -1732,18 +1732,21 @@ export default {
   'Kapanış zamanı': 'Se termine le',
   'Tutar ($)': 'Valeur ($)',
   // ---- Şirketlerin binaları (Şirketler › ayrıntı, Diğer › Binalar, GO seviyesi) ----
+  'Toplam seviye (en az)': 'Niveau total (au moins)',
+  'Kademeler': 'Paliers',
+  'Ortalama seviye (en az)': 'Niveau moyen (au moins)',
+  'En yüksek kademe': 'Palier le plus élevé',
+  'Oyunun herkese açık profili bina seviyesini görsel kademenin alt sınırıyla verir (1, 2, 3, 6, 10, 15; akademide 20 gibi): 15+ yazan bina 15 ya da daha yüksek seviyededir. Gerçek seviye yalnız şirketin kendisine görünür, bu yüzden toplamlar ve ortalamalar en az değerlerdir; sıralamalar da bu değerlere göredir.': 'Le profil public du jeu donne le niveau d\'un bâtiment comme la borne inférieure de son palier visuel (1, 2, 3, 6, 10, 15 ; jusqu\'à 20 pour l\'académie) : un bâtiment affiché 15+ est de niveau 15 ou plus. Le niveau réel n\'est visible que par l\'entreprise elle-même ; les totaux et moyennes sont donc des minimums, et les classements suivent ces valeurs.',
   'Binaları': 'Bâtiments',
   'Binaları yükleniyor…': 'Chargement des bâtiments…',
   'Binaları açılamadı. Biraz sonra tekrar deneyin.': 'Les bâtiments n\'ont pas pu être ouverts. Réessaie un peu plus tard.',
   'Bu şirketin bina bilgisi henüz yok.': 'Les informations sur les bâtiments de cette entreprise ne sont pas encore disponibles.',
-  'Toplam seviye': 'Niveau total',
   'Şirket seviyesi': 'Niveau de l\'entreprise',
   'Kredi notu': 'Note de crédit',
   'GO seviyesi': 'Palier GO',
   'Dinlenme bonusu': 'Bonus de loisirs',
   'Üretim değiştiricisi': 'Modificateur de production',
   'Satış değiştiricisi': 'Modificateur de vente',
-  'Seviyeler': 'Niveaux',
   'İnşa / yükseltme': 'Construction / agrandissement',
   'Üretimde': 'En production',
   'Satışta': 'En vente',
@@ -1762,8 +1765,6 @@ export default {
   'Şirketlerin binaları': 'Bâtiments des entreprises',
   'Bina türüne dokunun: en büyük sahipleri görün.': 'Touche un type de bâtiment pour voir ses plus gros propriétaires.',
   'Sahip şirket': 'Propriétaires',
-  'Ortalama seviye': 'Niveau moyen',
-  'En yüksek seviye': 'Niveau le plus élevé',
 };
 
 // ---- Oyundaki ürün adları (ürün no → ad) ----

@@ -1732,18 +1732,21 @@ export default {
   'Kapanış zamanı': 'Closes at',
   'Tutar ($)': 'Value ($)',
   // ---- Şirketlerin binaları (Şirketler › ayrıntı, Diğer › Binalar, GO seviyesi) ----
+  'Toplam seviye (en az)': 'Total level (at least)',
+  'Kademeler': 'Tiers',
+  'Ortalama seviye (en az)': 'Average level (at least)',
+  'En yüksek kademe': 'Highest tier',
+  'Oyunun herkese açık profili bina seviyesini görsel kademenin alt sınırıyla verir (1, 2, 3, 6, 10, 15; akademide 20 gibi): 15+ yazan bina 15 ya da daha yüksek seviyededir. Gerçek seviye yalnız şirketin kendisine görünür, bu yüzden toplamlar ve ortalamalar en az değerlerdir; sıralamalar da bu değerlere göredir.': 'The game\'s public profile gives a building\'s level as the lower bound of its visual tier (1, 2, 3, 6, 10, 15; for the academy, up to 20): a building shown as 15+ is level 15 or higher. The real level is visible only to the company itself, so totals and averages are minimums, and rankings follow these values.',
   'Binaları': 'Buildings',
   'Binaları yükleniyor…': 'Loading buildings…',
   'Binaları açılamadı. Biraz sonra tekrar deneyin.': 'The buildings could not be opened. Try again a bit later.',
   'Bu şirketin bina bilgisi henüz yok.': 'This company\'s building information is not available yet.',
-  'Toplam seviye': 'Total level',
   'Şirket seviyesi': 'Company level',
   'Kredi notu': 'Credit rating',
   'GO seviyesi': 'GO tier',
   'Dinlenme bonusu': 'Recreation bonus',
   'Üretim değiştiricisi': 'Production modifier',
   'Satış değiştiricisi': 'Sales modifier',
-  'Seviyeler': 'Levels',
   'İnşa / yükseltme': 'Building / upgrading',
   'Üretimde': 'Producing',
   'Satışta': 'Selling',
@@ -1762,8 +1765,6 @@ export default {
   'Şirketlerin binaları': 'Buildings of companies',
   'Bina türüne dokunun: en büyük sahipleri görün.': 'Tap a building type to see its biggest owners.',
   'Sahip şirket': 'Owners',
-  'Ortalama seviye': 'Average level',
-  'En yüksek seviye': 'Highest level',
 };
 
 // ---- Oyundaki ürün adları (ürün no → ad) ----
