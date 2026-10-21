@@ -126,8 +126,7 @@ export function binalarHtml(k, now = Date.now(), ust = {}, sabit = null) {
     ${gruplar.length ? `<div class="sk-wrap"><table class="sb-t"><thead><tr><th class="l">Bina</th><th>Adet</th><th>${coz ? 'Toplam seviye' : 'Toplam seviye (en az)'}</th><th class="l">${coz ? 'Bina başına' : 'Kademeler'}</th><th class="l">Durum</th></tr></thead><tbody>${gruplar.map((g) => `<tr>
       <td class="l">${esc(binaAdi(g.harf))}${g.luks ? ' <span class="sb-durum">Lüks</span>' : ''}${g.ucretsiz ? ' <span class="sb-durum">Ücretsiz hediye</span>' : ''}</td><td>${g.adet}</td><td>${toplamHucre(g)}</td>
       <td class="l" data-no-t>${seviyeHucre(g)}</td><td class="l">${mesgulMetni(g)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="sk-note">Şirketin binası yok.</p>'}
-    ${coz ? `<p class="sk-note">${ARALIK_NOTU}</p>` : `<p class="sk-note">${KADEME_NOTU}${gruplar.some((g) => mevsimlikMi(g.harf)) ? ` ${MEVSIMLIK_NOTU}` : ''}</p>`}
-    <p class="sk-note"><span>${esc(`Tarama: ${fmtDateTime(k.t)}.`)}</span> <span>Kaynak: oyunun herkese açık şirket profili; binada üretilen ürün profilde görünmez.</span></p>`;
+    `;
 }
 
 export const CSS = `
