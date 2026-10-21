@@ -1732,18 +1732,21 @@ export default {
   'Kapanış zamanı': 'Kończy się',
   'Tutar ($)': 'Wartość ($)',
   // ---- Şirketlerin binaları (Şirketler › ayrıntı, Diğer › Binalar, GO seviyesi) ----
+  'Toplam seviye (en az)': 'Łączny poziom (co najmniej)',
+  'Kademeler': 'Przedziały',
+  'Ortalama seviye (en az)': 'Średni poziom (co najmniej)',
+  'En yüksek kademe': 'Najwyższy przedział',
+  'Oyunun herkese açık profili bina seviyesini görsel kademenin alt sınırıyla verir (1, 2, 3, 6, 10, 15; akademide 20 gibi): 15+ yazan bina 15 ya da daha yüksek seviyededir. Gerçek seviye yalnız şirketin kendisine görünür, bu yüzden toplamlar ve ortalamalar en az değerlerdir; sıralamalar da bu değerlere göredir.': 'Publiczny profil w grze podaje poziom budynku jako dolną granicę jego przedziału wizualnego (1, 2, 3, 6, 10, 15; dla akademii do 20): budynek oznaczony 15+ ma poziom 15 lub wyższy. Prawdziwy poziom widzi tylko sama firma, dlatego sumy i średnie to wartości minimalne, a rankingi opierają się na tych wartościach.',
   'Binaları': 'Budynki',
   'Binaları yükleniyor…': 'Wczytywanie budynków…',
   'Binaları açılamadı. Biraz sonra tekrar deneyin.': 'Nie udało się otworzyć budynków. Spróbuj ponownie za chwilę.',
   'Bu şirketin bina bilgisi henüz yok.': 'Informacje o budynkach tej firmy nie są jeszcze dostępne.',
-  'Toplam seviye': 'Łączny poziom',
   'Şirket seviyesi': 'Poziom firmy',
   'Kredi notu': 'Ocena kredytowa',
   'GO seviyesi': 'Poziom GO',
   'Dinlenme bonusu': 'Bonus rekreacji',
   'Üretim değiştiricisi': 'Modyfikator produkcji',
   'Satış değiştiricisi': 'Modyfikator sprzedaży',
-  'Seviyeler': 'Poziomy',
   'İnşa / yükseltme': 'Budowa / rozbudowa',
   'Üretimde': 'Produkuje',
   'Satışta': 'Sprzedaje',
@@ -1762,8 +1765,6 @@ export default {
   'Şirketlerin binaları': 'Budynki firm',
   'Bina türüne dokunun: en büyük sahipleri görün.': 'Stuknij typ budynku, aby zobaczyć największych właścicieli.',
   'Sahip şirket': 'Właściciele',
-  'Ortalama seviye': 'Średni poziom',
-  'En yüksek seviye': 'Najwyższy poziom',
 };
 
 // ---- Oyundaki ürün adları (ürün no → ad) ----

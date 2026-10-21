@@ -1732,18 +1732,21 @@ export default {
   'Kapanış zamanı': '結束時間',
   'Tutar ($)': '價值 ($)',
   // ---- Şirketlerin binaları (Şirketler › ayrıntı, Diğer › Binalar, GO seviyesi) ----
+  'Toplam seviye (en az)': '總等級（至少）',
+  'Kademeler': '等級檔',
+  'Ortalama seviye (en az)': '平均等級（至少）',
+  'En yüksek kademe': '最高等級檔',
+  'Oyunun herkese açık profili bina seviyesini görsel kademenin alt sınırıyla verir (1, 2, 3, 6, 10, 15; akademide 20 gibi): 15+ yazan bina 15 ya da daha yüksek seviyededir. Gerçek seviye yalnız şirketin kendisine görünür, bu yüzden toplamlar ve ortalamalar en az değerlerdir; sıralamalar da bu değerlere göredir.': '遊戲的公開資料以建築外觀等級檔的下限給出建築等級（1、2、3、6、10、15；學院最高 20）：顯示為 15+ 的建築等級為 15 或更高。真實等級只有公司自己能看到，因此總數和平均值都是最小值，排名也按這些值計算。',
   'Binaları': '建築',
   'Binaları yükleniyor…': '正在載入建築…',
   'Binaları açılamadı. Biraz sonra tekrar deneyin.': '無法開啟建築。請稍後再試。',
   'Bu şirketin bina bilgisi henüz yok.': '該公司的建築資訊暫未提供。',
-  'Toplam seviye': '總等級',
   'Şirket seviyesi': '公司等級',
   'Kredi notu': '信用評級',
   'GO seviyesi': 'GO 等級',
   'Dinlenme bonusu': '休閒加成',
   'Üretim değiştiricisi': '生產修正',
   'Satış değiştiricisi': '銷售修正',
-  'Seviyeler': '等級',
   'İnşa / yükseltme': '建造 / 升級',
   'Üretimde': '生產中',
   'Satışta': '銷售中',
@@ -1762,8 +1765,6 @@ export default {
   'Şirketlerin binaları': '公司的建築',
   'Bina türüne dokunun: en büyük sahipleri görün.': '點選建築類型,查看最大的所有者。',
   'Sahip şirket': '擁有者',
-  'Ortalama seviye': '平均等級',
-  'En yüksek seviye': '最高等級',
 };
 
 // ---- Oyundaki ürün adları (ürün no → ad) ----

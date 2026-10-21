@@ -1732,18 +1732,21 @@ export default {
   'Kapanış zamanı': 'Termina em',
   'Tutar ($)': 'Valor ($)',
   // ---- Şirketlerin binaları (Şirketler › ayrıntı, Diğer › Binalar, GO seviyesi) ----
+  'Toplam seviye (en az)': 'Nível total (no mínimo)',
+  'Kademeler': 'Faixas',
+  'Ortalama seviye (en az)': 'Nível médio (no mínimo)',
+  'En yüksek kademe': 'Faixa mais alta',
+  'Oyunun herkese açık profili bina seviyesini görsel kademenin alt sınırıyla verir (1, 2, 3, 6, 10, 15; akademide 20 gibi): 15+ yazan bina 15 ya da daha yüksek seviyededir. Gerçek seviye yalnız şirketin kendisine görünür, bu yüzden toplamlar ve ortalamalar en az değerlerdir; sıralamalar da bu değerlere göredir.': 'O perfil público do jogo informa o nível de um edifício como o limite inferior da sua faixa visual (1, 2, 3, 6, 10, 15; na academia, até 20): um edifício mostrado como 15+ tem nível 15 ou mais. O nível real só é visível para a própria empresa; por isso totais e médias são valores mínimos, e os rankings seguem esses valores.',
   'Binaları': 'Edifícios',
   'Binaları yükleniyor…': 'Carregando edifícios…',
   'Binaları açılamadı. Biraz sonra tekrar deneyin.': 'Não foi possível abrir os edifícios. Tente novamente um pouco mais tarde.',
   'Bu şirketin bina bilgisi henüz yok.': 'As informações de edifícios desta empresa ainda não estão disponíveis.',
-  'Toplam seviye': 'Nível total',
   'Şirket seviyesi': 'Nível da empresa',
   'Kredi notu': 'Classificação de crédito',
   'GO seviyesi': 'Nível de GO',
   'Dinlenme bonusu': 'Bônus de lazer',
   'Üretim değiştiricisi': 'Modificador de produção',
   'Satış değiştiricisi': 'Modificador de vendas',
-  'Seviyeler': 'Níveis',
   'İnşa / yükseltme': 'Construindo / ampliando',
   'Üretimde': 'Produzindo',
   'Satışta': 'Vendendo',
@@ -1762,8 +1765,6 @@ export default {
   'Şirketlerin binaları': 'Edifícios das empresas',
   'Bina türüne dokunun: en büyük sahipleri görün.': 'Toque em um tipo de edifício para ver os maiores proprietários.',
   'Sahip şirket': 'Donos',
-  'Ortalama seviye': 'Nível médio',
-  'En yüksek seviye': 'Nível mais alto',
 };
 
 // ---- Oyundaki ürün adları (ürün no → ad) ----

@@ -1732,18 +1732,21 @@ export default {
   'Kapanış zamanı': 'Končí',
   'Tutar ($)': 'Hodnota ($)',
   // ---- Şirketlerin binaları (Şirketler › ayrıntı, Diğer › Binalar, GO seviyesi) ----
+  'Toplam seviye (en az)': 'Celková úroveň (alespoň)',
+  'Kademeler': 'Pásma',
+  'Ortalama seviye (en az)': 'Průměrná úroveň (alespoň)',
+  'En yüksek kademe': 'Nejvyšší pásmo',
+  'Oyunun herkese açık profili bina seviyesini görsel kademenin alt sınırıyla verir (1, 2, 3, 6, 10, 15; akademide 20 gibi): 15+ yazan bina 15 ya da daha yüksek seviyededir. Gerçek seviye yalnız şirketin kendisine görünür, bu yüzden toplamlar ve ortalamalar en az değerlerdir; sıralamalar da bu değerlere göredir.': 'Veřejný profil ve hře udává úroveň budovy jako dolní hranici jejího vizuálního pásma (1, 2, 3, 6, 10, 15; u akademie až 20): budova uvedená jako 15+ má úroveň 15 nebo vyšší. Skutečnou úroveň vidí jen samotná společnost, proto jsou součty a průměry minimální hodnoty a žebříčky se řídí těmito hodnotami.',
   'Binaları': 'Budovy',
   'Binaları yükleniyor…': 'Načítám budovy…',
   'Binaları açılamadı. Biraz sonra tekrar deneyin.': 'Budovy se nepodařilo otevřít. Zkus to znovu o něco později.',
   'Bu şirketin bina bilgisi henüz yok.': 'Informace o budovách této firmy zatím nejsou k dispozici.',
-  'Toplam seviye': 'Celková úroveň',
   'Şirket seviyesi': 'Úroveň společnosti',
   'Kredi notu': 'Úvěrový rating',
   'GO seviyesi': 'Úroveň GO',
   'Dinlenme bonusu': 'Bonus rekreace',
   'Üretim değiştiricisi': 'Modifikátor výroby',
   'Satış değiştiricisi': 'Modifikátor prodeje',
-  'Seviyeler': 'Úrovně',
   'İnşa / yükseltme': 'Stavba / rozšiřování',
   'Üretimde': 'Vyrábí',
   'Satışta': 'Prodává',
@@ -1762,8 +1765,6 @@ export default {
   'Şirketlerin binaları': 'Budovy společností',
   'Bina türüne dokunun: en büyük sahipleri görün.': 'Klepni na typ budovy a uvidíš největší majitele.',
   'Sahip şirket': 'Vlastníci',
-  'Ortalama seviye': 'Průměrná úroveň',
-  'En yüksek seviye': 'Nejvyšší úroveň',
 };
 
 // ---- Oyundaki ürün adları (ürün no → ad) ----
