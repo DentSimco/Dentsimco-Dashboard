@@ -1732,6 +1732,7 @@ export default {
   'Kapanış zamanı': 'Se termine le',
   'Tutar ($)': 'Valeur ($)',
   // ---- Şirketlerin binaları (Şirketler › ayrıntı, Diğer › Binalar, GO seviyesi) ----
+  'Ücretsiz hediye': 'Cadeau gratuit',
   'Mevsimlik pazarların seviyesi profilde gösterilmez.': 'Le niveau des marchés saisonniers n\'est pas affiché dans le profil.',
   'Üst kademedeki {0} binanın toplam seviyesi': 'Niveau total des {0} bâtiments du palier supérieur',
   'Toplam seviye, profildeki yönetim giderinden hesaplanır (yönetim gideri = 1 + (toplam seviye − 1) ÷ 170). Akademi ve satın alınmış mevsimlik pazarlar dahildir; banka, dinlenme binaları ve oyunun ücretsiz verdiği ilk mevsimlik pazar dahil değildir. Üst kademedeki binaların toplamı, bu toplamdan alt kademedeki binaların olası seviyeleri çıkarılarak bulunur; bu yüzden bir aralıktır.': 'Le niveau total est calculé à partir des frais d\'administration du profil (frais = 1 + (niveau total − 1) ÷ 170). Il inclut l\'académie et les marchés saisonniers achetés ; il n\'inclut pas la banque, les bâtiments de loisirs ni le premier marché saisonnier offert par le jeu. Le total des bâtiments du palier supérieur s\'obtient en retirant de ce total les niveaux possibles des bâtiments des paliers inférieurs ; c\'est donc une fourchette.',

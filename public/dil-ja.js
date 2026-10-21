@@ -1732,6 +1732,7 @@ export default {
   'Kapanış zamanı': '終了日時',
   'Tutar ($)': '価値 ($)',
   // ---- Şirketlerin binaları (Şirketler › ayrıntı, Diğer › Binalar, GO seviyesi) ----
+  'Ücretsiz hediye': '無料ギフト',
   'Mevsimlik pazarların seviyesi profilde gösterilmez.': '季節限定マーケットのレベルはプロフィールに表示されません。',
   'Üst kademedeki {0} binanın toplam seviyesi': '最上位ティアの建物 {0} 棟の合計レベル',
   'Toplam seviye, profildeki yönetim giderinden hesaplanır (yönetim gideri = 1 + (toplam seviye − 1) ÷ 170). Akademi ve satın alınmış mevsimlik pazarlar dahildir; banka, dinlenme binaları ve oyunun ücretsiz verdiği ilk mevsimlik pazar dahil değildir. Üst kademedeki binaların toplamı, bu toplamdan alt kademedeki binaların olası seviyeleri çıkarılarak bulunur; bu yüzden bir aralıktır.': '合計レベルはプロフィールの管理費から計算されます（管理費 = 1 + (合計レベル − 1) ÷ 170）。アカデミーと購入した季節限定マーケットを含み、銀行、レクリエーション建物、ゲームが無料で与える最初の季節限定マーケットは含みません。最上位ティアの建物の合計は、この合計レベルから下位ティアの建物の取りうるレベルを差し引いて求めるため、幅のある値になります。',

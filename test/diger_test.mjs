@@ -5,7 +5,7 @@ import {
   projeAnahtari, projeAdi, aykiriAt, sbTurleri, kurumAdi, sertAdi, evreOzeti, kalanMetni, binaSatirlari, gunEkle, bollukEsigi, donemMetni, kategoriAdi,
 } from '../public/diger.js';
 import { PROJELER, ADLAR_TR, ADLAR_EN } from '../public/diger-adlar.js';
-import { binaGruplari, binalarHtml, parcaYolu, PARCA, ustKademeler, kademeMetni, toplamSeviye, binaSabitleri, seviyeHesabi, mevsimlikMi } from '../public/sirket-bina.js';
+import { binaGruplari, binalarHtml, parcaYolu, PARCA, ustKademeler, kademeMetni, toplamSeviye, binaSabitleri, seviyeHesabi, mevsimlikMi, HEDIYE_SEVIYE } from '../public/sirket-bina.js';
 
 const DAY = 86400000;
 let n = 0;
@@ -214,6 +214,15 @@ t('mevsimlik pazarlara seviye gösterilmez', () => {
   assert.match(h, /Mevsimlik pazarların seviyesi profilde gösterilmez/);
   assert.match(h, /<td>1<\/td><td>—<\/td>/, 'pazar satırı: adet 1, seviye —');
   assert.doesNotMatch(binalarHtml({ n: 'A', t: 0, b: [['r', 15, null, null, 0, 0]] }, 0, { r: 15 }), /Mevsimlik pazarların/);
+});
+
+t('ücretsiz hediye pazar: bayraklı kayıtta "5" ve rozet, satın alınan "—"', () => {
+  assert.equal(HEDIYE_SEVIYE.t, 5);
+  const h = binalarHtml({ n: 'A', t: 0, b: [['t', 3, null, null, 0, 1], ['t', 3, null, null, 0, 0]] }, 0, {});
+  assert.match(h, /Ücretsiz hediye/);
+  assert.match(h, /<td class="l" data-no-t>5, —<\/td>/);
+  const eski = binalarHtml({ n: 'A', t: 0, b: [['t', 3, null, null, 0]] }, 0, {});
+  assert.doesNotMatch(eski, /Ücretsiz hediye/, 'bayraksız kayıtta rozet yok');
 });
 
 console.log(`${n}/${n} test geçti.`);
