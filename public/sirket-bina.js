@@ -70,11 +70,10 @@ export function seviyeHesabi(k, sabit) {
   const liste = k.b || [];
   let ucretsiz = new Set();
   if (liste.length && liste.every((x) => x.length > 5)) ucretsiz = new Set(liste.map((x, i) => (x[5] ? i : -1)).filter((i) => i >= 0));
-  else { // eski kayıt (bayrak yok): oyun her şirkete bir mevsimlik pazar ücretsiz verir
-    for (const tur of [['t', 'z', 'I'], ['u']]) {
-      const j = liste.findIndex((x) => tur.includes(x[0]));
-      if (j >= 0) { ucretsiz = new Set([j]); break; }
-    }
+  else { // eski kayıt (bayrak yok): şu an herkese ücretsiz verilen Halloween pazarı (t); 323 ham profilde bayraklı 268 binanın hepsi t, tek t'si olan
+    // 263 şirketin 263'ünde o t ücretsiz. Yıkılmışsa t yoktur: o zaman hiçbir mevsimlik bina hariç tutulmaz.
+    const j = liste.findIndex((x) => x[0] === 't');
+    if (j >= 0) ucretsiz = new Set([j]);
   }
   let alt = 0; let bosluk = 0; let ustAlt = 0; let ustAdet = 0;
   const turler = new Set();
