@@ -1,7 +1,7 @@
 // node test/diger_test.mjs — Diğer bölümü: GO durumu ve değeri, adlar, evre özeti, bina tablosu (ağ kullanmaz)
 import assert from 'node:assert/strict';
 import {
-  digerRota, goDurum, goListeleri, teklifBitisi, teslimBitisi, gerekenMiktar, goDegeri, carpanAraligi, urunTalepleri,
+  digerRota, goDurum, goListeleri, teklifBitisi, teslimBitisi, gerekenMiktar, goDegeri, carpanAraligi, urunTalepleri, urunAyrintisi, urunBul,
   projeAnahtari, projeAdi, aykiriAt, sbTurleri, kurumAdi, sertAdi, evreOzeti, kalanMetni, binaSatirlari, gunEkle, bollukEsigi, donemMetni, kategoriAdi,
 } from '../public/diger.js';
 import { PROJELER, ADLAR_TR, ADLAR_EN } from '../public/diger-adlar.js';
@@ -53,6 +53,29 @@ t('verilmiş çarpan aralığı ve istenen ürünler', () => {
   const u = urunTalepleri({ 1: { c: 5, r: [[61, 1], [26, 0]] }, 2: { c: 9, r: [[61, 2]] } });
   assert.deepEqual(u.map((x) => [x.kind, x.n, x.son]), [[61, 2, 9], [26, 1, 5]]);
   assert.deepEqual([...u[0].kaliteler], [[1, 1], [2, 1]]);
+});
+
+t('ürün ayrıntısı: sipariş, kalite ve toplam gereken miktar', () => {
+  const o = { 1: { id: 1, c: 5, m: 2, r: [[61, 1, 10], [26, 0, 5]] }, 2: { id: 2, c: 9, m: null, r: [[61, 1, 7]] }, 3: { id: 3, c: 7, m: 3, r: [[61, 2, 4]] } };
+  const d = urunAyrintisi(o, 61);
+  assert.equal(d.n, 3);
+  assert.deepEqual(d.siparisler.map((x) => x.id), [2, 3, 1]);
+  assert.equal(d.miktar, 20 + 12);
+  assert.equal(d.miktarliSiparis, 2);
+  assert.deepEqual([...d.kaliteler].map(([q, x]) => [q, x.n, x.miktar]), [[1, 2, 20], [2, 1, 12]]);
+  assert.equal(urunAyrintisi(o, 99).n, 0);
+});
+
+t('ürün bulma: ID, tam ad, tek eşleşen parça', () => {
+  const adlar = [[61, 'Pil'], [26, 'Çelik'], [7, 'Çelik levha']];
+  assert.equal(urunBul('61', adlar), 61);
+  assert.equal(urunBul('#26', adlar), 26);
+  assert.equal(urunBul(' pil ', adlar), 61);
+  assert.equal(urunBul('çelik', adlar), 26); // tam ad, parçadan önce
+  assert.equal(urunBul('levha', adlar), 7);
+  assert.equal(urunBul('çe', adlar), null); // birden çok eşleşme
+  assert.equal(urunBul('999', adlar), null);
+  assert.equal(urunBul('', adlar), null);
 });
 
 t('proje adları: anahtardan, Simcotools adından ve aynı adlı projelerde ürünlerden', () => {

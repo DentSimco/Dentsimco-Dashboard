@@ -11,6 +11,7 @@ export const UPDATES = [
   {
     date: '21 Ekim 2026',
     items: [
+      'Government Order › İstenen ürünler: ürün listesi açılır kapanır oldu; ürün adı ya da ID yazarak ya da listeden dokunarak bir ya da birkaç ürün seçilir (× ile kaldırılır), seçilen ürünün kalite dağılımı, toplam gereken miktarı, borsa değeri ve onu isteyen siparişler ayrıntılı gösterilir. Aylık GO sertifikası kartı Government Order sayfasından kaldırıldı; yalnız Sertifikalar bölümünde.',
       'Şirketler: şirket ayrıntısında binaları görünüyor (bina türleri, seviyeler, o anki işi; şirket seviyesi, kredi notu, GO seviyesi, yönetim gideri). Diğer › Binalar\'da bina türü başına sahip şirket, toplam seviye ve en büyük sahipler; Government Order\'da şirketlerin GO seviyesi dağılımı. Bot sıralamadaki tüm şirketleri günde bir tarar.',
       'Yeni bölüm: Diğer. Government Order (ilandaki, yürüyen ve geçmiş tüm devlet siparişleri; gereken miktar, verilen çarpan ve anlık borsa fiyatıyla değeri; en çok istenen ürünler), Binalar (bina türlerinin sayısı, toplam bina geçmişi, açık bina açık artırmaları), Ekonomik Evreler (şu anki evre, 2022\'den bu yana evre geçmişi, realm özeti, üretim olayları, yarışmalar) ve Sertifikalar (tüm türler, nadirlik, kazananlar). Veri saatte bir güncellenir.',
       'Restoran: beklenen rating formülü ölçümlerle güncellendi (düşük kalite menüde daha yüksek, yüksek kalitede daha düşük hedef) ve rating eşiğin altındayken doluluk artık ratingle birlikte yükselen bir eğriyle hesaplanır.',
