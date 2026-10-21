@@ -63,7 +63,18 @@ export const URUNLER = {
 
 // Rating ve doluluk modeli [ölçüm]: veri büyüdükçe bu sabitler güncellenir
 export const RATING = { k: 0.177, hedef: 6.0, gurultu: 0.21, esik: 4.5, guvenli: 5.2 };
-export const DOLULUK = { ust: 96.5, alt: 56 };
+export const DOLULUK = { ust: 96.5 };
+// Düşük ratingte doluluk [ölçüm]: rating ~0'da rastgele (%3–27, ortalama ~%13), 3,9–4,6 arasında hızla yükselir, 4,6'dan sonra ~%96,5.
+export const DOLULUK_EGRI = [[0, 13], [3.9, 38], [3.95, 40.6], [4.11, 56], [4.25, 69], [4.61, DOLULUK.ust]];
+export function dolulukRating(r) {
+  const x = Number(r);
+  if (!fin(x) || x <= 0) return DOLULUK_EGRI[0][1];
+  for (let i = 1; i < DOLULUK_EGRI.length; i++) {
+    const [a, b] = [DOLULUK_EGRI[i - 1], DOLULUK_EGRI[i]];
+    if (x <= b[0]) return a[1] + ((b[1] - a[1]) * (x - a[0])) / (b[0] - a[0]);
+  }
+  return DOLULUK.ust;
+}
 
 const fin = (x) => typeof x === 'number' && Number.isFinite(x);
 const pos = (x) => (fin(x) && x > 0 ? x : null);
@@ -162,10 +173,12 @@ export const yukseltmeGuvenli = (r) => kapanisSonrasi(r) >= RATING.esik + 0.05;
  *  2) önceki ve mevcut rating girildiyse: rating her döngü farkın k kadarını kapatır, hedef = önceki + (mevcut − önceki) ÷ k;
  *  3) eko: varsayılan hedef, bonus farkıyla kaydırılır; lüks: veri yok, mevcut rating değişmez varsayılır.
  */
-// Menü kalitesi: hedef ölçüldüğünde kullanılan menünün (11 Ekim: Q7, Q10, Q7, Q5, Q7, Q9) ortalama kalitesi.
-// Varsayım: eko hedef = KALITE_RATING × ortalama kalite + bonus (sabit terim yok); referans menüde RATING.hedef verir.
-export const REFERANS_KALITE = 7.5;
-export const KALITE_RATING = (RATING.hedef - BONUS_REFERANS) / REFERANS_KALITE;
+// Eko hedef rating = KALITE_TABAN + KALITE_RATING × ortalama menü kalitesi + bonus.
+// Üç ölçümden: 11 Ekim menüsü (ort. Q7,5, bonus 0,99 → ~6,0), 20 Ekim (aynı menü, bonus 1,09 → ~6,4) ve seviye 2 testi
+// (ort. Q0,5, bonus 0,32 → ~3,6). Belirsizlik: taban ±1,2, eğim ±0,15.
+export const KALITE_TABAN = 3.33;
+export const KALITE_RATING = 0.23;
+export const REFERANS_KALITE = 7.5; // menü kalitesi bilinmiyorsa
 // Seçili ürünlerin ortalama kalitesi; kalite bilgisi yoksa null
 export function menuKalitesi(menu) {
   const q = (menu || []).map((m) => Number(m?.kalite)).filter((x) => fin(x));
@@ -179,13 +192,13 @@ export function hedefRating(item, bonus = BONUS_REFERANS, kalite = REFERANS_KALI
   const simdi = Number(item?.rating);
   if (fin(once) && fin(simdi) && item?.onceki !== '' && item?.onceki != null) return { deger: clamp(once + (simdi - once) / RATING.k, 0, 10), kaynak: 'tahmin' };
   if (tipOf(item?.tip) === 'luks') return { deger: fin(simdi) ? simdi : RATING.hedef, kaynak: 'bilinmiyor' };
-  return { deger: clamp(KALITE_RATING * (fin(kalite) ? kalite : REFERANS_KALITE) + bonus, 0, 10), kaynak: 'varsayilan' };
+  return { deger: clamp(KALITE_TABAN + KALITE_RATING * (fin(kalite) ? kalite : REFERANS_KALITE) + bonus, 0, 10), kaynak: 'varsayilan' };
 }
 
 /** Rating yerleşince beklenen doluluk (%). Eşiğin üstünde son doluluk korunur; altında düşük doluluk. */
 export function beklenenDoluluk(beklenenRating, mevcutRating, sonDoluluk) {
   const son = fin(Number(sonDoluluk)) && sonDoluluk !== '' && sonDoluluk != null ? clamp(Number(sonDoluluk), 0, 100) : null;
-  if (beklenenRating < RATING.esik) return son != null && mevcutRating < RATING.esik ? son : DOLULUK.alt;
+  if (beklenenRating < RATING.esik) return son != null && mevcutRating < RATING.esik ? son : dolulukRating(beklenenRating);
   if (mevcutRating >= RATING.esik) return son ?? DOLULUK.ust;
   return DOLULUK.ust;
 }

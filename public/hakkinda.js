@@ -12,6 +12,7 @@ export const UPDATES = [
     date: '21 Ekim 2026',
     items: [
       'Yeni bölüm: Diğer. Government Order (ilandaki, yürüyen ve geçmiş tüm devlet siparişleri; gereken miktar, verilen çarpan ve anlık borsa fiyatıyla değeri; en çok istenen ürünler), Binalar (bina türlerinin sayısı, toplam bina geçmişi, açık bina açık artırmaları), Ekonomik Evreler (şu anki evre, 2022\'den bu yana evre geçmişi, realm özeti, üretim olayları, yarışmalar) ve Sertifikalar (tüm türler, nadirlik, kazananlar). Veri saatte bir güncellenir.',
+      'Restoran: beklenen rating formülü ölçümlerle güncellendi (düşük kalite menüde daha yüksek, yüksek kalitede daha düşük hedef) ve rating eşiğin altındayken doluluk artık ratingle birlikte yükselen bir eğriyle hesaplanır.',
     ],
   },
   {
