@@ -113,6 +113,39 @@ export function urunTalepleri(orders) {
   return [...m.values()].sort((a, b) => b.n - a.n || b.son - a.son);
 }
 
+// Tek ürünün talep ayrıntısı: sipariş sayısı, kaliteye göre dağılım, gereken toplam miktar (yalnız çarpanı bilinen siparişlerden)
+export function urunAyrintisi(orders, kind) {
+  const siparisler = [];
+  const kaliteler = new Map();
+  let miktar = 0;
+  let miktarliSiparis = 0;
+  for (const o of Object.values(orders || {})) {
+    const kalemler = (o?.r || []).filter((x) => String(x[0]) === String(kind));
+    if (!kalemler.length) continue;
+    siparisler.push(o);
+    for (const [, q, temel] of kalemler) {
+      const n = gerekenMiktar(temel, o.m);
+      const x = kaliteler.get(q) || { n: 0, miktar: 0, miktarli: 0 };
+      x.n++;
+      if (n != null) { x.miktar += n; x.miktarli++; miktar += n; miktarliSiparis++; }
+      kaliteler.set(q, x);
+    }
+  }
+  siparisler.sort((a, b) => (b.c || 0) - (a.c || 0) || b.id - a.id);
+  return { n: siparisler.length, siparisler, kaliteler, miktar, miktarliSiparis };
+}
+
+// Yazılan metinden ürün bulur: kimlik, tam ad ya da (tek eşleşme varsa) adın bir parçası. adlar: [[id, ad]]
+export function urunBul(metin, adlar) {
+  const q = String(metin ?? '').trim().toLocaleLowerCase(LOCALE).replace(/^#/, '');
+  if (!q) return null;
+  if (/^\d+$/.test(q)) return adlar.find(([id]) => String(id) === q)?.[0] ?? null;
+  const tam = adlar.filter(([, ad]) => String(ad).toLocaleLowerCase(LOCALE) === q);
+  if (tam.length === 1) return tam[0][0];
+  const kismi = adlar.filter(([, ad]) => String(ad).toLocaleLowerCase(LOCALE).includes(q));
+  return kismi.length === 1 ? kismi[0][0] : null;
+}
+
 // ---- Evre (saf) ----
 // ranges: [[evre, baş, bit]] artan. Dönüş: { simdiki, sonraki?, istatistik: [{evre, adet, hafta, ort}] }
 export function evreOzeti(ranges, now) {
@@ -284,7 +317,13 @@ const CSS = G.GRAFIK_CSS + `
 .dg-legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
 .dg-evre { font: 600 24px var(--font-c); }
 .dg tr.dg-sec { background: var(--sel); }
-.dg tr[data-sb-tur] { cursor: pointer; }
+.dg tr[data-sb-tur], .dg tr[data-urun-ekle] { cursor: pointer; }
+.dg-btn { min-height: 40px; padding: 0 12px; border-radius: 10px; border: 1px solid var(--line-2); background: var(--raise); color: var(--muted); font: 600 14px var(--font); cursor: pointer; }
+.dg-btn[aria-pressed="true"] { color: var(--on-accent); background: var(--accent); border-color: var(--accent); }
+.dg-chips { gap: 6px; }
+.dg-sec-cip { align-items: center; gap: 6px; padding: 4px 6px 4px 10px; font-size: 14px; }
+.dg-x { border: 0; background: transparent; color: var(--muted); font-size: 18px; line-height: 1; cursor: pointer; padding: 0 4px; }
+.dg details > summary { cursor: pointer; }
 .dg-dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 6px; }
 `;
 
@@ -294,7 +333,7 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
   let token = 0;
   let rota = digerRota(location.hash);
   const durum = {
-    goAlt: null, goSayfa: 1, goAra: '', carpan: carpanOku(),
+    goAlt: null, goSayfa: 1, goAra: '', carpan: carpanOku(), urunSec: [], urunAra: '', urunAcik: true, urunHata: '',
     binaSira: ['n', -1], ihaleBina: '', ihaleSira: ['kapanis', 1], ihaleSayfa: 1, binaAralik: 365,
     evreMetrik: 1, evreAralik: 0, ozetAralik: 365, olaySayfa: 1,
     sertSira: ['rar', 1], sertUrun: '', sertAra: '', sertSayfa: 1,
@@ -378,15 +417,15 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
   // ---- Government Order ----
   let goVeri = null;
   async function goCiz(my) {
-    const [get] = await Promise.all([oku([yollar.go(), yollar.tur(65), yollar.sb()]), temelOku()]);
+    const [get] = await Promise.all([oku([yollar.go(), yollar.sb()]), temelOku()]);
     if (!gecerli(my)) return;
     const doc = get(yollar.go());
     const now = Date.now();
-    goVeri = { doc, list: goListeleri(doc?.orders, now), lider: get(yollar.tur(65)), sb: get(yollar.sb()) };
+    goVeri = { doc, list: goListeleri(doc?.orders, now), sb: get(yollar.sb()) };
     goBoya();
   }
   function goBoya() {
-    const { doc, list, lider, sb } = goVeri;
+    const { doc, list, sb } = goVeri;
     if (!doc) { box.innerHTML = `<h1>Government Order</h1>${veriYok}`; return; }
     const alt = rota.go || durum.goAlt || (list.ilan.length ? 'ilan' : 'yuruyen');
     const say = { ilan: list.ilan.length, yuruyen: list.yuruyen.length, gecmis: list.gecmis.length, urunler: urunTalepleri(doc.orders).length };
@@ -399,7 +438,6 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
       <p class="dg-note">Devlet siparişleri her çarşamba 16:00'da (TR saati) çıkar. 5 gün teklif toplanır, pazartesi 16:00'da kazanan ekip seçilir ve teslim süresi başlar. Teklif 3-7 şirketlik ekiplerle verilir; kazanan teklifin %10'u teminat olarak alınır. Gereken miktar = temel miktar × çarpan (çarpan kazanan ekibin seviyesine göre).</p>
       <nav class="dg-sub" aria-label="Government Order bölümleri">${GO_ALT.map(sekme).join('')}</nav>
       ${govde}
-      ${liderKarti(lider)}
       ${goSeviyeKarti(sb)}
       ${botNotu(doc.t)}`;
   }
@@ -458,14 +496,79 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
       ${sayfalar('go', sayfa, Math.ceil(sec.length / SAYFA))}`;
   }
 
+  // Ürün adları (seçim kutusu için): istenen ürünler + borsadaki tüm ürünler
+  function urunAdlari(list) {
+    const ids = new Set(list.map((x) => x.kind));
+    for (const id of Object.keys(temel?.products || {})) ids.add(Number(id));
+    return [...ids].map((id) => [id, urun(id)]);
+  }
+
+  function urunSecimi(list) {
+    const adlar = urunAdlari(list);
+    const sec = durum.urunSec;
+    const chip = (id) => `<span class="dg-cip dg-sec-cip">${oyun(urun(id))} <span class="dim" data-no-t>#${id}</span> <button type="button" class="dg-x" data-urun-kaldir="${id}" aria-label="${esc(`${urun(id)} seçimini kaldır`)}">×</button></span>`;
+    return `<div class="dg-card"><div class="dg-row">
+        <input type="search" list="dg-urun-adlari" data-urun-ara placeholder="Ürün adı ya da ID yaz" aria-label="Ürün adı ya da ID" value="${esc(durum.urunAra)}" autocomplete="off">
+        <button type="button" class="dg-btn" data-urun-ekle-btn>Ekle</button>
+        <datalist id="dg-urun-adlari">${adlar.sort((a, b) => String(a[1]).localeCompare(String(b[1]), LOCALE)).map(([id, ad]) => `<option value="${esc(ad)}" label="#${id}"></option>`).join('')}</datalist>
+      </div>
+      <div class="dg-row dg-chips"><button type="button" class="dg-btn" data-urun-tumu aria-pressed="${!sec.length}">Tüm ürünler</button>${sec.map(chip).join('')}</div>
+      ${durum.urunHata ? `<p class="dg-note down">${esc(durum.urunHata)}</p>` : '<p class="dg-note">Listeden bir satıra dokunarak, ürün adı ya da ID yazarak ürün seçin; birden fazla ürün seçebilirsiniz. × ile seçimi kaldırın.</p>'}</div>`;
+  }
+
+  function urunKarti(kind, orders, toplam) {
+    const d = urunAyrintisi(orders, kind);
+    const p0 = fiyat(kind, 0);
+    let deger = 0;
+    let degerliKalem = 0;
+    const kalite = [...d.kaliteler].sort((a, b) => a[0] - b[0]).map(([q, x]) => {
+      const p = fiyat(kind, q);
+      const v = p ? x.miktar * p : null;
+      if (v != null && x.miktarli) { deger += v; degerliKalem += x.miktarli; }
+      return `<tr><td class="l"><b>Q${q}</b></td><td>${NUM.format(x.n)}</td><td>${x.miktarli ? NUM.format(x.miktar) : '<span class="dim">—</span>'}${x.miktarli && x.miktarli < x.n ? `<small class="alt">${esc(`${NUM.format(x.miktarli)} siparişten`)}</small>` : ''}</td>
+        <td>${p ? fmtPrice(p) : '<span class="dim">—</span>'}</td><td>${v != null && x.miktarli ? usdK(v) : '<span class="dim">—</span>'}</td></tr>`;
+    }).join('');
+    const son = d.siparisler[0]?.c;
+    const kv = (etiket, v) => `<div><span>${etiket}</span><b>${v}</b></div>`;
+    const siparisSatiri = (o) => (o.r || []).filter((x) => String(x[0]) === String(kind)).map(([, q, t]) => `<tr><td class="l" data-no-t>#${o.id}</td><td class="l" data-no-t>${esc(tarih(o.c))}</td><td class="l w">${oyun(projeAdi(o))}</td><td><b>Q${q}</b></td>
+        <td>${t == null ? '<span class="dim">—</span>' : NUM.format(t)}</td><td>${o.m ? `<span data-no-t>${NUM.format(o.m)}×</span>` : '<span class="dim">—</span>'}</td><td>${gerekenMiktar(t, o.m) == null ? '<span class="dim">—</span>' : NUM.format(gerekenMiktar(t, o.m))}</td></tr>`).join('');
+    return `<article class="dg-card dg-go">
+      <header><div><h3>${oyun(urun(kind))}</h3><span class="dg-kurum" data-no-t>ID ${kind}</span></div></header>
+      <div class="dg-kv">
+        ${kv('Sipariş', `<span data-no-t>${NUM.format(d.n)}</span>`)}
+        ${kv('Pay', fmtShare(toplam ? d.n / toplam : null))}
+        ${kv('Toplam gereken miktar', d.miktarliSiparis ? `<span data-no-t>${NUM.format(d.miktar)}</span>` : '<span class="dim">—</span>')}
+        ${kv('Toplam borsa değeri', degerliKalem ? `<span data-no-t>${usdK(deger)}</span>` : '<span class="dim">—</span>')}
+        ${kv('Borsa fiyatı (Q0)', p0 ? fmtPrice(p0) : '<span class="dim">—</span>')}
+        ${kv('Son isteniş', `<span data-no-t>${esc(tarih(son))}</span>`)}
+      </div>
+      <p class="dg-note">Toplam gereken miktar, çarpanı bilinen (kazananı seçilmiş) siparişlerden hesaplanır; ilandaki ve eski siparişlerde miktar yoktur.</p>
+      <div class="dg-wrap"><table><thead><tr><th class="l">Kalite</th><th>Sipariş</th><th>Toplam gereken</th><th>Borsa fiyatı</th><th>Değer ($)</th></tr></thead><tbody>${kalite || '<tr><td colspan="5" class="l dim">Bu ürün hiçbir siparişte istenmemiş.</td></tr>'}</tbody></table></div>
+      ${d.n ? `<details><summary class="dg-note">${esc(`Bu ürünü isteyen siparişler (${NUM.format(d.n)})`)}</summary>
+        <div class="dg-wrap"><table><thead><tr><th class="l">Sipariş no</th><th class="l">Çıkış</th><th class="l">Proje</th><th>Kalite</th><th>Temel miktar</th><th>Çarpan</th><th>Gereken</th></tr></thead><tbody>${d.siparisler.slice(0, 200).map(siparisSatiri).join('')}</tbody></table></div>
+        ${d.n > 200 ? `<p class="dg-note">${esc(`En yeni 200 sipariş gösteriliyor.`)}</p>` : ''}</details>` : ''}
+    </article>`;
+  }
+
   function goUrunler(orders) {
     const list = urunTalepleri(orders);
     const toplam = Object.keys(orders || {}).length;
-    return `<p class="dg-note"><span>${esc(`Bugüne kadarki ${NUM.format(toplam)} siparişte her ürünün kaç kez istendiği.`)}</span> <span>Sık istenen ürünleri stokta tutmak teklif şansını artırır.</span></p>
-      <div class="dg-wrap"><table><thead><tr><th class="l">Ürün</th><th>Sipariş</th><th>Pay</th><th class="l">Kaliteler</th><th>Son isteniş</th><th>Borsa fiyatı (Q0)</th></tr></thead><tbody>${list.map((x) => `<tr>
+    const sec = durum.urunSec;
+    let ozet = '';
+    if (sec.length > 1) {
+      const kumesi = new Set(sec.map(String));
+      const siparis = Object.values(orders || {}).filter((o) => (o?.r || []).some((x) => kumesi.has(String(x[0]))));
+      ozet = `<p class="dg-note">${esc(`${NUM.format(sec.length)} ürün seçili: en az birini isteyen ${NUM.format(siparis.length)} sipariş, toplam ${NUM.format(toplam)} sipariş içinde.`)}</p>`;
+    }
+    const tablo = `<div class="dg-wrap"><table><thead><tr><th class="l">Ürün</th><th>Sipariş</th><th>Pay</th><th class="l">Kaliteler</th><th>Son isteniş</th><th>Borsa fiyatı (Q0)</th></tr></thead><tbody>${list.map((x) => `<tr data-urun-ekle="${x.kind}" tabindex="0" role="button" aria-pressed="${sec.includes(x.kind)}"${sec.includes(x.kind) ? ' class="dg-sec"' : ''}>
         <td class="l">${oyun(urun(x.kind))}</td><td>${NUM.format(x.n)}</td><td>${fmtShare(toplam ? x.n / toplam : null)}</td>
         <td class="l"><div class="dg-cips">${[...x.kaliteler].sort((a, b) => a[0] - b[0]).map(([q, n]) => `<span class="dg-cip"><b>Q${q}</b> <span data-no-t>${NUM.format(n)}</span></span>`).join('')}</div></td>
         <td data-no-t>${esc(tarih(x.son))}</td><td>${fiyat(x.kind, 0) ? fmtPrice(fiyat(x.kind, 0)) : '<span class="dim">—</span>'}</td></tr>`).join('')}</tbody></table></div>`;
+    return `<p class="dg-note"><span>${esc(`Bugüne kadarki ${NUM.format(toplam)} siparişte her ürünün kaç kez istendiği.`)}</span> <span>Sık istenen ürünleri stokta tutmak teklif şansını artırır.</span></p>
+      ${urunSecimi(list)}
+      ${ozet}
+      ${sec.map((k) => urunKarti(k, orders, toplam)).join('')}
+      <details data-urun-liste${!sec.length || durum.urunAcik ? ' open' : ''}><summary class="dg-note">${esc(`Tüm ürünler (${NUM.format(list.length)})`)}</summary>${tablo}</details>`;
   }
 
   // Şirketlerin GO seviyesi (oyunun şirket profilindeki governmentOrderTierIndex; şirket binaları taramasından)
@@ -476,15 +579,6 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
     return `<section class="dg-card"><h2>Şirketlerin GO seviyesi</h2>
       <p class="dg-note">Oyun her şirkete bir GO seviyesi verir; teklifin seviyesi ekipteki en büyük şirketin seviyesidir ve istenen miktarı belirler. Dağılım, botun taradığı şirketlerden.</p>
       <div class="dg-wrap"><table><thead><tr><th class="l">GO seviyesi</th><th>Şirket</th><th>Pay</th></tr></thead><tbody>${satir.map(([k, n]) => `<tr><td class="l" data-no-t>T${k}</td><td>${NUM.format(n)}</td><td>${fmtShare(n / toplam)}</td></tr>`).join('')}</tbody></table></div></section>`;
-  }
-
-  function liderKarti(doc) {
-    const rows = doc?.rows?.slice(0, 12) || [];
-    if (!rows.length) return '';
-    return `<section class="dg-card"><h2>${oyun(sertAdi(65))}</h2>
-      <p class="dg-note">Her ay GO'dan en çok gelir elde eden şirkete verilen sertifika.</p>
-      <div class="dg-wrap"><table><thead><tr><th class="l">Dönem</th><th class="l">Şirket</th><th>GO geliri</th></tr></thead><tbody>${rows.map((r) => `<tr><td class="l">${esc(donemMetni(r[3]))}</td><td class="l">${oyun(r[2])}<small class="alt" data-no-t>ID ${r[1]}</small></td><td data-no-t>${usd(r[5])}</td></tr>`).join('')}</tbody></table></div>
-      <p class="dg-note"><a href="#diger/sertifika/65">Tüm kazananlar</a></p></section>`;
   }
 
   // ---- Binalar ----
@@ -752,6 +846,12 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
     if (oa) { durum.ozetAralik = Number(oa.dataset.ozetAralik); return yenidenBoya(); }
     const em = e.target.closest('[data-evre-metrik]');
     if (em) { durum.evreMetrik = Number(em.dataset.evreMetrik); return yenidenBoya(); }
+    const ue = e.target.closest('[data-urun-ekle]');
+    if (ue) { urunEkle(Number(ue.dataset.urunEkle)); return undefined; }
+    if (e.target.closest('[data-urun-ekle-btn]')) { urunYaz(box.querySelector('[data-urun-ara]')?.value); return undefined; }
+    const uk = e.target.closest('[data-urun-kaldir]');
+    if (uk) { urunKaldir(Number(uk.dataset.urunKaldir)); return undefined; }
+    if (e.target.closest('[data-urun-tumu]')) { durum.urunSec = []; durum.urunHata = ''; durum.urunAcik = true; return yenidenBoya(); }
     const sbt = e.target.closest('[data-sb-tur]');
     if (sbt) { durum.sbTur = sbt.dataset.sbTur; yenidenBoya(); box.querySelector('[data-sb] h3')?.scrollIntoView({ block: 'nearest' }); return undefined; }
     const git = e.target.closest('[data-git]');
@@ -759,6 +859,9 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
     return undefined;
   });
   box.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && e.target.matches?.('[data-urun-ara]')) { e.preventDefault(); urunYaz(e.target.value); return; }
+    const ue = e.target.closest?.('[data-urun-ekle]');
+    if (ue && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); ue.click(); return; }
     const sbt = e.target.closest?.('[data-sb-tur]');
     if (sbt && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); sbt.click(); return; }
     const git = e.target.closest?.('[data-git]');
@@ -766,7 +869,8 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
   });
   box.addEventListener('input', (e) => {
     const t = e.target;
-    if (t.matches('[data-go-ara]')) { durum.goAra = t.value; durum.goSayfa = 1; yenidenBoya(); odakla('[data-go-ara]'); }
+    if (t.matches('[data-urun-ara]')) durum.urunAra = t.value;
+    else if (t.matches('[data-go-ara]')) { durum.goAra = t.value; durum.goSayfa = 1; yenidenBoya(); odakla('[data-go-ara]'); }
     else if (t.matches('[data-sert-ara]')) { durum.sertAra = t.value; durum.sertSayfa = 1; yenidenBoya(); odakla('[data-sert-ara]'); }
     else if (t.matches('[data-carpan]')) {
       const v = Number(t.value);
@@ -778,9 +882,42 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
   });
   box.addEventListener('change', (e) => {
     const t = e.target;
-    if (t.matches('[data-ihale-bina]')) { durum.ihaleBina = t.value; durum.ihaleSayfa = 1; yenidenBoya(); }
+    if (t.matches('[data-urun-ara]')) urunYaz(t.value);
+    else if (t.matches('[data-ihale-bina]')) { durum.ihaleBina = t.value; durum.ihaleSayfa = 1; yenidenBoya(); }
     else if (t.matches('[data-sert-urun]')) { durum.sertUrun = t.value; durum.sertSayfa = 1; yenidenBoya(); }
   });
+
+  box.addEventListener('toggle', (e) => { if (e.target.matches?.('[data-urun-liste]')) durum.urunAcik = e.target.open; }, true);
+
+  // Ürün seçimi: ID ya da adla eklenir, × ile kaldırılır. Seçim varken liste kapanır, boşalınca açılır.
+  function urunEkle(kind) {
+    if (!durum.urunSec.includes(kind)) {
+      if (!durum.urunSec.length) durum.urunAcik = false;
+      durum.urunSec = [...durum.urunSec, kind];
+    }
+    durum.urunAra = ''; durum.urunHata = '';
+    yenidenBoya();
+    box.querySelector('[data-urun-ara]')?.focus();
+  }
+  function urunKaldir(kind) {
+    durum.urunSec = durum.urunSec.filter((k) => k !== kind);
+    if (!durum.urunSec.length) durum.urunAcik = true;
+    durum.urunHata = '';
+    yenidenBoya();
+  }
+  function urunYaz(metin) {
+    if (!String(metin ?? '').trim()) return;
+    const adlar = urunAdlari(urunTalepleri(goVeri?.doc?.orders));
+    const id = urunBul(metin, adlar);
+    if (id == null) {
+      durum.urunAra = String(metin);
+      durum.urunHata = `"${String(metin).trim()}" ile eşleşen tek bir ürün bulunamadı. Tam adı ya da ID'yi yazın.`;
+      yenidenBoya();
+      odakla('[data-urun-ara]');
+      return;
+    }
+    urunEkle(id);
+  }
 
   function onHash() {
     if (location.hash.slice(1).split('/')[0] !== 'diger') return;
@@ -802,6 +939,7 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
       realm = next;
       goVeri = binaVeri = evreVeri = sertVeri = null;
       durum.goSayfa = 1; durum.ihaleSayfa = 1; durum.olaySayfa = 1; durum.sertSayfa = 1; durum.ihaleBina = ''; durum.sertUrun = '';
+      durum.urunSec = []; durum.urunAra = ''; durum.urunHata = ''; durum.urunAcik = true;
       ciz();
     },
     destroy() { alive = false; clearInterval(timer); window.removeEventListener('hashchange', onHash); style.remove(); subnav.remove(); root.replaceChildren(); },
