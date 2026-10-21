@@ -5,7 +5,7 @@ import {
   projeAnahtari, projeAdi, aykiriAt, sbTurleri, kurumAdi, sertAdi, evreOzeti, kalanMetni, binaSatirlari, gunEkle, bollukEsigi, donemMetni, kategoriAdi,
 } from '../public/diger.js';
 import { PROJELER, ADLAR_TR, ADLAR_EN } from '../public/diger-adlar.js';
-import { binaGruplari, binalarHtml, parcaYolu, PARCA, ustKademeler, kademeMetni } from '../public/sirket-bina.js';
+import { binaGruplari, binalarHtml, parcaYolu, PARCA, ustKademeler, kademeMetni, toplamSeviye, binaSabitleri, seviyeHesabi } from '../public/sirket-bina.js';
 
 const DAY = 86400000;
 let n = 0;
@@ -168,7 +168,28 @@ t('kademe: profildeki değer gerçek seviye değil; en yüksek kademe "+" ile ya
   assert.equal(kademeMetni('v', 50, ust), '50', 'kademesi olmayan binada değer gerçek seviyedir');
   const h = binalarHtml({ n: 'A', t: 0, b: [['r', 15, null, null, 0]] }, 0, ust);
   assert.match(h, /15\+/);
-  assert.match(h, /gerçek seviye yalnız şirketin kendisine görünür/i);
+  assert.match(h, /Bina bazında gerçek seviye görünmez/);
+});
+
+t('kesin toplam seviye yönetim giderinden; üst kademe ortalaması aralık olarak', () => {
+  assert.equal(toplamSeviye(3.0235294117647058), 345);
+  assert.equal(toplamSeviye(null), null);
+  const sabit = { a: { dbLetter: '6', category: 'production', levelImages: [1, 2, 3, 6, 10, 15].map((level) => ({ level })) }, b: { dbLetter: 'y', category: 'other', levelImages: [1, 5, 10, 15, 20].map((level) => ({ level })) },
+    c: { dbLetter: 't', category: 'seasonal', levelImages: [{ level: 1 }, { level: 3 }] }, d: { dbLetter: '3', category: 'recreation', levelImages: [{ level: 1 }, { level: 3 }] } };
+  // Dentium Citrosuco: 14 içecek fabrikası 15+, akademi 20, Halloween pazarı 3, tapınak 3; yönetim gideri 3,0235…
+  const b = [...Array(14)].map(() => ['6', 15, null, null, 0]).concat([['y', 20, null, null, 0], ['t', 3, null, null, 0], ['3', 3, 'b', 1, 0]]);
+  const h = seviyeHesabi({ ao: 3.0235294117647058, b }, binaSabitleri(sabit));
+  assert.equal(h.L, 345);
+  assert.equal(h.ustAdet, 14);
+  assert.equal(Math.round(h.ortAlt * 100) / 100, 24.64);
+  assert.equal(h.ortAlt, h.ortUst, 'alt kademede boşluk yoksa aralık tek değer');
+  // Alt kademede boşluk varsa aralık açılır: 6 → en çok 9 (3 fazla seviye olabilir)
+  const h2 = seviyeHesabi({ ao: 1 + (15 + 6 + 20 - 1) / 170, b: [['6', 15], ['6', 6]] }, binaSabitleri(sabit));
+  assert.equal(h2.L, 41);
+  assert.deepEqual([h2.ortAlt, h2.ortUst], [15 + (41 - 21 - 3), 15 + (41 - 21)], 'aralık: boşluk 3');
+  assert.equal(seviyeHesabi({ ao: 1, b: [['6', 15]] }, binaSabitleri(sabit)).ortAlt, null, 'tutarsız veri (L < kademe toplamı): ortalama verilmez');
+  assert.equal(seviyeHesabi({ ao: null, b }, binaSabitleri(sabit)), null);
+  assert.equal(seviyeHesabi({ ao: 3, b: [['6', 10]] }, binaSabitleri(sabit)).ustAdet, 0, 'üst kademede bina yoksa ortalama yok');
 });
 
 console.log(`${n}/${n} test geçti.`);

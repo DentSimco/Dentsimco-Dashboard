@@ -11,7 +11,8 @@ import { LOCALE } from './i18n.js';
 import { binaAdi } from './adlar.js';
 import { esc } from './esc.js';
 
-export const KADEME_NOTU = 'Oyunun herkese açık profili bina seviyesini görsel kademenin alt sınırıyla verir (1, 2, 3, 6, 10, 15; akademide 20 gibi): 15+ yazan bina 15 ya da daha yüksek seviyededir. Gerçek seviye yalnız şirketin kendisine görünür, bu yüzden toplamlar ve ortalamalar en az değerlerdir; sıralamalar da bu değerlere göredir.';
+export const KADEME_NOTU = 'Oyunun herkese açık profili bina seviyesini görsel kademenin alt sınırıyla verir (1, 2, 3, 6, 10, 15; akademide 20 gibi): 15+ yazan bina 15 ya da daha yüksek seviyededir. Bina bazında gerçek seviye görünmez; tablodaki toplamlar ve ortalamalar en az değerlerdir, sıralamalar da bunlara göredir.';
+export const TOPLAM_NOTU = 'Toplam seviye, profildeki yönetim giderinden hesaplanır (yönetim gideri = 1 + (toplam seviye − 1) ÷ 170) ve dinlenme binaları, mevsimlik pazarlar ve akademi hariç tüm binaları kapsar. Üst kademedeki binaların ortalaması bu toplamdan alt kademedeki binaların olası seviyeleri çıkarılarak bulunur; bu yüzden bir aralıktır.';
 export const PARCA = 128;
 export const parcaYolu = (r, id) => PATHS.meta(`sb_r${r}_${String(Number(id) % PARCA).padStart(3, '0')}`);
 
@@ -28,12 +29,50 @@ export function ustKademeler(sabit) {
   }
   return out;
 }
-export async function ustKademeleriYukle() {
+export async function sabitleriYukle() {
   const yol = PATHS.meta('buildings');
-  return ustKademeler(dataField((await readDocs([yol])).get(yol)));
+  return dataField((await readDocs([yol])).get(yol));
 }
 // Kademe metni: en yüksek kademedeki bina "15+" yazılır (o ya da daha yüksek seviye)
 export const kademeMetni = (harf, sv, ust = {}) => (ust[harf] != null && sv >= ust[harf] ? `${sv}+` : String(sv));
+
+// Yönetim giderinden kesin toplam seviye. Profildeki yönetim gideri = 1 + (L − 1) ÷ 170; L, dinlenme binaları, mevsimlik pazarlar ve
+// akademi dışındaki tüm binaların GERÇEK toplam seviyesidir (355 şirkette tam sayı çıktı; hiçbirinde kademe toplamından küçük değil).
+export const ADMIN_BIRIM = 170;
+export const YONETIMDE_YOK = new Set(['recreation', 'seasonal']);
+export const toplamSeviye = (ao) => (Number.isFinite(ao) ? Math.round((ao - 1) * ADMIN_BIRIM + 1) : null);
+
+// Kademe eşikleri ve kategoriler (meta/buildings): { harf: { esik: [1,2,3,6,10,15], kat } }
+export function binaSabitleri(sabit) {
+  const out = {};
+  for (const b of Object.values(sabit || {})) {
+    if (b?.dbLetter == null) continue;
+    out[b.dbLetter] = { esik: (b.levelImages || []).map((x) => Number(x?.level)).filter(Number.isFinite).sort((a, c) => a - c), kat: b.category || null };
+  }
+  return out;
+}
+
+// Şirketin seviye hesabı: { L (kesin toplam), ustAdet, ortAlt, ortUst } ya da veri yoksa null.
+// Fazla = L − Σ kademe alt sınırı; fazla önce alt kademedeki binalarda kalan boşluğa (sonraki eşik − 1 − kademe), kalanı üst kademedeki
+// (en yüksek eşikte "15+") binalara düşer. Üst kademedeki binaların ortalaması bu yüzden bir aralıktır.
+export function seviyeHesabi(k, sabit) {
+  const L = toplamSeviye(k?.ao);
+  if (L == null) return null;
+  let taban = 0; let bosluk = 0; let ustTaban = 0; let ustAdet = 0;
+  for (const [harf, sv] of k.b || []) {
+    const m = sabit?.[harf];
+    if (!m || YONETIMDE_YOK.has(m.kat) || harf === 'y') continue;
+    taban += sv;
+    const ust = m.esik.at(-1);
+    if (ust != null && sv >= ust) { ustTaban += sv; ustAdet++; continue; }
+    const sonraki = m.esik.find((e) => e > sv);
+    if (sonraki != null) bosluk += sonraki - 1 - sv; // kademesi olmayan binada değer gerçek seviyedir: boşluk yok
+  }
+  const fazla = L - taban;
+  if (fazla < 0) return { L, ustAdet: 0, ortAlt: null, ortUst: null };
+  if (!ustAdet) return { L, ustAdet: 0, ortAlt: null, ortUst: null };
+  return { L, ustAdet, ortAlt: (ustTaban + Math.max(0, fazla - bosluk)) / ustAdet, ortUst: (ustTaban + fazla) / ustAdet };
+}
 
 // Şirketin kaydı; taranmamışsa null
 export async function sirketBinalari(realm, id) {
@@ -65,16 +104,19 @@ const yuzde = (x) => YUZDE.format(x / 100);
 const signed = (x) => ISARETLI.format(x / 100);
 
 // Ayrıntı penceresindeki bölüm (k: kayıt ya da null)
-export function binalarHtml(k, now = Date.now(), ust = {}) {
+export function binalarHtml(k, now = Date.now(), ust = {}, sabit = null) {
   if (!k) return '<p class="sk-note">Bu şirketin bina bilgisi henüz yok.</p>';
   const gruplar = binaGruplari(k.b);
-  const toplamSeviye = gruplar.reduce((a, g) => a + g.toplam, 0);
+  const toplamKademe = gruplar.reduce((a, g) => a + g.toplam, 0);
+  const sh = sabit ? seviyeHesabi(k, binaSabitleri(sabit)) : null;
+  const ortMetni = (x) => NUM.format(Math.round(x * 10) / 10);
   const kv = (t, v) => `<div class="sk-kv"><span>${t}</span><span>${v}</span></div>`;
   const mesgulMetni = (g) => g.mesgul.map(([kod, bitis]) => `<span class="sb-durum">${esc(MESGUL[kod] || kod)}${bitis > now ? ` · <span data-no-t>${esc(fmtDateTime(bitis))}</span>` : ''}</span>`).join('');
   return `<h3 class="sb-h">Binaları</h3>
     <div class="sb-ozet">
       ${kv('Bina', `<span data-no-t>${NUM.format(k.b?.length || 0)}</span>`)}
-      ${kv('Toplam seviye (en az)', `<span data-no-t>${NUM.format(toplamSeviye)}</span>`)}
+      ${sh ? kv('Toplam seviye (kesin)', `<span data-no-t>${NUM.format(sh.L)}</span>`) : kv('Toplam seviye (en az)', `<span data-no-t>${NUM.format(toplamKademe)}</span>`)}
+      ${sh?.ortAlt != null ? kv('Üst kademedeki binaların ortalama seviyesi', `<span data-no-t>${sh.ortUst - sh.ortAlt < 0.25 ? `≈ ${ortMetni(sh.ortUst)}` : `${ortMetni(sh.ortAlt)} – ${ortMetni(sh.ortUst)}`} (${sh.ustAdet})</span>`) : ''}
       ${k.lv != null ? kv('Şirket seviyesi', `<span data-no-t>${NUM.format(k.lv)}</span>`) : ''}
       ${k.rt ? kv('Kredi notu', `<span data-no-t>${esc(k.rt)}</span>`) : ''}
       ${k.go != null ? kv('GO seviyesi', `<span data-no-t>T${esc(k.go)}</span>`) : ''}
@@ -87,6 +129,7 @@ export function binalarHtml(k, now = Date.now(), ust = {}) {
       <td class="l">${esc(binaAdi(g.harf))}${g.luks ? ' <span class="sb-durum">Lüks</span>' : ''}</td><td>${g.adet}</td><td>${g.toplam}</td>
       <td class="l" data-no-t>${g.seviyeler.map((v) => kademeMetni(g.harf, v, ust)).join(', ')}</td><td class="l">${mesgulMetni(g)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="sk-note">Şirketin binası yok.</p>'}
     <p class="sk-note">${KADEME_NOTU}</p>
+    ${sh ? `<p class="sk-note">${TOPLAM_NOTU}</p>` : ''}
     <p class="sk-note"><span>${esc(`Tarama: ${fmtDateTime(k.t)}.`)}</span> <span>Kaynak: oyunun herkese açık şirket profili; binada üretilen ürün profilde görünmez.</span></p>`;
 }
 

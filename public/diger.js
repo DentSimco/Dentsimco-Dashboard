@@ -634,7 +634,7 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
         <td>${(x.seviye / x.bina).toLocaleString(LOCALE, { maximumFractionDigits: 1 })}</td><td data-no-t>${kademeMetni(x.harf, x.enYuksek, ust)}</td></tr>`).join('')}</tbody></table></div>
       <p class="dg-note">${KADEME_NOTU}</p>
       <h3>${oyun(binaAdi(sec.harf))}</h3>
-      <div class="dg-wrap"><table><thead><tr><th class="l">Sıra</th><th class="l">Şirket</th><th>Toplam seviye (en az)</th><th>Bina sayısı</th></tr></thead><tbody>${top.map((t, i) => `<tr><td class="l">${i + 1}</td><td class="l">${oyun(t[1])}<small class="alt" data-no-t>ID ${t[0]}</small></td><td>${NUM.format(t[2])}</td><td>${NUM.format(t[3])}</td></tr>`).join('')}</tbody></table></div>
+      <div class="dg-wrap"><table><thead><tr><th class="l">Sıra</th><th class="l">Şirket</th><th>Toplam seviye (en az)</th><th>Bina sayısı</th><th>Şirketin toplam seviyesi (kesin)</th></tr></thead><tbody>${top.map((t, i) => `<tr><td class="l">${i + 1}</td><td class="l">${oyun(t[1])}<small class="alt" data-no-t>ID ${t[0]}</small></td><td>${NUM.format(t[2])}</td><td>${NUM.format(t[3])}</td><td>${t[4] == null ? '<span class="dim">—</span>' : NUM.format(t[4])}</td></tr>`).join('')}</tbody></table></div>
     </section>`;
   }
 
