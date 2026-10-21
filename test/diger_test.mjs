@@ -193,6 +193,8 @@ t('kesin toplam seviye yönetim giderinden: akademi dahil; banka, dinlenme ve ü
   assert.deepEqual([pazar.ustAdet, pazar.ustAlt, pazar.ustUst, pazar.tekTur], [2, 40, 40, 't']);
   const eski = seviyeHesabi({ ao: ao(40), b: [['t', 3], ['t', 3], ['t', 3]] }, sabit);
   assert.deepEqual([eski.ustAdet, eski.ustUst], [2, 40]);
+  const yilbasi = seviyeHesabi({ ao: ao(2), b: [['u', 1], ['u', 1]] }, binaSabitleri({ ...{}, x: { dbLetter: 'u', category: 'seasonal', levelImages: [] } }));
+  assert.deepEqual([yilbasi.ustAdet, yilbasi.ustUst], [2, 2], 'bayraksız kayıtta yalnız Halloween pazarı (t) ücretsiz sayılır; Yılbaşı pazarı sayılır');
   // Fırlatma rampası en çok 10: 10 yazan bina kesindir (üst kademe değil); 6 → en çok 9 değil 10 sınırına kadar
   const ramp = seviyeHesabi({ ao: ao(30), b: [['l', 10, null, null, 0, 0], ['l', 6, null, null, 0, 0]] }, sabit);
   assert.deepEqual([ramp.ustAdet, ramp.tutarsiz], [0, true], 'L=30 iki rampaya sığmaz: tutarsız veri işaretlenir');
