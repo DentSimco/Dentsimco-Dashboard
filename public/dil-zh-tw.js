@@ -1694,6 +1694,7 @@ export default {
   'Ortalama süre': '平均時長',
   'Tüm evreler ({0})': '全部階段 ({0})',
   'Evre zaman çizelgesi': '階段時間軸',
+  'Olaylar': '事件',
   'Realm özeti': '伺服器概況',
   'Toplam şirket değeri': '公司總價值',
   'Simcotools\'un günlük realm özeti (Eylül 2022\'den bu yana). Yarım kalmış günler gösterilmez.': 'Simcotools 的伺服器每日概況（2022 年 9 月起）。不完整的日期不顯示。',

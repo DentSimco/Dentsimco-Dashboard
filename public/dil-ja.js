@@ -1694,6 +1694,7 @@ export default {
   'Ortalama süre': '平均期間',
   'Tüm evreler ({0})': 'すべてのフェーズ ({0})',
   'Evre zaman çizelgesi': 'フェーズのタイムライン',
+  'Olaylar': 'イベント',
   'Realm özeti': 'レルムのサマリー',
   'Toplam şirket değeri': '企業価値の合計',
   'Simcotools\'un günlük realm özeti (Eylül 2022\'den bu yana). Yarım kalmış günler gösterilmez.': 'Simcotools のレルム日次サマリー（2022 年 9 月以降）。未完了の日は表示しません。',

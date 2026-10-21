@@ -1694,6 +1694,7 @@ export default {
   'Ortalama süre': 'Průměrná délka',
   'Tüm evreler ({0})': 'Všechny fáze ({0})',
   'Evre zaman çizelgesi': 'Časová osa fází',
+  'Olaylar': 'Události',
   'Realm özeti': 'Přehled realmu',
   'Toplam şirket değeri': 'Celková hodnota společností',
   'Simcotools\'un günlük realm özeti (Eylül 2022\'den bu yana). Yarım kalmış günler gösterilmez.': 'Denní přehled realmu ze Simcotools (od září 2022). Neúplné dny se nezobrazují.',
