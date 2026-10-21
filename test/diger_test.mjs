@@ -2,9 +2,10 @@
 import assert from 'node:assert/strict';
 import {
   digerRota, goDurum, goListeleri, teklifBitisi, teslimBitisi, gerekenMiktar, goDegeri, carpanAraligi, urunTalepleri,
-  projeAnahtari, projeAdi, aykiriAt, kurumAdi, sertAdi, evreOzeti, kalanMetni, binaSatirlari, gunEkle, bollukEsigi, donemMetni, kategoriAdi,
+  projeAnahtari, projeAdi, aykiriAt, sbTurleri, kurumAdi, sertAdi, evreOzeti, kalanMetni, binaSatirlari, gunEkle, bollukEsigi, donemMetni, kategoriAdi,
 } from '../public/diger.js';
 import { PROJELER, ADLAR_TR, ADLAR_EN } from '../public/diger-adlar.js';
+import { binaGruplari, binalarHtml, parcaYolu, PARCA } from '../public/sirket-bina.js';
 
 const DAY = 86400000;
 let n = 0;
@@ -121,6 +122,18 @@ t('grafikte yarım kalmış gün ayıklanır', () => {
   assert.deepEqual(a.map((x) => x[1]), [300, 305, 310, 290, 302]);
   assert.deepEqual(aykiriAt([gun(1, 100), gun(2, 70)]).length, 2, 'gerçek düşüş (komşu ortancasının %60\'ından fazla) kalır');
   assert.deepEqual(aykiriAt([gun(1, 5)]), [gun(1, 5)]);
+});
+
+t('şirket binaları: türe göre gruplar, özet tablosu, parça yolu', () => {
+  const g = binaGruplari([['6', 15, 'b', 9e12, 0], ['6', 10, null, null, 0], ['r', 15, null, null, 1], ['y', 20, 'u', 1, 0]]);
+  assert.deepEqual(g.map((x) => [x.harf, x.adet, x.toplam, x.seviyeler, x.mesgul.length, x.luks]), [['6', 2, 25, [15, 10], 1, 0], ['y', 1, 20, [20], 1, 0], ['r', 1, 15, [15], 0, 1]]);
+  assert.match(binalarHtml(null), /henüz taranmadı/);
+  const h = binalarHtml({ n: 'A', t: 0, lv: 25, rt: 'AAA', go: 4, b: [['6', 15, 'b', 9e12, 0]] }, 0);
+  assert.match(h, /İnşa \/ yükseltme/);
+  assert.match(h, />T4</);
+  assert.equal(parcaYolu(0, 4479420), `meta/sb_r0_${String(4479420 % PARCA).padStart(3, '0')}`);
+  const s = sbTurleri({ kinds: { 6: [2, 3, 55, 30, {}], r: [1, 1, 5, 5, {}], x: [0, 0, 0, 0, {}] } });
+  assert.deepEqual(s.map((x) => [x.harf, x.sirket, x.seviye]), [['6', 2, 55], ['r', 1, 5]]);
 });
 
 console.log(`${n}/${n} test geçti.`);
