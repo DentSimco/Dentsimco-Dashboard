@@ -302,66 +302,6 @@ export function restoranDegis(rs, t, env) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// En avantajlı eko menü (Tüketimler sayfasının üstünde): güncel borsa fiyatları ve tüketimden toplam seviye
-// ---------------------------------------------------------------------------------------------------------------
-const MENU_HEDEFLER = [[5.2, 'Ucuz (5,2)'], [6, 'Dengeli (6,0)'], [6.4, 'Yüksek (6,4)']];
-const MENU_YAPILAR = [['dogrulanmis', '2-2-2 (doğrulanmış)'], ['serbest', 'Serbest (hipotez)']];
-const menuOnbellek = new Map();
-// Borsa fiyatı kalite arttıkça düşmesin: q kalitesi için kalitesi ≥ q olanların en ucuzu
-function artmayanFiyat(marketOf) {
-  return (id, q) => {
-    let en = null;
-    for (let k = q; k <= R.MENU_MAX_KALITE; k++) { const b = marketOf(id, k); if (fin(b) && b > 0 && (en == null || b < en)) en = b; }
-    return en;
-  };
-}
-export function enIyiMenuHtml({ marketOf, ctx, hedef = 6, yapi = 'dogrulanmis', consumption, fiyat = 63 }) {
-  const bonus = ctx?.ratingBonus ?? R.BONUS_REFERANS;
-  const fiyatOf = artmayanFiyat(marketOf);
-  const imza = Object.keys(R.URUNLER).map((id) => Array.from({ length: R.MENU_MAX_KALITE + 1 }, (_, q) => fiyatOf(Number(id), q)).join(',')).join(';');
-  const anahtar = `${hedef}|${yapi}|${bonus}|${imza}`;
-  if (!menuOnbellek.has(anahtar)) { if (menuOnbellek.size > 8) menuOnbellek.clear(); menuOnbellek.set(anahtar, R.enIyiMenu({ fiyatOf, hedef, bonus, yapi })); }
-  const m = menuOnbellek.get(anahtar);
-  const kontrol = `<div class="tk-seg">${seg('rt.menuhedef', MENU_HEDEFLER, hedef, 'Hedef rating')}${seg('rt.menuyapi', MENU_YAPILAR, yapi, 'Menü yapısı')}</div>`;
-  const bas = `<div class="ur-head"><h2 id="h-mn">En avantajlı eko menü</h2>${chip(`Hedef rating ${num(hedef, 1)}`, 'muted')}</div>`;
-  if (!m) return `<section class="ur-card" aria-labelledby="h-mn">${bas}${kontrol}<p class="ur-note">Borsa fiyatı bulunamadığı için menü hesaplanamadı.</p></section>`;
-  const mevcut = R.menuSeviyeBasi(Object.entries(VARSAYILAN_MENU).map(([id, kalite]) => ({ id: Number(id), kalite })), fiyatOf);
-  const tasarruf = fin(mevcut) && mevcut > 0 ? (1 - m.seviyeBasi / mevcut) * 100 : null;
-  const gelirSeviye = fiyat * R.KOLTUK.eko * (R.DOLULUK.ust / 100);
-  const maas = R.donguMaasi(R.saatlikMaasSeviye({ salaryModifier: ctx?.buildings?.r?.salaryModifier, averageSalary: ctx?.averageSalary, adminNet: ctx?.adminNet }), 1, 'eko');
-  const kar = gelirSeviye - m.seviyeBasi - (maas ?? 0);
-  const say = R.kategoriSayilari(m.menu.map((x) => x.id));
-  const kat = R.KATEGORILER.map((k) => {
-    const sat = m.menu.filter((x) => R.URUNLER[x.id].kat === k.key).map((x) => {
-      const adet = R.URUNLER[x.id].oran * R.kategoriCarpani(say[k.key]);
-      const hip = !R.CARPAN_DOGRULANDI[Math.min(say[k.key], 4)];
-      return `<div class="ur-row" style="justify-content:space-between;gap:8px"><span>${esc(ad(x.id))} <small class="ur-note">Q${x.kalite}</small></span><span class="ur-note">${birimFmt(x.birim)} × ${num(adet, 1)}${hip ? ' *' : ''}</span></div>`;
-    }).join('');
-    return `<div class="ur-box" style="gap:6px"><b>${esc(k.ad)}</b>${sat}</div>`;
-  }).join('');
-  const son = (() => {
-    const p = consumption?.p;
-    if (!p) return null;
-    const gunler = [...new Set(Object.values(p).flatMap((d) => Object.keys(d)))].sort();
-    const g = gunler[gunler.length - 1];
-    return Object.fromEntries(Object.keys(p).map((id) => [id, p[id][g]?.[0] ?? 0]));
-  })();
-  const toplam = son ? R.toplamSeviyeTuketimden(son) : null;
-  return `<section class="ur-card" aria-labelledby="h-mn">${bas}${kontrol}
-    <div class="ur-metrics" style="grid-template-columns:repeat(auto-fit,minmax(120px,1fr))">
-      <div class="ur-stat"><span>Gider / seviye / döngü</span><span>${money(m.seviyeBasi)}</span></div>
-      <div class="ur-stat"><span>Kâr / seviye / döngü</span><span class="${cls(kar)}">${money(kar)}</span></div>
-      <div class="ur-stat"><span>Ort. kalite</span><span>Q${num(m.ortKalite, 1)}</span></div>
-      <div class="ur-stat"><span>Mevcut menüye göre</span><span class="${cls(tasarruf)}">${fin(tasarruf) ? pctDeg(-tasarruf) : '—'}</span></div></div>
-    <div class="tk-top">${kat}</div>
-    <p class="ur-note">Gelir menüden bağımsızdır; menüyle yalnız yemek gideri değişir. Bu yüzden ratingi hedefin altına düşürmeyen en ucuz menü seçilir (kâr: $${num(fiyat)} fiyat, %${num(R.DOLULUK.ust, 1)} doluluk, maaş ve yönetim gideri dahil). Satırlar: birim fiyat × seviye başı adet.
-      Mevcut menü: süt Q7, kahve tozu Q10, salata Q7, samosa Q5, portakal suyu Q7, elma suyu Q9. Fiyatlar borsanın son işlem fiyatıdır; kalite fiyatı kalitesi ≥ q olanların en ucuzuna eşitlenir.
-      Satış bonusu ${num(bonus, 2)} ile hesaplandı; rating–kalite ilişkisi 3 ölçümden gelir, eşiğe (4,5) yaklaşmamak için 5,2 altına inmeyin.
-      ${yapi === 'serbest' ? '* 1, 3 ve 4+ ürünlü kategori çarpanları oyunda henüz doğrulanmadı; önce küçük bir restoranda deneyin.' : ''}
-      ${toplam ? ` Tüketimden hesaplanan toplam restoran seviyesi: ≈ ${num(Math.round(toplam / 100) * 100)} (eko eşdeğeri).` : ''}</p></section>`;
-}
-
-// ---------------------------------------------------------------------------------------------------------------
 // Tüketimler: botun topladığı günlük restoran satışı (tüm oyuncular). raw = { v, t, p: { ürünId: { 'AAAA-AA-GG': [adet, ortFiyat, talep, ...] } } }
 // ---------------------------------------------------------------------------------------------------------------
 // Tüketim verisi: meta/retail_r{realm} içindeki ürün satırları (son ~28 gün) esas alınır; botun biriktirdiği restoran kaydında

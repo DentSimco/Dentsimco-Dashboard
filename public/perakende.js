@@ -264,8 +264,6 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   let toastTimer = null;
   let tuketimMetrik = 'adet'; // 'adet' | 'tutar'
   let tuketimAralik = 28;
-  let menuHedef = 6; // En avantajlı menü: hedef rating
-  let menuYapi = 'dogrulanmis'; // 'dogrulanmis' (2-2-2) | 'serbest'
   let tuketimUrun = null;
   let tuketimGun = null;
   const restoranAcik = new Set(); // ayrı menülü restoran kartlarında açık menüler
@@ -651,8 +649,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   function viewTuketim() {
     // Kayıtta fiyatı olmayan ürünlerde borsanın kalite ortalaması
     const fiyatYedek = (id) => { const v = Object.values(data.market?.[id] || {}); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
-    const menu = RS.enIyiMenuHtml({ marketOf, nameOf, ctx: context().ctx, hedef: menuHedef, yapi: menuYapi, consumption: data.consumption });
-    return menu + RS.tuketimHtml(data.consumption, { nameOf, metrik: tuketimMetrik, aralik: tuketimAralik, urun: tuketimUrun, gun: tuketimGun, fiyatYedek });
+    return RS.tuketimHtml(data.consumption, { nameOf, metrik: tuketimMetrik, aralik: tuketimAralik, urun: tuketimUrun, gun: tuketimGun, fiyatYedek });
   }
 
   // ---- PPHPL MAX ----
@@ -1037,8 +1034,6 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     }
     if (act === 'rt.metrik') { tuketimMetrik = btn.dataset.v === 'tutar' ? 'tutar' : 'adet'; return softRender(); }
     if (act === 'rt.aralik') { tuketimAralik = [7, 14, 28].includes(Number(btn.dataset.v)) ? Number(btn.dataset.v) : 28; return softRender(); }
-    if (act === 'rt.menuhedef') { menuHedef = [5.2, 6, 6.4].includes(Number(btn.dataset.v)) ? Number(btn.dataset.v) : 6; return softRender(); }
-    if (act === 'rt.menuyapi') { menuYapi = btn.dataset.v === 'serbest' ? 'serbest' : 'dogrulanmis'; return softRender(); }
     if (act === 'rt.urun') { tuketimUrun = btn.dataset.v; return softRender(); }
     if (act === 'rt.gun') { tuketimGun = btn.dataset.v; return softRender(); }
     if (/^r[kfm]\./.test(act)) {
