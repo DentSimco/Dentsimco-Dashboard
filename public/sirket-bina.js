@@ -17,6 +17,10 @@ export const PARCA = 128;
 // Mevsimlik pazarlara (Cadılar Bayramı, Yılbaşı, Plaj Bar, Bahar) profilde seviye basılmaz; boyut bilgi taşımaz (Halloween pazarı hep 3, Yılbaşı hep 1).
 export const MEVSIMLIK = new Set(['t', 'u', 'z', 'I']);
 export const mevsimlikMi = (harf) => MEVSIMLIK.has(harf);
+// Sezon gelince oyun her şirkete bir mevsimlik pazar (perakende binası) hediye eder: seviyesi herkeste aynıdır, artırılamaz, azaltılamaz, yalnız
+// yıkılabilir; yönetim giderine, bina değerine ve işçiye girmez (yalnız bu pazarı olan 7 şirkette işçi 0, yönetim gideri 1). Seviyesi herkese açık
+// veride görünmez (profilde boyut 3): bilgi oyunculardan. 21 Ekim 2026: Halloween pazarı (t) hediyesi 5. Diğer sezonların hediyesi bilinmiyor.
+export const HEDIYE_SEVIYE = { t: 5 };
 export const MEVSIMLIK_NOTU = 'Mevsimlik pazarların seviyesi profilde gösterilmez.';
 export const parcaYolu = (r, id) => PATHS.meta(`sb_r${r}_${String(Number(id) % PARCA).padStart(3, '0')}`);
 
@@ -107,8 +111,10 @@ export async function sirketBinalari(realm, id) {
 // Binaları türe göre toplar: [{harf, adet, seviyeler (büyükten küçüğe), toplam, mesgul: [[kod, bitiş]], luks}] toplam seviyeye göre
 export function binaGruplari(b) {
   const m = new Map();
-  for (const [harf, sv, kod, bitis, luks] of b || []) {
-    const g = m.get(harf) || { harf, adet: 0, seviyeler: [], toplam: 0, mesgul: [], luks: 0 };
+  for (const [harf, sv, kod, bitis, luks, ucretsiz] of b || []) {
+    const g = m.get(harf) || { harf, adet: 0, seviyeler: [], toplam: 0, mesgul: [], luks: 0, ucretsiz: 0, kalemler: [] };
+    g.kalemler.push({ sv, ucretsiz: ucretsiz === 1 });
+    if (ucretsiz === 1) g.ucretsiz++;
     g.adet++;
     g.seviyeler.push(sv);
     g.toplam += sv;
@@ -151,8 +157,8 @@ export function binalarHtml(k, now = Date.now(), ust = {}, sabit = null) {
       ${k.sm != null ? kv('Satış değiştiricisi', `<span data-no-t>${signed(k.sm)}</span>`) : ''}
     </div>
     ${gruplar.length ? `<div class="sk-wrap"><table class="sb-t"><thead><tr><th class="l">Bina</th><th>Adet</th><th>Toplam seviye (en az)</th><th class="l">Kademeler</th><th class="l">Durum</th></tr></thead><tbody>${gruplar.map((g) => `<tr>
-      <td class="l">${esc(binaAdi(g.harf))}${g.luks ? ' <span class="sb-durum">Lüks</span>' : ''}</td><td>${g.adet}</td><td>${mevsimlikMi(g.harf) ? '—' : g.toplam}</td>
-      <td class="l" data-no-t>${mevsimlikMi(g.harf) ? '—' : g.seviyeler.map((v) => kademeMetni(g.harf, v, ust)).join(', ')}</td><td class="l">${mesgulMetni(g)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="sk-note">Şirketin binası yok.</p>'}
+      <td class="l">${esc(binaAdi(g.harf))}${g.luks ? ' <span class="sb-durum">Lüks</span>' : ''}${g.ucretsiz ? ' <span class="sb-durum">Ücretsiz hediye</span>' : ''}</td><td>${g.adet}</td><td>${mevsimlikMi(g.harf) ? '—' : g.toplam}</td>
+      <td class="l" data-no-t>${mevsimlikMi(g.harf) ? g.kalemler.map((x) => (x.ucretsiz && HEDIYE_SEVIYE[g.harf] ? HEDIYE_SEVIYE[g.harf] : '—')).join(', ') : g.seviyeler.map((v) => kademeMetni(g.harf, v, ust)).join(', ')}</td><td class="l">${mesgulMetni(g)}</td></tr>`).join('')}</tbody></table></div>` : '<p class="sk-note">Şirketin binası yok.</p>'}
     <p class="sk-note">${KADEME_NOTU}${gruplar.some((g) => mevsimlikMi(g.harf)) ? ` ${MEVSIMLIK_NOTU}` : ''}</p>
     ${sh ? `<p class="sk-note">${TOPLAM_NOTU}</p>` : ''}
     <p class="sk-note"><span>${esc(`Tarama: ${fmtDateTime(k.t)}.`)}</span> <span>Kaynak: oyunun herkese açık şirket profili; binada üretilen ürün profilde görünmez.</span></p>`;
