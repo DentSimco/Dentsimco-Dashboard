@@ -2,7 +2,7 @@
 import assert from 'node:assert/strict';
 import {
   digerRota, goDurum, goListeleri, teklifBitisi, teslimBitisi, gerekenMiktar, goDegeri, carpanAraligi, urunTalepleri, urunAyrintisi, urunBul,
-  projeAnahtari, projeAdi, aykiriAt, sbTurleri, kurumAdi, sertAdi, evreOzeti, kalanMetni, binaTurleri, binaSirala, bollukEsigi, donemMetni, kategoriAdi,
+  projeAnahtari, projeAdi, aykiriAt, sbTurleri, kurumAdi, sertAdi, evreOzeti, kalanMetni, binaTurleri, binaSirala, donemMetni, kategoriAdi,
 } from '../public/diger.js';
 import { PROJELER, ADLAR_TR, ADLAR_EN } from '../public/diger-adlar.js';
 import { binaGruplari, binalarHtml, parcaYolu, PARCA, ustKademeler, kademeMetni, toplamSeviye, binaSabitleri, seviyeHesabi, mevsimlikMi, HEDIYE_SEVIYE } from '../public/sirket-bina.js';
@@ -132,11 +132,7 @@ t('bina türleri tablosu: realm sayısı ve şirketlerdeki seviye tek satırda; 
   assert.equal(kategoriAdi('sales'), 'Satış');
 });
 
-t('bolluk eşiği ve sertifika dönemi', () => {
-  assert.equal(bollukEsigi('Exceptional'), 98);
-  assert.equal(bollukEsigi('Very Good'), 95);
-  assert.equal(bollukEsigi('Trash'), 0);
-  assert.equal(bollukEsigi('?'), null);
+t('sertifika dönemi', () => {
   assert.equal(donemMetni('2026-W42'), '2026 · 42. hafta');
   assert.match(donemMetni('2026-09'), /Eylül 2026/);
   assert.equal(donemMetni(''), '');

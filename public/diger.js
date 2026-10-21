@@ -1,7 +1,7 @@
 // DentSimco — Diğer: Government Order | Binalar | Ekonomik Evreler | Sertifikalar
 // Veri: DentSimco-Bot bot/diger.mjs saatte bir yazar (biçim o dosyanın başında):
 //   meta/go_r{realm}     GO arşivi: Sim Companies (ilandaki ve yürüyen siparişler, miktarlarıyla) + Simcotools (tüm geçmiş)
-//   meta/bina_r{realm}   bina türü başına sayı ve günlük geçmişi;  meta/ihale_r{realm}  açık bina açık artırmaları
+//   meta/bina_r{realm}   bina türü başına sayı ve günlük geçmişi
 //   meta/evre_r{realm}   ekonomi evreleri, günlük realm özeti (2022'den), üretim olayları, yarışmalar
 //   meta/sert_r{realm}   sertifika türleri ve son verilenler;  meta/sert_r{realm}_k{tür}  türün kazananları
 //   meta/sb_ozet_r{realm} şirketlerin binaları özeti (bot/sirket_bina.mjs, günde bir tarama): bina türü başına sahip ve en büyükler, GO seviyeleri
@@ -16,7 +16,7 @@ import { urunAdi } from './urun-adlari.js';
 import { mevsimlikMi, KADEME_NOTU, MEVSIMLIK_NOTU } from './sirket-bina.js';
 import { esc } from './esc.js';
 import * as G from './sirket-gecmis.js';
-import { PROJELER, GO_KURAL, BOLLUK, ADLAR_TR, ADLAR_EN } from './diger-adlar.js';
+import { PROJELER, GO_KURAL, ADLAR_TR, ADLAR_EN } from './diger-adlar.js';
 
 export const SEKMELER = [['go', 'Government Order'], ['bina', 'Binalar'], ['evre', 'Ekonomik Evreler'], ['sertifika', 'Sertifikalar']];
 const GO_ALT = [['ilan', 'İlanda'], ['yuruyen', 'Yürüyen'], ['gecmis', 'Geçmiş'], ['urunler', 'İstenen ürünler']];
@@ -222,9 +222,6 @@ export function binaSirala(rows, anahtar, yon, ad = (r) => r.harf, kategori = (r
   });
 }
 
-// Bolluk düzeyinin alt eşiği (%): oyundaki adlar (Exceptional, VeryGood…)
-export const bollukEsigi = (ad) => BOLLUK[String(ad).replace(/\s+/g, '')] ?? null;
-
 // ---- Sertifika (saf) ----
 const DEGER_ADI = { amount: 'Miktar', goldenBars: 'Altın külçe', governmentOrderRevenue: 'GO geliri', yearStarted: 'Başlangıç yılı', contestId: 'Yarışma no' };
 export const degerAdi = (vk) => DEGER_ADI[vk] || 'Değer';
@@ -328,7 +325,7 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
   let rota = digerRota(location.hash);
   const durum = {
     goAlt: null, goSayfa: 1, goAra: '', carpan: carpanOku(), urunSec: [], urunAra: '', urunAcik: true, urunHata: '',
-    binaSira: ['n', -1], ihaleBina: '', ihaleSira: ['kapanis', 1], ihaleSayfa: 1, binaAralik: 365,
+    binaSira: ['n', -1], binaAralik: 365,
     evreMetrik: 1, evreAralik: 0, ozetAralik: 365, olaySayfa: 1,
     sertSira: ['rar', 1], sertUrun: '', sertAra: '', sertSayfa: 1,
     sbTur: '',
@@ -350,7 +347,7 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
 
   // ---- Veri ----
   const yollar = {
-    go: () => PATHS.meta(`go_r${realm}`), bina: () => PATHS.meta(`bina_r${realm}`), ihale: () => PATHS.meta(`ihale_r${realm}`),
+    go: () => PATHS.meta(`go_r${realm}`), bina: () => PATHS.meta(`bina_r${realm}`),
     evre: () => PATHS.meta(`evre_r${realm}`), sert: () => PATHS.meta(`sert_r${realm}`), tur: (k) => PATHS.meta(`sert_r${realm}_k${k}`),
     sabit: () => PATHS.meta('buildings'), sb: () => PATHS.meta(`sb_ozet_r${realm}`),
   };
@@ -567,14 +564,14 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
   // ---- Binalar ----
   let binaVeri = null;
   async function binaCiz(my) {
-    const [get] = await Promise.all([oku([yollar.bina(), yollar.ihale(), yollar.evre(), yollar.sabit(), yollar.sb()]), temelOku()]);
+    const [get] = await Promise.all([oku([yollar.bina(), yollar.evre(), yollar.sabit(), yollar.sb()]), temelOku()]);
     if (!gecerli(my)) return;
-    binaVeri = { bina: get(yollar.bina()), ihale: get(yollar.ihale()), evre: get(yollar.evre()), sabit: get(yollar.sabit()), sb: get(yollar.sb()) };
+    binaVeri = { bina: get(yollar.bina()), evre: get(yollar.evre()), sabit: get(yollar.sabit()), sb: get(yollar.sb()) };
     binaBoya();
   }
   function binaBoya() {
-    const { bina, ihale, evre, sabit, sb } = binaVeri;
-    if (!bina && !ihale) { box.innerHTML = `<h1>Binalar</h1>${veriYok}`; return; }
+    const { bina, evre, sabit, sb } = binaVeri;
+    if (!bina) { box.innerHTML = `<h1>Binalar</h1>${veriYok}`; return; }
     const days = (evre?.days || []).filter((d) => d[3] > 0);
     const sonGun = days.at(-1);
     const toplam = bina?.total ?? sonGun?.[3] ?? null;
@@ -595,14 +592,12 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
         <div class="dg-tile"><span>Toplam bina</span><b data-no-t>${toplam == null ? '—' : NUM.format(toplam)}</b>${toplamFark != null ? `<small><span class="${tone(toplamFark)}" data-no-t>${signed(toplamFark)}</span> · dünden</small>` : ''}</div>
         <div class="dg-tile"><span>Aktif şirket</span><b data-no-t>${aktif == null ? '—' : NUM.format(aktif)}</b></div>
         <div class="dg-tile"><span>Şirket başına bina</span><b data-no-t>${toplam && aktif ? (toplam / aktif).toLocaleString(LOCALE, { maximumFractionDigits: 1 }) : '—'}</b></div>
-        <div class="dg-tile"><span>Açık artırmadaki bina</span><b data-no-t>${ihale?.list ? NUM.format(ihale.list.length) : '—'}</b></div>
       </div>
       ${grafik ? `<section class="dg-card"><h2>Realmdaki toplam bina</h2>
         <div class="dg-seg" role="group" aria-label="Aralık">${ARALIKLAR.map(([v, t]) => `<button type="button" data-bina-aralik="${v}" aria-pressed="${v === aralik}">${t}</button>`).join('')}</div>
         ${grafik}<p class="dg-note">Günlük realm özeti (Simcotools). Tüm şirketlerin bina sayısı toplamıdır; Simcotools'ta yarım kalmış günler gösterilmez.</p></section>` : ''}
       ${binaTurleriKarti(rows, sb, th)}
-      ${ihaleKarti(ihale)}
-      ${botNotu(bina?.t ?? ihale?.t)}`;
+      ${botNotu(bina?.t)}`;
   }
 
   // Bina türleri: realmdaki sayı ve pay ile şirketlerdeki seviyeler (botun günlük taramasından) tek tabloda; türe dokununca en büyük sahipler
@@ -621,30 +616,6 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
       ${sec ? `<h3>${oyun(binaAdi(sec))}</h3>
       <div class="dg-wrap"><table><thead><tr><th class="l">Sıra</th><th class="l">Şirket</th><th>Toplam seviye (en az)</th><th>Bina sayısı</th><th>Şirketin toplam seviyesi (kesin)</th></tr></thead><tbody>${top.map((t, i) => `<tr><td class="l">${i + 1}</td><td class="l">${oyun(t[1])}<small class="alt" data-no-t>ID ${t[0]}</small></td><td>${NUM.format(t[2])}</td><td>${NUM.format(t[3])}</td><td>${t[4] == null ? '<span class="dim">—</span>' : NUM.format(t[4])}</td></tr>`).join('')}</tbody></table></div>` : ''}
     </section>`;
-  }
-
-  const IHALE_SIRA = { kapanis: 6, teklif: 4, seviye: 2, garanti: 5 };
-  function ihaleKarti(ihale) {
-    const list = ihale?.list || [];
-    if (!list.length) return '';
-    const harfler = [...new Set(list.map((a) => a[1]))].sort((a, b) => binaAdi(a).localeCompare(binaAdi(b), LOCALE));
-    const sec = durum.ihaleBina ? list.filter((a) => a[1] === durum.ihaleBina) : list;
-    const [k, yon] = durum.ihaleSira;
-    const col = IHALE_SIRA[k];
-    const sirali = [...sec].sort((a, b) => ((a[col] ?? 0) - (b[col] ?? 0)) * yon || a[0] - b[0]);
-    const sayfa = Math.max(1, Math.min(durum.ihaleSayfa, Math.ceil(sirali.length / SAYFA) || 1));
-    durum.ihaleSayfa = sayfa;
-    const th = (key, t) => `<th data-sort="ihale:${key}" ${key === k ? `aria-sort="${yon > 0 ? 'ascending' : 'descending'}"` : ''}>${t}</th>`;
-    const now = Date.now();
-    return `<section class="dg-card"><h2>Bina açık artırmaları</h2>
-      <p class="dg-note">Oyunun bina açık artırmasında şu an satıştaki binalar. Garanti tutarı oyunun verdiği değerdir (en az teklifin %80'i).</p>
-      <div class="dg-row"><select data-ihale-bina aria-label="Bina türü"><option value="">${esc(`Tüm binalar (${NUM.format(list.length)})`)}</option>${harfler.map((h) => `<option data-no-t value="${esc(h)}" ${h === durum.ihaleBina ? 'selected' : ''}>${esc(binaAdi(h))} (${NUM.format(list.filter((a) => a[1] === h).length)})</option>`).join('')}</select></div>
-      <div class="dg-wrap"><table><thead><tr><th class="l">Bina</th>${th('seviye', 'Seviye')}<th>Robot</th>${th('teklif', 'En az teklif')}${th('garanti', 'Garanti tutarı')}${th('kapanis', 'Kapanış zamanı')}<th class="l">Bolluk</th><th class="l">Satıcı</th></tr></thead>
-      <tbody>${sirali.slice((sayfa - 1) * SAYFA, sayfa * SAYFA).map((a) => `<tr><td class="l">${oyun(binaAdi(a[1]))}${a[8] ? ' <span class="dg-cip">Öne çıkan</span>' : ''}</td><td>${a[2] ?? '—'}</td><td>${a[3] ?? '—'}</td>
-        <td data-no-t>${usd(a[4])}</td><td data-no-t>${usd(a[5])}</td><td><span data-no-t>${esc(fmtDateTime(a[6]))}</span>${a[6] > now ? `<small class="alt dg-kalan" data-bitis="${a[6]}"></small>` : ''}</td>
-        <td class="l"><div class="dg-cips">${(a[11] || []).map(([kind, lv]) => `<span class="dg-cip">${oyun(urun(kind))} <b data-no-t>${bollukEsigi(lv) != null ? `≥${bollukEsigi(lv)}%` : esc(lv)}</b></span>`).join('') || '<span class="dim">—</span>'}</div></td>
-        <td class="l">${oyun(a[10])}<small class="alt" data-no-t>ID ${a[9]}</small></td></tr>`).join('')}</tbody></table></div>
-      ${sayfalar('ihale', sayfa, Math.ceil(sirali.length / SAYFA))}</section>`;
   }
 
   // ---- Ekonomik Evreler ----
@@ -802,16 +773,15 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
     const s = e.target.closest('[data-sort]');
     if (s) {
       const [ad, key] = s.dataset.sort.split(':');
-      const alan = { bina: 'binaSira', ihale: 'ihaleSira', sert: 'sertSira' }[ad];
+      const alan = { bina: 'binaSira', sert: 'sertSira' }[ad];
       const [k, yon] = durum[alan];
-      durum[alan] = [key, k === key ? -yon : (ad === 'ihale' && key === 'kapanis') || (ad === 'sert' && (key === 'rar' || key === 'ad')) || (ad === 'bina' && (key === 'harf' || key === 'kat')) ? 1 : -1];
-      if (ad === 'ihale') durum.ihaleSayfa = 1;
+      durum[alan] = [key, k === key ? -yon : (ad === 'sert' && (key === 'rar' || key === 'ad')) || (ad === 'bina' && (key === 'harf' || key === 'kat')) ? 1 : -1];
       return yenidenBoya();
     }
     const p = e.target.closest('[data-sayfa]');
     if (p) {
       const [ad, d] = p.dataset.sayfa.split(':');
-      const alan = { go: 'goSayfa', ihale: 'ihaleSayfa', olay: 'olaySayfa', sert: 'sertSayfa' }[ad];
+      const alan = { go: 'goSayfa', olay: 'olaySayfa', sert: 'sertSayfa' }[ad];
       durum[alan] += Number(d);
       return yenidenBoya();
     }
@@ -860,7 +830,6 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
   box.addEventListener('change', (e) => {
     const t = e.target;
     if (t.matches('[data-urun-ara]')) urunYaz(t.value);
-    else if (t.matches('[data-ihale-bina]')) { durum.ihaleBina = t.value; durum.ihaleSayfa = 1; yenidenBoya(); }
     else if (t.matches('[data-sert-urun]')) { durum.sertUrun = t.value; durum.sertSayfa = 1; yenidenBoya(); }
   });
 
@@ -915,7 +884,7 @@ export function mountDiger(root, { realm: startRealm = 0 } = {}) {
       if (next === realm) return;
       realm = next;
       goVeri = binaVeri = evreVeri = sertVeri = null;
-      durum.goSayfa = 1; durum.ihaleSayfa = 1; durum.olaySayfa = 1; durum.sertSayfa = 1; durum.ihaleBina = ''; durum.sertUrun = '';
+      durum.goSayfa = 1; durum.olaySayfa = 1; durum.sertSayfa = 1; durum.sertUrun = '';
       durum.urunSec = []; durum.urunAra = ''; durum.urunHata = ''; durum.urunAcik = true;
       ciz();
     },
