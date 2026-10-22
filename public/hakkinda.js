@@ -9,6 +9,12 @@ const TABS = [['nedir', 'Nedir'], ['guncellemeler', 'Güncellemeler'], ['kaynakc
 // En yeni en üstte. { date: 'gün ay yıl', items: ['...', '...'] }
 export const UPDATES = [
   {
+    date: '22 Ekim 2026',
+    items: [
+      'Piyasa › İndeks eklendi (Canlı Borsa ile Sinyaller arasında): borsanın toplam indeksi, grafiği ve gün gün hesabı (seviye, değişim, puan, yükselen ve düşen ürün sayısı, işlem tutarı). Her gün ve her hafta için indeksin neden yükseldiği ya da düştüğü değerlendirilir: en çok yukarı ve aşağı çeken ürünler, bina türlerine göre katkı, hareketin genişliği ve büyüklüğü, işlem hacmi, ekonomi evresi değişimi ve üretim hızı olayları. İndeks her gece sinyallerle birlikte hesaplanır; grafikte ya da tabloda bir güne dokununca o günün değerlendirmesi açılır.',
+    ],
+  },
+  {
     date: '21 Ekim 2026',
     items: [
       'Government Order › İstenen ürünler: ürün listesi açılır kapanır oldu; ürün adı ya da ID yazarak ya da listeden dokunarak bir ya da birkaç ürün seçilir (× ile kaldırılır), seçilen ürünün kalite dağılımı, toplam gereken miktarı, borsa değeri ve onu isteyen siparişler ayrıntılı gösterilir. Aylık GO sertifikası kartı Government Order sayfasından kaldırıldı; yalnız Sertifikalar bölümünde.',
