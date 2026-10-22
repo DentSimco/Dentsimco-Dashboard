@@ -477,6 +477,43 @@
     .sy-tabs button { padding: 0 10px; font-size: 14px; }
   }
 
+  /* İndeks sayfası (sinyaller sayfasının düzenini kullanır) */
+  .ix-hero { padding: 4px 2px 0; }
+  .ix-hero:empty { display: none; }
+  .ix-hero .hero-price { margin: 0 0 4px; }
+  .figs dd.up { color: var(--up); }
+  .figs dd.down { color: var(--down); }
+  .ix .plot { grid-area: auto; } /* Canlı Borsa düzenindeki alan adı burada kullanılmaz */
+  .ix .chart { height: clamp(250px, 40vh, 420px); }
+  .ix .lg:disabled { cursor: default; }
+  .ix-card { padding: 14px 14px 12px; }
+  .ix-ust { margin: 0; font-size: 13.5px; color: var(--muted); }
+  .ix-baslik { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin: 2px 0 0; font: 600 21px/1.25 var(--font-c); }
+  .ix-baslik [data-yon="up"] { color: var(--up); }
+  .ix-baslik [data-yon="down"] { color: var(--down); }
+  .ix-baslik span:last-child { font-weight: 500; color: var(--muted); }
+  .ix-why li { margin: 5px 0; }
+  .ix-ad { font-weight: 600; }
+  .ix-num { font-family: var(--font-c); font-weight: 600; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ix-pair { margin-top: 12px; }
+  .ix-col { min-width: 0; }
+  .ix-h3 { margin: 0 0 4px; font-size: 14px; font-weight: 600; color: var(--muted); }
+  .ix-kat { display: grid; margin: 0; padding: 0; list-style: none; }
+  .ix-kat li { display: grid; grid-template-columns: minmax(0, 1fr) auto 64px; gap: 10px; align-items: baseline; padding: 6px 0; border-top: 1px solid var(--row-line); font-size: 14.5px; }
+  .ix-kat .ix-ad, .ix-sek .ix-ad { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+  .ix-pt { text-align: right; }
+  .ix-sek { margin-top: 12px; }
+  .ix-sek ul { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+  .ix-sek li { display: grid; grid-template-columns: minmax(0, 11em) minmax(40px, 1fr) 64px; gap: 10px; align-items: center; font-size: 14px; }
+  .ix-sek li .ix-num { text-align: right; }
+  .ix-bar { height: 6px; border-radius: 3px; background: var(--raise-2); overflow: hidden; }
+  .ix-bar i { display: block; height: 100%; border-radius: 3px; }
+  .ix-bar i.up { background: var(--up); }
+  .ix-bar i.down { background: var(--down); }
+  .ix-tablo { min-width: 640px; }
+  .ix-tablo .ix-ana { text-align: left; max-width: 14em; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
+  .ix-tablo tbody th { font: 500 14.5px var(--font-c); }
+
   /* Sıradaki modüller */
   .soon { max-width: 640px; padding: 40px 4px; }
   .soon h1 { margin: 0 0 10px; font-size: 26px; }
@@ -524,6 +561,7 @@
 </header>
 <nav class="subnav" id="subnav-piyasa" aria-label="Piyasa bölümleri">
   <a href="#borsa" data-sub="borsa">Canlı Borsa</a>
+  <a href="#endeks" data-sub="endeks">İndeks</a>
   <a href="#sinyal" data-sub="sinyal">Sinyaller</a>
 </nav>
 <nav class="subnav" id="subnav" aria-label="Kâr Hesaplayıcı bölümleri">
@@ -596,10 +634,11 @@
   import('./girdi.js').then((m) => m.girdiyiBagla()).catch(() => { /* yüklenemezse sayı kutuları eskisi gibi çalışır */ });
   import('./acilir.js').then((m) => m.acilirlariBagla()).catch(() => { /* yüklenemezse tarayıcının kendi listesi kullanılır */ });
   const CALC = new Set(['uretim', 'perakende', 'yonetim']); // Kâr Hesaplayıcı'nın bölümleri
-  const PIYASA = new Set(['borsa', 'sinyal']); // Piyasa'nın bölümleri
+  const PIYASA = new Set(['borsa', 'endeks', 'sinyal']); // Piyasa'nın bölümleri
 
   const MODULES = {
     borsa: () => import('./borsa.js').then((m) => m.mountBorsa),
+    endeks: () => import('./endeks.js').then((m) => m.mountEndeks),
     sinyal: () => import('./sinyal.js').then((m) => m.mountSinyal),
     optimum: () => import('./optimum.js').then((m) => m.mountOptimum),
     uretim: () => import('./uretim.js').then((m) => m.mountUretim),

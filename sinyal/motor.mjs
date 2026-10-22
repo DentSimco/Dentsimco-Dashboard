@@ -11,6 +11,7 @@
 //   meta/evreler_r{r}             ekonomi evrelerinin birikmiş geçmişi
 //   meta/optimum_r0               Optimum Seviye sayfası için son 28 günün borsa özeti (yalnız gece, yalnız Realm 0;
 //                                 sinyal/optimum.mjs)
+//   meta/endeks_r{r}              İndeks sayfası için piyasa endeksinin gün gün / hafta hafta dökümü (yalnız gece; sinyal/endeks.mjs)
 //
 // Veri: botun günlük belgeleri (daily/r{r}_{id}_{yıl}) + sinyal/gecmis-r0.json (botun başlamasından önceki
 // 1 yıllık Realm 0 geçmişi). İkisi aynı günde çakışırsa geçmiş dosyası kullanılır.
@@ -38,6 +39,7 @@ import { readFile } from 'node:fs/promises';
 import { pathToFileURL } from 'node:url';
 import { Firestore } from './firestore.mjs';
 import { optimumOzet } from './optimum.mjs';
+import { endeksOzet } from './endeks.mjs';
 
 export const VERSION = 2;
 
@@ -303,7 +305,7 @@ export function piyasaEndeksi(S, ids, haric, T) {
     art[t] = den > 0 ? num / den : 0;
     L[t] = L[t - 1] + art[t];
   }
-  return { L, art, kullanilan: use.length };
+  return { L, art, kullanilan: use.length, use, val }; // use, val: İndeks sayfası katkı hesabı (sinyal/endeks.mjs)
 }
 
 function beta(S, id, L, T) {
@@ -688,7 +690,8 @@ export function hesapla({ realm, simdi, products, ids, modifiers, phase, seed, d
 
   const mevsim = mevsimHazir || mevsimleriBul(S, ids, T);
   const haric = new Set(Object.keys(mevsim).map(Number));
-  const { L, art, kullanilan } = piyasaEndeksi(S, ids, haric, T);
+  const endeks = piyasaEndeksi(S, ids, haric, T);
+  const { L, art, kullanilan } = endeks;
   const endeksVar = kullanilan > 0 && Ti >= 7;
   const m7 = endeksVar ? L[Ti] - L[Ti - 7] : 0;
   let cmt = null;
@@ -807,7 +810,7 @@ export function hesapla({ realm, simdi, products, ids, modifiers, phase, seed, d
     karne: { onsel: ONSEL, canli: canliOzet, canli7: canli7Ozet, gunici: giOzet },
     urun,
   };
-  return { sinyal, gecmis: { t: simdi, d: T, items: gunluk }, gunIci, karne, mevsim, T, canliSayi, S };
+  return { sinyal, gecmis: { t: simdi, d: T, items: gunluk }, gunIci, karne, mevsim, T, canliSayi, S, endeks };
 }
 
 // ---- Okuma / yazma ------------------------------------------------------------------------------
@@ -862,7 +865,7 @@ export async function main({
     'meta/tradable', 'system/phase',
     ...realms.flatMap((r) => [
       `meta/products_r${r}`, `meta/modifiers_r${r}`, `meta/sinyal_karne_r${r}`, `meta/olaylar_r${r}`, `meta/evreler_r${r}`,
-      ...(gunici ? [`live/r${r}`, `meta/sinyal_r${r}`] : []),
+      ...(gunici ? [`live/r${r}`, `meta/sinyal_r${r}`] : [`meta/endeks_r${r}`]),
     ]),
   ]);
   const tradable = parseJSON(meta.get('meta/tradable')?.data) || {};
@@ -950,6 +953,23 @@ export async function main({
       { type: 'set', path: `meta/evreler_r${realm}`, data: { data: JSON.stringify(evreler), u: t0 } },
     );
     ozet.push(`r${realm}: son gün ${sonuc.T}, ${sonuc.sinyal.sayi} sinyal, piyasa 7g ${sonuc.sinyal.makro.m7 ?? "yok"}%, mevsimsel ${Object.keys(sonuc.mevsim).length}, karne günü ${Object.keys(sonuc.karne.gunler).length} (gün içi ${Object.keys(sonuc.karne.gunici).length}), ${Math.round(metin.length / 1024)} KB`);
+
+    // İndeks sayfası: endeksin gün gün ve hafta hafta dökümü (sinyal/endeks.mjs). Hata olursa son iyi belge yayında kalır.
+    try {
+      const ix = endeksOzet(sonuc.S, sonuc.endeks, {
+        T: sonuc.T, products, simdi: t0, realm, onceki: parseJSON(meta.get(`meta/endeks_r${realm}`)?.data), evreler, olaylar: arsiv,
+      });
+      if (ix.yetersiz) {
+        ozet.push(`endeks r${realm}: veri yok, yazılmadı`);
+      } else {
+        const ixMetin = JSON.stringify(ix);
+        if (ixMetin.length > 900_000) throw new Error(`belge çok büyük (${ixMetin.length} karakter)`);
+        writes.push({ type: 'set', path: `meta/endeks_r${realm}`, data: { data: ixMetin, u: t0 } });
+        ozet.push(`endeks r${realm}: ${ix.bas} – ${ix.gun}, ${ix.g.length} gün, ${ix.h.length} hafta, seviye ${ix.g.at(-1)[1]}, ${Math.round(ixMetin.length / 1024)} KB`);
+      }
+    } catch (e) {
+      ozet.push(`endeks r${realm}: hesaplanamadı (${e?.message || e})`);
+    }
 
     // Optimum Seviye (yalnız Realm 0): son 28 günün borsa özeti, aynı seriden (sinyal/optimum.mjs).
     // Hata ya da yetersiz veri olursa yazılmaz, son iyi belge yayında kalır; sinyaller bundan etkilenmez.

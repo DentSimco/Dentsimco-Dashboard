@@ -220,6 +220,9 @@ ok(res7.sinyal.karne.canli7?.b1?.[0] === 1, 'karne: canli7 özeti yayında');
   const opt = optYaz && JSON.parse(optYaz.data.data);
   ok(opt && opt.k >= 20 && opt.n === 28 && opt.u[901]?.[0]?.length === 3, 'gece çalışması Realm 0 için optimum özetini yazar');
   ok(!d0.yazilan.some((w) => w.path.startsWith('meta/optimum_r1')), 'Realm 1 için optimum özeti yazılmaz');
+  const ixYaz = d0.yazilan.find((w) => w.path === 'meta/endeks_r0');
+  const ix = ixYaz && JSON.parse(ixYaz.data.data);
+  ok(ix && ix.v === 1 && ix.gun === gece.gun && ix.g.at(-1)[0] === gece.gun && ix.h.length > 0, 'gece çalışması İndeks belgesini yazar (son gün sinyallerle aynı)');
   ok(gece.tn === simdi0 && gece.urun[901][0].s[0] === 'HSAT', 'gece: tn yazıldı, sıçrayan ürün SAT (hemen sat)');
 
   const canliFiyat = Math.round((gece.urun[901][0].p / 1.12) * 100) / 100;
