@@ -615,8 +615,16 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     </article>`;
   }
   // Borsada fiyatı olmayan ürün varken kâr hesaplanmaz; kullanıcıdan elle maliyet istenir
-  const eksikKarti = (ev) => (ev.eksik ? `<div class="ur-card" role="alert" style="border-color:var(--down)"><h2 class="c-down">Kâr hesaplanamadı</h2>
-    <p class="ur-note">${num(ev.eksik)} kalemde borsada fiyat yok. Binayı düzenleyip maliyeti elle girin (restoranda menüdeki ürünün Sourcing Cost'u); girene kadar kâr ve zarar gösterilmez.</p></div>` : '');
+  // Her eksik mağaza için "maliyeti gir" düğmesi (bina panelini açar), restoran için Restoran sekmesine bağlantı; girilince uyarı kaybolur
+  const eksikKarti = (ev, sekme) => {
+    if (!ev.eksik) return '';
+    const dugmeler = setup.buildings.map((b, i) => (ev.buildings[i]?.lines.some((l) => l.needsCost)
+      ? `<button type="button" class="ur-btn primary" data-act="edit" data-i="${i}">${esc(nameOf(b.product))} Q${b.quality}: maliyeti gir</button>` : '')).join('');
+    const restoran = sekme !== 'restoran' && ev.restoran.totals.eksik ? '<a class="ur-btn primary" href="#perakende/restoran" style="text-decoration:none">Restoran: menü maliyetini gir</a>' : '';
+    return `<div class="ur-card" role="alert" style="border-color:var(--down)"><h2 class="c-down">Kâr hesaplanamadı</h2>
+      <p class="ur-note">${num(ev.eksik)} kalemde borsada fiyat yok. Maliyeti elle girin${ev.restoran.totals.eksik ? " (restoranda menüdeki ürünün Sourcing Cost'u)" : ''}; girer girmez uyarı kaybolur ve kâr hesaplanır. Girene kadar kâr ve zarar gösterilmez.</p>
+      <div class="ur-row" style="flex-wrap:wrap;gap:8px">${dugmeler}${restoran}</div></div>`;
+  };
   const storeEksik = (ev) => ev.buildings.some((x) => x.lines.some((l) => l.needsCost));
   function viewBinalar(c, ev) {
     const t = ev.stores;
@@ -626,7 +634,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       ${guideCard({ title: 'Perakende', lead: 'Mağazalarınızın hangi ürünle ne kadar kazandıracağını hesaplar. PPHPL, bir bina seviyesinin saatlik kârıdır (maaş düşülmüş).',
         chips: [[`Toplam satış bonusu ${pctText(c.bonusPct)}`, c.bonusPct > 0 ? '' : 'muted'], [`Yönetim gideri ${pctText(c.ctx.adminNet * 100)}`, 'muted'],
           data.hasRetailInfo ? null : ['Doygunluk verisi yok', 'down']] })}
-      ${eksikKarti(ev)}
+      ${eksikKarti(ev, 'binalar')}
       ${setup.buildings.length ? `<div class="ur-stats">
         <div class="ur-stat"><span>Günlük kâr</span><span class="${storeEksik(ev) ? '' : cls(t.profitDay)}">${storeEksik(ev) ? '—' : money(t.profitDay)}</span></div>
         <div class="ur-stat"><span>Toplam maaş</span><span>${money(t.wagesDay)}</span></div>
@@ -643,7 +651,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     }
     const t = ev.restoran.totals;
     return `
-      ${eksikKarti(ev)}
+      ${eksikKarti(ev, 'restoran')}
       ${setup.restoran.items.length ? `<div class="ur-stats">
         <div class="ur-stat"><span>Günlük kâr</span><span class="${cls(t.profitDay)}">${money(t.profitDay)}</span></div>
         <div class="ur-stat"><span>Toplam maaş</span><span>${money(t.wagesDay)}</span></div>
@@ -800,7 +808,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     return `
       <div class="ur-head"><div><h1>Ön muhasebe</h1><p class="ur-sub">Planınızın gelir, gider ve kâr tablosu.</p></div></div>
       ${seg('period', PERIODS.map(([key, label]) => [key, label]), period, 'Dönem')}
-      ${eksikKarti(ev)}
+      ${eksikKarti(ev, 'ozet')}
       <div class="ur-grid2">
         <div class="ur-card" style="padding:12px;gap:2px"><span class="ur-note" style="font-weight:600">Brüt kâr</span><span class="${cls(t.profitDay)}" style="font:600 22px var(--font-c)">${ms(t.profitDay)}</span><span class="ur-note">Net nakit ${ms(A.cash)}</span></div>
         <div class="ur-card" style="padding:12px;gap:2px"><span class="ur-note" style="font-weight:600">Satılan</span><span style="font:600 22px var(--font-c)">${num(t.unitsDay * k)} adet</span><span class="ur-note">Kullanılan seviye ${num(t.levels)}</span></div></div>

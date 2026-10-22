@@ -489,11 +489,12 @@ export function mountUretim(root, { realm = 0 } = {}) {
   // ---- ALIM-SATIM ----
   const priceSourceChip = (source, id) => (source === 'manual' ? chip('Elle girildi', 'muted') : source === 'market' ? chip(`Borsa · ${ago(priceTime(id))}`) : chip('Fiyat yok', 'down'));
   // Borsada fiyatı olmayan girdi ya da satış ürünü: kâr hesaplanmaz, elle fiyat girilmesi istenir
-  function eksikFiyatKarti(plan) {
+  function eksikFiyatKarti(plan, buton = true) {
     if (!plan.incomplete) return '';
     const adlar = [...new Set(plan.missingPrices.map((w) => (w.quality != null ? `${nameOf(w.product)} Q${w.quality}` : nameOf(w.product))))];
     return `<div class="ur-card" role="alert" style="border-color:var(--down)"><h2 class="c-down">Kâr hesaplanamadı</h2>
-      <p class="ur-note">Borsada fiyatı olmayan ürün var: ${esc(adlar.join(', '))}. Eksik fiyatı Alım-Satım sekmesinde elle girin; girene kadar kâr ve zarar gösterilmez.</p></div>`;
+      <p class="ur-note">Borsada fiyatı olmayan ürün var: ${esc(adlar.join(', '))}. Eksik fiyatı elle girin; girer girmez uyarı kaybolur ve kâr hesaplanır. Girene kadar kâr ve zarar gösterilmez.</p>
+      ${buton ? `<a class="ur-btn primary" href="#uretim/alimsatim" style="text-decoration:none">Fiyatı girmek için Alım-Satım'a git</a>` : ''}</div>`;
   }
   function viewAlimSatim(plan) {
     const tp = plan.transportPrice;
@@ -550,7 +551,7 @@ export function mountUretim(root, { realm = 0 } = {}) {
     return `
       <div class="ur-head"><div><h1>Alım ve satış</h1><p class="ur-sub">${liveInfo} Her fiyatı elle değiştirebilirsiniz.</p></div>
         <button type="button" class="ur-btn" data-act="refreshPrices" ${refreshing ? 'disabled' : ''}>${refreshing ? 'Yenileniyor…' : 'Fiyatları yenile'}</button></div>
-      ${eksikFiyatKarti(plan)}
+      ${eksikFiyatKarti(plan, false)}
       <section class="ur-card" aria-labelledby="h-tr"><h2 id="h-tr">Taşıma</h2>
         <p class="ur-sub">Borsada satarken satıcı öder; kontratta yarısı. Borsadaki Taşıma ürününün fiyatı.</p>
         <div class="ur-row"><div class="grow"><div class="ur-input"><i>$</i><input type="text" inputmode="decimal" data-p="transport" value="${tp == null ? '' : esc(num(tp, 4))}" placeholder="fiyat girin" aria-label="Taşıma fiyatı"></div></div>

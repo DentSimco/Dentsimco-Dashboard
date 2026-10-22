@@ -341,7 +341,7 @@ function pkDurumu({ data, live, company, sirket, faz, pk, secim }) {
     teamSalesSpeedPct: Math.max(0, num(ekip.salesSpeedPct, 0)),
   });
   out.bonus = bonusPct;
-  // Maliyet: anlık borsa fiyatı (kalitesi ≥ q olan en ucuz ilan); anlık veri yoksa ya da eskiyse son işlem fiyatı
+  // Maliyet: anlık borsa fiyatı (kalitesi ≥ q olan en ucuz ilan); ilan yoksa fiyat yok; anlık veri yoksa ya da eskiyse son işlem fiyatı
   const piyasa = (id, q) => anlikFiyat(live, id, q)?.p ?? null;
   const sonIslem = (id, q) => anlikFiyat(live, id, q)?.t ?? null; // maliyet fiyatının ölçüldüğü / son işlemin zamanı
   const maliyetKaynak = (id, q) => anlikFiyat(live, id, q)?.kaynak ?? null;
@@ -353,7 +353,7 @@ function pkDurumu({ data, live, company, sirket, faz, pk, secim }) {
       const kaliteli = H.hasQuality(data.products?.[id]);
       for (let q = 0; q <= (kaliteli ? R.MAX_QUALITY : 0); q++) {
         const maliyet = piyasa(id, q);
-        if (maliyet == null && q > 0) continue; // borsada fiyatı olmayan kalite hesaplanamaz
+        if (maliyet == null) continue; // borsada ilanı olmayan ürün/kalite hesaplanmaz (model maliyeti uydurulmaz)
         const r = R.calcProduct({ economy: faz, productId: id, quality: q, saturation: doygun[id], cAct: maliyet, bonusPct, qualityWeight: pk?.qualityWeight, wage: 0 });
         if (!r.ok) continue;
         const w = R.storeWage({ modelW: r.model.W, salaryModifier: data.buildings?.[harf]?.salaryModifier, averageSalary: data.averageSalary, adminNet: 0 });
