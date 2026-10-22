@@ -181,12 +181,12 @@ function kart(rs, it, row, marketOf, acik) {
   const chips = [chip(`Rating ${num(row.simdi.rating, 2)} → ${num(row.beklenen.rating, 2)}`), chip(`Hedef ${hedefEtiket}`, 'muted'),
     row.kalite != null ? chip(`Menü kalitesi Q${num(row.kalite, 1)}`, 'muted') : '',
     chip(`Doluluk %${num(row.simdi.doluluk, 1)} → %${num(row.beklenen.doluluk, 1)}`, 'muted'),
-    chip(`Kâr ${money(row.secili.profitDay)}/gün`, row.secili.profitDay > 0 ? 'up' : 'down')];
+    row.eksik ? chip('Kâr hesaplanamadı', 'down') : chip(`Kâr ${money(row.secili.profitDay)}/gün`, row.secili.profitDay > 0 ? 'up' : 'down')];
   if (row.kapanis.guvenli) chips.push(chip('Yükseltme ve kapanış güvenli', 'up'));
   else if (row.simdi.rating > 0) chips.push(chip(`Yükseltme sonrası rating ${num(row.kapanis.sonra, 2)}`, 'down'));
   const g = row.gider;
   const uyar = [g.eksikKategori.length ? `<div class="ur-msg err">Her kategoriden en az bir ürün gerekir: ${esc(g.eksikKategori.join(', '))} eksik.</div>` : '',
-    g.eksikFiyat ? '<div class="ur-msg">Fiyatı olmayan ürünler toplama girmedi; kaliteyi değiştirin ya da maliyeti elle girin.</div>' : ''].join('');
+    g.eksikFiyat ? `<div class="ur-msg err">Borsada fiyatı olmayan ürün var: ${esc(g.kalemler.filter((k) => k.birim == null).map((k) => ad(k.id)).join(', '))}. Kâr hesaplanmadı; kaliteyi değiştirin ya da maliyeti (Sourcing Cost) elle girin.</div>` : ''].join('');
   return `<article class="ur-card" aria-label="Restoran ${esc(it.ad || '')}">
     <div class="ur-row" style="gap:12px;flex-wrap:wrap">
       <div class="grow" style="min-width:140px">${field('Ad (isteğe bağlı)', a('ad'), it.ad, { mode: 'text', placeholder: 'Restoran' })}</div>
@@ -224,12 +224,12 @@ export function restoranBinalarHtml(rs, res, marketOf, acikSet) {
 // Özet sekmesindeki restoran kartları
 export function restoranOzetHtml(rs, res, k, periodName) {
   if (!rs.items.length) return '';
-  const m = (v) => money(v * k);
+  const m = (v) => (v == null ? '—' : money(v * k));
   const rows = res.rows.map((r, i) => `<div class="ur-card" style="padding:12px"><div class="ur-row" style="gap:6px;flex-wrap:wrap"><span style="font-size:18px;font-weight:600">${esc(rs.items[i].ad || 'Restoran')}</span>${chip(r.tip === 'luks' ? 'Lüks' : 'Eko')}${chip(`Seviye ${num(r.seviye)}`, 'muted')}</div>
       ${kv('Fiyat', money(r.fiyat))}${kv('Rating', `${num(r.simdi.rating, 2)} → ${num(r.beklenen.rating, 2)}`)}${kv('Doluluk', `%${num(r.simdi.doluluk, 1)} → %${num(r.beklenen.doluluk, 1)}`)}
       <div class="ur-hr"></div>
       ${kv(`Gelir (${periodName})`, m(r.secili.revenueDay))}${kv('Malzeme', m(-r.costDay))}${kv('Maaş ve yönetim', m(-r.wagesDay))}
-      ${kv(`Kâr (${periodName})`, `${r.secili.profitDay > 0.5 ? '+' : ''}${m(r.secili.profitDay)}`, cls(r.secili.profitDay), true)}
+      ${kv(`Kâr (${periodName})`, r.secili.profitDay == null ? '—' : `${r.secili.profitDay > 0.5 ? '+' : ''}${m(r.secili.profitDay)}`, cls(r.secili.profitDay), true)}
       <div class="ur-hr"></div>
       ${kv('Şimdiki kâr', m(r.simdi.profitDay), cls(r.simdi.profitDay))}${kv('Beklenen kâr', m(r.beklenen.profitDay), cls(r.beklenen.profitDay))}</div>`).join('');
   return `<section style="display:flex;flex-direction:column;gap:10px"><h2>Restoranlar</h2>

@@ -488,6 +488,14 @@ export function mountUretim(root, { realm = 0 } = {}) {
 
   // ---- ALIM-SATIM ----
   const priceSourceChip = (source, id) => (source === 'manual' ? chip('Elle girildi', 'muted') : source === 'market' ? chip(`Borsa · ${ago(priceTime(id))}`) : chip('Fiyat yok', 'down'));
+  // Borsada fiyatı olmayan girdi ya da satış ürünü: kâr hesaplanmaz, elle fiyat girilmesi istenir
+  function eksikFiyatKarti(plan, buton = true) {
+    if (!plan.incomplete) return '';
+    const adlar = [...new Set(plan.missingPrices.map((w) => (w.quality != null ? `${nameOf(w.product)} Q${w.quality}` : nameOf(w.product))))];
+    return `<div class="ur-card" role="alert" style="border-color:var(--down)"><h2 class="c-down">Kâr hesaplanamadı</h2>
+      <p class="ur-note">Borsada fiyatı olmayan ürün var: ${esc(adlar.join(', '))}. Eksik fiyatı elle girin; girer girmez uyarı kaybolur ve kâr hesaplanır. Girene kadar kâr ve zarar gösterilmez.</p>
+      ${buton ? `<a class="ur-btn primary" href="#uretim/alimsatim" style="text-decoration:none">Fiyatı girmek için Alım-Satım'a git</a>` : ''}</div>`;
+  }
   function viewAlimSatim(plan) {
     const tp = plan.transportPrice;
     const tManual = setup.transportPrice != null;
@@ -513,8 +521,8 @@ export function mountUretim(root, { realm = 0 } = {}) {
     }).join('');
     const sellCards = sells.map((x) => {
       const cManual = setup.contractPrices?.[x.key] != null;
-      const ux = x.exchangeUnit == null ? null : x.exchangeUnit - x.unitCost;
-      const uc = x.contractUnit == null ? null : x.contractUnit - x.unitCost;
+      const ux = x.exchangeUnit == null || x.costMissing ? null : x.exchangeUnit - x.unitCost;
+      const uc = x.contractUnit == null || x.costMissing ? null : x.contractUnit - x.unitCost;
       const col = (v) => (v == null ? '' : v >= 0 ? 'c-up' : 'c-down');
       return `<div class="ur-card" style="padding:12px">
         <div class="ur-row" style="align-items:flex-start;gap:12px"><div class="grow"><div class="ur-row" style="gap:6px"><span style="font-size:18px;font-weight:600">${esc(nameOf(x.product))}</span>${qChip(x.product, x.quality)}</div>
@@ -529,7 +537,7 @@ export function mountUretim(root, { realm = 0 } = {}) {
             <div class="ur-input"><i>$</i><input type="text" inputmode="decimal" data-p="contract:${x.product}:${x.quality}" value="${x.contractPrice == null ? '' : esc(num(x.contractPrice, x.contractPrice < 10 ? 3 : 2))}" placeholder="fiyat" aria-label="Kontrat fiyatı"></div>
             ${cManual ? chip('Elle girildi', 'muted') : chip('Borsa fiyatıyla aynı')}
             <span class="ur-note">Net birim</span><span style="font-weight:600;font-variant-numeric:tabular-nums">${money(x.contractUnit, 2)}</span></div></div>
-        ${kv('Birim maliyet', money(x.unitCost, 2))}
+        ${kv('Birim maliyet', x.costMissing ? '—' : money(x.unitCost, 2))}
         <div class="ur-kv"><span>Birim kâr · Borsa / Kontrat</span><span><b class="${col(ux)}">${money(ux, 2, true)}</b> <span class="c-muted">/</span> <b class="${col(uc)}">${money(uc, 2, true)}</b></span></div>
         ${cManual ? `<button type="button" class="ur-btn" data-act="contractReset" data-v="${x.key}" style="min-height:36px;align-self:flex-start">Kontratı borsa fiyatına eşitle</button>` : ''}
         <div class="ur-hr"></div>
@@ -543,6 +551,7 @@ export function mountUretim(root, { realm = 0 } = {}) {
     return `
       <div class="ur-head"><div><h1>Alım ve satış</h1><p class="ur-sub">${liveInfo} Her fiyatı elle değiştirebilirsiniz.</p></div>
         <button type="button" class="ur-btn" data-act="refreshPrices" ${refreshing ? 'disabled' : ''}>${refreshing ? 'Yenileniyor…' : 'Fiyatları yenile'}</button></div>
+      ${eksikFiyatKarti(plan, false)}
       <section class="ur-card" aria-labelledby="h-tr"><h2 id="h-tr">Taşıma</h2>
         <p class="ur-sub">Borsada satarken satıcı öder; kontratta yarısı. Borsadaki Taşıma ürününün fiyatı.</p>
         <div class="ur-row"><div class="grow"><div class="ur-input"><i>$</i><input type="text" inputmode="decimal" data-p="transport" value="${tp == null ? '' : esc(num(tp, 4))}" placeholder="fiyat girin" aria-label="Taşıma fiyatı"></div></div>
@@ -580,7 +589,7 @@ export function mountUretim(root, { realm = 0 } = {}) {
     const k = PERIODS.find(([key]) => key === period)[2];
     const A = accounts(plan);
     const hasPad = plan.rows.some((x) => x.launch);
-    const m = (v, sign = false) => money(v * k, 0, sign);
+    const m = (v, sign = false) => (v == null ? '—' : money(v * k, 0, sign));
     const cls = (v) => (v > 0 ? 'c-up' : v < 0 ? 'c-down' : '');
     const tri = (label, a, b, o = {}) => `<div class="ur-tri${o.strong ? ' strong' : ''}${o.line ? ' line' : ''}${o.indent ? ' indent' : ''}${o.muted ? ' muted' : ''}"><span>${label}</span><span class="${o.ca || ''}">${a}</span><span class="${o.cb || ''}">${b}</span></div>`;
     const grp = (t) => `<div class="ur-grp">${t}</div>`;
@@ -598,7 +607,7 @@ export function mountUretim(root, { realm = 0 } = {}) {
       ${grp('İşletme gideri')}${tri('Yönetici maaşları', m(-A.exec), m(-A.exec), { indent: true })}
       ${tri('Net nakit', m(A.cashX, true), m(A.cashC, true), { strong: true, line: true, ca: cls(A.cashX), cb: cls(A.cashC) })}
       <div class="ur-hr"></div>
-      ${tri('Brüt kâr marjı', A.netX ? pctText(A.profitX / A.netX, 1) : '—', A.netC ? pctText(A.profitC / A.netC, 1) : '—', { muted: true })}
+      ${tri('Brüt kâr marjı', A.netX && A.profitX != null ? pctText(A.profitX / A.netX, 1) : '—', A.netC && A.profitC != null ? pctText(A.profitC / A.netC, 1) : '—', { muted: true })}
       ${tri('Yönetici tasarrufu', m(A.saved, true), m(A.saved, true), { muted: true, ca: 'c-up', cb: 'c-up' })}
       ${hasPad ? '<p class="ur-note">Roket alımları: fırlatma rampalarının kendi üretiminizle karşılanmayan roketleri, binada girdiğiniz fiyatla.</p>' : ''}
       <p class="ur-note">Brüt kâr: net satıştan girdi, bina maaşı ve yönetim gideri düşülmüş hâli. Net nakit: yönetici maaşları da düşülünce günün sonunda kasaya giren. Yönetici tasarrufu bilgi satırıdır, toplama girmez.</p></section>`;
@@ -609,11 +618,11 @@ export function mountUretim(root, { realm = 0 } = {}) {
       ${parts.map(([n, v, c]) => `<div class="ur-kv"><span><i class="ur-dot" style="background:${c}"></i>${n}</span><span>${m(v)} <small class="c-muted">${pctText(v / total, 1)}</small></span></div>`).join('')}
       <div class="ur-hr"></div>${kv('Toplam gider', m(total), '', true)}</section>` : '';
     const products = plan.sales.map((x) => {
-      const ux = x.exchangeUnit == null ? null : x.exchangeUnit - x.unitCost;
-      const uc = x.contractUnit == null ? null : x.contractUnit - x.unitCost;
+      const ux = x.exchangeUnit == null || x.costMissing ? null : x.exchangeUnit - x.unitCost;
+      const uc = x.contractUnit == null || x.costMissing ? null : x.contractUnit - x.unitCost;
       return `<div class="ur-card" style="padding:12px"><div class="ur-row" style="gap:6px;flex-wrap:wrap"><span style="font-size:18px;font-weight:600">${esc(nameOf(x.product))}</span>${qChip(x.product, x.quality)}<span class="ur-note" style="margin-left:auto">${smart(x.surplusDay)} adet/gün</span></div>
         <div class="ur-tri head"><span></span><span>Borsa</span><span>Kontrat</span></div>
-        ${tri('Birim maliyet', money(x.unitCost, 2), money(x.unitCost, 2))}${tri('Net birim gelir', money(x.exchangeUnit, 2), money(x.contractUnit, 2))}
+        ${tri('Birim maliyet', x.costMissing ? '—' : money(x.unitCost, 2), x.costMissing ? '—' : money(x.unitCost, 2))}${tri('Net birim gelir', money(x.exchangeUnit, 2), money(x.contractUnit, 2))}
         ${tri('Birim kâr', money(ux, 2, true), money(uc, 2, true), { strong: true, line: true, ca: cls(ux), cb: cls(uc) })}
         ${tri(`Kâr (${periodName})`, x.profitExchangeDay == null ? '—' : m(x.profitExchangeDay, true), x.profitContractDay == null ? '—' : m(x.profitContractDay, true), { ca: cls(x.profitExchangeDay), cb: cls(x.profitContractDay) })}
         ${tri('Saat başı, seviye başı kâr', money(x.pphplExchange, 0, true), money(x.pphplContract, 0, true), { muted: true })}</div>`;
@@ -654,6 +663,7 @@ export function mountUretim(root, { realm = 0 } = {}) {
     return `
       <div class="ur-head"><div><h1>Ön muhasebe</h1><p class="ur-sub">Planınızın gelir, gider ve kâr tablosu.</p></div></div>
       ${seg('period', PERIODS.map(([key, t]) => [key, t]), period, 'Dönem')}
+      ${eksikFiyatKarti(plan)}
       <div class="ur-grid2">
         <div class="ur-card" style="padding:12px;gap:2px"><span class="ur-note" style="font-weight:600">Brüt kâr · Borsa</span><span class="${cls(A.profitX)}" style="font:600 22px var(--font-c)">${m(A.profitX, true)}</span><span class="ur-note">Net nakit ${m(A.cashX, true)}</span></div>
         <div class="ur-card" style="padding:12px;gap:2px"><span class="ur-note" style="font-weight:600">Brüt kâr · Kontrat</span><span class="${cls(A.profitC)}" style="font:600 22px var(--font-c)">${m(A.profitC, true)}</span><span class="ur-note">Net nakit ${m(A.cashC, true)}</span></div></div>
@@ -666,7 +676,7 @@ export function mountUretim(root, { realm = 0 } = {}) {
   function summaryText(plan) {
     const k = PERIODS.find(([key]) => key === period)[2];
     const A = accounts(plan);
-    const m = (v) => money(v * k);
+    const m = (v) => (v == null ? '—' : money(v * k));
     // Panoya giden metin sayfada değil; seçili dile burada çevrilir (etiketler hizalamadan önce)
     const L = [ceviri(`DentSimco üretim özeti · Realm ${r + 1} · ${PERIODS.find(([key]) => key === period)[1]} · ${H.ECONOMY_PHASES[phaseOf(setup)]}`),
       `${ceviri('Binalar:')} ${setup.buildings.map((b) => `${nameOf(b.product)}${H.hasQuality(data.products[b.product]) ? ` Q${b.quality}` : ''}${H.isLaunchPad(b, data) && b.rocket != null ? ` · ${nameOf(b.rocket)} Q${b.rocketQuality}` : ''} (${buildingName(b.type)} ${b.level}${H.buildingCount(b, data) > 1 ? ` × ${H.buildingCount(b, data)}` : ''})`).join(', ')}`, '',

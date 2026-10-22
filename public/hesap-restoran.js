@@ -230,9 +230,11 @@ export function restoranDegerlendir(restoranlar, ctx) {
     const hedef = hedefRating(it, ctx.ratingBonus, kalite ?? REFERANS_KALITE);
     const simdiR = fin(Number(it.rating)) && it.rating !== '' && it.rating != null ? Number(it.rating) : hedef.deger;
     const sonD = fin(Number(it.doluluk)) && it.doluluk !== '' && it.doluluk != null ? clamp(Number(it.doluluk), 0, 100) : null;
+    // Borsada fiyatı olmayan ürün ya da eksik kategori varsa maliyet bilinmez: kâr hesaplanmaz (null), elle fiyat girilmesi istenir
+    const eksik = !!g.eksikFiyat || g.eksikKategori.length > 0;
     const senaryo = (rating, doluluk) => {
       const gelirDong = fiyat * g.koltuk * (doluluk / 100);
-      return { rating, doluluk, customersDay: g.koltuk * (doluluk / 100) * GUN_DONGU, revenueDay: gelirDong * GUN_DONGU, profitDay: (gelirDong - g.toplam) * GUN_DONGU };
+      return { rating, doluluk, customersDay: g.koltuk * (doluluk / 100) * GUN_DONGU, revenueDay: gelirDong * GUN_DONGU, profitDay: eksik ? null : (gelirDong - g.toplam) * GUN_DONGU };
     };
     const simdi = senaryo(simdiR, sonD ?? beklenenDoluluk(simdiR, simdiR, null));
     const beklenen = senaryo(hedef.deger, beklenenDoluluk(hedef.deger, simdiR, sonD));
@@ -240,7 +242,7 @@ export function restoranDegerlendir(restoranlar, ctx) {
     const costDay = g.malzeme * GUN_DONGU;
     const wagesDay = (g.maas ?? 0) * GUN_DONGU;
     const baseWagesDay = taban * 24 * L * (tip === 'luks' ? LUKS_MAAS : 1);
-    rows.push({ id: it.id, ad: it.ad, tip, seviye: L, fiyat, gider: g, kalite, hedef, simdi, beklenen, secili, costDay, wagesDay, baseWagesDay,
+    rows.push({ id: it.id, ad: it.ad, tip, seviye: L, fiyat, gider: g, eksik, kalite, hedef, simdi, beklenen, secili, costDay, wagesDay, baseWagesDay,
       kapanis: { sonra: kapanisSonrasi(simdiR), guvenli: yukseltmeGuvenli(simdiR) } });
     T.levels += L;
     T.customersDay += secili.customersDay;
@@ -248,7 +250,9 @@ export function restoranDegerlendir(restoranlar, ctx) {
     T.costDay += costDay;
     T.wagesDay += wagesDay;
     T.baseWagesDay += baseWagesDay;
-    T.profitDay += secili.revenueDay - costDay - wagesDay;
+    if (eksik) T.eksik = (T.eksik || 0) + 1;
+    else T.profitDay += secili.revenueDay - costDay - wagesDay;
   }
+  if (T.eksik) T.profitDay = null;
   return { rows, totals: T };
 }

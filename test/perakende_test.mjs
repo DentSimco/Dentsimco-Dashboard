@@ -201,11 +201,14 @@ test('Satırdaki kâr, tek ürün hesabıyla (seviye × pphpl) aynı', () => {
   const one = R.calcProduct({ economy: 1, productId: 3, quality: 2, saturation: 1.2, cAct: 1.5, price: 3.5, wage: 0.4 * 345 });
   near(r.buildings[0].lines[0].profitHour, one.pphpl * 10, 9);
 });
-test('Fiyat ve maliyet boşsa r_max ve modeldeki c ile hesaplanır, satır işaretlenir', () => {
-  const r = R.evaluateRetail({ economyPhase: 1, buildings: [{ letter: 'G', level: 5, lines: [{ product: 3, quality: 0 }] }] }, ctxOf());
-  const l = r.buildings[0].lines[0];
-  eq([l.priceAuto, l.costAuto], [true, true]);
+test('Fiyat boşsa r_max ile hesaplanır (priceAuto); maliyet boşsa (borsada fiyat yok) modelden uydurulmaz, hesap yapılmaz', () => {
+  const kur = (cost) => ({ economyPhase: 1, buildings: [{ letter: 'G', level: 5, lines: [{ product: 3, quality: 0, cost }] }] });
+  const l = R.evaluateRetail(kur(1.5), ctxOf()).buildings[0].lines[0];
+  eq([l.ok, l.priceAuto, l.costAuto], [true, true, false]);
   ok(l.profitHour > 0);
+  const e = R.evaluateRetail(kur(undefined), ctxOf()).buildings[0].lines[0];
+  eq([e.ok, e.needsCost], [false, true]);
+  ok(e.reason.includes('elle girin'), 'elle maliyet istenmeli');
 });
 test('Atanmamış seviyelerin maaşı da ödenir ve not düşülür', () => {
   const s = { economyPhase: 1, buildings: [{ letter: 'G', level: 10, lines: [{ product: 3, quality: 0, levels: 6, cost: 1.5, price: 3.5 }] }] };

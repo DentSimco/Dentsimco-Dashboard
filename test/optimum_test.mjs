@@ -629,7 +629,7 @@ test('Perakende: sayfa durumu yalnız sonuç verir; seçici, liste, ürünler ve
   near(b1 - b0, 5 + H.recreationBonus({ park: 2 }) * 100, 'bonus farkı', 1e-9);
   // doygunluk ya da fiyat yoksa veri yok
   eq(stP({ pk: pkVeri({ saturation: {} }) }).pk.veriYok, true);
-  eq(stP({ live: null }).pk.liste.length > 0, true, 'canlı fiyat yoksa Q0 modeldeki maliyetle hesaplanır');
+  eq(stP({ live: null }).pk.veriYok, true, 'borsada fiyat yoksa model maliyeti uydurulmaz: öneri yok');
   eq(st({ prefs: PREFS_PK }).pk.veriYok, false, 'pk verilmediyse varsayılan boş durum'.length > 0 ? false : true);
 });
 

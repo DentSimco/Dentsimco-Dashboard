@@ -546,6 +546,23 @@ test('Fiyatı olmayan girdi ve ürün için uyarı; bonus %100 ve üstü hata', 
   eq(r.warnings.filter((w) => w.kind === 'price').length, 3);
   eq(one(124, 1, { bonus: 100 }).row.ok, false);
 });
+test('Eksik fiyat varken kâr hesaplanmaz (null); tüm fiyatlar girilince hesaplanır', () => {
+  const r = plan({ buildings: [{ product: 124, level: 1 }] }, {});
+  eq(r.incomplete, true);
+  eq([r.totals.profitExchangeDay, r.totals.profitContractDay, r.totals.netCashExchangeDay, r.totals.netCashContractDay], [null, null, null, null]);
+  ok(r.missingPrices.length === 3, 'eksik fiyat listesi');
+  ok(r.sales.every((x) => x.costMissing && x.profitExchangeDay == null && x.pphplExchange == null), 'ürün kârı null olmalı');
+  // yalnız satış fiyatı eksik (girdiler fiyatlı): yine hesaplanmaz
+  const inputs = Object.fromEntries(r.purchases.map((p) => [`${p.product}:${p.quality}`, 1]));
+  const r2 = plan({ buildings: [{ product: 124, level: 1 }] }, inputs);
+  eq(r2.incomplete, true);
+  eq(r2.totals.profitExchangeDay, null);
+  // her şey fiyatlı
+  const full = { ...inputs, ...Object.fromEntries(r2.sales.map((x) => [`${x.product}:${x.quality}`, 100])) };
+  const r3 = plan({ buildings: [{ product: 124, level: 1 }] }, full);
+  eq(r3.incomplete, false);
+  ok(Number.isFinite(r3.totals.profitExchangeDay) && r3.sales.every((x) => !x.costMissing), 'fiyatlıyken kâr sayı olmalı');
+});
 const myPlan = () => plan(myCompany());
 test('Yönetici değeri: takım tasarrufu = taban maaş × brüt gider × %62 ($2,10M/gün)', () => {
   const a = H.executiveAnalysis({ executives: H.parseExecutives(myExecutivesApi, NOW) }, DATA, myPlan());
