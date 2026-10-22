@@ -156,6 +156,13 @@ test('Beklenen doluluk: eşiğin üstünde son doluluk korunur, altında düşü
 section('Bina bazlı değerlendirme (Perakende özetine giren)');
 const MENU25 = menuWith(C25, A25);
 const ctxR = (extra = {}) => ({ adminNet: 0.4447, averageSalary: 345, salaryModifier: 1.7, ratingBonus: 0.99, mod: 'simdi', menuOf: () => MENU25, ...extra });
+test('Menüdeki bir ürünün fiyatı yoksa (borsada ilan yok) kâr hesaplanmaz: null, satır ve toplam eksik işaretlenir', () => {
+  const eksikMenu = () => MENU25.map((m, i) => (i === 0 ? { ...m, birim: null } : m));
+  const r = R.restoranDegerlendir([{ id: 'a', tip: 'eko', seviye: 25, fiyat: 62, rating: 6, doluluk: 100 }], ctxR({ menuOf: eksikMenu }));
+  eq([r.rows[0].eksik, r.rows[0].secili.profitDay, r.rows[0].simdi.profitDay, r.rows[0].beklenen.profitDay, r.totals.profitDay, r.totals.eksik], [true, null, null, null, null, 1]);
+  const ok2 = R.restoranDegerlendir([{ id: 'a', tip: 'eko', seviye: 25, fiyat: 62, rating: 6, doluluk: 100 }], ctxR());
+  eq([ok2.rows[0].eksik, Number.isFinite(ok2.totals.profitDay)], [false, true]);
+});
 test('18 Ekim, eko seviye 25, $62, %100 doluluk: döngü kârı oyunun %100 kârı ($272.726); günlük ×2', () => {
   const r = R.restoranDegerlendir([{ id: 'a', ad: 'x', tip: 'eko', seviye: 25, fiyat: 62, rating: 6, doluluk: 100 }], ctxR());
   near(r.totals.profitDay, 2 * 272726, 40);

@@ -132,6 +132,8 @@ export function calcProduct(i) {
   if (!has(saturation)) return { ok: false, reason: 'Ürünün doygunluk verisi yok' };
 
   const { B, c, W, u } = model;
+  // strictCost: borsa/elle maliyet yoksa modeldeki maliyet uydurulmaz, hesap yapılmaz (ürün borsada yoksa elle girilmeli)
+  if (i.strictCost && !has(i.cAct)) return { ok: false, needsCost: true, reason: 'Borsada fiyatı yok; maliyeti elle girin' };
   const costAuto = !has(i.cAct);
   const cAct = costAuto ? c : Number(i.cAct);
   const d = demand(saturation);
@@ -230,10 +232,10 @@ export function evaluateRetail(setup, ctx) {
       });
       if (wageLevelHour == null) wageLevelHour = wage;
       const r = calcProduct({
-        economy, productId, quality, saturation: ctx.saturation?.[productId], cAct: ln.cost, price: ln.price,
+        economy, productId, quality, saturation: ctx.saturation?.[productId], cAct: ln.cost, price: ln.price, strictCost: true,
         bonusPct: ctx.bonusPct, weather: ctx.weather ? ctx.weather(productId) : 1, qualityWeight: ctx.qualityWeight, wage,
       });
-      if (!r.ok) { lines.push({ ...ln, product: productId, quality, levels, ok: false, reason: r.reason }); continue; }
+      if (!r.ok) { lines.push({ ...ln, product: productId, quality, levels, ok: false, reason: r.reason, needsCost: !!r.needsCost }); continue; }
       allocated += levels;
       const unitsHour = r.usphpl * levels;
       const revenueHour = unitsHour * r.price;

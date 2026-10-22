@@ -598,6 +598,7 @@ export function evaluatePlan(setup = {}, data, market = null, { now = Date.now()
     };
   });
   const buyPrice = new Map(purchases.map((p) => [p.key, p.price ?? 0]));
+  const buyMissing = new Set(purchases.filter((p) => p.price == null).map((p) => p.key)); // fiyatsız alış: maliyeti bilinmez, 0 sayılmaz
 
   // 6) Birim maliyet: girdiler önce (kendi ürettiğin girdi kendi maliyetiyle, alınan borsa fiyatıyla)
   const demandsByRow = groupBy(demands, (d) => d.row);
@@ -607,12 +608,19 @@ export function evaluatePlan(setup = {}, data, market = null, { now = Date.now()
   for (const product of topoOrder([...involved], data)) {
     for (const pool of poolsByProduct.get(product) || []) {
       let inputCost = 0;
+      let costMissing = false;
       for (const rowIndex of pool.rows) {
         for (const d of demandsByRow.get(rowIndex) || []) {
-          for (const part of d.own) inputCost += part.qty * pools.get(qualityKey(d.product, part.quality)).unitCost;
+          for (const part of d.own) {
+            const src = pools.get(qualityKey(d.product, part.quality));
+            inputCost += part.qty * src.unitCost;
+            if (src.costMissing) costMissing = true;
+          }
+          if (d.buyQty > 0 && (d.launch ? d.price == null : buyMissing.has(qualityKey(d.product, d.minQuality)))) costMissing = true;
           inputCost += d.buyQty * ((d.launch ? d.price : buyPrice.get(qualityKey(d.product, d.minQuality))) ?? 0);
         }
       }
+      pool.costMissing = costMissing;
       pool.inputCostDay = inputCost;
       pool.unitCost = (pool.laborDay + inputCost) / pool.producedDay;
     }
@@ -630,7 +638,7 @@ export function evaluatePlan(setup = {}, data, market = null, { now = Date.now()
     const surplusDay = pool.producedDay - pool.usedDay;
     if (!(surplusDay > EPS * Math.max(1, pool.producedDay))) continue;
     const p = data.products[pool.product];
-    const base = { key: pool.key, product: pool.product, quality: pool.quality, surplusDay, producedDay: pool.producedDay, levels: pool.levels, unitCost: pool.unitCost };
+    const base = { key: pool.key, product: pool.product, quality: pool.quality, surplusDay, producedDay: pool.producedDay, levels: pool.levels, unitCost: pool.unitCost, costMissing: !!pool.costMissing };
     if (setup.keep?.[pool.key]) {
       kept.push(base);
       continue;
@@ -648,7 +656,7 @@ export function evaluatePlan(setup = {}, data, market = null, { now = Date.now()
     const exchangeUnit = price == null ? null : saleUnitNet(price, p.transport, tp, 'exchange');
     const contractUnit = contractPrice == null ? null : saleUnitNet(contractPrice, p.transport, tp, 'contract');
     const levelShare = (pool.levels * surplusDay) / pool.producedDay; // satılan kısmı üreten seviye
-    const profitDay = (unit) => (unit == null ? null : surplusDay * (unit - pool.unitCost));
+    const profitDay = (unit) => (unit == null || pool.costMissing ? null : surplusDay * (unit - pool.unitCost)); // girdi fiyatı eksikse kâr hesaplanmaz
     const pphpl = (day) => (day == null || !(levelShare > 0) ? null : day / HOURS_PER_DAY / levelShare);
     const profitExchangeDay = profitDay(exchangeUnit);
     const profitContractDay = profitDay(contractUnit);
@@ -661,7 +669,7 @@ export function evaluatePlan(setup = {}, data, market = null, { now = Date.now()
       revenueExchangeDay: exchangeUnit == null ? null : surplusDay * exchangeUnit,
       revenueContractDay: contractUnit == null ? null : surplusDay * contractUnit,
       profitExchangeDay, profitContractDay,
-      beforeFeesUnit: price == null ? null : price - pool.unitCost,
+      beforeFeesUnit: price == null || pool.costMissing ? null : price - pool.unitCost,
       pphplExchange: pphpl(profitExchangeDay),
       pphplContract: pphpl(profitContractDay),
       pphplBeforeFees: pphpl(beforeFeesDay),
@@ -679,18 +687,21 @@ export function evaluatePlan(setup = {}, data, market = null, { now = Date.now()
   const costDay = purchasesDay + rocketsDay + wagesDayNet;
   const revenueExchangeDay = sum(sales, (s) => s.revenueExchangeDay);
   const revenueContractDay = sum(sales, (s) => s.revenueContractDay);
-  const profitExchangeDay = revenueExchangeDay - costDay;
-  const profitContractDay = revenueContractDay - costDay;
+  // Borsada fiyatı olmayan girdi ya da satış ürünü varsa kâr hesaplanmaz (eksik fiyat 0 sayılıp zarar/kâr uydurulmasın): elle girilmesi istenir.
+  const missingPrices = warnings.filter((w) => w.kind === 'price');
+  const incomplete = missingPrices.length > 0;
+  const profitExchangeDay = incomplete ? null : revenueExchangeDay - costDay;
+  const profitContractDay = incomplete ? null : revenueContractDay - costDay;
   return {
-    admin, rows, pools: [...pools.values()], demands, purchases, launchBuys, sales, kept, transportPrice, warnings,
+    admin, rows, pools: [...pools.values()], demands, purchases, launchBuys, sales, kept, transportPrice, warnings, missingPrices, incomplete,
     totals: {
       purchasesDay, rocketsDay, wagesDayNet, wagesDayGross, wageBaseDay,
       executiveSavingsDay: wagesDayGross - wagesDayNet, // yöneticilerin bu binaların maaşında kazandırdığı
       executiveSalariesDay, costDay,
       revenueExchangeDay, revenueContractDay,
       profitExchangeDay, profitContractDay, // yönetici maaşları hariç
-      netCashExchangeDay: profitExchangeDay - executiveSalariesDay,
-      netCashContractDay: profitContractDay - executiveSalariesDay,
+      netCashExchangeDay: incomplete ? null : profitExchangeDay - executiveSalariesDay,
+      netCashContractDay: incomplete ? null : profitContractDay - executiveSalariesDay,
     },
   };
 }

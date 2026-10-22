@@ -376,19 +376,18 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   function calc(c, { letter, product, quality, cost, price: p }) {
     const cAct = cost ?? marketOf(product, quality);
     return R.calcProduct({ economy: c.econ, productId: product, quality, saturation: c.ctx.saturation[product], cAct, price: p,
-      bonusPct: c.ctx.bonusPct, weather: 1, qualityWeight: c.ctx.qualityWeight, wage: baseWage(c, letter, product, quality) * (1 + c.ctx.adminNet) });
+      bonusPct: c.ctx.bonusPct, weather: 1, qualityWeight: c.ctx.qualityWeight, wage: baseWage(c, letter, product, quality) * (1 + c.ctx.adminNet), strictCost: true });
   }
   const engineSetup = (c, list = setup.buildings) => ({ economyPhase: c.econ, buildings: list.map((b) => ({ id: b.id, letter: b.letter, level: b.level, construction: !!b.construction,
     lines: [{ product: b.product, quality: b.quality, cost: b.cost ?? marketOf(b.product, b.quality), price: b.price }] })) });
-  // Kalite seçenekleri: borsada fiyatı olan kaliteler (maliyet = borsa fiyatı); hiç yoksa Q0 ve modeldeki maliyet
+  // Kalite seçenekleri: borsada ilanı olan kaliteler (maliyet = borsa fiyatı); ilanı olmayan kaliteye model maliyeti uydurulmaz
   function qualityOptions(c, letter, product) {
     const out = [];
     for (let q = 0; q <= R.MAX_QUALITY; q++) {
       const x = calc(c, { letter, product, quality: q, cost: null, price: null });
       if (x.ok) out.push({ quality: q, market: marketOf(product, q) != null, x });
     }
-    const traded = out.filter((o) => o.market);
-    return traded.length ? traded : out.filter((o) => o.quality === 0);
+    return out.filter((o) => o.market);
   }
   function bestQuality(c, letter, product) {
     const list = qualityOptions(c, letter, product);
@@ -411,8 +410,10 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     const rs = RS.degerlendirRestoran(setup.restoran, c.ctx, marketOf);
     const a = ev.totals;
     const b = rs.totals;
-    return { ...ev, stores: a, restoran: rs, totals: { ...a, levels: a.levels + b.levels, revenueDay: a.revenueDay + b.revenueDay, costDay: a.costDay + b.costDay,
-      wagesDay: a.wagesDay + b.wagesDay, profitDay: a.profitDay + b.profitDay } };
+    // Borsada fiyatı olmayan ürün (mağaza ya da restoran) varsa toplam kâr hesaplanmaz; elle girilmesi istenir
+    const eksik = ev.buildings.reduce((t, x) => t + x.lines.filter((l) => l.needsCost).length, 0) + (b.eksik || 0);
+    return { ...ev, stores: a, restoran: rs, eksik, totals: { ...a, levels: a.levels + b.levels, revenueDay: a.revenueDay + b.revenueDay, costDay: a.costDay + b.costDay,
+      wagesDay: a.wagesDay + b.wagesDay, profitDay: eksik ? null : a.profitDay + b.profitDay } };
   }
   const hasPlan = () => setup.buildings.length > 0 || setup.restoran.items.length > 0;
 
@@ -593,9 +594,9 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       chips.push(chip(`PPHPL ${money(line.pphpl, 2)}`, line.pphpl > 0 ? 'up' : 'down'));
       chips.push(chip(`Kâr ${money(line.profitDay)}/gün`, line.profitDay > 0 ? 'up' : 'down'));
       chips.push(chip(`Fiyat ${price(line.price)}${b.price == null ? ' (en kârlı)' : ''}`, 'muted'));
-      chips.push(chip(`Maliyet ${price(line.cAct)}${b.cost == null ? (marketOf(b.product, b.quality) != null ? ' (borsa)' : ' (model)') : ''}`, 'muted'));
+      chips.push(chip(`Maliyet ${price(line.cAct)}${b.cost == null ? ' (borsa)' : ''}`, 'muted'));
       if (!line.sellable) chips.push(chip('Bu maliyetle satılmaz', 'down'));
-    } else chips.push(chip(line?.reason || 'Hesaplanamadı', 'down'));
+    } else chips.push(chip(line?.needsCost ? 'Borsada fiyat yok: maliyeti elle girin' : line?.reason || 'Hesaplanamadı', 'down'));
     return `<article class="ur-card" aria-label="${title}, ${esc(buildingName(b.letter))}, seviye ${b.level}">
       <div class="ur-row" style="gap:12px">
         <div class="grow"><div class="ur-row" style="flex-wrap:wrap;gap:6px"><span style="font:600 19px var(--font-c)">${title}</span>${chip(`Q${b.quality}`)}${badge(c.ctx.saturation[b.product])}</div>
@@ -613,6 +614,10 @@ export function mountPerakende(root, { realm = 0 } = {}) {
         <button type="button" class="ur-btn danger" data-act="del" data-i="${i}" aria-label="Sil">${icon('trash')}</button></div>
     </article>`;
   }
+  // Borsada fiyatı olmayan ürün varken kâr hesaplanmaz; kullanıcıdan elle maliyet istenir
+  const eksikKarti = (ev) => (ev.eksik ? `<div class="ur-card" role="alert" style="border-color:var(--down)"><h2 class="c-down">Kâr hesaplanamadı</h2>
+    <p class="ur-note">${num(ev.eksik)} kalemde borsada fiyat yok. Binayı düzenleyip maliyeti elle girin (restoranda menüdeki ürünün Sourcing Cost'u); girene kadar kâr ve zarar gösterilmez.</p></div>` : '');
+  const storeEksik = (ev) => ev.buildings.some((x) => x.lines.some((l) => l.needsCost));
   function viewBinalar(c, ev) {
     const t = ev.stores;
     const cards = setup.buildings.map((b, i) => buildingCard(c, b, ev.buildings[i]?.lines[0], i)).join('');
@@ -621,8 +626,9 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       ${guideCard({ title: 'Perakende', lead: 'Mağazalarınızın hangi ürünle ne kadar kazandıracağını hesaplar. PPHPL, bir bina seviyesinin saatlik kârıdır (maaş düşülmüş).',
         chips: [[`Toplam satış bonusu ${pctText(c.bonusPct)}`, c.bonusPct > 0 ? '' : 'muted'], [`Yönetim gideri ${pctText(c.ctx.adminNet * 100)}`, 'muted'],
           data.hasRetailInfo ? null : ['Doygunluk verisi yok', 'down']] })}
+      ${eksikKarti(ev)}
       ${setup.buildings.length ? `<div class="ur-stats">
-        <div class="ur-stat"><span>Günlük kâr</span><span class="${cls(t.profitDay)}">${money(t.profitDay)}</span></div>
+        <div class="ur-stat"><span>Günlük kâr</span><span class="${storeEksik(ev) ? '' : cls(t.profitDay)}">${storeEksik(ev) ? '—' : money(t.profitDay)}</span></div>
         <div class="ur-stat"><span>Toplam maaş</span><span>${money(t.wagesDay)}</span></div>
         <div class="ur-stat"><span>Kullanılan seviye</span><span>${num(t.levels)}</span></div></div>` : ''}
       <button type="button" class="ur-btn primary" data-act="add" style="width:100%">${icon('plus')}Bina ekle</button>
@@ -637,6 +643,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     }
     const t = ev.restoran.totals;
     return `
+      ${eksikKarti(ev)}
       ${setup.restoran.items.length ? `<div class="ur-stats">
         <div class="ur-stat"><span>Günlük kâr</span><span class="${cls(t.profitDay)}">${money(t.profitDay)}</span></div>
         <div class="ur-stat"><span>Toplam maaş</span><span>${money(t.wagesDay)}</span></div>
@@ -689,7 +696,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     // Satış hızının değeri: adet 1/(1 − b/100) ile arttığı için motorun kendi formülüyle (Yönetim sekmesi de aynı formülü kullanır)
     const cmo = R.cmoValueDay(engineSetup(c), c.ctx, { otherSpeedPct: c.baseSpeed, teamSalesSpeedPct: c.teamPct });
     return { t, baseDay, adminDay, sim, coo: sim.sectors.coo, cfo: sim.sectors.cfo, cmo, salaries: sim.salariesDay,
-      profit: t.profitDay, cash: t.profitDay - sim.salariesDay };
+      profit: t.profitDay, cash: t.profitDay == null ? null : t.profitDay - sim.salariesDay };
   }
   function viewOzet(c, ev) {
     const [, periodLabel, k] = PERIODS.find(([key]) => key === period);
@@ -700,11 +707,11 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     }
     const A = accounts(c, ev);
     const t = A.t;
-    const m = (v) => money(v * k);
-    const ms = (v) => (v * k > 0.5 ? `+${money(v * k)}` : money(v * k));
-    const unit = (v) => (t.unitsDay > 0 ? price(v / t.unitsDay) : '—');
+    const m = (v) => (v == null ? '—' : money(v * k));
+    const ms = (v) => (v == null ? '—' : v * k > 0.5 ? `+${money(v * k)}` : money(v * k));
+    const unit = (v) => (v != null && t.unitsDay > 0 ? price(v / t.unitsDay) : '—');
     const triHead = '<div class="ur-tri head"><span></span><span>Toplam</span><span>Adet başı</span></div>';
-    const margin = t.revenueDay > 0 ? pctText((t.profitDay / t.revenueDay) * 100) : '—';
+    const margin = t.revenueDay > 0 && t.profitDay != null ? pctText((t.profitDay / t.revenueDay) * 100) : '—';
 
     const income = `<section class="ur-card" aria-labelledby="h-inc"><h2 id="h-inc">Gelir tablosu (${periodName})</h2>
       <p class="ur-sub">Mağaza satışında komisyon ve taşıma yoktur. Satış fiyatı ve mal maliyeti binalarda girdiğiniz değerlerdir; boş fiyat en kârlı fiyat, boş maliyet borsa fiyatıdır.</p>
@@ -781,7 +788,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     const notes = [
       data.liveT ? `Borsa fiyatları ${ago(data.liveT)} güncellendi.` : 'Borsa fiyatları okunamadı; maliyetleri elle girin.',
       manualCost || manualPrice ? `${manualCost} maliyet, ${manualPrice} satış fiyatı elle girildi.` : 'Bütün maliyetler borsadan, satış fiyatları en kârlı fiyat.',
-      noMarket ? `${noMarket} üründe borsa fiyatı yok; modeldeki maliyet kullanıldı.` : null,
+      noMarket ? `${noMarket} üründe borsa fiyatı yok; maliyet elle girilene kadar kâr hesaplanmaz.` : null,
       `Ekonomi fazı: ${H.ECONOMY_PHASES[c.econ]}${setup.economyPhase == null ? ' (otomatik)' : ''}.`,
       `Satış hızı: kurulum ${pctText(c.baseSpeed)}, ekip ${pctText(c.teamPct)}; hesapta toplam ${pctText(c.bonusPct)}.`,
       setup.restoran.items.length ? `Restoran: ${setup.restoran.gorunum === 'simdi' ? 'son döngü doluluğu ve mevcut rating' : 'beklenen rating ve doluluk'} ile hesaplandı; yönetim gideri ve satış hızı mağazalarla ortaktır.` : null,
@@ -793,6 +800,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     return `
       <div class="ur-head"><div><h1>Ön muhasebe</h1><p class="ur-sub">Planınızın gelir, gider ve kâr tablosu.</p></div></div>
       ${seg('period', PERIODS.map(([key, label]) => [key, label]), period, 'Dönem')}
+      ${eksikKarti(ev)}
       <div class="ur-grid2">
         <div class="ur-card" style="padding:12px;gap:2px"><span class="ur-note" style="font-weight:600">Brüt kâr</span><span class="${cls(t.profitDay)}" style="font:600 22px var(--font-c)">${ms(t.profitDay)}</span><span class="ur-note">Net nakit ${ms(A.cash)}</span></div>
         <div class="ur-card" style="padding:12px;gap:2px"><span class="ur-note" style="font-weight:600">Satılan</span><span style="font:600 22px var(--font-c)">${num(t.unitsDay * k)} adet</span><span class="ur-note">Kullanılan seviye ${num(t.levels)}</span></div></div>
@@ -807,7 +815,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     const [, periodLabel, k] = PERIODS.find(([key]) => key === period);
     const A = accounts(c, ev);
     const t = A.t;
-    const mm = (v) => money(v * k);
+    const mm = (v) => (v == null ? '—' : money(v * k));
     const rows = [['Satış geliri', t.revenueDay], ['Mal maliyeti', -t.costDay], ['Bina maaşları', -A.baseDay], ['Yönetim gideri', -A.adminDay],
       ['Brüt kâr', t.profitDay], ['Yönetici maaşları', -A.salaries], ['Net nakit', A.cash]];
     // Panoya giden metin sayfada değil; seçili dile burada çevrilir (etiketler hizalamadan önce)
@@ -905,7 +913,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
             <button type="button" class="ur-btn" data-act="step" data-v="1" aria-label="Seviyeyi artır">${icon('plus')}</button></div></label>
           <label class="ur-field"><span>Kalite</span><select data-d="quality" aria-label="Kalite">${qopts}</select>
             ${bestOk ? `<p class="ur-note">Önerilen: <b>Q${best.quality}</b>, en yüksek PPHPL ${money(best.x.pphplMax, 2)}.${best.quality !== d.quality ? ' <button type="button" class="ur-btn tint" data-act="useBest" style="min-height:36px;margin-left:6px">Önerileni seç</button>' : ''}</p>` : best ? '<p class="ur-note c-down">Şu borsa fiyatlarıyla hiçbir kalite kâr getirmiyor.</p>' : ''}</label>
-          ${field('Birim maliyet', 'cost', inputVal(d.cost), { unit: '$', attr: 'data-d', placeholder: x.ok ? NF[x.cAct < 10 ? 3 : 2].format(x.cAct) : '', hint: mk != null ? 'Boşsa bu kalitenin borsa fiyatı.' : 'Boşsa modeldeki maliyet (borsada fiyat yok).' })}
+          ${field('Birim maliyet', 'cost', inputVal(d.cost), { unit: '$', attr: 'data-d', placeholder: x.ok ? NF[x.cAct < 10 ? 3 : 2].format(x.cAct) : '', hint: mk != null ? 'Boşsa bu kalitenin borsa fiyatı.' : 'Borsada bu kalite için ilan yok; kâr için maliyeti elle girin.' })}
           ${field('Satış fiyatı', 'price', inputVal(d.price), { unit: '$', attr: 'data-d', placeholder: x.ok && x.sellable ? NF[x.rMax < 10 ? 3 : 2].format(x.rMax) : '', hint: 'Boşsa en kârlı fiyat.' })}
           <div class="ur-box" aria-live="polite" data-result>${resultBox(x, lv)}</div>
           <section aria-labelledby="h-gr"><h2 id="h-gr" style="font-size:17px">Fiyat geçmişi, 30 gün</h2>${chart}</section>`;
