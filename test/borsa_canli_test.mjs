@@ -61,11 +61,12 @@ test('Günlük aralıkta ask serisi boştur (kapanış son işlem fiyatıdır)',
   eq(out.values.ask, [null]);
   eq(out.values.anlik, [1.5]);
 });
-test('anlikFiyat: taze anlık borsa fiyatı; eski ya da ilan yoksa son işlem fiyatı; hiç yoksa null', () => {
+test('anlikFiyat: taze anlık borsa fiyatı; ilan yoksa null (borsada yok); anlık veri eski ya da yoksa son işlem fiyatı', () => {
   const now = T + 10 * 60_000;
   const live = { t: now, items: { 1: [now, { 0: [0.24, 100, 0, 0, now - 3_600_000, 0.242], 2: [0.3, 5, 0, 0, now - 7_200_000, null] }, now - 60_000] } };
   eq(anlikFiyat(live, 1, 0, now), { p: 0.242, kaynak: 'borsa', t: now - 60_000 });
-  eq(anlikFiyat(live, 1, 2, now), { p: 0.3, kaynak: 'son', t: now - 7_200_000 }, 'ilan yok');
+  eq(anlikFiyat(live, 1, 2, now), null, 'ilan yok: eski işlem fiyatı verilmez');
+  eq(anlikFiyat(live, 1, 2, now + ASK_FRESH_MS + 120_000), { p: 0.3, kaynak: 'son', t: now - 7_200_000 }, 'anlık veri eski');
   eq(anlikFiyat(live, 1, 0, now + ASK_FRESH_MS + 120_000), { p: 0.24, kaynak: 'son', t: now - 3_600_000 }, 'anlık veri eski');
   eq(anlikFiyat(live, 1, 7, now), null);
   eq(anlikFiyat(live, 99, 0, now), null);

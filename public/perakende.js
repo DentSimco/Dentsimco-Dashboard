@@ -6,7 +6,7 @@
 // "günlük perakende marjı" alanları da buradan güncellenir.
 
 import { LOCALE, t as ceviri } from './i18n.js';
-import { readDocs, PATHS, dataField, loadProduct, summarizeDay, utcDay, addDays, START_YEAR, loadGamePhase } from './veri.js';
+import { readDocs, PATHS, dataField, loadProduct, summarizeDay, utcDay, addDays, START_YEAR, loadGamePhase, anlikFiyat } from './veri.js';
 import * as H from './hesap.js';
 import * as Y from './yonetici.js';
 import { CSS, parseNum, kisayolKucuk, kisayolSatiri, bolumUyariHtml } from './uretim.js';
@@ -171,7 +171,7 @@ function parseLive(doc) {
     const byQ = Array.isArray(e) ? e[1] : e;
     if (!byQ || typeof byQ !== 'object') continue;
     const m = {};
-    for (const [q, v] of Object.entries(byQ)) { const p = Number(Array.isArray(v) ? v[0] : v?.p); if (p > 0) m[q] = p; }
+    for (const q of Object.keys(byQ)) { const f = anlikFiyat(doc, id, q); if (f) m[q] = f.p; } // ilan yoksa fiyat yok
     out[id] = m;
   }
   return out;

@@ -39,7 +39,8 @@ export const ASK_FRESH_MS = 6 * HOUR; // anlık borsa fiyatı bundan eskiyse kul
 export const ASK_LIVE_MS = 20 * MIN; // bundan eskiyse ekranda yaşı yazılır
 
 /**
- * Hesaplar için fiyat: anlık borsa fiyatı (kalitesi ≥ q olan en ucuz ilan); taze değilse ya da ilan yoksa son işlem fiyatı.
+ * Hesaplar için fiyat: anlık borsa fiyatı (kalitesi ≥ q olan en ucuz ilan). Anlık veri tazeyken ilan yoksa ürün borsada yoktur: null.
+ * Son işlem fiyatına yalnız anlık veri hiç yoksa ya da eskiyse düşülür.
  * Dönüş: { p, kaynak: 'borsa' | 'son', t } ya da fiyat yoksa null. t = fiyatın ölçüldüğü / son işlemin zamanı (ms).
  */
 export function anlikFiyat(live, id, q, now = Date.now()) {
@@ -47,7 +48,7 @@ export function anlikFiyat(live, id, q, now = Date.now()) {
   const row = item?.[1]?.[q];
   const ask = Number(row?.[LIVE.ASK]);
   const askT = Number(item?.[2]);
-  if (ask > 0 && askT > 0 && now - askT <= ASK_FRESH_MS) return { p: ask, kaynak: 'borsa', t: askT };
+  if (askT > 0 && now - askT <= ASK_FRESH_MS) return ask > 0 ? { p: ask, kaynak: 'borsa', t: askT } : null;
   const last = Number(row?.[LIVE.TRADE]);
   if (!(last > 0)) return null;
   const lt = Number(row?.[LIVE.TRADE_T]);
