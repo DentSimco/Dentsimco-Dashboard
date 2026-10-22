@@ -4,7 +4,7 @@
 // (yalnız bina maaşı düşülür); kendi sonucun için Kâr Hesaplayıcı › Perakende'yi kullan.
 // Net marj = seviye başı saatlik net kâr ÷ aynı saatte satılan malın maliyeti.
 
-import { readDocs, PATHS, dataField, loadGamePhase, urunAdlariniDuzelt } from './veri.js';
+import { readDocs, PATHS, dataField, loadGamePhase, urunAdlariniDuzelt, anlikFiyat } from './veri.js';
 import * as H from './hesap.js';
 import * as R from './hesap-perakende.js';
 
@@ -48,7 +48,7 @@ function parseLive(doc) {
     const byQ = Array.isArray(e) ? e[1] : e;
     if (!byQ || typeof byQ !== 'object') continue;
     const m = {};
-    for (const [q, v] of Object.entries(byQ)) { const p = Number(Array.isArray(v) ? v[0] : v?.p); if (p > 0) m[q] = p; }
+    for (const q of Object.keys(byQ)) { const f = anlikFiyat(doc, id, q); if (f) m[q] = f.p; } // ilan yoksa fiyat yok
     out[id] = m;
   }
   return out;
