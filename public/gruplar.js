@@ -34,6 +34,15 @@ export const GRUPLAR = [
     // 9 isimden 6'sı sıralamayla eşlendi. Sıralamada bulunamayanlar (pasif olabilir): RESSAMX, KAPLAN YATIRIM, BLACKSEA INTERNATİONAL
     idler: [5298615, 5405958, 5492548, 5225452, 4580864, 5464654],
   },
+  {
+    id: 'gga', ad: 'German GO Alliance', realm: 0,
+    // 30 isimden 24'ü sıralamayla eşlendi. Sıralamada bulunamayanlar: Flying Snake, DI Group, Firestar, On Air Industries, QuantumLeap AG, Tissot Taetschli (On Air Industries yalnız R2'de var)
+    idler: [
+      1107724, 2149220, 449173, 2960303, 2930837, 875177, 1592729, 4099768, 1074143, 1664165,
+      2274143, 479596, 2837502, 3007733, 3318851, 2403067, 1588775, 2302523, 1002835, 1144649,
+      4167911, 2251772, 3047923, 1166306,
+    ],
+  },
 ];
 
 // Satır sütunları: 0 id, 1 ad, 5 değer, 6 günlük değer farkı
