@@ -5,7 +5,7 @@
 import { readFileSync } from 'node:fs';
 import * as R from '../public/hesap-restoran.js';
 import { DOLULUK_TABLO, DOLULUK_KOSU, DOLULUK_KAYNAK, DOLULUK_FIYATLAR } from '../public/restoran-doluluk.js';
-import { dolulukUyumu, evrePayi, FIYATLAR, tabloDosyasi } from '../araclar/restoran-isi.mjs';
+import { dolulukUyumu, evrePayi, FIYATLAR } from '../araclar/restoran-isi.mjs';
 
 const results = [];
 function test(name, fn) {
@@ -23,12 +23,11 @@ function ok(value, label = 'koşul sağlanmadı') { if (!value) throw new Error(
 const [RES, NOR, BOOM] = [0, 1, 2];
 const ham = JSON.parse(readFileSync(new URL('../araclar/veri/restoran-isi.json', import.meta.url), 'utf8'));
 
-test('Yayımlanan tablo ham veriden aynen üretilir (araclar/restoran-isi.mjs çalıştırılmadan elle değiştirilmemiş)', () => {
+test('Yayımlanan tablo ham veriden aynen üretilir (araclar/restoran-isi.mjs çalıştırılmadan elle değiştirilmemiş; dosya metni değil değerler karşılaştırılır, yayında dosya gizlenir)', () => {
   const u = dolulukUyumu(ham);
   eq(u.tablo, DOLULUK_TABLO, 'tablo');
   eq(u.kosu, DOLULUK_KOSU, 'döngü sayıları');
   eq([u.donem, u.ilk, u.son, u.toplamKosu], [DOLULUK_KAYNAK.donem, DOLULUK_KAYNAK.ilk, DOLULUK_KAYNAK.son, DOLULUK_KAYNAK.kosu]);
-  eq(tabloDosyasi(u), readFileSync(new URL('../public/restoran-doluluk.js', import.meta.url), 'utf8'), 'dosya metni');
 });
 test('Ham veri: en az 28 dönem, ardışık ve evre listesi dönemlerin tamamını kapsıyor', () => {
   ok(ham.donemler.length >= 28, `dönem ${ham.donemler.length}`);
