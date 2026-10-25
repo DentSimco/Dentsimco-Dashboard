@@ -10,6 +10,7 @@ import { esc } from './esc.js';
 
 const KAYNAKLAR = [['borsa', 'Borsa'], ['kontrat', 'Kontrat'], ['manuel', 'Elle']];
 const TIPLER = [['eko', 'Eko'], ['luks', 'Lüks']];
+const CALISANLAR = [['eko', 'Ekonomi'], ['pro', 'Profesyonel']]; // çalışan kalitesi; profesyonel maaşı 5 katına çıkarır
 const GORUNUM = [['beklenen', 'Beklenen'], ['simdi', 'Şimdi']];
 const VARSAYILAN_MENU = { 117: 7, 119: 10, 142: 7, 143: 5, 124: 7, 125: 9 };
 const HEDEFLER = [['guvenli', 'Güvenli rating'], ['kalite', 'Hedef kalite']];
@@ -125,7 +126,7 @@ export function temizleRestoran(raw) {
   s.oneri = temizOneri(raw.oneri);
   for (const it of Array.isArray(raw.items) ? raw.items : []) {
     if (!it || typeof it !== 'object') continue;
-    s.items.push({ id: String(it.id || uid()), ad: String(it.ad || '').slice(0, 40), tip: tipOf(it.tip),
+    s.items.push({ id: String(it.id || uid()), ad: String(it.ad || '').slice(0, 40), tip: tipOf(it.tip), profesyonel: !!it.profesyonel,
       seviye: Math.max(0, Math.floor(Number(it.seviye) || 0)), fiyat: posOr(it.fiyat), rating: numOr(it.rating),
       doluluk: numOr(it.doluluk) == null ? null : Math.min(100, Math.max(0, Number(it.doluluk))),
       menu: it.menu ? temizMenu(it.menu) : null });
@@ -249,11 +250,21 @@ function oneriHtml(rs, env) {
   const tablo = `<table class="ro-tab"><thead><tr><th>Ürün</th><th>Kalite</th><th>Adet</th><th>Gider/gün</th></tr></thead>
       <tbody>${satirlar}<tr class="deg"><td>Toplam</td><td></td><td></td><td>${money(gun(s.maliyet))}</td></tr></tbody></table>`;
   const isaret = s.cesit > 0 ? '+' : s.cesit < 0 ? '−' : '';
+  // 3 ürünlü kategori içeren öneri çeşitlilik tahminine dayanır: aynı hedefte 2 ürünlü menüyle fark gösterilir
+  let ikiNot = '';
+  if (Object.values(s.sayilar).some((n) => n >= 3)) {
+    const iki = R.oneriMenu({ binalar: [bina], fiyatOf: (id, q) => { const b = env.marketOf(id, q); return b == null ? null : b * (1 - rs.kontratPct / 100); },
+      arzOf: kontrat ? null : env.arzOf, hedef: o.hedef, kalite: o.kalite, bonus: env.ratingBonus, urunSayisi: 2 });
+    if (iki.durum === 'ok') {
+      const fark = gun(iki.maliyet - s.maliyet);
+      ikiNot = `<p class="ur-note">Bu öneri 3 ürünlü kategori içeriyor; kazanç çeşitlilik tahminine dayanır. Aynı hedefte 2 ürünlü menü: ${money(gun(iki.maliyet))}/gün (${fark < 0 ? '−' : '+'}${money(Math.abs(fark))}).</p>`;
+    }
+  }
   const cesitNot = Object.values(s.sayilar).some((n) => n !== 2)
     ? `<p class="ur-note">Ürün çeşitliliğinin rating etkisi (1 ürün −0,2 · 2 ürün 0 · 3 ürün +0,9 puan) tahminidir; oyunda ölçülmedi. Bu menüde etki: ${isaret}${num(Math.abs(s.cesit), 2)} puan.</p>` : '';
   return kabuk(`<p class="ur-note">${esc(hedefNot)}</p>${luksNot}${ozet}${tablo}
       <p class="ur-note">Fiyatlar anlık borsa fiyatıdır; borsa değişince öneri de değişir. Kontrat indirimi girilirse fiyatlara uygulanır ve borsa arzı sınır sayılmaz. Rating hesabı menü kalitesinin düz ortalamasını varsayar (oyunda henüz doğrulanmadı).</p>
-      ${cesitNot}`);
+      ${cesitNot}${ikiNot}`);
 }
 
 function kart(rs, it, row, marketOf, acik) {
@@ -275,6 +286,8 @@ function kart(rs, it, row, marketOf, acik) {
     <div class="ur-row" style="gap:12px;flex-wrap:wrap">
       <div class="grow" style="min-width:140px">${field('Ad (isteğe bağlı)', a('ad'), it.ad, { mode: 'text', placeholder: 'Restoran' })}</div>
       ${seg('rf.tip', TIPLER, it.tip, 'Restoran tipi', ` data-i="${esc(it.id)}"`)}</div>
+    <div class="rs-mini"><span>Çalışan kalitesi</span>${seg('rf.calisan', CALISANLAR, it.profesyonel ? 'pro' : 'eko', 'Çalışan kalitesi', ` data-i="${esc(it.id)}"`)}</div>
+    ${it.profesyonel ? '<p class="ur-note">Profesyonel çalışanda maaş 5 katına çıkar. Ratinge etkisi bilinmiyor, hesaba katılmadı.</p>' : ''}
     <div class="rs-form">
       ${field('Seviye', a('seviye'), it.seviye || '', { mode: 'numeric' })}
       ${field('Menü fiyatı', a('fiyat'), inputVal(it.fiyat), { unit: '$', placeholder: '62' })}
@@ -282,6 +295,8 @@ function kart(rs, it, row, marketOf, acik) {
       ${field('Rating', a('rating'), inputVal(it.rating))}
     </div>
     <div class="ur-chips">${chips.join('')}</div>${uyar}
+    ${row.fiyat > R.DOLULUK_FIYAT_UST ? `<p class="ur-note">Menü fiyatı $${num(R.DOLULUK_FIYAT_UST)}'ın üstünde: doluluk modeli yalnız $${num(R.FIYAT_MIN)}–${num(R.DOLULUK_FIYAT_UST)} aralığında ölçüldü, bu fiyatta doluluk tahmini belirsizdir.</p>` : ''}
+    <p class="ur-note">Ekonomi evresinin (boom, normal, resesyon) restoran doluluğuna etkisi modellenmedi.</p>
     <div class="ur-metrics">
       <div class="ur-stat"><span>Gelir/gün</span><span>${money(row.secili.revenueDay)}</span></div>
       <div class="ur-stat"><span>Malzeme/gün</span><span>${money(row.costDay)}</span></div>
@@ -334,13 +349,14 @@ export function restoranTikla(rs, btn, env) {
   const act = btn.dataset.act || '';
   const scopeMenu = () => menuOfScope(rs, btn.dataset.s);
   if (act === 'rk.ekle') {
-    const it = { id: uid(), ad: '', tip: 'eko', seviye: 0, fiyat: null, rating: null, doluluk: null, menu: kopyaMenu(rs.menu) };
+    const it = { id: uid(), ad: '', tip: 'eko', profesyonel: false, seviye: 0, fiyat: null, rating: null, doluluk: null, menu: kopyaMenu(rs.menu) };
     rs.items.push(it);
     env.acik.add(it.id);
   } else if (act === 'rk.mod') {
     rs.menuMode = btn.dataset.v === 'ayri' ? 'ayri' : 'ortak';
     for (const it of rs.items) if (rs.menuMode === 'ayri' && !it.menu) it.menu = kopyaMenu(rs.menu);
   } else if (act === 'rk.gorunum') rs.gorunum = btn.dataset.v === 'simdi' ? 'simdi' : 'beklenen';
+  else if (act === 'rf.calisan') { const it = rs.items.find((x) => x.id === btn.dataset.i); if (it) it.profesyonel = btn.dataset.v === 'pro'; }
   else if (act === 'rf.tip') { const it = rs.items.find((x) => x.id === btn.dataset.i); if (it) it.tip = tipOf(btn.dataset.v); }
   else if (act === 'rf.sil') { rs.items = rs.items.filter((x) => x.id !== btn.dataset.i); }
   else if (act === 'rf.menu') { const id = btn.dataset.i; if (env.acik.has(id)) env.acik.delete(id); else env.acik.add(id); }
