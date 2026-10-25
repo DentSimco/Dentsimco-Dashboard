@@ -13,7 +13,7 @@
 //     oran: Times "Ratio" tablosu (seviye başına temel ihtiyaç); kategori çarpanı kategoride seçili ürün sayısına göre:
 //     1 ürün 2,1; 2 ürün 1; 3 ürün 0,9; 4 ve üstü 0,8 [oyun: istemci kodu, GamePages jJ ve index.js ZMr]; lüks yemek ve maaş ×0,5 [oyun]
 //   Yemek, müşteri gelsin gelmesin döngü başında harcanır (gider dolulukla değişmez) [oyun]
-//   Maaş = binanın saatlik maaşı × 12 [oyun]
+//   Maaş = binanın saatlik maaşı × 12 [oyun]; "iyi personel" (goodService) açıkken maaş ×5 [oyun: istemci kodu, "Maaşlar (ekstra)" = 4 × maaş]
 //   Restoran kapanınca rating ×0,875 (kapanış başına bir kez; yükseltme de kapanıştır) [oyun]
 //   Rating her döngü hedefine doğru yaklaşır: r' = r + k·(T − r), k ≈ 0,177, gürültü ±0,21 [ölçüm]
 //   Doluluk: rating ~4,5 altında çöker (%40–70), üstünde fiyat ($60–64) ve ratingden bağımsız ~%96,5 [ölçüm]
@@ -27,6 +27,7 @@ export const FIYAT_MAX = 350;
 export const KOLTUK = { eko: 1000, luks: 500 }; // seviye başına
 export const LUKS_YEMEK = 0.5;
 export const LUKS_MAAS = 0.5;
+export const IYI_HIZMET_MAAS = 5; // goodService açıkken toplam maaş çarpanı (yönetim gideri dahil)
 export const KAPANIS_CARPANI = 0.875;
 
 // Kategori çarpanı: kategoride seçili ürün sayısı → ürün başına ihtiyaç çarpanı (4 ve üstü 0,8)
@@ -124,18 +125,18 @@ export const ratingBonusu = (ekipDisiHizPct, etkiliIletisim) =>
 export const saatlikMaasSeviye = ({ salaryModifier, averageSalary, adminNet } = {}) =>
   (pos(salaryModifier) ?? RESTORAN_MAAS_KATSAYISI) * (pos(averageSalary) ?? ORTALAMA_MAAS) * (1 + Math.max(0, Number(adminNet) || 0));
 
-export function donguMaasi(seviyeBasiSaatlik, seviye, tip = 'eko') {
+export function donguMaasi(seviyeBasiSaatlik, seviye, tip = 'eko', iyiHizmet = false) {
   const w = pos(seviyeBasiSaatlik);
   if (w == null) return null;
-  return w * DONGU_SAAT * Math.max(0, Number(seviye) || 0) * (tipOf(tip) === 'luks' ? LUKS_MAAS : 1);
+  return w * DONGU_SAAT * Math.max(0, Number(seviye) || 0) * (tipOf(tip) === 'luks' ? LUKS_MAAS : 1) * (iyiHizmet ? IYI_HIZMET_MAAS : 1);
 }
 
 /**
  * Bir restoranın döngü gideri, oyunun "Menu price" hesap makinesiyle aynı düzende.
- * @param {{ menu: Array<{ id: number, birim: number|null }>, seviye: number, tip?: 'eko'|'luks', saatlikMaas?: number|null, fiyat?: number }} o
+ * @param {{ menu: Array<{ id: number, birim: number|null }>, seviye: number, tip?: 'eko'|'luks', saatlikMaas?: number|null, fiyat?: number, iyiHizmet?: boolean }} o
  *   menu[].birim: ürünün birim maliyeti (sourcing cost ÷ adet). saatlikMaas: eko seviye başı saatlik maaş.
  */
-export function donguGideri({ menu = [], seviye, tip = 'eko', saatlikMaas = null, fiyat = FIYAT_MIN }) {
+export function donguGideri({ menu = [], seviye, tip = 'eko', saatlikMaas = null, fiyat = FIYAT_MIN, iyiHizmet = false }) {
   const t = tipOf(tip);
   const L = Math.max(0, Math.floor(Number(seviye) || 0));
   const ids = menu.map((m) => Number(m.id)).filter((id) => URUNLER[id]);
@@ -145,12 +146,12 @@ export function donguGideri({ menu = [], seviye, tip = 'eko', saatlikMaas = null
     return { id: Number(m.id), adet: adet[m.id], birim, tutar: birim == null ? null : adet[m.id] * birim };
   });
   const malzeme = kalemler.reduce((s, k) => s + (k.tutar ?? 0), 0);
-  const maas = donguMaasi(saatlikMaas, L, t);
+  const maas = donguMaasi(saatlikMaas, L, t, !!iyiHizmet);
   const toplam = malzeme + (maas ?? 0);
   const koltuk = KOLTUK[t] * L;
   const gelir100 = pos(fiyat) ? fiyat * koltuk : 0;
   return {
-    tip: t, seviye: L, koltuk, kalemler, malzeme, maas, toplam,
+    tip: t, seviye: L, iyiHizmet: !!iyiHizmet, koltuk, kalemler, malzeme, maas, toplam,
     eksikFiyat: kalemler.some((k) => k.birim == null), eksikMaas: maas == null, eksikKategori: menuEksikleri(ids),
     gelir100, kar100: gelir100 - toplam,
     basabas: gelir100 > 0 ? toplam / gelir100 : null, // doluluk oranı (0–1); oyun yüzde olarak tam sayıya yuvarlar
@@ -225,7 +226,8 @@ export function restoranDegerlendir(restoranlar, ctx) {
     const L = Math.max(0, Math.floor(Number(it.seviye) || 0));
     const fiyat = clamp(pos(Number(it.fiyat)) ?? FIYAT_MIN, FIYAT_MIN, FIYAT_MAX);
     const menu = ctx.menuOf(it);
-    const g = donguGideri({ menu, seviye: L, tip, saatlikMaas: saatlik, fiyat });
+    const iyiHizmet = !!it.iyiHizmet;
+    const g = donguGideri({ menu, seviye: L, tip, saatlikMaas: saatlik, fiyat, iyiHizmet });
     const kalite = menuKalitesi(menu);
     const hedef = hedefRating(it, ctx.ratingBonus, kalite ?? REFERANS_KALITE);
     const simdiR = fin(Number(it.rating)) && it.rating !== '' && it.rating != null ? Number(it.rating) : hedef.deger;
@@ -241,7 +243,7 @@ export function restoranDegerlendir(restoranlar, ctx) {
     const secili = ctx.mod === 'simdi' ? simdi : beklenen;
     const costDay = g.malzeme * GUN_DONGU;
     const wagesDay = (g.maas ?? 0) * GUN_DONGU;
-    const baseWagesDay = taban * 24 * L * (tip === 'luks' ? LUKS_MAAS : 1);
+    const baseWagesDay = taban * 24 * L * (tip === 'luks' ? LUKS_MAAS : 1) * (iyiHizmet ? IYI_HIZMET_MAAS : 1);
     rows.push({ id: it.id, ad: it.ad, tip, seviye: L, fiyat, gider: g, eksik, kalite, hedef, simdi, beklenen, secili, costDay, wagesDay, baseWagesDay,
       kapanis: { sonra: kapanisSonrasi(simdiR), guvenli: yukseltmeGuvenli(simdiR) } });
     T.levels += L;

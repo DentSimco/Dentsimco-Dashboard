@@ -77,6 +77,21 @@ test('Lüks binanın saatlik maaşından eko seviye başına çevirme (×2)', ()
   near(55924 / 12 / 11 / R.LUKS_MAAS, W25, 0.02); // oyun maaşı tam dolara yuvarlar
 });
 
+test('İyi personel (goodService): maaş ×5; oyun ekranı lüks seviye 1: maaş $4.461 + ekstra $17.844', () => {
+  const w = 4461 / R.DONGU_SAAT / 0.5; // eko seviye başı saatlik maaş
+  near(R.donguMaasi(w, 1, 'luks'), 4461, 1e-6);
+  near(R.donguMaasi(w, 1, 'luks', true), 4461 + 17844, 1e-6);
+  near(R.donguMaasi(w, 1, 'luks', true) - R.donguMaasi(w, 1, 'luks'), 17844, 1e-6);
+  const g = (iyi) => R.donguGideri({ menu: [{ id: 117, birim: 10 }, { id: 142, birim: 10 }, { id: 124, birim: 10 }], seviye: 3, saatlikMaas: 900, iyiHizmet: iyi });
+  near(g(true).maas, g(false).maas * 5, 1e-6);
+  eq(g(true).malzeme, g(false).malzeme);
+  eq(g(false).iyiHizmet, false);
+});
+test('Lüks seviye 1 oyun ekranı: yemek adetleri ×0,5 (süt 144, ekmek 13, salata 5, samosa 6, portakal suyu 72, elma suyu 65)', () => {
+  const a = R.ihtiyac([117, 121, 142, 143, 124, 125], 1, 'luks');
+  eq([117, 121, 142, 143, 124, 125].map((id) => a[id]), [144, 13, 5, 6, 72, 65]);
+});
+
 section('Kategori çarpanı');
 test('Kategori çarpanı oyunun istemci kodundan (index.js ZMr): 2,1 · 1 · 0,9 · 0,8 · 0,8 · 0,8', () => {
   eq([1, 2, 3, 4, 5, 6].map(R.kategoriCarpani), [2.1, 1, 0.9, 0.8, 0.8, 0.8]);

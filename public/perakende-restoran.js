@@ -11,6 +11,7 @@ import { esc } from './esc.js';
 const KAYNAKLAR = [['borsa', 'Borsa'], ['kontrat', 'Kontrat'], ['manuel', 'Elle']];
 const TIPLER = [['eko', 'Eko'], ['luks', 'Lüks']];
 const GORUNUM = [['beklenen', 'Beklenen'], ['simdi', 'Şimdi']];
+const HIZMET = [['normal', 'Normal'], ['iyi', 'İyi personel (maaş ×5)']];
 const VARSAYILAN_MENU = { 117: 7, 119: 10, 142: 7, 143: 5, 124: 7, 125: 9 };
 
 // ---- biçimlendirme ----
@@ -95,7 +96,7 @@ export function temizleRestoran(raw) {
   s.gorunum = raw.gorunum === 'simdi' ? 'simdi' : 'beklenen';
   for (const it of Array.isArray(raw.items) ? raw.items : []) {
     if (!it || typeof it !== 'object') continue;
-    s.items.push({ id: String(it.id || uid()), ad: String(it.ad || '').slice(0, 40), tip: tipOf(it.tip),
+    s.items.push({ id: String(it.id || uid()), ad: String(it.ad || '').slice(0, 40), tip: tipOf(it.tip), iyiHizmet: it.iyiHizmet === true,
       seviye: Math.max(0, Math.floor(Number(it.seviye) || 0)), fiyat: posOr(it.fiyat), rating: numOr(it.rating),
       doluluk: numOr(it.doluluk) == null ? null : Math.min(100, Math.max(0, Number(it.doluluk))),
       menu: it.menu ? temizMenu(it.menu) : null });
@@ -190,7 +191,8 @@ function kart(rs, it, row, marketOf, acik) {
   return `<article class="ur-card" aria-label="Restoran ${esc(it.ad || '')}">
     <div class="ur-row" style="gap:12px;flex-wrap:wrap">
       <div class="grow" style="min-width:140px">${field('Ad (isteğe bağlı)', a('ad'), it.ad, { mode: 'text', placeholder: 'Restoran' })}</div>
-      ${seg('rf.tip', TIPLER, it.tip, 'Restoran tipi', ` data-i="${esc(it.id)}"`)}</div>
+      ${seg('rf.tip', TIPLER, it.tip, 'Restoran tipi', ` data-i="${esc(it.id)}"`)}
+      ${seg('rf.hizmet', HIZMET, it.iyiHizmet ? 'iyi' : 'normal', 'Personel hizmeti', ` data-i="${esc(it.id)}"`)}</div>
     <div class="rs-form">
       ${field('Seviye', a('seviye'), it.seviye || '', { mode: 'numeric' })}
       ${field('Menü fiyatı', a('fiyat'), inputVal(it.fiyat), { unit: '$', placeholder: '62' })}
@@ -244,7 +246,7 @@ export function restoranTikla(rs, btn, env) {
   const act = btn.dataset.act || '';
   const scopeMenu = () => (btn.dataset.s === 'o' ? rs.menu : rs.items.find((x) => x.id === btn.dataset.s)?.menu);
   if (act === 'rk.ekle') {
-    const it = { id: uid(), ad: '', tip: 'eko', seviye: 0, fiyat: null, rating: null, doluluk: null, menu: kopyaMenu(rs.menu) };
+    const it = { id: uid(), ad: '', tip: 'eko', iyiHizmet: false, seviye: 0, fiyat: null, rating: null, doluluk: null, menu: kopyaMenu(rs.menu) };
     rs.items.push(it);
     env.acik.add(it.id);
   } else if (act === 'rk.mod') {
@@ -252,6 +254,7 @@ export function restoranTikla(rs, btn, env) {
     for (const it of rs.items) if (rs.menuMode === 'ayri' && !it.menu) it.menu = kopyaMenu(rs.menu);
   } else if (act === 'rk.gorunum') rs.gorunum = btn.dataset.v === 'simdi' ? 'simdi' : 'beklenen';
   else if (act === 'rf.tip') { const it = rs.items.find((x) => x.id === btn.dataset.i); if (it) it.tip = tipOf(btn.dataset.v); }
+  else if (act === 'rf.hizmet') { const it = rs.items.find((x) => x.id === btn.dataset.i); if (it) it.iyiHizmet = btn.dataset.v === 'iyi'; }
   else if (act === 'rf.sil') { rs.items = rs.items.filter((x) => x.id !== btn.dataset.i); }
   else if (act === 'rf.menu') { const id = btn.dataset.i; if (env.acik.has(id)) env.acik.delete(id); else env.acik.add(id); }
   else if (act === 'rm.urun') { const m = scopeMenu(); const x = m?.[btn.dataset.p]; if (x) x.secili = !x.secili; }
