@@ -16,7 +16,9 @@
 //   Maaş = binanın saatlik maaşı × 12 [oyun]; "iyi personel" (goodService) açıkken maaş ×5 [oyun: istemci kodu, "Maaşlar (ekstra)" = 4 × maaş]
 //   Restoran kapanınca rating ×0,875 (kapanış başına bir kez; yükseltme de kapanıştır) [oyun]
 //   Rating her döngü hedefine doğru yaklaşır: r' = r + k·(T − r), k ≈ 0,177, gürültü ±0,21 [ölçüm]
-//   Doluluk: rating ~4,5 altında çöker (%40–70), üstünde fiyat ($60–64) ve ratingden bağımsız ~%96,5 [ölçüm]
+//   Doluluk = oyunun herkese açık ısı haritası (rating × menü fiyatı, 150 bin döngü, eko + lüks karışık): rating 6 altında ve
+//     fiyat yükseldikçe düşer, $60–89'da rating 7+ için ~%96–97 tavan [oyun: Sim Companies Times, Eylül 2026]
+//     Kendi ölçümümüz (47 döngü, $60–67, rating 5,4–7,2) bununla çelişmiyor; tek döngüde ±%5 gürültü var [ölçüm]
 //   Menü fiyatı en az $60, en çok $350 [oyun rehberi]
 
 export const DONGU_SAAT = 12;
@@ -62,20 +64,45 @@ export const URUNLER = {
   126: { ad: 'Zencefilli bira', kat: 'icecek', oran: 113.984 },
 };
 
-// Rating ve doluluk modeli [ölçüm]: veri büyüdükçe bu sabitler güncellenir
-export const RATING = { k: 0.177, hedef: 6.0, gurultu: 0.21, esik: 4.5, guvenli: 5.2 };
-export const DOLULUK = { ust: 96.5 };
-// Düşük ratingte doluluk [ölçüm]: rating ~0'da rastgele (%3–27, ortalama ~%13), 3,9–4,6 arasında hızla yükselir, 4,6'dan sonra ~%96,5.
-export const DOLULUK_EGRI = [[0, 13], [3.9, 38], [3.95, 40.6], [4.11, 56], [4.25, 69], [4.61, DOLULUK.ust]];
-export function dolulukRating(r) {
-  const x = Number(r);
-  if (!fin(x) || x <= 0) return DOLULUK_EGRI[0][1];
-  for (let i = 1; i < DOLULUK_EGRI.length; i++) {
-    const [a, b] = [DOLULUK_EGRI[i - 1], DOLULUK_EGRI[i]];
-    if (x <= b[0]) return a[1] + ((b[1] - a[1]) * (x - a[0])) / (b[0] - a[0]);
-  }
-  return DOLULUK.ust;
+// Rating modeli [ölçüm]: veri büyüdükçe bu sabitler güncellenir
+export const RATING = { k: 0.177, hedef: 6.0, gurultu: 0.21 };
+export const DOLULUK = { ust: 96.5, kabul: 90 }; // ust: tavan; kabul: "güvenli" sayılan en düşük doluluk (%)
+export const DOLULUK_ESIK = 6; // rating bu değerin üstündeyse $60–89'da doluluk plato (~%94–97), kendi son ölçümüne güvenilir
+
+// Sim Companies Times "Restaurant Occupancy Heatmap" (14 Tem – 8 Eyl 2026, 150.396 döngü, eko ve lüks karışık; kaynak:
+// /api/v3/en/0/newspaper/420/, makale 5307, grafik "H"). Satır = fiyat dilimi (alt sınır $60, $90 ... $360; dilim genişliği $30),
+// sütun = rating dilimi (0 ... 10; 10 = 10 ve üstü). Değer = o dilimdeki ortalama doluluk (%). Dilimde 5'ten az döngü varsa
+// değer yok sayıldı: boşluklar komşu satırdan oranla dolduruldu; sonra gürültüyü gidermek için rating arttıkça azalmayan, fiyat arttıkça artmayan
+// yapıldı (araclar/isi_haritasi.mjs aynı işlemi yapar).
+// Fiyatı $270 ve üstü satırlarda örnek çok az (rating başına 1–30 döngü); orada değerler yaklaşık.
+export const ISI_FIYAT = [60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360];
+export const ISI_DOLULUK = [
+  [12.3, 18.7, 26.4, 34.5, 46.9, 83.4, 94.2, 96.4, 96.9, 96.9, 96.9], // $60
+  [7.0, 11.5, 19.0, 27.2, 35.5, 43.1, 64.6, 85.8, 92.3, 92.3, 96.8], // $90
+  [5.9, 6.7, 11.5, 20.3, 26.3, 36.6, 42.6, 51.9, 60.9, 70.7, 94.6], // $120
+  [5.9, 6.7, 7.0, 14.0, 22.0, 28.2, 36.9, 44.5, 53.3, 59.5, 66.0], // $150
+  [5.9, 6.7, 7.0, 12.8, 13.7, 19.8, 25.7, 35.3, 42.9, 52.1, 58.4], // $180
+  [5.9, 6.7, 7.0, 8.7, 10.8, 15.2, 20.7, 32.7, 35.1, 45.5, 51.4], // $210
+  [5.9, 6.7, 7.0, 8.7, 10.8, 11.2, 12.4, 21.4, 24.7, 36.9, 43.1], // $240
+  [5.9, 6.7, 7.0, 8.7, 9.5, 9.5, 10.6, 18.2, 21.0, 34.0, 34.0], // $270
+  [5.4, 5.8, 6.2, 8.7, 9.5, 9.5, 10.6, 12.9, 13.5, 19.6, 26.8], // $300
+  [5.4, 5.8, 6.2, 8.7, 9.5, 9.5, 10.6, 12.9, 13.5, 19.6, 24.0], // $330
+  [5.4, 5.8, 6.2, 7.4, 7.4, 7.6, 7.8, 7.8, 9.1, 13.2, 18.8] // $360
+];
+// Dilim ortaları: rating b + 0,5 (b = 0 … 10), fiyat alt sınır + 15 ($60 dilimi → $75, $90 dilimi → $105 …). Ortaların
+// dışındaki değerler en yakın dilime sabitlenir ($75 altı $60 dilimi gibi).
+const ara = (t, n) => { const x = Math.min(n - 1, Math.max(0, t)); const i = Math.min(n - 2, Math.floor(x)); return [i, x - i]; };
+
+// Rating ve menü fiyatına göre beklenen doluluk (%): dilim ortaları arasında çift doğrusal ara değer.
+export function dolulukHaritasi(rating, fiyat = FIYAT_MIN) {
+  const r = fin(Number(rating)) ? Number(rating) : 0;
+  const p = fin(Number(fiyat)) && Number(fiyat) > 0 ? Number(fiyat) : FIYAT_MIN;
+  const [ri, rt] = ara(r - 0.5, ISI_DOLULUK[0].length);
+  const [pi, pt] = ara((p - ISI_FIYAT[0] - 15) / 30, ISI_FIYAT.length);
+  const sat = (i) => ISI_DOLULUK[i][ri] + (ISI_DOLULUK[i][ri + 1] - ISI_DOLULUK[i][ri]) * rt;
+  return sat(pi) + (sat(pi + 1) - sat(pi)) * pt;
 }
+export const dolulukRating = (r, fiyat = FIYAT_MIN) => dolulukHaritasi(r, fiyat);
 
 const fin = (x) => typeof x === 'number' && Number.isFinite(x);
 const pos = (x) => (fin(x) && x > 0 ? x : null);
@@ -166,7 +193,8 @@ export const donguKari = (gider, fiyat, dolulukPct) => fiyat * gider.koltuk * (d
 // Rating ve doluluk beklentisi
 // ---------------------------------------------------------------------------------------------------------------
 export const kapanisSonrasi = (r) => r * KAPANIS_CARPANI;
-export const yukseltmeGuvenli = (r) => kapanisSonrasi(r) >= RATING.esik + 0.05;
+// Kapanış (ya da yükseltme) sonrası rating'de, bu fiyatta ısı haritasına göre doluluk kabul edilebilir mi
+export const yukseltmeGuvenli = (r, fiyat = FIYAT_MIN) => dolulukHaritasi(kapanisSonrasi(r), fiyat) >= DOLULUK.kabul;
 
 /**
  * Restoranın ratingin yerleşeceği hedef.
@@ -196,12 +224,14 @@ export function hedefRating(item, bonus = BONUS_REFERANS, kalite = REFERANS_KALI
   return { deger: clamp(KALITE_TABAN + KALITE_RATING * (fin(kalite) ? kalite : REFERANS_KALITE) + bonus, 0, 10), kaynak: 'varsayilan' };
 }
 
-/** Rating yerleşince beklenen doluluk (%). Eşiğin üstünde son doluluk korunur; altında düşük doluluk. */
-export function beklenenDoluluk(beklenenRating, mevcutRating, sonDoluluk) {
+/**
+ * Rating yerleşince beklenen doluluk (%): ısı haritası (rating × fiyat). Rating değişmiyorsa ya da hem şimdiki hem beklenen rating
+ * platoda (≥ DOLULUK_ESIK) ise kullanıcının son ölçümü haritadan daha iyi bilgidir (aynı bina, fiyat ve rakipler).
+ */
+export function beklenenDoluluk(beklenenRating, mevcutRating, sonDoluluk, fiyat = FIYAT_MIN) {
   const son = fin(Number(sonDoluluk)) && sonDoluluk !== '' && sonDoluluk != null ? clamp(Number(sonDoluluk), 0, 100) : null;
-  if (beklenenRating < RATING.esik) return son != null && mevcutRating < RATING.esik ? son : dolulukRating(beklenenRating);
-  if (mevcutRating >= RATING.esik) return son ?? DOLULUK.ust;
-  return DOLULUK.ust;
+  if (son != null && (Math.abs(beklenenRating - mevcutRating) < 0.25 || (mevcutRating >= DOLULUK_ESIK && beklenenRating >= DOLULUK_ESIK))) return son;
+  return dolulukHaritasi(beklenenRating, fiyat);
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -238,14 +268,14 @@ export function restoranDegerlendir(restoranlar, ctx) {
       const gelirDong = fiyat * g.koltuk * (doluluk / 100);
       return { rating, doluluk, customersDay: g.koltuk * (doluluk / 100) * GUN_DONGU, revenueDay: gelirDong * GUN_DONGU, profitDay: eksik ? null : (gelirDong - g.toplam) * GUN_DONGU };
     };
-    const simdi = senaryo(simdiR, sonD ?? beklenenDoluluk(simdiR, simdiR, null));
-    const beklenen = senaryo(hedef.deger, beklenenDoluluk(hedef.deger, simdiR, sonD));
+    const simdi = senaryo(simdiR, sonD ?? beklenenDoluluk(simdiR, simdiR, null, fiyat));
+    const beklenen = senaryo(hedef.deger, beklenenDoluluk(hedef.deger, simdiR, sonD, fiyat));
     const secili = ctx.mod === 'simdi' ? simdi : beklenen;
     const costDay = g.malzeme * GUN_DONGU;
     const wagesDay = (g.maas ?? 0) * GUN_DONGU;
     const baseWagesDay = taban * 24 * L * (tip === 'luks' ? LUKS_MAAS : 1) * (iyiHizmet ? IYI_HIZMET_MAAS : 1);
     rows.push({ id: it.id, ad: it.ad, tip, seviye: L, fiyat, gider: g, eksik, kalite, hedef, simdi, beklenen, secili, costDay, wagesDay, baseWagesDay,
-      kapanis: { sonra: kapanisSonrasi(simdiR), guvenli: yukseltmeGuvenli(simdiR) } });
+      kapanis: { sonra: kapanisSonrasi(simdiR), guvenli: yukseltmeGuvenli(simdiR, fiyat) } });
     T.levels += L;
     T.customersDay += secili.customersDay;
     T.revenueDay += secili.revenueDay;

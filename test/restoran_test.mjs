@@ -131,9 +131,11 @@ test('Kapanış ratingi ×0,875 yapar: 7 yükseltme vakasında ±0,02 içinde', 
     near(R.kapanisSonrasi(once), sonra, 0.02, `${once}`);
   }
 });
-test('Yükseltme güvenliği: 5,2 güvenli, 5,0 değil', () => {
-  eq(R.yukseltmeGuvenli(5.2), true);
-  eq(R.yukseltmeGuvenli(5.0), false);
+test('Yükseltme güvenliği (ısı haritası): $60\'ta kapanış sonrası doluluk ≥ %90 için rating ~7 gerekir; pahalı fiyatta daha çok', () => {
+  eq(R.yukseltmeGuvenli(7.2), true);
+  eq(R.yukseltmeGuvenli(6.5), false);
+  eq(R.yukseltmeGuvenli(7.2, 90), false);
+  eq(R.yukseltmeGuvenli(9.5, 90), true);
 });
 
 section('Hedef rating ve beklenen doluluk');
@@ -161,14 +163,40 @@ test('Rating hedefe yaklaşır: 3,95 → 4,25 → 4,61 → 4,86 ölçümüyle ay
   near(R.hedefRating({ onceki: 3.95, rating: 4.25 }).deger, 3.95 + 0.30 / R.RATING.k, 1e-9);
   near(R.hedefRating({ onceki: 3.95, rating: 4.25 }).deger, 5.64, 0.01);
 });
-test('Beklenen doluluk: eşiğin üstünde son doluluk korunur, altında düşük; eşiğin altından çıkınca varsayılan üst', () => {
-  eq(R.beklenenDoluluk(6, 6.5, 91), 91);
-  eq(R.beklenenDoluluk(6, 6.5, null), R.DOLULUK.ust);
-  near(R.beklenenDoluluk(4, 6, 98), R.dolulukRating(4), 1e-9);
-  near(R.dolulukRating(0), 13, 1e-9); near(R.dolulukRating(4.61), 96.5, 1e-9); near(R.dolulukRating(8), 96.5, 1e-9);
-  ok(R.dolulukRating(4.1) > R.dolulukRating(3.5) && R.dolulukRating(3.5) > R.dolulukRating(1), 'doluluk ratingle artar');
-  eq(R.beklenenDoluluk(4, 4.2, 60), 60);
-  eq(R.beklenenDoluluk(6, 4, 46), R.DOLULUK.ust);
+test('Doluluk ısı haritası: dilim ortalarında tablo değeri (Sim Companies Times, Eylül 2026)', () => {
+  near(R.dolulukHaritasi(5.5, 75), 83.4, 1e-9); // rating 5, $60 dilimi
+  near(R.dolulukHaritasi(6.5, 75), 94.2, 1e-9);
+  near(R.dolulukHaritasi(4.5, 75), 46.9, 1e-9);
+  near(R.dolulukHaritasi(8.5, 105), 92.3, 1e-9); // rating 8, $90 dilimi
+  near(R.dolulukHaritasi(10.5, 135), 94.6, 1e-9); // rating 10+, $120 dilimi (lüks ağırlıklı)
+  near(R.dolulukHaritasi(5.5, 105), 43.1, 1e-9);
+});
+test('Doluluk ısı haritası: ara değer, sınır ve yedek davranışı', () => {
+  near(R.dolulukHaritasi(6, 60), R.dolulukHaritasi(6, 75), 1e-9); // $75 altı $60 dilimi
+  near(R.dolulukHaritasi(5.5, 90), (83.4 + 43.1) / 2, 1e-9); // $75 ile $105 ortası
+  near(R.dolulukHaritasi(0, 60), R.dolulukHaritasi(0.5, 60), 1e-9);
+  near(R.dolulukHaritasi(11, 60), R.dolulukHaritasi(10.5, 60), 1e-9);
+  near(R.dolulukHaritasi(NaN, NaN), R.dolulukHaritasi(0, 60), 1e-9);
+  near(R.dolulukRating(5.5), 83.4, 1e-9); // eski ad, $60
+});
+test('Doluluk ısı haritası: rating arttıkça artar, fiyat arttıkça azalır (240 dolara kadar, rating 4,5+; düşük ratingde örnek az ve gürültülü), %0–100 içinde', () => {
+  for (let p = 60; p <= 360; p += 15) {
+    let onceki = -1;
+    for (let r = 0; r <= 10.5; r += 0.25) {
+      const v = R.dolulukHaritasi(r, p);
+      ok(v >= onceki - 1e-9 && v >= 0 && v <= 100, `rating ${r} fiyat ${p}: ${v}`);
+      onceki = v;
+    }
+  }
+  for (let r = 4.5; r <= 10.5; r += 0.5) for (let p = 60; p < 240; p += 15) ok(R.dolulukHaritasi(r, p + 15) <= R.dolulukHaritasi(r, p) + 1e-9, `fiyat ${p} rating ${r}`);
+});
+test('Beklenen doluluk: rating değişmiyorsa ya da platoda kalıyorsa son ölçüm, değilse harita', () => {
+  eq(R.beklenenDoluluk(6.5, 6.8, 91, 62), 91); // plato (≥ DOLULUK_ESIK) ve değişim
+  eq(R.beklenenDoluluk(4.2, 4.3, 60, 62), 60); // rating yerinde (±0,25)
+  near(R.beklenenDoluluk(6.5, 6.8, null, 62), R.dolulukHaritasi(6.5, 62), 1e-9);
+  near(R.beklenenDoluluk(4, 6.5, 98, 62), R.dolulukHaritasi(4, 62), 1e-9); // platodan düşüyor: harita
+  near(R.beklenenDoluluk(7, 4, 46, 62), R.dolulukHaritasi(7, 62), 1e-9); // platoya çıkıyor: harita
+  ok(R.beklenenDoluluk(5, 5, null, 62) > R.beklenenDoluluk(5, 5, null, 100), 'aynı rating, pahalı fiyatta düşük');
 });
 
 section('Bina bazlı değerlendirme (Perakende özetine giren)');
@@ -207,7 +235,7 @@ test('Şimdi ve beklenen: rating hedefi eşiğin altındaysa beklenen kâr düş
   const bek = R.restoranDegerlendir([it], ctxR({ mod: 'beklenen' }));
   const sim = R.restoranDegerlendir([it], ctxR({ mod: 'simdi' }));
   ok(bek.totals.profitDay < sim.totals.profitDay, 'beklenen daha düşük');
-  near(bek.rows[0].beklenen.doluluk, R.dolulukRating(3.5), 1e-9);
+  near(bek.rows[0].beklenen.doluluk, R.dolulukHaritasi(3.5, 62), 1e-9);
   eq(sim.rows[0].simdi.doluluk, 98);
 });
 test('Satış hızı/iletişim bonusu hedefi kaydırır: bonus +0,2 → hedef +0,2 → beklenen rating +0,2', () => {
