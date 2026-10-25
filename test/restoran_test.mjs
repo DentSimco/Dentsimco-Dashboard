@@ -78,16 +78,29 @@ test('Lüks binanın saatlik maaşından eko seviye başına çevirme (×2)', ()
 });
 
 section('Kategori çarpanı');
-test('Kategoride 2 ürün: çarpan 1 (oyunda doğrulandı); 1 ürün 2,1 · 3 ürün 0,7 · 4+ 0,55 (makale)', () => {
-  eq([1, 2, 3, 4, 5, 6].map(R.kategoriCarpani), [2.1, 1, 0.7, 0.55, 0.55, 0.55]);
-  eq(R.CARPAN_DOGRULANDI[2], true);
+test('Kategori çarpanı oyun kodundaki diziyle aynı: [2,1; 1; 0,9; 0,8; 0,8; 0,8] (1–6 ürün)', () => {
+  eq([1, 2, 3, 4, 5, 6].map(R.kategoriCarpani), [2.1, 1, 0.9, 0.8, 0.8, 0.8]);
 });
-test('Makale örneği: süt + ekmek + tereyağı, seviye 2 → 404 süt, 35 ekmek, 130 tereyağı', () => {
-  const a = R.ihtiyac([117, 121, 134, 142, 124], 2, 'eko');
-  eq([a[117], a[121], a[134]], [404, 35, 130]);
+// Oyun ekranları (Ekim 2026, "Gerekli Miktar" sütunu), eko
+test('Ekran: Sky Eco Resto III, seviye 1, 3-3-3 menü (çarpan 0,9) → 260 süt, 87 kahve, 16 turta, 9 salata, 10 samosa, 9 bal kabağı, 130 portakal, 117 elma, 103 zencefil', () => {
+  const ids = [117, 119, 123, 142, 143, 149, 124, 125, 126];
+  const a = R.ihtiyac(ids, 1, 'eko');
+  eq(ids.map((id) => a[id]), [260, 87, 16, 9, 10, 9, 130, 117, 103]);
 });
-test('Oyun rehberi kartı: tek başına salata, seviye 1 → 20', () => {
-  eq(R.ihtiyac([117, 142, 124], 1, 'eko')[142], 20);
+test('Ekran: Sky Eco Resto, seviye 2, 2-2-2 menü → 576 süt, 50 ekmek, 19 salata, 19 bal kabağı (oran 9,2), 288 portakal, 258 elma', () => {
+  const ids = [117, 121, 142, 149, 124, 125];
+  const a = R.ihtiyac(ids, 2, 'eko');
+  eq(ids.map((id) => a[id]), [576, 50, 19, 19, 288, 258]);
+});
+test('Ekran: 1-1-1 menüler (çarpan 2,1) → seviye 1: 605 süt, 20 salata, 8 köfte, 8 hamburger, 271 elma; seviye 2: 1.210 süt, 43 samosa, 542 elma', () => {
+  eq(R.ihtiyac([117, 142, 125], 1, 'eko'), { 117: 605, 142: 20, 125: 271 });
+  eq(R.ihtiyac([117, 131, 125], 1, 'eko')[131], 8);
+  eq(R.ihtiyac([117, 129, 125], 1, 'eko')[129], 8);
+  eq(R.ihtiyac([117, 143, 125], 2, 'eko'), { 117: 1210, 143: 43, 125: 542 });
+});
+test('Ekran: kapanış ratingi ×0,875 yapar (Sky Eco Resto: 0,84 → 0,74 · 1,71 → 1,49)', () => {
+  near(R.kapanisSonrasi(0.84), 0.74, 0.01);
+  near(R.kapanisSonrasi(1.71), 1.49, 0.01);
 });
 test('Eksik kategori bildirilir (oyun her kategoriden en az bir ürün ister)', () => {
   eq(R.menuEksikleri([117, 124]), ['Ana yemek']);
@@ -125,7 +138,11 @@ test('Hedef: elle girilen önce; önceki+mevcut varsa tahmin; yoksa eko varsayı
   near(t.deger, 6, 1e-9); eq(t.kaynak, 'tahmin');
   near(R.hedefRating({ tip: 'eko' }, 0.99).deger, 6.045, 1e-9); // kalite bilinmiyorsa referans menü (Q7,5)
   near(R.hedefRating({ tip: 'eko' }, 1.19).deger, 6.245, 1e-9); // bonus 0,2 artınca hedef 0,2 artar
-  eq(R.hedefRating({ tip: 'luks', rating: 8.75 }), { deger: 8.75, kaynak: 'bilinmiyor' });
+  // Lüks: [menü puanı + çeşitlilik + bonus] × 1,25 (oturma çarpanı); önceki + mevcut rating girildiyse yine ölçülen hedef önce gelir
+  near(R.hedefRating({ tip: 'luks' }, 0.99).deger, 6.045 * 1.25, 1e-9); // kalite bilinmiyorsa referans menü (Q7,5)
+  near(R.hedefRating({ tip: 'luks' }, 0.5, 6, 0.9).deger, (R.KALITE_TABAN + 6 * R.KALITE_RATING + 0.5 + 0.9) * 1.25, 1e-9);
+  near(R.hedefRating({ tip: 'luks', onceki: 5, rating: 5.177 }).deger, 6, 1e-9);
+  eq([R.oturmaCarpani('eko'), R.oturmaCarpani('luks'), R.oturmaCarpani(undefined)], [1, 1.25, 1]);
 });
 test('Kalite: 11 Ekim menüsü (Q7, Q10, Q7, Q5, Q7, Q9) ortalama 7,5 ve bonus 0,99 ile hedef ~6; seviye 2 testi (Q0,5, bonus 0,32) ~3,8', () => {
   const ref = [[117, 7], [119, 10], [142, 7], [143, 5], [124, 7], [125, 9]].map(([id, kalite]) => ({ id, birim: 1, kalite }));
@@ -251,6 +268,61 @@ test('Menü önerisi: seviye yoksa öneri yok; güvenli hedef rating 5,2 + 0,3 �
   near(o.hedefKalite, 5.1304, 1e-4);
   ok(o.ortalama >= o.hedefKalite && o.rating >= R.RATING.guvenli + R.RATING_PAYI - 1e-9, 'hedef ve tahmini rating güvenli');
   eq(o.sayilar, { salata: 2, ana: 2, icecek: 2 });
+});
+test('Otomatik: kategorilerin ürün sayısı birbirinden bağımsız seçilir (1-2-1, 2-1-1 …); hiçbiri 3\'ü aşmaz', () => {
+  // Kategori maliyeti: 1 ürün 2,1 × c₁; 2 ürün c₁ + c₂ (çarpan 1) → c₂ < 1,1 × c₁ ise 2 ürün, değilse 1 ürün kazanır.
+  // c = ⌈oran × çarpan × seviye⌉ × fiyat. Fiyatı oranla ters orantılı vermek maliyetleri eşitler.
+  const esit = (ids) => Object.fromEntries(ids.map((id) => [id, { 6: 1000 / R.URUNLER[id].oran }]));
+  // Salata barı: tek ucuz ürün (1) · ana yemek: maliyeti eşit iki ürün (2) · içecek: yalnız bir ürünün fiyatı var (1) → 1-2-1
+  const a = { 117: { 6: 0.01 }, 121: { 6: 1e6 }, 134: { 6: 1e6 }, ...esit([129, 131]), 124: { 6: 1 } };
+  eq(R.oneriMenu({ binalar: B10, fiyatOf: tabloFiyat(a), hedef: 'kalite', kalite: 6, urunSayisi: 0 }).sayilar, { salata: 1, ana: 2, icecek: 1 });
+  // Salata barı: maliyeti eşit iki ürün (2) · ana yemek: tek ucuz ürün (1) · içecek: tek ürün (1) → 2-1-1
+  const b = { ...esit([117, 121]), 131: { 6: 1 }, 129: { 6: 1e6 }, 124: { 6: 1 } };
+  eq(R.oneriMenu({ binalar: B10, fiyatOf: tabloFiyat(b), hedef: 'kalite', kalite: 6, urunSayisi: 0 }).sayilar, { salata: 2, ana: 1, icecek: 1 });
+  for (const f of [a, b]) {
+    const o = R.oneriMenu({ binalar: B10, fiyatOf: tabloFiyat(f), hedef: 'kalite', kalite: 6, urunSayisi: 0 });
+    ok(Object.values(o.sayilar).every((n) => n >= 1 && n <= R.OTOMATIK_EN_FAZLA), '1–3 arası');
+  }
+});
+test('Çeşitlilik puanı [hipotez]: tablo [[1, −0,2], [2, 0], [3, 0,9]]; üç kategorinin ortalaması; tablonun dışı en yakın satır', () => {
+  eq(R.CESIT_RATING, [[1, -0.2], [2, 0], [3, 0.9]]);
+  const c = (salata, ana, icecek) => R.cesitRating({ salata, ana, icecek });
+  near(c(2, 2, 2), 0, 1e-12); near(c(3, 3, 3), 0.9, 1e-12); near(c(1, 1, 1), -0.2, 1e-12);
+  near(c(1, 2, 3), (-0.2 + 0 + 0.9) / 3, 1e-12);
+  near(c(4, 6, 3), 0.9, 1e-12, '4 ve üstü son satır gibi'); near(c(0, 2, 2), -0.2 / 3, 1e-12, '0 ürün ilk satır gibi');
+});
+test('Çeşitlilik hedef ratinge eklenir: 3-3-3 menü 2-2-2 menüden 0,9 yüksek; kalibrasyon menüsü (2-2-2) değişmez', () => {
+  const kal = (ids) => ids.map((id) => ({ id, birim: 1, kalite: 6 }));
+  const ctx = (menu) => ({ adminNet: 0, ratingBonus: 0.5, mod: 'beklenen', menuOf: () => menu });
+  const it = [{ id: 'a', tip: 'eko', seviye: 2, fiyat: 62, rating: 0 }];
+  const iki = R.restoranDegerlendir(it, ctx(kal([117, 119, 142, 143, 124, 125]))).rows[0].hedef.deger;
+  const uc = R.restoranDegerlendir(it, ctx(kal([117, 119, 121, 142, 143, 129, 124, 125, 126]))).rows[0].hedef.deger;
+  near(iki, R.KALITE_TABAN + 6 * R.KALITE_RATING + 0.5, 1e-9);
+  near(uc - iki, 0.9, 1e-9);
+});
+test('Lüks menü önerisi: rating formülün sonucu × 1,25; güvenli hedefte gereken kalite 1,25 ile bölünen hedefe göre hesaplanır', () => {
+  const f = sabitQ6(Object.keys(R.URUNLER).map(Number), 10);
+  const g = (tip) => R.oneriMenu({ binalar: [{ seviye: 10, tip }], fiyatOf: tabloFiyat(f), hedef: 'guvenli', bonus: 0.99, urunSayisi: 2 });
+  const eko = g('eko'); const luks = g('luks');
+  near(luks.hedefKalite, R.gerekenKalite(5.5 / 1.25, 0.99), 1e-9);
+  ok(luks.hedefKalite < eko.hedefKalite, 'lüks için gereken kalite daha düşük');
+  eq(luks.carpan, 1.25);
+  ok(luks.rating >= 5.5 - 1e-9, 'lüks tahmini rating güvenli');
+  near(luks.rating, (R.KALITE_TABAN + R.KALITE_RATING * luks.ortalama + 0.99) * 1.25, 1e-9);
+});
+test('Güvenli hedef çeşitliliği hesaba katar: 3 ürünle gereken kalite 0,9 ÷ 0,23 ≈ 3,9 basamak düşer; otomatik en ucuz deseni seçer', () => {
+  const f = sabitQ6(Object.keys(R.URUNLER).map(Number), 10);
+  const g = (urunSayisi) => R.oneriMenu({ binalar: B10, fiyatOf: tabloFiyat(f), hedef: 'guvenli', bonus: 0.99, urunSayisi });
+  near(g(2).hedefKalite - g(3).hedefKalite, 0.9 / R.KALITE_RATING, 1e-9);
+  near(g(1).hedefKalite - g(2).hedefKalite, 0.2 / R.KALITE_RATING, 1e-9); // 1 ürün −0,2 puan: gereken kalite artar
+  eq(g(3).cesit, 0.9);
+  // Otomatik, tüm desenlerin en ucuzundan pahalı olamaz ve seçilen desenin tahmini ratingi güvenli hedefi sağlar
+  const oto = g(0);
+  ok(oto.durum === 'ok' && oto.rating >= R.RATING.guvenli + R.RATING_PAYI - 1e-9, 'tahmini rating güvenli');
+  for (const a of [1, 2, 3]) for (const b of [1, 2, 3]) for (const c of [1, 2, 3]) {
+    const k = R.enUcuzMenu({ binalar: B10, fiyatOf: tabloFiyat(f), hedefKalite: Math.max(0, R.gerekenKalite(R.RATING.guvenli + R.RATING_PAYI - R.cesitRating({ salata: a, ana: b, icecek: c }), 0.99)), kategoriAdet: { salata: a, ana: b, icecek: c } });
+    if (k.ok) ok(oto.maliyet <= k.maliyet + 1e-6, `desen ${a}-${b}-${c} otomatikten ucuz`);
+  }
 });
 test('Menü önerisi: hedef kalite; ürün sayısı verilmezse en ucuz sayı seçilir; ulaşılamayan ya da fiyatsız kategori bildirilir', () => {
   const f = sabitQ6(Object.keys(R.URUNLER).map(Number), 10);
