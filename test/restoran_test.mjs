@@ -168,21 +168,21 @@ test('Kalite: 11 Ekim menüsü (Q7, Q10, Q7, Q5, Q7, Q9) ortalama 7,5 ve bonus 0
     { adminNet: 0, ratingBonus: 0.32, mod: 'beklenen', menuOf: () => ref.map((m) => ({ ...m, kalite: 0 })) });
   near(r.rows[0].hedef.deger, 4.16, 1e-9); eq(r.rows[0].kalite, 0);
 });
-test('Çeşitlilik: 2-2-2 sıfır; 1-1-1 −0,1; 3-3-3 +0,8; 3 üstü sabit; ara değerler doğrusal; hedefe eklenir [hipotez]', () => {
+test('Çeşitlilik: 2-2-2 sıfır; 1-1-1 −0,2; 3-3-3 +0,9; 3 üstü sabit; ara değerler doğrusal; hedefe eklenir [hipotez]', () => {
   const say = (s, a, i) => ({ salata: s, ana: a, icecek: i });
   near(R.cesitlilikRating(say(2, 2, 2)), 0, 1e-9);
-  near(R.cesitlilikRating(say(1, 1, 1)), -0.1, 1e-9);
-  near(R.cesitlilikRating(say(3, 3, 3)), 0.8, 1e-9);
-  near(R.cesitlilikRating(say(6, 6, 4)), 0.8, 1e-9); // 3'ten sonrası ölçülmedi, sabit
-  near(R.cesitlilikRating(say(1, 1, 2)), -0.1 + 0.1 / 3, 1e-9); // ortalama 4/3 ürün
-  near(R.cesitlilikRating(say(3, 3, 2)), 0.8 * (8 / 3 - 2), 1e-9); // 3-3-2: ortalama 8/3
+  near(R.cesitlilikRating(say(1, 1, 1)), -0.2, 1e-9);
+  near(R.cesitlilikRating(say(3, 3, 3)), 0.9, 1e-9);
+  near(R.cesitlilikRating(say(6, 6, 4)), 0.9, 1e-9); // 3'ten sonrası ölçülmedi, sabit
+  near(R.cesitlilikRating(say(1, 1, 2)), -0.2 + 0.2 / 3, 1e-9); // ortalama 4/3 ürün
+  near(R.cesitlilikRating(say(3, 3, 2)), 0.9 * (8 / 3 - 2), 1e-9); // 3-3-2: ortalama 8/3
   near(R.cesitlilikRating(null), 0, 0);
-  near(R.hedefRating({ tip: 'eko' }, 1.10, 3, 0.8).deger - R.hedefRating({ tip: 'eko' }, 1.10, 3, 0).deger, 0.8, 1e-9);
+  near(R.hedefRating({ tip: 'eko' }, 1.10, 3, 0.9).deger - R.hedefRating({ tip: 'eko' }, 1.10, 3, 0).deger, 0.9, 1e-9);
   // bina değerlendirmesi menüdeki ürün sayısından çeşitliliği alır
   const m3 = [[117, 3], [119, 3], [134, 3], [142, 3], [143, 3], [129, 3], [124, 3], [125, 3], [126, 3]].map(([id, kalite]) => ({ id, birim: 1, kalite }));
   const m2 = m3.filter((m) => [117, 119, 142, 143, 124, 125].includes(m.id));
   const dg = (menu) => R.restoranDegerlendir([{ id: 'a', tip: 'eko', seviye: 17, fiyat: 60, rating: 5 }], { adminNet: 0.45, ratingBonus: 1.10, mod: 'beklenen', menuOf: () => menu }).rows[0].hedef.deger;
-  near(dg(m3) - dg(m2), 0.8, 1e-9);
+  near(dg(m3) - dg(m2), 0.9, 1e-9);
 });
 test('Gürültü ve k: aynı menüde 4 restoran, 18 geçiş: k 0,37 ± 0,23, tek döngü sapması 0,28', () => {
   eq(R.RATING.gurultu, 0.28);

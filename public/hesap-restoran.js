@@ -222,10 +222,12 @@ export const yukseltmeGuvenli = (r, fiyat = FIYAT_MIN, faz = 'normal') => dolulu
 // eğim ±0,1). Hedefler k = 0,4 ile döngü geçişlerinden çıkarıldı.
 export const KALITE_TABAN = 3.84;
 export const KALITE_RATING = 0.20;
-// Çeşitlilik [hipotez, zayıf kanıt ~1,6σ]: Q3 sabitken kategori başına ortalama ürün sayısı → 2-2-2'ye göre hedef farkı. 1-1-1 (17 L, 4 döngü)
-// 5,41; 2-2-2 (17 J, 3 döngü) 5,53; 3-3-3 (17 D, 3 döngü) 6,35. 3'ten sonrası ölçülmedi: 3'te sabit tutulur (iyimser olmamak için).
-// 3-3-3 menüsünde pahalı ürünler (hamburger, lazanya, köfte) de var; maliyet ve çeşitlilik ayrılamadı.
-export const CESIT_RATING = [[1, -0.1], [2, 0], [3, 0.8]];
+// Çeşitlilik [hipotez, zayıf kanıt]: Q3 sabitken kategori başına ortalama ürün sayısı → 2-2-2'ye göre hedef farkı. Menüler her kategoride birim
+// fiyatı en düşük Q3 ürünlerinden iç içe kuruldu (17 Ekim borsa fiyatlarıyla: süt, kahve tozu, tereyağı · samosa, bal kabağı çorbası, salata ·
+// portakal suyu, elma suyu, zencefilli bira), maliyet neredeyse sabit. Boom döngülerinden ortalama hedef: 1-1-1 (17 L, 3 döngü) 5,15 ± 0,22;
+// 2-2-2 (17 J, 4 döngü) 5,39 ± 0,25; 3-3-3 (17 D, 4 döngü) 6,45 ± 0,18 → 2-2-2'ye göre −0,24 ve +1,06 (±0,3). 3'ten sonrası ölçülmedi,
+// 3'te sabit tutulur (iyimser olmamak için). 3-3-3'ün üçüncü ana yemeği doğrulanmadı.
+export const CESIT_RATING = [[1, -0.2], [2, 0], [3, 0.9]];
 export function cesitlilikRating(say) {
   const n = say ? (Number(say.salata) || 0) + (Number(say.ana) || 0) + (Number(say.icecek) || 0) : 0;
   if (!(n > 0)) return 0;
