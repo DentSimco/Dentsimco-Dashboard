@@ -1438,6 +1438,7 @@ export default {
   "Kategori başına ürün sayısı": "Produkty w kategorii",
   "Ortalama kalite": "Średnia jakość",
   "Tahmini rating": "Szacowana ocena",
+  "Ürün çeşitliliğinin rating etkisi (1 ürün −0,2 · 2 ürün 0 · 3 ürün +0,9 puan) tahminidir; oyunda ölçülmedi. Bu menüde etki: {0} puan.": "Wpływ różnorodności produktów na ocenę (1 produkt −0,2 · 2 produkty 0 · 3 produkty +0,9 punktu) jest szacunkiem; nie zmierzono go w grze. Wpływ w tym menu: {0} pkt.",
   "Restoran bölümü": "Sekcja restauracji",
   "Bu bölüm yalnızca davet edilenlere açıktır. Parolayı sizinle paylaşan kişiden isteyin.": "Ta sekcja jest dostępna tylko dla zaproszonych osób. Poproś o hasło osobę, która je z Tobą podzieliła.",
   "Parola": "Hasło",

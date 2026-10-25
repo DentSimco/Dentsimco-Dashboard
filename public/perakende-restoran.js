@@ -249,9 +249,12 @@ function oneriHtml(rs, env) {
   const tablo = `<table class="ro-tab"><thead><tr><th>Ürün</th><th>Kalite</th><th>Adet</th><th>Gider/gün</th></tr></thead>
       <tbody>${satirlar}<tr class="deg"><td>Toplam</td><td></td><td></td><td>${money(gun(s.maliyet))}</td></tr></tbody></table>`;
   const tahmini = Object.values(s.sayilar).some((n) => !R.CARPAN_DOGRULANDI[Math.min(n, 4)]);
+  const isaret = s.cesit > 0 ? '+' : s.cesit < 0 ? '−' : '';
+  const cesitNot = !luks && Object.values(s.sayilar).some((n) => n !== 2)
+    ? `<p class="ur-note">Ürün çeşitliliğinin rating etkisi (1 ürün −0,2 · 2 ürün 0 · 3 ürün +0,9 puan) tahminidir; oyunda ölçülmedi. Bu menüde etki: ${isaret}${num(Math.abs(s.cesit), 2)} puan.</p>` : '';
   return kabuk(`<p class="ur-note">${esc(hedefNot)}</p>${luksNot}${ozet}${tablo}
       <p class="ur-note">Fiyatlar anlık borsa fiyatıdır; borsa değişince öneri de değişir. Kontrat indirimi girilirse fiyatlara uygulanır ve borsa arzı sınır sayılmaz. Rating hesabı menü kalitesinin düz ortalamasını varsayar (oyunda henüz doğrulanmadı).</p>
-      ${tahmini ? '<p class="ur-note">Kategoride 2 dışında ürün sayısı var: o kategorinin çarpanı oyunda henüz doğrulanmadı.</p>' : ''}`);
+      ${cesitNot}${tahmini ? '<p class="ur-note">Kategoride 2 dışında ürün sayısı var: o kategorinin çarpanı oyunda henüz doğrulanmadı.</p>' : ''}`);
 }
 
 function kart(rs, it, row, marketOf, acik) {

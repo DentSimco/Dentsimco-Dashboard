@@ -1438,6 +1438,7 @@ export default {
   "Kategori başına ürün sayısı": "Products per category",
   "Ortalama kalite": "Average quality",
   "Tahmini rating": "Estimated rating",
+  "Ürün çeşitliliğinin rating etkisi (1 ürün −0,2 · 2 ürün 0 · 3 ürün +0,9 puan) tahminidir; oyunda ölçülmedi. Bu menüde etki: {0} puan.": "The rating effect of product variety (1 product −0.2 · 2 products 0 · 3 products +0.9 points) is an estimate; not measured in the game. Effect in this menu: {0} points.",
   "Restoran bölümü": "Restaurant section",
   "Bu bölüm yalnızca davet edilenlere açıktır. Parolayı sizinle paylaşan kişiden isteyin.": "This section is open to invited people only. Ask the person who shared the password with you.",
   "Parola": "Password",

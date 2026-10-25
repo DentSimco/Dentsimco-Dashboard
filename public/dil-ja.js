@@ -1438,6 +1438,7 @@ export default {
   "Kategori başına ürün sayısı": "カテゴリーごとの製品数",
   "Ortalama kalite": "平均品質",
   "Tahmini rating": "推定評価",
+  "Ürün çeşitliliğinin rating etkisi (1 ürün −0,2 · 2 ürün 0 · 3 ürün +0,9 puan) tahminidir; oyunda ölçülmedi. Bu menüde etki: {0} puan.": "製品の多様性が評価に与える影響（1製品 −0.2・2製品 0・3製品 +0.9 ポイント）は推定値で、ゲーム内では測定されていません。このメニューでの影響：{0}ポイント。",
   "Restoran bölümü": "レストランセクション",
   "Bu bölüm yalnızca davet edilenlere açıktır. Parolayı sizinle paylaşan kişiden isteyin.": "このセクションは招待された人のみ利用できます。パスワードを共有した人に尋ねてください。",
   "Parola": "パスワード",

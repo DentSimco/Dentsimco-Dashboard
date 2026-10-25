@@ -1438,6 +1438,7 @@ export default {
   "Kategori başına ürün sayısı": "Produktů v kategorii",
   "Ortalama kalite": "Průměrná kvalita",
   "Tahmini rating": "Odhadované hodnocení",
+  "Ürün çeşitliliğinin rating etkisi (1 ürün −0,2 · 2 ürün 0 · 3 ürün +0,9 puan) tahminidir; oyunda ölçülmedi. Bu menüde etki: {0} puan.": "Vliv rozmanitosti produktů na hodnocení (1 produkt −0,2 · 2 produkty 0 · 3 produkty +0,9 bodu) je odhad; ve hře neměřeno. Vliv v tomto menu: {0} bodu.",
   "Restoran bölümü": "Sekce restaurací",
   "Bu bölüm yalnızca davet edilenlere açıktır. Parolayı sizinle paylaşan kişiden isteyin.": "Tato sekce je jen pro pozvané osoby. Požádejte o heslo osobu, která ho s vámi sdílela.",
   "Parola": "Heslo",

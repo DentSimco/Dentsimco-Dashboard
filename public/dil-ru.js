@@ -1438,6 +1438,7 @@ export default {
   "Kategori başına ürün sayısı": "Продуктов в категории",
   "Ortalama kalite": "Среднее качество",
   "Tahmini rating": "Расчётный рейтинг",
+  "Ürün çeşitliliğinin rating etkisi (1 ürün −0,2 · 2 ürün 0 · 3 ürün +0,9 puan) tahminidir; oyunda ölçülmedi. Bu menüde etki: {0} puan.": "Влияние разнообразия продуктов на рейтинг (1 продукт −0,2 · 2 продукта 0 · 3 продукта +0,9 балла) — оценка; в игре не измерено. Влияние в этом меню: {0} балла.",
   "Restoran bölümü": "Раздел ресторанов",
   "Bu bölüm yalnızca davet edilenlere açıktır. Parolayı sizinle paylaşan kişiden isteyin.": "Этот раздел открыт только для приглашённых. Спросите пароль у того, кто им поделился.",
   "Parola": "Пароль",

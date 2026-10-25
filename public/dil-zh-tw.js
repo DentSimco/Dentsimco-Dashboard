@@ -1438,6 +1438,7 @@ export default {
   "Kategori başına ürün sayısı": "每個類別的產品數",
   "Ortalama kalite": "平均品質",
   "Tahmini rating": "估算評級",
+  "Ürün çeşitliliğinin rating etkisi (1 ürün −0,2 · 2 ürün 0 · 3 ürün +0,9 puan) tahminidir; oyunda ölçülmedi. Bu menüde etki: {0} puan.": "產品多樣性對評級的影響（1個產品 −0.2 · 2個產品 0 · 3個產品 +0.9 分）為估算值，遊戲中尚未測量。此菜單的影響：{0} 分。",
   "Restoran bölümü": "餐廳版塊",
   "Bu bölüm yalnızca davet edilenlere açıktır. Parolayı sizinle paylaşan kişiden isteyin.": "此版塊僅限受邀人員使用。請向與你分享密碼的人索取。",
   "Parola": "密碼",
