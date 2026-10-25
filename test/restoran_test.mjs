@@ -252,6 +252,21 @@ test('Menü önerisi: seviye yoksa öneri yok; güvenli hedef rating 5,2 + 0,3 �
   ok(o.ortalama >= o.hedefKalite && o.rating >= R.RATING.guvenli + R.RATING_PAYI - 1e-9, 'hedef ve tahmini rating güvenli');
   eq(o.sayilar, { salata: 2, ana: 2, icecek: 2 });
 });
+test('Otomatik: kategorilerin ürün sayısı birbirinden bağımsız seçilir (1-2-1, 2-1-1 …); hiçbiri 3\'ü aşmaz', () => {
+  // Kategori maliyeti: 1 ürün 2,1 × c₁; 2 ürün c₁ + c₂ (çarpan 1) → c₂ < 1,1 × c₁ ise 2 ürün, değilse 1 ürün kazanır.
+  // c = ⌈oran × çarpan × seviye⌉ × fiyat. Fiyatı oranla ters orantılı vermek maliyetleri eşitler.
+  const esit = (ids) => Object.fromEntries(ids.map((id) => [id, { 6: 1000 / R.URUNLER[id].oran }]));
+  // Salata barı: tek ucuz ürün (1) · ana yemek: maliyeti eşit iki ürün (2) · içecek: yalnız bir ürünün fiyatı var (1) → 1-2-1
+  const a = { 117: { 6: 0.01 }, 121: { 6: 1e6 }, 134: { 6: 1e6 }, ...esit([129, 131]), 124: { 6: 1 } };
+  eq(R.oneriMenu({ binalar: B10, fiyatOf: tabloFiyat(a), hedef: 'kalite', kalite: 6, urunSayisi: 0 }).sayilar, { salata: 1, ana: 2, icecek: 1 });
+  // Salata barı: maliyeti eşit iki ürün (2) · ana yemek: tek ucuz ürün (1) · içecek: tek ürün (1) → 2-1-1
+  const b = { ...esit([117, 121]), 131: { 6: 1 }, 129: { 6: 1e6 }, 124: { 6: 1 } };
+  eq(R.oneriMenu({ binalar: B10, fiyatOf: tabloFiyat(b), hedef: 'kalite', kalite: 6, urunSayisi: 0 }).sayilar, { salata: 2, ana: 1, icecek: 1 });
+  for (const f of [a, b]) {
+    const o = R.oneriMenu({ binalar: B10, fiyatOf: tabloFiyat(f), hedef: 'kalite', kalite: 6, urunSayisi: 0 });
+    ok(Object.values(o.sayilar).every((n) => n >= 1 && n <= R.OTOMATIK_EN_FAZLA), '1–3 arası');
+  }
+});
 test('Menü önerisi: hedef kalite; ürün sayısı verilmezse en ucuz sayı seçilir; ulaşılamayan ya da fiyatsız kategori bildirilir', () => {
   const f = sabitQ6(Object.keys(R.URUNLER).map(Number), 10);
   const sabit = R.oneriMenu({ binalar: B10, fiyatOf: tabloFiyat(f), hedef: 'kalite', kalite: 6, urunSayisi: 3 });
