@@ -16,6 +16,7 @@ import { guideCard } from './rehber.js';
 import { binaAdi } from './adlar.js';
 import { urunAdi } from './urun-adlari.js';
 import { esc } from './esc.js';
+import { kilitAcik, kilitDene, BEKLEME_MS } from './kilit.js';
 
 const STORE_KEY = (r) => `dentsimco.perakende.r${r}`;
 const TAB_KEY = 'dentsimco.perakende.tab';
@@ -280,6 +281,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   let tuketimUrun = null;
   let tuketimGun = null;
   const restoranAcik = new Set(); // ayrı menülü restoran kartlarında açık menüler
+  let kilitDurum = ''; // Restoran parola kapısı: '' | 'bakiliyor' | 'yanlis' | 'bekle'
   let kbOnay = false; // öteki bölümün binalarını kaldırma onayı bekleniyor
   let kbGeri = null; // kaldırılanı geri almak için eski durum
   let sheet = null; // { draft: { index, id, letter, product, quality, level, cost, price } }
@@ -473,7 +475,9 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       + (SUBS[group[0]] ? `<nav class="ur-subtabs" aria-label="${esc(group[1])} alt bölümleri">${SUBS[group[0]].map(([k, t]) =>
         `<a href="#perakende/${k}" ${k === tab ? 'aria-current="page"' : ''}>${t}</a>`).join('')}</nav>` : '');
     let body;
-    if (loadError) {
+    if (group[0] === 'restoran' && !kilitAcik()) {
+      body = kilitHtml();
+    } else if (loadError) {
       body = `<div class="ur-msg err" role="alert">Veriler okunamadı: ${esc(loadError)}</div><button type="button" class="ur-btn" data-act="retry">Tekrar dene</button>`;
     } else if (!data) {
       body = '<p class="ur-sub" aria-busy="true">Ürün ve bina verileri yükleniyor…</p>';
@@ -658,6 +662,30 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       ${kisayolSatiri('perakendePphpl', 'perakendeOzet')}`;
   }
 
+  // ---- RESTORAN PAROLA KAPISI ----
+  function kilitHtml() {
+    const msg = kilitDurum === 'yanlis' ? '<div class="ur-msg err" role="alert">Parola yanlış. Tekrar deneyin.</div>'
+      : kilitDurum === 'bekle' ? '<div class="ur-msg" role="status">Biraz bekleyip tekrar deneyin.</div>'
+        : kilitDurum === 'bakiliyor' ? '<div class="ur-msg" role="status">Kontrol ediliyor…</div>' : '';
+    return `<section class="ur-card" aria-labelledby="h-kilit"><div class="ur-head"><h2 id="h-kilit">Restoran bölümü</h2></div>
+      <p class="ur-sub">Bu bölüm yalnızca davet edilenlere açıktır. Parolayı sizinle paylaşan kişiden isteyin.</p>
+      <label class="ur-field"><span>Parola</span><div class="ur-input"><input type="password" inputmode="numeric" autocomplete="off" data-kilit="1"></div></label>
+      ${msg}<button type="button" class="ur-btn primary" data-act="kilitAc" ${kilitDurum === 'bakiliyor' || kilitDurum === 'bekle' ? 'disabled' : ''}>Giriş yap</button></section>`;
+  }
+  async function kilitGiris() {
+    const girilen = view.querySelector('input[data-kilit]')?.value;
+    if (kilitDurum === 'bakiliyor' || kilitDurum === 'bekle') return;
+    kilitDurum = 'bakiliyor';
+    render();
+    let dogru = false;
+    try { dogru = await kilitDene(girilen); } catch { dogru = false; }
+    if (destroyed) return;
+    if (dogru) { kilitDurum = ''; return render(); }
+    kilitDurum = 'bekle';
+    render();
+    setTimeout(() => { if (destroyed) return; kilitDurum = 'yanlis'; render(); }, BEKLEME_MS); // yanlış denemelerin art arda yapılmasını yavaşlatır
+  }
+
   // ---- RESTORAN ----
   function viewRestoran(c, ev) {
     if (!RESTORAN_BINALAR_ACIK) {
@@ -837,7 +865,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
         <div class="ur-card" style="padding:12px;gap:2px"><span class="ur-note" style="font-weight:600">Satılan</span><span style="font:600 22px var(--font-c)">${num(t.unitsDay * k)} adet</span><span class="ur-note">Kullanılan seviye ${num(t.levels)}</span></div></div>
       ${income}${costs}
       <section style="display:flex;flex-direction:column;gap:10px"><h2>Ürün bazında kârlılık</h2><p class="ur-sub">Her binadaki ürünün maliyeti, satış fiyatı ve maaş payı.</p>${products}</section>
-      ${RS.restoranOzetHtml(setup.restoran, ev.restoran, k, periodName)}
+      ${kilitAcik() ? RS.restoranOzetHtml(setup.restoran, ev.restoran, k, periodName) : ''}
       ${execs}
       <section class="ur-card" aria-labelledby="h-notes"><h2 id="h-notes">Hesap notları</h2>${notes.map((n) => `<p class="ur-note">• ${esc(n)}</p>`).join('')}</section>
       <div class="ur-row"><button type="button" class="ur-btn grow" data-act="copySummary">${icon('copy')}Özeti kopyala</button><a class="ur-btn grow" href="#perakende/binalar" style="text-decoration:none">Binalara dön</a></div>`;
@@ -988,6 +1016,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     const act = btn.dataset.act;
     if (act === 'sheetBackdrop' && (ev.target !== btn || !downOnBackdrop)) return;
     if (act === 'retry') return load();
+    if (act === 'kilitAc') return kilitGiris();
     if (!data) return;
     if (act === 'kbOnay') { kbOnay = true; return render(); }
     if (act === 'kbIptal') { kbOnay = false; return render(); }
@@ -1138,6 +1167,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     if (box && d.letter && d.product && data) box.innerHTML = resultBox(calc(context(), d), Math.max(0, d.level || 0));
   }
   function onKey(ev) {
+    if (ev.key === 'Enter' && ev.target.matches?.('input[data-kilit]')) { ev.preventDefault(); kilitGiris(); return; }
     if (ev.key === 'Escape' && sheet) { ev.preventDefault(); closeSheet(); }
     if (ev.key === 'Enter' && ev.target.matches?.('.ur input[data-f], .ur input[data-rf], .ur input[data-rm], .ur input[data-rk], .ur input[data-ro], .ur-panel input[data-d]')) ev.target.blur();
   }
