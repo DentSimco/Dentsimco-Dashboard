@@ -78,9 +78,12 @@ test('Lüks binanın saatlik maaşından eko seviye başına çevirme (×2)', ()
 });
 
 section('Kategori çarpanı');
-test('Kategoride 2 ürün: çarpan 1 (oyunda doğrulandı); 1 ürün 2,1 · 3 ürün 0,7 · 4+ 0,55 (makale)', () => {
+test('Kategoride 1 ürün: çarpan 2,1 · 2 ürün: 1 (oyunda doğrulandı); 3 ürün 0,7 · 4+ 0,55 (makale)', () => {
   eq([1, 2, 3, 4, 5, 6].map(R.kategoriCarpani), [2.1, 1, 0.7, 0.55, 0.55, 0.55]);
   eq(R.CARPAN_DOGRULANDI[2], true);
+  eq(R.CARPAN_DOGRULANDI[1], true);
+  const t = R.ihtiyac([117, 142, 125], 1, 'eko'); // Sky Eco Resto II, seviye 1: her kategoride tek ürün
+  eq([t[117], t[142], t[125]], [605, 20, 271]);
 });
 test('Makale örneği: süt + ekmek + tereyağı, seviye 2 → 404 süt, 35 ekmek, 130 tereyağı', () => {
   const a = R.ihtiyac([117, 121, 134, 142, 124], 2, 'eko');

@@ -31,7 +31,7 @@ export const KAPANIS_CARPANI = 0.875;
 
 // Kategori çarpanı: kategoride seçili ürün sayısı → ürün başına ihtiyaç çarpanı (4 ve üstü 0,55)
 export const KATEGORI_CARPANI = { 1: 2.1, 2: 1, 3: 0.7, 4: 0.55 };
-export const CARPAN_DOGRULANDI = { 1: false, 2: true, 3: false, 4: false };
+export const CARPAN_DOGRULANDI = { 1: true, 2: true, 3: false, 4: false }; // 1: Sky Eco Resto II, seviye 1, tek Süt 605 · Salata 20 · Elma 271 (22 Ekim)
 export const kategoriCarpani = (n) => (n >= 4 ? KATEGORI_CARPANI[4] : KATEGORI_CARPANI[n] ?? 0);
 
 export const KATEGORILER = [
