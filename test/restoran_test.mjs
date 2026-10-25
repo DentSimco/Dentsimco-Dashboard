@@ -207,6 +207,37 @@ test('Beklenen doluluk: rating değişmiyorsa ya da platoda kalıyorsa son ölç
 section('Bina bazlı değerlendirme (Perakende özetine giren)');
 const MENU25 = menuWith(C25, A25);
 const ctxR = (extra = {}) => ({ adminNet: 0.4447, averageSalary: 345, salaryModifier: 1.7, ratingBonus: 0.99, mod: 'simdi', menuOf: () => MENU25, ...extra });
+
+section('Ekonomi fazı ve doluluk');
+// 12 Ekim (resesyon): [rating, fiyat, doluluk %] — iki restoran grubunun döngüleri
+const RESESYON = [[4.01, 60, 46.18], [4.26, 60, 67.30], [3.95, 60, 40.64], [4.25, 60, 70.54], [4.61, 60, 100], [5.13, 60, 98.16], [5.09, 64, 100], [5.23, 62, 98.14],
+  [5.20, 63, 100], [5.41, 63, 100], [5.66, 62, 100], [6.04, 62, 93.87], [5.75, 62, 100], [5.84, 62, 100], [6.36, 61, 85.42], [5.86, 64, 100], [5.90, 64, 93],
+  [6.46, 63, 100], [6.55, 63, 98.05], [6.57, 62, 87.87], [6.46, 62, 75.57], [8.75, 61, 100], [8.17, 63, 94.98]];
+const mae = (faz) => RESESYON.reduce((t, [r, p, o]) => t + Math.abs(R.dolulukHaritasi(r, p, faz) - o), 0) / RESESYON.length;
+test('Faz: normal ve verisi olmayan boom haritayı kaydırmaz; resesyon rating +0,9 gibi davranır', () => {
+  near(R.dolulukHaritasi(5, 62), R.dolulukHaritasi(5, 62, 'normal'), 0);
+  near(R.dolulukHaritasi(5, 62, 'boom'), R.dolulukHaritasi(5, 62, 'normal'), 0);
+  near(R.dolulukHaritasi(5, 62, 'resesyon'), R.dolulukHaritasi(5.9, 62, 'normal'), 1e-9);
+  near(R.dolulukHaritasi(5, 62, 'bilinmeyen'), R.dolulukHaritasi(5, 62), 0);
+  ok(R.dolulukHaritasi(4.5, 60, 'resesyon') > R.dolulukHaritasi(4.5, 60, 'normal') + 15, 'düşük ratingte resesyon doluluğu belirgin yükseltir');
+  near(R.dolulukHaritasi(10, 60, 'resesyon'), R.dolulukHaritasi(10, 60, 'normal'), 1.0); // tavan değişmez
+  eq(R.FAZ_ADI, ['resesyon', 'normal', 'boom']);
+  eq(R.FAZ_OLCULDU.boom, false);
+});
+test('12 Ekim resesyon verisi (23 döngü): faz kaymasıyla hata normal haritanın yarısına iner', () => {
+  ok(mae('normal') > 14, `normal harita: ${mae('normal')}`);
+  ok(mae('resesyon') < 8.5, `resesyon: ${mae('resesyon')}`);
+});
+test('Faz bina değerlendirmesine ve yükseltme güvenliğine girer', () => {
+  const ctx = { adminNet: 0.4447, averageSalary: 345, salaryModifier: 1.7, ratingBonus: 0.99, mod: 'simdi', menuOf: () => MENU25 };
+  const it = { id: 'a', tip: 'eko', seviye: 10, fiyat: 62, rating: 5, hedef: 5 };
+  const n = R.restoranDegerlendir([it], { ...ctx, faz: 'normal' }).rows[0].beklenen.doluluk;
+  const r = R.restoranDegerlendir([it], { ...ctx, faz: 'resesyon' }).rows[0].beklenen.doluluk;
+  ok(r > n + 10, `resesyon ${r} normal ${n}`);
+  near(R.restoranDegerlendir([it], ctx).rows[0].beklenen.doluluk, n, 0); // faz verilmezse normal
+  eq(R.yukseltmeGuvenli(6.6, 60, 'normal'), false);
+  eq(R.yukseltmeGuvenli(6.6, 60, 'resesyon'), true);
+});
 test('Menüdeki bir ürünün fiyatı yoksa (borsada ilan yok) kâr hesaplanmaz: null, satır ve toplam eksik işaretlenir', () => {
   const eksikMenu = () => MENU25.map((m, i) => (i === 0 ? { ...m, birim: null } : m));
   const r = R.restoranDegerlendir([{ id: 'a', tip: 'eko', seviye: 25, fiyat: 62, rating: 6, doluluk: 100 }], ctxR({ menuOf: eksikMenu }));

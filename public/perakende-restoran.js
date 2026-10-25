@@ -105,6 +105,7 @@ export function temizleRestoran(raw) {
   return s;
 }
 export const ratingBonusu = R.ratingBonusu;
+export const FAZ_ADI = R.FAZ_ADI;
 export const restoranSeviye = (rs) => (rs?.items || []).reduce((t, it) => t + (it.seviye || 0), 0);
 
 // Eski bağımsız Restoran sayfasının kaydından menü ve fiyat bir kez aktarılır
@@ -139,7 +140,7 @@ export function degerlendirRestoran(rs, c, marketOf) {
     return Object.keys(R.URUNLER).filter((id) => m[id]?.secili).map((id) => ({ id: Number(id), birim: birimOf(rs, m[id], id, marketOf), kalite: m[id].kalite }));
   };
   return R.restoranDegerlendir(rs.items, { adminNet: c.adminNet, averageSalary: c.averageSalary, salaryModifier: bina.salaryModifier,
-    ratingBonus: c.ratingBonus, mod: rs.gorunum, menuOf });
+    ratingBonus: c.ratingBonus, mod: rs.gorunum, menuOf, faz: c.faz });
 }
 
 // ---------------------------------------------------------------------------------------------------------------

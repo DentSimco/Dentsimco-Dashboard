@@ -368,7 +368,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     } catch { /* yönetim gideri hesaplanamadı: 0 */ }
     const ctx = { saturation: data.saturation, weather: R.noWeather, bonusPct, adminNet: adm.net || 0, qualityWeight: data.qualityWeight,
       buildings: data.norm.buildings, averageSalary: data.norm.averageSalary,
-      ratingBonus: RS.ratingBonusu(baseSpeed, team.effective?.cmo) };
+      ratingBonus: RS.ratingBonusu(baseSpeed, team.effective?.cmo), faz: RS.FAZ_ADI[econ] }; // restoran doluluğu faza bağlı
     return { econ, phase, recPct, baseSpeed, teamPct, bonusPct, retailLevels, prodLevels: Y.otherAdminLevels(company, 'perakende').levels, adm, ctx };
   }
   const baseWage = (c, letter, product, quality) => R.storeWage({ modelW: R.getModel(c.econ, product, quality)?.W,
