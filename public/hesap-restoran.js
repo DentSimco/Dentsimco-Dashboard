@@ -15,7 +15,7 @@
 //   Yemek, müşteri gelsin gelmesin döngü başında harcanır (gider dolulukla değişmez) [oyun]
 //   Maaş = binanın saatlik maaşı × 12 [oyun]; "iyi personel" (goodService) açıkken maaş ×5 [oyun: istemci kodu, "Maaşlar (ekstra)" = 4 × maaş]
 //   Restoran kapanınca rating ×0,875 (kapanış başına bir kez; yükseltme de kapanıştır) [oyun]
-//   Rating her döngü hedefine doğru yaklaşır: r' = r + k·(T − r), k ≈ 0,4 (±0,23), gürültü ±0,21 [ölçüm: aynı menüde 4 restoran, 18 geçiş;
+//   Rating her döngü hedefine doğru yaklaşır: r' = r + k·(T − r), k ≈ 0,4 (±0,23), gürültü ±0,28 [ölçüm: aynı menüde 4 restoran, 18 geçiş;
 //     restoran içi 0,36–0,5, döngü başına ortak hedefle 0,37 ± 0,23; havuzlanmış regresyon 0,17 hedef sapmasıyla aşağı yanlı]
 //   Doluluk = oyunun herkese açık ısı haritası (rating × menü fiyatı, 150 bin döngü, eko + lüks karışık): rating 6 altında ve
 //     fiyat yükseldikçe düşer, $60–89'da rating 7+ için ~%96–97 tavan [oyun: Sim Companies Times, Eylül 2026]
@@ -74,7 +74,7 @@ export const URUNLER = {
 };
 
 // Rating modeli [ölçüm]: veri büyüdükçe bu sabitler güncellenir
-export const RATING = { k: 0.4, hedef: 6.0, gurultu: 0.21 };
+export const RATING = { k: 0.4, hedef: 6.0, gurultu: 0.28 }; // gurultu: tek restoran, tek döngü sapması (aynı menüde 4 restoran, 18 geçiş: 0,28)
 export const DOLULUK = { ust: 96.5, kabul: 90 }; // ust: tavan; kabul: "güvenli" sayılan en düşük doluluk (%)
 // Faz → haritadaki rating'e eklenen kayma. resesyon: 12 Ekim verisinden uydurma (0,75–1,0 aralığı aynı hatayı verir);
 // boom: 24 – 25 Ekim'deki 3 uçurum noktasından geçici uydurma (−0,3…−1,1), veri geldikçe güncellenir.
@@ -216,11 +216,26 @@ export const yukseltmeGuvenli = (r, fiyat = FIYAT_MIN, faz = 'normal') => dolulu
  *  2) önceki ve mevcut rating girildiyse: rating her döngü farkın k kadarını kapatır, hedef = önceki + (mevcut − önceki) ÷ k;
  *  3) varsayılan hedef (eko formülü), bonus farkıyla kaydırılır; lüks restoranda bu hedef LUKS_RATING_CARPANI ile çarpılır (10'a kırpılı).
  */
-// Eko hedef rating = KALITE_TABAN + KALITE_RATING × ortalama menü kalitesi + bonus.
-// Üç ölçümden: 11 Ekim menüsü (ort. Q7,5, bonus 0,99 → ~6,0), 20 Ekim (aynı menü, bonus 1,09 → ~6,4) ve seviye 2 testi
-// (ort. Q0,5, bonus 0,32 → ~3,6). Belirsizlik: taban ±1,2, eğim ±0,15.
-export const KALITE_TABAN = 3.33;
-export const KALITE_RATING = 0.23;
+// Eko hedef rating = KALITE_TABAN + KALITE_RATING × ortalama menü kalitesi + çeşitlilik + bonus.
+// Üç kalite düzeyinde, hepsi 2-2-2 menü ve stajyer personel [ölçüm]: Q̄ 3,0 (17 J, hedef 5,53 − bonus 1,10 = 4,43), Q̄ 7,0 (19–22 Ekim,
+// 73 geçiş, 6,29 − 1,10 = 5,19) ve Q̄ 7,83 (12 Ekim, 5,98 − 0,59 = 5,39): doğrusal uydurma eğim 0,196, taban 3,84 (nokta başına ±0,3;
+// eğim ±0,1). Hedefler k = 0,4 ile döngü geçişlerinden çıkarıldı.
+export const KALITE_TABAN = 3.84;
+export const KALITE_RATING = 0.20;
+// Çeşitlilik [hipotez, zayıf kanıt ~1,6σ]: Q3 sabitken kategori başına ortalama ürün sayısı → 2-2-2'ye göre hedef farkı. 1-1-1 (17 L, 4 döngü)
+// 5,41; 2-2-2 (17 J, 3 döngü) 5,53; 3-3-3 (17 D, 3 döngü) 6,35. 3'ten sonrası ölçülmedi: 3'te sabit tutulur (iyimser olmamak için).
+// 3-3-3 menüsünde pahalı ürünler (hamburger, lazanya, köfte) de var; maliyet ve çeşitlilik ayrılamadı.
+export const CESIT_RATING = [[1, -0.1], [2, 0], [3, 0.8]];
+export function cesitlilikRating(say) {
+  const n = say ? (Number(say.salata) || 0) + (Number(say.ana) || 0) + (Number(say.icecek) || 0) : 0;
+  if (!(n > 0)) return 0;
+  const c = clamp(n / 3, CESIT_RATING[0][0], CESIT_RATING.at(-1)[0]);
+  for (let i = 1; i < CESIT_RATING.length; i++) {
+    const [a, va] = CESIT_RATING[i - 1], [b, vb] = CESIT_RATING[i];
+    if (c <= b) return va + ((vb - va) * (c - a)) / (b - a);
+  }
+  return CESIT_RATING.at(-1)[1];
+}
 export const REFERANS_KALITE = 7.5; // menü kalitesi bilinmiyorsa
 // Seçili ürünlerin ortalama kalitesi; kalite bilgisi yoksa null
 export function menuKalitesi(menu) {
@@ -228,13 +243,13 @@ export function menuKalitesi(menu) {
   return q.length ? q.reduce((a, b) => a + b, 0) / q.length : null;
 }
 
-export function hedefRating(item, bonus = BONUS_REFERANS, kalite = REFERANS_KALITE) {
+export function hedefRating(item, bonus = BONUS_REFERANS, kalite = REFERANS_KALITE, cesit = 0) {
   const elle = pos(Number(item?.hedef));
   if (elle != null) return { deger: clamp(elle, 0, 10), kaynak: 'girilen' };
   const once = Number(item?.onceki);
   const simdi = Number(item?.rating);
   if (fin(once) && fin(simdi) && item?.onceki !== '' && item?.onceki != null) return { deger: clamp(once + (simdi - once) / RATING.k, 0, 10), kaynak: 'tahmin' };
-  const eko = KALITE_TABAN + KALITE_RATING * (fin(kalite) ? kalite : REFERANS_KALITE) + bonus;
+  const eko = KALITE_TABAN + KALITE_RATING * (fin(kalite) ? kalite : REFERANS_KALITE) + (fin(cesit) ? cesit : 0) + bonus;
   return tipOf(item?.tip) === 'luks'
     ? { deger: clamp(eko * LUKS_RATING_CARPANI, 0, 10), kaynak: 'varsayilan', luksCarpani: LUKS_RATING_CARPANI }
     : { deger: clamp(eko, 0, 10), kaynak: 'varsayilan' };
@@ -277,7 +292,8 @@ export function restoranDegerlendir(restoranlar, ctx) {
     const faz = ctx.faz in FAZ_RATING_KAYMA ? ctx.faz : 'normal';
     const g = donguGideri({ menu, seviye: L, tip, saatlikMaas: saatlik, fiyat, iyiHizmet });
     const kalite = menuKalitesi(menu);
-    const hedef = hedefRating(it, ctx.ratingBonus, kalite ?? REFERANS_KALITE);
+    const cesit = cesitlilikRating(kategoriSayilari(menu.map((m) => Number(m.id)).filter((id) => URUNLER[id])));
+    const hedef = hedefRating(it, ctx.ratingBonus, kalite ?? REFERANS_KALITE, cesit);
     const simdiR = fin(Number(it.rating)) && it.rating !== '' && it.rating != null ? Number(it.rating) : hedef.deger;
     const sonD = fin(Number(it.doluluk)) && it.doluluk !== '' && it.doluluk != null ? clamp(Number(it.doluluk), 0, 100) : null;
     // Borsada fiyatı olmayan ürün ya da eksik kategori varsa maliyet bilinmez: kâr hesaplanmaz (null), elle fiyat girilmesi istenir

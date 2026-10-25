@@ -143,26 +143,50 @@ test('Hedef: elle girilen önce; önceki+mevcut varsa tahmin; yoksa eko varsayı
   eq(R.hedefRating({ hedef: 7.2, tip: 'eko' }), { deger: 7.2, kaynak: 'girilen' });
   const t = R.hedefRating({ onceki: 5, rating: 5.16, tip: 'eko' });
   near(t.deger, 5.4, 1e-9); eq(t.kaynak, 'tahmin'); // hedef = önceki + (mevcut − önceki) ÷ k, k = 0,4
-  near(R.hedefRating({ tip: 'eko' }, 0.99).deger, 6.045, 1e-9); // kalite bilinmiyorsa referans menü (Q7,5)
-  near(R.hedefRating({ tip: 'eko' }, 1.19).deger, 6.245, 1e-9); // bonus 0,2 artınca hedef 0,2 artar
+  near(R.hedefRating({ tip: 'eko' }, 0.99).deger, 6.33, 1e-9); // kalite bilinmiyorsa referans menü (Q7,5): 3,84 + 0,20 × 7,5 + 0,99
+  near(R.hedefRating({ tip: 'eko' }, 1.19).deger, 6.53, 1e-9); // bonus 0,2 artınca hedef 0,2 artar
   // lüks: eko hedef × 1,25 [hipotez], 10'a kırpılı; mevcut rating hedefi etkilemez
-  eq(R.hedefRating({ tip: 'luks', rating: 8.75 }, 0.99), { deger: 6.045 * 1.25, kaynak: 'varsayilan', luksCarpani: 1.25 });
+  eq(R.hedefRating({ tip: 'luks', rating: 8.75 }, 0.99), { deger: 6.33 * 1.25, kaynak: 'varsayilan', luksCarpani: 1.25 });
   near(R.hedefRating({ tip: 'luks' }, 0.99).deger, R.hedefRating({ tip: 'eko' }, 0.99).deger * R.LUKS_RATING_CARPANI, 1e-9);
   eq(R.hedefRating({ tip: 'luks' }, 3).deger, 10);
   eq(R.hedefRating({ tip: 'luks', hedef: 7.2 }), { deger: 7.2, kaynak: 'girilen' }); // elle girilen çarpılmaz
   near(R.hedefRating({ tip: 'luks', onceki: 5, rating: 5.16 }).deger, 5.4, 1e-9); // ölçülmüş geçişten çıkan hedef çarpılmaz
 });
-test('Kalite: 11 Ekim menüsü (Q7, Q10, Q7, Q5, Q7, Q9) ortalama 7,5 ve bonus 0,99 ile hedef ~6; seviye 2 testi (Q0,5, bonus 0,32) ~3,8', () => {
+test('Kalite: 11 Ekim menüsü (Q7, Q10, Q7, Q5, Q7, Q9) ortalama 7,5 ve bonus 0,99 ile hedef ~6,3; üç kalite düzeyi: 4,43 / 5,19 / 5,39 (bonussuz)', () => {
   const ref = [[117, 7], [119, 10], [142, 7], [143, 5], [124, 7], [125, 9]].map(([id, kalite]) => ({ id, birim: 1, kalite }));
   near(R.menuKalitesi(ref), 7.5, 1e-9);
-  near(R.hedefRating({ tip: 'eko' }, 0.99, R.menuKalitesi(ref)).deger, 6.045, 1e-9);
-  near(R.hedefRating({ tip: 'eko' }, 0.32, 0).deger, 3.65, 1e-9); // Q0 menü: taban + bonus
-  near(R.hedefRating({ tip: 'eko' }, 0.32, 0.5).deger, 3.765, 1e-9); // seviye 2 testi hedefi; k = 0,4 ile ilk döngü artışı 0,4 × 3,765 ≈ 1,5, gözlenen 0,64 – 1,3: hedef düşük kalmış olabilir
+  near(R.hedefRating({ tip: 'eko' }, 0.99, R.menuKalitesi(ref)).deger, 6.33, 1e-9);
+  near(R.hedefRating({ tip: 'eko' }, 0.32, 0).deger, 4.16, 1e-9); // Q0 menü: taban + bonus
+  near(R.hedefRating({ tip: 'eko' }, 0.32, 0.5).deger, 4.26, 1e-9); // seviye 2 testi hedefi; k = 0,4 ile ilk döngü artışı ~1,5–1,6, gözlenen 0,64 – 1,3
+  // üç kalite düzeyi (2-2-2, stajyer): bonus çıkarılmış hedefler 4,43 (Q3, bonus 1,10), 5,19 (Q7, 1,10), 5,39 (Q7,83, 0,59) ±0,05
+  near(R.hedefRating({ tip: 'eko' }, 1.10, 3).deger - 1.10, 4.43, 0.05);
+  near(R.hedefRating({ tip: 'eko' }, 1.10, 7).deger - 1.10, 5.19, 0.05);
+  near(R.hedefRating({ tip: 'eko' }, 0.59, 7.83).deger - 0.59, 5.39, 0.05);
   near(R.hedefRating({ tip: 'eko' }, 0.99, 10).deger, R.KALITE_TABAN + 10 * R.KALITE_RATING + 0.99, 1e-9);
   eq(R.menuKalitesi([{ id: 117, birim: 1 }]), null);
   const r = R.restoranDegerlendir([{ id: 'a', tip: 'eko', seviye: 2, fiyat: 62, rating: 0 }],
     { adminNet: 0, ratingBonus: 0.32, mod: 'beklenen', menuOf: () => ref.map((m) => ({ ...m, kalite: 0 })) });
-  near(r.rows[0].hedef.deger, 3.65, 1e-9); eq(r.rows[0].kalite, 0);
+  near(r.rows[0].hedef.deger, 4.16, 1e-9); eq(r.rows[0].kalite, 0);
+});
+test('Çeşitlilik: 2-2-2 sıfır; 1-1-1 −0,1; 3-3-3 +0,8; 3 üstü sabit; ara değerler doğrusal; hedefe eklenir [hipotez]', () => {
+  const say = (s, a, i) => ({ salata: s, ana: a, icecek: i });
+  near(R.cesitlilikRating(say(2, 2, 2)), 0, 1e-9);
+  near(R.cesitlilikRating(say(1, 1, 1)), -0.1, 1e-9);
+  near(R.cesitlilikRating(say(3, 3, 3)), 0.8, 1e-9);
+  near(R.cesitlilikRating(say(6, 6, 4)), 0.8, 1e-9); // 3'ten sonrası ölçülmedi, sabit
+  near(R.cesitlilikRating(say(1, 1, 2)), -0.1 + 0.1 / 3, 1e-9); // ortalama 4/3 ürün
+  near(R.cesitlilikRating(say(3, 3, 2)), 0.8 * (8 / 3 - 2), 1e-9); // 3-3-2: ortalama 8/3
+  near(R.cesitlilikRating(null), 0, 0);
+  near(R.hedefRating({ tip: 'eko' }, 1.10, 3, 0.8).deger - R.hedefRating({ tip: 'eko' }, 1.10, 3, 0).deger, 0.8, 1e-9);
+  // bina değerlendirmesi menüdeki ürün sayısından çeşitliliği alır
+  const m3 = [[117, 3], [119, 3], [134, 3], [142, 3], [143, 3], [129, 3], [124, 3], [125, 3], [126, 3]].map(([id, kalite]) => ({ id, birim: 1, kalite }));
+  const m2 = m3.filter((m) => [117, 119, 142, 143, 124, 125].includes(m.id));
+  const dg = (menu) => R.restoranDegerlendir([{ id: 'a', tip: 'eko', seviye: 17, fiyat: 60, rating: 5 }], { adminNet: 0.45, ratingBonus: 1.10, mod: 'beklenen', menuOf: () => menu }).rows[0].hedef.deger;
+  near(dg(m3) - dg(m2), 0.8, 1e-9);
+});
+test('Gürültü ve k: aynı menüde 4 restoran, 18 geçiş: k 0,37 ± 0,23, tek döngü sapması 0,28', () => {
+  eq(R.RATING.gurultu, 0.28);
+  eq(R.RATING.k, 0.4);
 });
 test('Rating hedefe yaklaşır: k = 0,4; aynı menüde 19 K, 19 C, 19 B ve 25 H geçişlerinin ortak ölçümü', () => {
   eq(R.RATING.k, 0.4);
