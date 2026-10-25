@@ -21,7 +21,9 @@
 //     Kendi ölçümümüz (47 döngü, $60–67, rating 5,4–7,2) bununla çelişmiyor; tek döngüde ±%5 gürültü var [ölçüm]
 //   Ekonomi fazı doluluğu kaydırır: harita ağırlıkla normal fazdır (kapsadığı dönemin %88'i normal). Resesyonda ucuz restoranların
 //     doluluğu yükselir; model bunu rating'e +0,9 ekleyerek yansıtır (12 Ekim resesyon verisi, 23 döngü: hata 15,1 → 7,7 puan) [ölçüm].
-//     Boom için veri yok, kayma 0; gazete haritalarında boom pahalı/yüksek rating'li (lüks) restoranlara yarıyor [hipotez]
+//     Boom'da (23 Ekim 18:00 TR'den beri) uçurum bölgesi sağa kayıyor: rating 4,9–5,6'da $60'ta doluluk %47–52 (normal harita %62–85);
+//     rating ≥ 5,8'de fark yok (%91–95). Model rating'e −0,8 ekler (5 döngü; gereken kayma −0,3…−1,1 arası, geçici) [ölçüm, kaba].
+//     Gazete haritalarında boom pahalı/yüksek rating'li (lüks) restoranlara yarıyor [hipotez]
 //   Lüks restoran rating'in etkisini toplamaz, çarpar [oyun: rehber ve değişiklik günlüğü]; çarpan ×1,25 [hipotez: gazete rating dağılımı
 //     eko/lüks oranı ×1,2–1,5 (üst sınır, lüks sahipleri seçilmiş) ve tecrübeli oyuncu "%25"; kesin ölçüm için eko→lüks dönüşüm deneyi gerekir]
 //   Menü fiyatı en az $60, en çok $350 [oyun rehberi]
@@ -73,9 +75,10 @@ export const URUNLER = {
 // Rating modeli [ölçüm]: veri büyüdükçe bu sabitler güncellenir
 export const RATING = { k: 0.177, hedef: 6.0, gurultu: 0.21 };
 export const DOLULUK = { ust: 96.5, kabul: 90 }; // ust: tavan; kabul: "güvenli" sayılan en düşük doluluk (%)
-// Faz → haritadaki rating'e eklenen kayma. resesyon: 12 Ekim verisinden uydurma (0,75–1,0 aralığı aynı hatayı verir); boom: veri yok.
-export const FAZ_RATING_KAYMA = { resesyon: 0.9, normal: 0, boom: 0 };
-export const FAZ_OLCULDU = { resesyon: true, normal: true, boom: false };
+// Faz → haritadaki rating'e eklenen kayma. resesyon: 12 Ekim verisinden uydurma (0,75–1,0 aralığı aynı hatayı verir);
+// boom: 24 – 25 Ekim'deki 3 uçurum noktasından geçici uydurma (−0,3…−1,1), veri geldikçe güncellenir.
+export const FAZ_RATING_KAYMA = { resesyon: 0.9, normal: 0, boom: -0.8 };
+export const FAZ_OLCULDU = { resesyon: true, normal: true, boom: true }; // boom: kaba, 5 döngü
 export const FAZ_ADI = ['resesyon', 'normal', 'boom']; // Perakende ekonomi fazı dizini (0 Durgunluk, 1 Normal, 2 Büyüme) → ad
 export const DOLULUK_ESIK = 6; // rating bu değerin üstündeyse $60–89'da doluluk plato (~%94–97), kendi son ölçümüne güvenilir
 
