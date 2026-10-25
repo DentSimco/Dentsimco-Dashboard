@@ -10,8 +10,8 @@
 //   Döngü 12 saat. Koltuk: eko 1.000, lüks 500 × seviye [oyun]
 //   Gelir = menü fiyatı × koltuk × doluluk [oyun]
 //   Yemek ihtiyacı (ürün başına, döngü başına) = yukarı yuvarla(oran × kategori çarpanı × seviye × lüks çarpanı) [oyun]
-//     oran: Times "Ratio" tablosu (seviye başına temel ihtiyaç); kategori çarpanı kategoride seçili ürün sayısına göre:
-//     2 ürün 1 [oyun]; 1 ürün 2,1, 3 ürün 0,7, 4 ve üstü 0,55 [hipotez]; lüks yemek ve maaş ×0,5 [oyun]
+//     oran ve kategori çarpanı oyunun kendi kodundaki tablolardan (restoran ekranı, Ekim 2026) [oyun]; çarpan kategoride seçili
+//     ürün sayısına göre: 1 ürün 2,1 · 2 ürün 1 · 3 ürün 0,9 · 4 ve üstü 0,8; lüks yemek ve maaş ×0,5 [oyun]
 //   Yemek, müşteri gelsin gelmesin döngü başında harcanır (gider dolulukla değişmez) [oyun]
 //   Maaş = binanın saatlik maaşı × 12 [oyun]
 //   Restoran kapanınca rating ×0,875 (kapanış başına bir kez; yükseltme de kapanıştır) [oyun]
@@ -31,9 +31,9 @@ export const LUKS_YEMEK = 0.5;
 export const LUKS_MAAS = 0.5;
 export const KAPANIS_CARPANI = 0.875;
 
-// Kategori çarpanı: kategoride seçili ürün sayısı → ürün başına ihtiyaç çarpanı (4 ve üstü 0,55)
-export const KATEGORI_CARPANI = { 1: 2.1, 2: 1, 3: 0.7, 4: 0.55 };
-export const CARPAN_DOGRULANDI = { 1: false, 2: true, 3: false, 4: false };
+// Kategori çarpanı: kategoride seçili ürün sayısı → ürün başına ihtiyaç çarpanı. Oyun kodundaki dizi [2.1, 1, .9, .8, .8, .8] (1–6 ürün);
+// eski makaledeki 0,7 ve 0,55 artık geçerli değil. Restoran ekranlarındaki adetlerle de doğrulandı (sınamalar).
+export const KATEGORI_CARPANI = { 1: 2.1, 2: 1, 3: 0.9, 4: 0.8 };
 export const kategoriCarpani = (n) => (n >= 4 ? KATEGORI_CARPANI[4] : KATEGORI_CARPANI[n] ?? 0);
 
 export const KATEGORILER = [
@@ -42,8 +42,7 @@ export const KATEGORILER = [
   { key: 'icecek', ad: 'İçecek', urunler: [132, 124, 125, 126] },
 ];
 
-// oran = seviye başına döngü başına temel ihtiyaç (Times, 6 Ocak 2022). Bal kabağı tabloda yok: oyunun ürün katsayısı
-// (consumption 0,22372) × ana yemeklerin ortak katsayısı (44,45) ile tahmin edildi.
+// oran = seviye başına döngü başına temel ihtiyaç; oyun kodundaki tabloyla aynı (bal kabağı 9,2: eski tahmin 9,944 yanlıştı).
 export const URUNLER = {
   117: { ad: 'Süt', kat: 'salata', oran: 288 },
   121: { ad: 'Ekmek', kat: 'salata', oran: 24.89 },
@@ -56,7 +55,7 @@ export const URUNLER = {
   131: { ad: 'Köfte', kat: 'ana', oran: 3.505 },
   142: { ad: 'Salata', kat: 'ana', oran: 9.402 },
   143: { ad: 'Samosa', kat: 'ana', oran: 10.093 },
-  149: { ad: 'Bal kabağı çorbası', kat: 'ana', oran: 9.944, tahmini: true },
+  149: { ad: 'Bal kabağı çorbası', kat: 'ana', oran: 9.2 },
   132: { ad: 'Kokteyl', kat: 'icecek', oran: 4.04 },
   124: { ad: 'Portakal suyu', kat: 'icecek', oran: 144 },
   125: { ad: 'Elma suyu', kat: 'icecek', oran: 128.955 },

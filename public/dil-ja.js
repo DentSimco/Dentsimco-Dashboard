@@ -1461,7 +1461,6 @@ export default {
   "Hedef rating {0} (güvenli {1} + pay {2}) için ortalama en az {3} gerekir. Rating formülü tahminidir; uyguladıktan sonra ratingi birkaç döngü izleyin.": "目標評価{0}（安全{1}＋余裕{2}）には平均{3}以上が必要です。評価の式は推定です。適用後は数サイクル評価を確認してください。",
   "Ortalama menü kalitesi en az {0}.": "メニューの平均品質{0}以上。",
   "Gider/gün": "費用/日",
-  "Kategoride 2 dışında ürün sayısı var: o kategorinin çarpanı oyunda henüz doğrulanmadı.": "製品数が2以外のカテゴリーがあります：そのカテゴリーの倍率はゲーム内でまだ確認されていません。",
   "Restoranlarda satılan ürünlerin günlük tüketimi her gün bir kez toplanır; ilk kayıt geldiğinde burada görünür.": 'レストランで販売する製品の 1 日の消費量は 1 日 1 回集計され、最初の記録が届くとここに表示されます。',
   "Son veri {0}": '最新データ {0}',
   "Son gün toplam": '最終日の合計',

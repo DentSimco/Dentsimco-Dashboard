@@ -1461,7 +1461,6 @@ export default {
   "Hedef rating {0} (güvenli {1} + pay {2}) için ortalama en az {3} gerekir. Rating formülü tahminidir; uyguladıktan sonra ratingi birkaç döngü izleyin.": "Cílové hodnocení {0} (bezpečné {1} + rezerva {2}) vyžaduje průměr alespoň {3}. Vzorec hodnocení je odhad; po použití sledujte hodnocení několik cyklů.",
   "Ortalama menü kalitesi en az {0}.": "Průměrná kvalita menu alespoň {0}.",
   "Gider/gün": "Náklady/den",
-  "Kategoride 2 dışında ürün sayısı var: o kategorinin çarpanı oyunda henüz doğrulanmadı.": "Kategorie má jiný počet produktů než 2: násobitel této kategorie zatím není ve hře ověřen.",
   "Restoranlarda satılan ürünlerin günlük tüketimi her gün bir kez toplanır; ilk kayıt geldiğinde burada görünür.": 'Denní spotřeba produktů prodávaných v restauracích se sbírá jednou denně; zobrazí se zde, jakmile dorazí první záznam.',
   "Son veri {0}": 'Poslední data {0}',
   "Son gün toplam": 'Součet za poslední den',

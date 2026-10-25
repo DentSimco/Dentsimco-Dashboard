@@ -1461,7 +1461,6 @@ export default {
   "Hedef rating {0} (güvenli {1} + pay {2}) için ortalama en az {3} gerekir. Rating formülü tahminidir; uyguladıktan sonra ratingi birkaç döngü izleyin.": "Docelowa ocena {0} (bezpieczna {1} + zapas {2}) wymaga średniej co najmniej {3}. Wzór oceny jest szacunkiem; po zastosowaniu obserwuj ocenę przez kilka cykli.",
   "Ortalama menü kalitesi en az {0}.": "Średnia jakość menu co najmniej {0}.",
   "Gider/gün": "Koszt/dzień",
-  "Kategoride 2 dışında ürün sayısı var: o kategorinin çarpanı oyunda henüz doğrulanmadı.": "Kategoria ma liczbę produktów inną niż 2: mnożnik tej kategorii nie został jeszcze zweryfikowany w grze.",
   "Restoranlarda satılan ürünlerin günlük tüketimi her gün bir kez toplanır; ilk kayıt geldiğinde burada görünür.": 'Dzienne zużycie produktów sprzedawanych w restauracjach zbierane jest raz dziennie; pojawi się tutaj, gdy dotrze pierwszy wpis.',
   "Son veri {0}": 'Ostatnie dane {0}',
   "Son gün toplam": 'Suma z ostatniego dnia',

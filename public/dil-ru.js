@@ -1461,7 +1461,6 @@ export default {
   "Hedef rating {0} (güvenli {1} + pay {2}) için ortalama en az {3} gerekir. Rating formülü tahminidir; uyguladıktan sonra ratingi birkaç döngü izleyin.": "Для целевого рейтинга {0} (безопасный {1} + запас {2}) нужно среднее не ниже {3}. Формула рейтинга приблизительная; после применения следите за рейтингом несколько циклов.",
   "Ortalama menü kalitesi en az {0}.": "Среднее качество меню не ниже {0}.",
   "Gider/gün": "Расход/день",
-  "Kategoride 2 dışında ürün sayısı var: o kategorinin çarpanı oyunda henüz doğrulanmadı.": "В категории число продуктов не равно 2: множитель этой категории в игре ещё не проверен.",
   "Restoranlarda satılan ürünlerin günlük tüketimi her gün bir kez toplanır; ilk kayıt geldiğinde burada görünür.": 'Дневное потребление продуктов, продаваемых в ресторанах, собирается раз в день; оно появится здесь, когда придёт первая запись.',
   "Son veri {0}": 'Последние данные {0}',
   "Son gün toplam": 'Итого за последний день',

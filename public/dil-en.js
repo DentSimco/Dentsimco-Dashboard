@@ -1461,7 +1461,6 @@ export default {
   "Hedef rating {0} (güvenli {1} + pay {2}) için ortalama en az {3} gerekir. Rating formülü tahminidir; uyguladıktan sonra ratingi birkaç döngü izleyin.": "Target rating {0} (safe {1} + margin {2}) needs an average of at least {3}. The rating formula is an estimate; watch the rating for a few cycles after applying.",
   "Ortalama menü kalitesi en az {0}.": "Average menu quality at least {0}.",
   "Gider/gün": "Cost/day",
-  "Kategoride 2 dışında ürün sayısı var: o kategorinin çarpanı oyunda henüz doğrulanmadı.": "A category has a product count other than 2: that category's multiplier has not yet been verified in the game.",
   "Restoranlarda satılan ürünlerin günlük tüketimi her gün bir kez toplanır; ilk kayıt geldiğinde burada görünür.": "Daily consumption of products sold in restaurants is collected once a day; it appears here once the first record arrives.",
   "Son veri {0}": "Last data {0}",
   "Son gün toplam": "Last day total",

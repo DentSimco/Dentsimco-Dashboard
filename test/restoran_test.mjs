@@ -78,16 +78,29 @@ test('Lüks binanın saatlik maaşından eko seviye başına çevirme (×2)', ()
 });
 
 section('Kategori çarpanı');
-test('Kategoride 2 ürün: çarpan 1 (oyunda doğrulandı); 1 ürün 2,1 · 3 ürün 0,7 · 4+ 0,55 (makale)', () => {
-  eq([1, 2, 3, 4, 5, 6].map(R.kategoriCarpani), [2.1, 1, 0.7, 0.55, 0.55, 0.55]);
-  eq(R.CARPAN_DOGRULANDI[2], true);
+test('Kategori çarpanı oyun kodundaki diziyle aynı: [2,1; 1; 0,9; 0,8; 0,8; 0,8] (1–6 ürün)', () => {
+  eq([1, 2, 3, 4, 5, 6].map(R.kategoriCarpani), [2.1, 1, 0.9, 0.8, 0.8, 0.8]);
 });
-test('Makale örneği: süt + ekmek + tereyağı, seviye 2 → 404 süt, 35 ekmek, 130 tereyağı', () => {
-  const a = R.ihtiyac([117, 121, 134, 142, 124], 2, 'eko');
-  eq([a[117], a[121], a[134]], [404, 35, 130]);
+// Oyun ekranları (Ekim 2026, "Gerekli Miktar" sütunu), eko
+test('Ekran: Sky Eco Resto III, seviye 1, 3-3-3 menü (çarpan 0,9) → 260 süt, 87 kahve, 16 turta, 9 salata, 10 samosa, 9 bal kabağı, 130 portakal, 117 elma, 103 zencefil', () => {
+  const ids = [117, 119, 123, 142, 143, 149, 124, 125, 126];
+  const a = R.ihtiyac(ids, 1, 'eko');
+  eq(ids.map((id) => a[id]), [260, 87, 16, 9, 10, 9, 130, 117, 103]);
 });
-test('Oyun rehberi kartı: tek başına salata, seviye 1 → 20', () => {
-  eq(R.ihtiyac([117, 142, 124], 1, 'eko')[142], 20);
+test('Ekran: Sky Eco Resto, seviye 2, 2-2-2 menü → 576 süt, 50 ekmek, 19 salata, 19 bal kabağı (oran 9,2), 288 portakal, 258 elma', () => {
+  const ids = [117, 121, 142, 149, 124, 125];
+  const a = R.ihtiyac(ids, 2, 'eko');
+  eq(ids.map((id) => a[id]), [576, 50, 19, 19, 288, 258]);
+});
+test('Ekran: 1-1-1 menüler (çarpan 2,1) → seviye 1: 605 süt, 20 salata, 8 köfte, 8 hamburger, 271 elma; seviye 2: 1.210 süt, 43 samosa, 542 elma', () => {
+  eq(R.ihtiyac([117, 142, 125], 1, 'eko'), { 117: 605, 142: 20, 125: 271 });
+  eq(R.ihtiyac([117, 131, 125], 1, 'eko')[131], 8);
+  eq(R.ihtiyac([117, 129, 125], 1, 'eko')[129], 8);
+  eq(R.ihtiyac([117, 143, 125], 2, 'eko'), { 117: 1210, 143: 43, 125: 542 });
+});
+test('Ekran: kapanış ratingi ×0,875 yapar (Sky Eco Resto: 0,84 → 0,74 · 1,71 → 1,49)', () => {
+  near(R.kapanisSonrasi(0.84), 0.74, 0.01);
+  near(R.kapanisSonrasi(1.71), 1.49, 0.01);
 });
 test('Eksik kategori bildirilir (oyun her kategoriden en az bir ürün ister)', () => {
   eq(R.menuEksikleri([117, 124]), ['Ana yemek']);
