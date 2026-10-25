@@ -15,7 +15,8 @@
 //   Yemek, müşteri gelsin gelmesin döngü başında harcanır (gider dolulukla değişmez) [oyun]
 //   Maaş = binanın saatlik maaşı × 12 [oyun]; "iyi personel" (goodService) açıkken maaş ×5 [oyun: istemci kodu, "Maaşlar (ekstra)" = 4 × maaş]
 //   Restoran kapanınca rating ×0,875 (kapanış başına bir kez; yükseltme de kapanıştır) [oyun]
-//   Rating her döngü hedefine doğru yaklaşır: r' = r + k·(T − r), k ≈ 0,177, gürültü ±0,21 [ölçüm]
+//   Rating her döngü hedefine doğru yaklaşır: r' = r + k·(T − r), k ≈ 0,4 (±0,23), gürültü ±0,21 [ölçüm: aynı menüde 4 restoran, 18 geçiş;
+//     restoran içi 0,36–0,5, döngü başına ortak hedefle 0,37 ± 0,23; havuzlanmış regresyon 0,17 hedef sapmasıyla aşağı yanlı]
 //   Doluluk = oyunun herkese açık ısı haritası (rating × menü fiyatı, 150 bin döngü, eko + lüks karışık): rating 6 altında ve
 //     fiyat yükseldikçe düşer, $60–89'da rating 7+ için ~%96–97 tavan [oyun: Sim Companies Times, Eylül 2026]
 //     Kendi ölçümümüz (47 döngü, $60–67, rating 5,4–7,2) bununla çelişmiyor; tek döngüde ±%5 gürültü var [ölçüm]
@@ -73,7 +74,7 @@ export const URUNLER = {
 };
 
 // Rating modeli [ölçüm]: veri büyüdükçe bu sabitler güncellenir
-export const RATING = { k: 0.177, hedef: 6.0, gurultu: 0.21 };
+export const RATING = { k: 0.4, hedef: 6.0, gurultu: 0.21 };
 export const DOLULUK = { ust: 96.5, kabul: 90 }; // ust: tavan; kabul: "güvenli" sayılan en düşük doluluk (%)
 // Faz → haritadaki rating'e eklenen kayma. resesyon: 12 Ekim verisinden uydurma (0,75–1,0 aralığı aynı hatayı verir);
 // boom: 24 – 25 Ekim'deki 3 uçurum noktasından geçici uydurma (−0,3…−1,1), veri geldikçe güncellenir.

@@ -141,8 +141,8 @@ test('Yükseltme güvenliği (ısı haritası): $60\'ta kapanış sonrası dolul
 section('Hedef rating ve beklenen doluluk');
 test('Hedef: elle girilen önce; önceki+mevcut varsa tahmin; yoksa eko varsayılan (bonusla kayar), lüks eko hedefin ×1,25 katı', () => {
   eq(R.hedefRating({ hedef: 7.2, tip: 'eko' }), { deger: 7.2, kaynak: 'girilen' });
-  const t = R.hedefRating({ onceki: 5, rating: 5.177, tip: 'eko' });
-  near(t.deger, 6, 1e-9); eq(t.kaynak, 'tahmin');
+  const t = R.hedefRating({ onceki: 5, rating: 5.16, tip: 'eko' });
+  near(t.deger, 5.4, 1e-9); eq(t.kaynak, 'tahmin'); // hedef = önceki + (mevcut − önceki) ÷ k, k = 0,4
   near(R.hedefRating({ tip: 'eko' }, 0.99).deger, 6.045, 1e-9); // kalite bilinmiyorsa referans menü (Q7,5)
   near(R.hedefRating({ tip: 'eko' }, 1.19).deger, 6.245, 1e-9); // bonus 0,2 artınca hedef 0,2 artar
   // lüks: eko hedef × 1,25 [hipotez], 10'a kırpılı; mevcut rating hedefi etkilemez
@@ -150,23 +150,27 @@ test('Hedef: elle girilen önce; önceki+mevcut varsa tahmin; yoksa eko varsayı
   near(R.hedefRating({ tip: 'luks' }, 0.99).deger, R.hedefRating({ tip: 'eko' }, 0.99).deger * R.LUKS_RATING_CARPANI, 1e-9);
   eq(R.hedefRating({ tip: 'luks' }, 3).deger, 10);
   eq(R.hedefRating({ tip: 'luks', hedef: 7.2 }), { deger: 7.2, kaynak: 'girilen' }); // elle girilen çarpılmaz
-  near(R.hedefRating({ tip: 'luks', onceki: 5, rating: 5.177 }).deger, 6, 1e-9); // ölçülmüş geçişten çıkan hedef çarpılmaz
+  near(R.hedefRating({ tip: 'luks', onceki: 5, rating: 5.16 }).deger, 5.4, 1e-9); // ölçülmüş geçişten çıkan hedef çarpılmaz
 });
 test('Kalite: 11 Ekim menüsü (Q7, Q10, Q7, Q5, Q7, Q9) ortalama 7,5 ve bonus 0,99 ile hedef ~6; seviye 2 testi (Q0,5, bonus 0,32) ~3,8', () => {
   const ref = [[117, 7], [119, 10], [142, 7], [143, 5], [124, 7], [125, 9]].map(([id, kalite]) => ({ id, birim: 1, kalite }));
   near(R.menuKalitesi(ref), 7.5, 1e-9);
   near(R.hedefRating({ tip: 'eko' }, 0.99, R.menuKalitesi(ref)).deger, 6.045, 1e-9);
   near(R.hedefRating({ tip: 'eko' }, 0.32, 0).deger, 3.65, 1e-9); // Q0 menü: taban + bonus
-  near(R.hedefRating({ tip: 'eko' }, 0.32, 0.5).deger, 3.765, 1e-9); // seviye 2 testi: ilk döngü artışı 0,177 × 3,765 ≈ 0,67 (gözlenen 0,64)
+  near(R.hedefRating({ tip: 'eko' }, 0.32, 0.5).deger, 3.765, 1e-9); // seviye 2 testi hedefi; k = 0,4 ile ilk döngü artışı 0,4 × 3,765 ≈ 1,5, gözlenen 0,64 – 1,3: hedef düşük kalmış olabilir
   near(R.hedefRating({ tip: 'eko' }, 0.99, 10).deger, R.KALITE_TABAN + 10 * R.KALITE_RATING + 0.99, 1e-9);
   eq(R.menuKalitesi([{ id: 117, birim: 1 }]), null);
   const r = R.restoranDegerlendir([{ id: 'a', tip: 'eko', seviye: 2, fiyat: 62, rating: 0 }],
     { adminNet: 0, ratingBonus: 0.32, mod: 'beklenen', menuOf: () => ref.map((m) => ({ ...m, kalite: 0 })) });
   near(r.rows[0].hedef.deger, 3.65, 1e-9); eq(r.rows[0].kalite, 0);
 });
-test('Rating hedefe yaklaşır: 3,95 → 4,25 → 4,61 → 4,86 ölçümüyle aynı hedefi (~6) verir', () => {
+test('Rating hedefe yaklaşır: k = 0,4; aynı menüde 19 K, 19 C, 19 B ve 25 H geçişlerinin ortak ölçümü', () => {
+  eq(R.RATING.k, 0.4);
   near(R.hedefRating({ onceki: 3.95, rating: 4.25 }).deger, 3.95 + 0.30 / R.RATING.k, 1e-9);
-  near(R.hedefRating({ onceki: 3.95, rating: 4.25 }).deger, 5.64, 0.01);
+  near(R.hedefRating({ onceki: 3.95, rating: 4.25 }).deger, 4.70, 1e-9);
+  // 19 K: kapanıştan sonra 5,395 → 6,060 (+0,665); k = 0,4 ile hedef 7,06, k = 0,177 ile 9,15 olurdu (denge ~6,5)
+  near(R.hedefRating({ onceki: 5.395, rating: 6.060 }).deger, 7.0575, 1e-9);
+  ok(R.hedefRating({ onceki: 5.395, rating: 6.060 }).deger < 10, 'hedef 10 tavanını aşmamalı');
 });
 test('Doluluk ısı haritası: dilim ortalarında tablo değeri (Sim Companies Times, Eylül 2026)', () => {
   near(R.dolulukHaritasi(5.5, 75), 83.4, 1e-9); // rating 5, $60 dilimi
