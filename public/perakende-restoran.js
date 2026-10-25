@@ -57,6 +57,8 @@ export const RESTORAN_CSS = `
 .rs-mini { display: flex; flex-direction: column; gap: 4px; } .rs-mini > span { color: var(--muted); font-size: 12px; font-weight: 600; }
 .ur .rs-mini select, .ur .rs-mini input[type="text"] { height: 40px; font-size: 15px; width: 96px; }
 .rs-opts .ur-seg button { min-height: 40px; padding: 0 10px; font-size: 14px; }
+.rs-oner { font: 700 16px var(--font-c); color: var(--accent); min-height: 40px; display: flex; align-items: center; }
+.rs-oneri b { font-size: 16px; }
 .rs-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 @media (min-width: 740px) { .rs-form { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (max-width: 520px) {
@@ -70,20 +72,22 @@ export const RESTORAN_CSS = `
 // ---------------------------------------------------------------------------------------------------------------
 // Kayıt: setup.restoran
 // { menuMode: 'ortak' | 'ayri', menu: {id: {secili, kalite, kaynak, manuel}}, kontratPct, gorunum: 'beklenen' | 'simdi',
-//   items: [{ id, ad, tip, seviye, fiyat, rating, doluluk, menu? }] }
+//   hedefQ: menü önerisinin hedef ortalama kalitesi (null: yok); menu[id].kilit: kalitesi sabit (elde stok) ürün;
+//   items: [{ id, ad, tip, seviye, fiyat, rating, doluluk, menu?, hedefQ? }] }
 // ---------------------------------------------------------------------------------------------------------------
 export function varsayilanMenu() {
-  return Object.fromEntries(Object.keys(R.URUNLER).map((id) => [id, { secili: id in VARSAYILAN_MENU, kalite: VARSAYILAN_MENU[id] ?? 0, kaynak: 'borsa', manuel: null }]));
+  return Object.fromEntries(Object.keys(R.URUNLER).map((id) => [id, { secili: id in VARSAYILAN_MENU, kalite: VARSAYILAN_MENU[id] ?? 0, kaynak: 'borsa', manuel: null, kilit: false }]));
 }
-export const varsayilanRestoran = () => ({ menuMode: 'ortak', menu: varsayilanMenu(), kontratPct: 0, gorunum: 'beklenen', items: [] });
+export const varsayilanRestoran = () => ({ menuMode: 'ortak', menu: varsayilanMenu(), hedefQ: null, kontratPct: 0, gorunum: 'beklenen', items: [] });
 
+const hedefTemiz = (x) => (x === '' || x == null || !fin(Number(x)) ? null : Math.min(R.KALITE_MAKS, Math.max(0, Number(x))));
 function temizMenu(raw) {
   const out = varsayilanMenu();
   for (const id of Object.keys(out)) {
     const x = raw?.[id];
     if (!x || typeof x !== 'object') continue;
     out[id] = { secili: !!x.secili, kalite: Math.min(12, Math.max(0, Math.floor(Number(x.kalite) || 0))),
-      kaynak: KAYNAKLAR.some(([k]) => k === x.kaynak) ? x.kaynak : 'borsa', manuel: posOr(x.manuel) };
+      kaynak: KAYNAKLAR.some(([k]) => k === x.kaynak) ? x.kaynak : 'borsa', manuel: posOr(x.manuel), kilit: x.kilit === true };
   }
   return out;
 }
@@ -92,6 +96,7 @@ export function temizleRestoran(raw) {
   if (!raw || typeof raw !== 'object') return s;
   s.menuMode = raw.menuMode === 'ayri' ? 'ayri' : 'ortak';
   s.menu = temizMenu(raw.menu);
+  s.hedefQ = hedefTemiz(raw.hedefQ);
   s.kontratPct = Math.min(50, Math.max(0, Number(raw.kontratPct) || 0));
   s.gorunum = raw.gorunum === 'simdi' ? 'simdi' : 'beklenen';
   for (const it of Array.isArray(raw.items) ? raw.items : []) {
@@ -99,7 +104,7 @@ export function temizleRestoran(raw) {
     s.items.push({ id: String(it.id || uid()), ad: String(it.ad || '').slice(0, 40), tip: tipOf(it.tip), iyiHizmet: it.iyiHizmet === true,
       seviye: Math.max(0, Math.floor(Number(it.seviye) || 0)), fiyat: posOr(it.fiyat), rating: numOr(it.rating),
       doluluk: numOr(it.doluluk) == null ? null : Math.min(100, Math.max(0, Number(it.doluluk))),
-      menu: it.menu ? temizMenu(it.menu) : null });
+      menu: it.menu ? temizMenu(it.menu) : null, hedefQ: hedefTemiz(it.hedefQ) });
   }
   if (s.menuMode === 'ayri') for (const it of s.items) it.menu ||= kopyaMenu(s.menu);
   return s;
@@ -117,7 +122,7 @@ export function eskiKayittanAktar(realm) {
     rs.menu = temizMenu(raw.menu);
     rs.kontratPct = Math.min(50, Math.max(0, Number(raw.kontratPct) || 0));
     if (Number(raw.seviye) > 0) rs.items.push({ id: uid(), ad: '', tip: tipOf(raw.tip), seviye: Math.floor(Number(raw.seviye)), fiyat: posOr(raw.fiyat),
-      rating: null, doluluk: numOr(raw.doluluk), menu: null });
+      rating: null, doluluk: numOr(raw.doluluk), menu: null, hedefQ: null });
     return rs;
   } catch { return null; }
 }
@@ -143,13 +148,72 @@ export function degerlendirRestoran(rs, c, marketOf) {
     ratingBonus: c.ratingBonus, mod: rs.gorunum, menuOf, faz: c.faz });
 }
 
+
+// ---------------------------------------------------------------------------------------------------------------
+// Menü önerisi: kalitesi sabit (elde stok) ürünler dışındakilerin kalitesini, ortalama kalite hedefte kalacak biçimde en ucuza seçer
+// ---------------------------------------------------------------------------------------------------------------
+const hedefOf = (rs, scope) => (scope === 'o' ? rs.hedefQ : rs.items.find((x) => x.id === scope)?.hedefQ) ?? null;
+function hedefYaz(rs, scope, v) {
+  if (scope === 'o') rs.hedefQ = v;
+  else { const it = rs.items.find((x) => x.id === scope); if (it) it.hedefQ = v; }
+}
+const seciliIds = (m) => Object.keys(R.URUNLER).filter((id) => m?.[id]?.secili).map(Number);
+const ortKalite = (m) => R.menuKalitesi(seciliIds(m).map((id) => ({ kalite: m[id].kalite })));
+function oneriHesapla(rs, scope, m, marketOf) {
+  const hedef = hedefOf(rs, scope);
+  const ids = seciliIds(m);
+  if (hedef == null || !ids.length) return null;
+  const binalar = (scope === 'o' ? rs.items : rs.items.filter((x) => x.id === scope)).filter((b) => b.seviye > 0);
+  const adetler = (binalar.length ? binalar : [{ seviye: 1, tip: 'eko' }]).map((b) => R.ihtiyac(ids, b.seviye, b.tip));
+  const urunler = ids.map((id) => {
+    const x = m[id];
+    const elle = x.kaynak === 'manuel'; // elle girilen maliyet tek bir kaliteye aittir: o ürün sabit sayılır
+    return { id, elle, kilit: !!x.kilit || elle, kalite: x.kalite, adet: adetler.reduce((t, a) => t + (a[id] || 0), 0),
+      birim: (q) => (elle ? x.manuel : birimOf(rs, { ...x, kalite: q }, id, marketOf)) };
+  });
+  let simdi = 0, simdiEksik = false;
+  for (const u of urunler) { const b = u.birim(u.kalite); if (fin(b)) simdi += u.adet * b; else simdiEksik = true; }
+  return { hedef, urunler, sonuc: R.menuOner({ urunler, hedef }), simdi, simdiEksik, tip: binalar[0]?.tip || 'eko', ort: ortKalite(m) };
+}
+function oneriHtml(rs, scope, m, o) {
+  if (!seciliIds(m).length) return '';
+  const hedef = hedefOf(rs, scope);
+  const key = `data-s="${esc(scope)}"`;
+  const alan = field('Hedef ortalama kalite', `data-rm="${esc(scope)}|-|hedef"`, inputVal(hedef == null ? '' : Math.round(hedef * 100) / 100), { placeholder: num(ortKalite(m), 2) });
+  const dugme = `<button type="button" class="ur-btn" data-act="rm.hedefAl" ${key}>Şimdiki ortalamayı hedef yap</button>`;
+  let govde = '';
+  const s = o?.sonuc;
+  if (!o) govde = '<p class="ur-note">Bir ürünün kalitesini sabitleyip değiştirmeden önce hedef ortalamayı kaydedin; diğer ürünler hedefi koruyacak biçimde en ucuza ayarlanır.</p>';
+  else if (!s) govde = '';
+  else if (!s.ok && s.neden === 'fiyat') govde = `<div class="ur-msg err">Borsada fiyatı olmayan ürün var: ${esc(s.eksik.map(ad).join(', '))}. Fiyatı olmayan ürünü «Elle» maliyetle sabitleyin.</div>`;
+  else if (!s.ok) govde = `<div class="ur-msg err">Hedef, bu ürünlerle ulaşılabilecek en yüksek ortalamanın (Q${num(s.enYuksek, 2)}) üstünde.</div>`;
+  else {
+    const fark = R.kaliteRatingFarki(s.ortalama, o.hedef, o.tip);
+    const satirlar = o.urunler.map((u) => {
+      const q = s.kaliteler[u.id];
+      return kv(ad(u.id), u.kilit ? `Q${u.kalite} · sabit` : q === u.kalite ? `Q${q}` : `Q${u.kalite} → Q${q}`, !u.kilit && q !== u.kalite ? 'c-up' : '');
+    }).join('');
+    const degisti = o.urunler.some((u) => !u.kilit && s.kaliteler[u.id] !== u.kalite);
+    const tasarruf = o.simdi - s.maliyet;
+    govde = `${satirlar}<div class="ur-hr"></div>
+      ${kv('Ortalama kalite', `Q${num(s.ortalama, 2)}`)}${kv('Rating farkı', `${fark > 0.004 ? '+' : ''}${num(fark, 2)}`, cls(fark))}
+      ${o.simdiEksik || s.maliyetEksik ? '' : `${kv('Malzeme/gün · şimdi', money(o.simdi * R.GUN_DONGU))}${kv('Malzeme/gün · öneri', money(s.maliyet * R.GUN_DONGU))}${kv('Tasarruf/gün', money(tasarruf * R.GUN_DONGU), cls(tasarruf), true)}`}
+      ${degisti ? `<button type="button" class="ur-btn primary" data-act="rm.uygula" ${key} style="width:100%">Öneriyi uygula</button>` : '<p class="ur-note">Menü zaten en uygun.</p>'}`;
+  }
+  return `<div class="ur-box rs-oneri" style="gap:8px"><div class="ur-row" style="justify-content:space-between"><b>Menü önerisi</b>${hedef != null ? chip(`Hedef Q${num(hedef, 2)}`, 'muted') : ''}</div>
+      <div class="ur-grid2">${alan}<div class="rs-mini" style="justify-content:flex-end">${dugme}</div></div>${govde}
+      <p class="ur-note">Kalite sabit işaretli ürünün kalitesi ve maliyeti değişmez; maliyeti «Elle» ile girebilirsiniz. Öneri, diğer ürünlerin kalitesini ortalama hedefin altına düşmeden malzeme maliyeti en düşük olacak şekilde seçer. Rating menünün ortalama kalitesine bağlıdır: 1 Q ≈ ${num(R.KALITE_RATING, 1)} rating.</p></div>`;
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 // Çizim
 // ---------------------------------------------------------------------------------------------------------------
 function menuHtml(rs, scope, m, g, marketOf, katAcik) {
   const ids = Object.keys(R.URUNLER).filter((id) => m[id]?.secili).map(Number);
   const say = R.kategoriSayilari(ids);
-  return R.KATEGORILER.map((kat) => {
+  const o = oneriHesapla(rs, scope, m, marketOf);
+  const onerKalite = o?.sonuc?.ok ? o.sonuc.kaliteler : null;
+  return oneriHtml(rs, scope, m, o) + R.KATEGORILER.map((kat) => {
     const n = say[kat.key];
     const durum = !n ? '<span class="c-down">en az bir ürün seçin</span>' : `${n} ürün`;
     const satirlar = kat.urunler.map((id) => {
@@ -160,6 +224,8 @@ function menuHtml(rs, scope, m, g, marketOf, katAcik) {
       const key = `data-s="${esc(scope)}" data-p="${id}"`;
       const opts = x.secili ? `<div class="rs-opts">
           <label class="rs-mini"><span>Kalite</span><select data-rm="${esc(scope)}|${id}|kalite">${Array.from({ length: 13 }, (_, q) => `<option value="${q}" ${q === x.kalite ? 'selected' : ''}>Q${q}</option>`).join('')}</select></label>
+          <div class="rs-mini"><span>Kalite</span>${seg('rm.kilit', [['1', 'Kalite sabit']], x.kilit ? '1' : '', `${ad(id)} kalitesi sabit`, ` ${key}`)}</div>
+          ${onerKalite && !x.kilit && x.kaynak !== 'manuel' && onerKalite[id] !== x.kalite ? `<div class="rs-mini"><span>Öneri</span><b class="rs-oner">Q${onerKalite[id]}</b></div>` : ''}
           <div class="rs-mini"><span>Maliyet</span>${seg('rm.kaynak', KAYNAKLAR, x.kaynak, `${ad(id)} maliyet kaynağı`, ` ${key}`)}</div>
           ${x.kaynak === 'manuel' ? `<label class="rs-mini"><span>Sourcing Cost $</span><input type="text" inputmode="decimal" autocomplete="off" data-rm="${esc(scope)}|${id}|satir" value="${esc(inputVal(x.manuel != null && k?.adet > 0 ? Math.round(x.manuel * k.adet * 100) / 100 : ''))}" placeholder="${esc(k?.adet > 0 ? 'oyundaki satır' : 'önce seviye girin')}"></label>` : ''}
         </div>` : '';
@@ -247,7 +313,7 @@ export function restoranTikla(rs, btn, env) {
   const act = btn.dataset.act || '';
   const scopeMenu = () => (btn.dataset.s === 'o' ? rs.menu : rs.items.find((x) => x.id === btn.dataset.s)?.menu);
   if (act === 'rk.ekle') {
-    const it = { id: uid(), ad: '', tip: 'eko', iyiHizmet: false, seviye: 0, fiyat: null, rating: null, doluluk: null, menu: kopyaMenu(rs.menu) };
+    const it = { id: uid(), ad: '', tip: 'eko', iyiHizmet: false, seviye: 0, fiyat: null, rating: null, doluluk: null, menu: kopyaMenu(rs.menu), hedefQ: rs.hedefQ };
     rs.items.push(it);
     env.acik.add(it.id);
   } else if (act === 'rk.mod') {
@@ -259,7 +325,16 @@ export function restoranTikla(rs, btn, env) {
   else if (act === 'rf.sil') { rs.items = rs.items.filter((x) => x.id !== btn.dataset.i); }
   else if (act === 'rf.menu') { const id = btn.dataset.i; if (env.acik.has(id)) env.acik.delete(id); else env.acik.add(id); }
   else if (act === 'rm.urun') { const m = scopeMenu(); const x = m?.[btn.dataset.p]; if (x) x.secili = !x.secili; }
-  else if (act === 'rm.kaynak') {
+  else if (act === 'rm.kilit') {
+    const m = scopeMenu(); const x = m?.[btn.dataset.p];
+    if (!x) return true;
+    x.kilit = !x.kilit;
+    if (x.kilit && hedefOf(rs, btn.dataset.s) == null) hedefYaz(rs, btn.dataset.s, ortKalite(m)); // hedef, değişiklikten önceki ortalama
+  } else if (act === 'rm.hedefAl') { const m = scopeMenu(); const o = m ? ortKalite(m) : null; if (o != null) hedefYaz(rs, btn.dataset.s, o); }
+  else if (act === 'rm.uygula') {
+    const m = scopeMenu(); const o = m ? oneriHesapla(rs, btn.dataset.s, m, env.marketOf) : null;
+    if (o?.sonuc?.ok) for (const u of o.urunler) if (!u.kilit) m[u.id].kalite = o.sonuc.kaliteler[u.id];
+  } else if (act === 'rm.kaynak') {
     const m = scopeMenu(); const x = m?.[btn.dataset.p];
     if (!x) return true;
     x.kaynak = KAYNAKLAR.some(([k]) => k === btn.dataset.v) ? btn.dataset.v : 'borsa';
@@ -288,6 +363,7 @@ export function restoranDegis(rs, t, env) {
   const rm = t.dataset.rm;
   if (rm) {
     const [scope, pid, f] = rm.split('|');
+    if (f === 'hedef') { const n = parseNum(t.value); hedefYaz(rs, scope, n == null ? null : Math.min(R.KALITE_MAKS, Math.max(0, n))); return true; }
     const m = scope === 'o' ? rs.menu : rs.items.find((x) => x.id === scope)?.menu;
     const x = m?.[pid];
     if (!x) return false;

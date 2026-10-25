@@ -245,6 +245,61 @@ export function menuKalitesi(menu) {
   return q.length ? q.reduce((a, b) => a + b, 0) / q.length : null;
 }
 
+export const KALITE_MAKS = 12;
+/**
+ * Menü önerisi: rating menünün ORTALAMA kalitesine bağlı (ürünlerin dağılımına değil), bu yüzden kilitsiz ürünlerin kalitesi,
+ * ortalama hedefin altına düşmeden malzeme maliyeti en düşük olacak şekilde seçilir. Kilitli ürünün kalitesi sabittir
+ * (elinde stoğu olan ürün). Toplam kalite tam sayıdır; hedefe en yakın tam sayı toplam hedefin ALTINA düşmez.
+ * @param {{ urunler: Array<{ id: number, kilit?: boolean, kalite: number, adet: number, birim: (q: number) => number|null }>, hedef: number }} o
+ *   adet: bu ürünün döngü başına toplam adedi; birim(q): q kalitesinde birim maliyet (null: fiyat yok)
+ * @returns {null | { ok: true, kaliteler: Record<number, number>, ortalama: number, maliyet: number, maliyetEksik: boolean }
+ *   | { ok: false, neden: 'fiyat'|'hedef', eksik?: number[], enYuksek?: number }}
+ */
+export function menuOner({ urunler = [], hedef } = {}) {
+  const n = urunler.length;
+  if (!n || !fin(hedef)) return null;
+  const gerek = Math.ceil(hedef * n - 1e-9);
+  let sabitToplam = 0, sabitMaliyet = 0, maliyetEksik = false;
+  const serbest = [], fiyatsiz = [];
+  for (const u of urunler) {
+    if (u.kilit) {
+      sabitToplam += u.kalite;
+      const b = u.birim(u.kalite);
+      if (fin(b)) sabitMaliyet += u.adet * b; else maliyetEksik = true;
+    } else {
+      const secenek = [];
+      for (let q = 0; q <= KALITE_MAKS; q++) { const b = u.birim(q); if (fin(b)) secenek.push([q, u.adet * b]); }
+      if (!secenek.length) fiyatsiz.push(u.id);
+      serbest.push({ id: u.id, secenek });
+    }
+  }
+  if (fiyatsiz.length) return { ok: false, neden: 'fiyat', eksik: fiyatsiz };
+  let dp = new Map([[0, { c: 0, yol: [] }]]);
+  for (const { id, secenek } of serbest) {
+    const nx = new Map();
+    for (const [toplam, st] of dp) {
+      for (const [q, c] of secenek) {
+        const k = toplam + q, maliyet = st.c + c, onceki = nx.get(k);
+        if (!onceki || maliyet < onceki.c - 1e-9) nx.set(k, { c: maliyet, yol: st.yol.concat([[id, q]]) });
+      }
+    }
+    dp = nx;
+  }
+  let en = null, enYuksek = -1;
+  for (const [toplam, st] of dp) {
+    enYuksek = Math.max(enYuksek, toplam);
+    if (toplam + sabitToplam < gerek) continue;
+    if (!en || st.c < en.st.c - 1e-9 || (Math.abs(st.c - en.st.c) <= 1e-9 && toplam < en.toplam)) en = { toplam, st };
+  }
+  if (!en) return { ok: false, neden: 'hedef', enYuksek: (enYuksek + sabitToplam) / n };
+  const kaliteler = Object.fromEntries(en.st.yol);
+  for (const u of urunler) if (u.kilit) kaliteler[u.id] = u.kalite;
+  return { ok: true, kaliteler, ortalama: (en.toplam + sabitToplam) / n, maliyet: en.st.c + sabitMaliyet, maliyetEksik };
+}
+// Ortalama kalite farkının rating karşılığı (lüks restoranda çarpan da uygulanır)
+export const kaliteRatingFarki = (ortalama, hedef, tip = 'eko') =>
+  (ortalama - hedef) * KALITE_RATING * (tipOf(tip) === 'luks' ? LUKS_RATING_CARPANI : 1);
+
 export function hedefRating(item, bonus = BONUS_REFERANS, kalite = REFERANS_KALITE, cesit = 0) {
   const elle = pos(Number(item?.hedef));
   if (elle != null) return { deger: clamp(elle, 0, 10), kaynak: 'girilen' };

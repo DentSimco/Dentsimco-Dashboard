@@ -3,6 +3,7 @@
 // (R1, Ekim 2026). Birim maliyet = ekrandaki "Sourcing Cost" ÷ "Amount Needed"; maaş = bina ekranındaki Wages/h.
 
 import * as R from '../public/hesap-restoran.js';
+import * as RS from '../public/perakende-restoran.js';
 
 const results = [];
 let group = '';
@@ -322,6 +323,111 @@ test('Her restoran kendi menüsünü kullanabilir (menuOf bina başına)', () =>
   const r = R.restoranDegerlendir(rs, ctxR({ menuOf: (it) => (it.id === 'b' ? kucuk : MENU25) }));
   ok(r.rows[0].costDay !== r.rows[1].costDay, 'farklı menü farklı maliyet');
 });
+
+section('Menü önerisi');
+{
+  // sentetik borsa: kalite başına doğrusal artan fiyat, ürüne göre farklı eğim
+  const fiyat = { 117: (q) => 8 + 0.5 * q, 119: (q) => 30 + 3 * q, 143: (q) => 700 + 40 * q };
+  const urun = (id, kilit, kalite, adet, birim = fiyat[id]) => ({ id, kilit, kalite, adet, birim });
+  const brute = (urunler, hedef) => { // her kalite birleşimini dener
+    const serbest = urunler.filter((u) => !u.kilit);
+    const sabit = urunler.filter((u) => u.kilit).reduce((t, u) => t + u.kalite, 0);
+    let en = null;
+    const dene = (i, toplam, maliyet) => {
+      if (i === serbest.length) { if ((toplam + sabit) / urunler.length >= hedef - 1e-9 && (en == null || maliyet < en)) en = maliyet; return; }
+      for (let q = 0; q <= 12; q++) dene(i + 1, toplam + q, maliyet + serbest[i].adet * serbest[i].birim(q));
+    };
+    dene(0, 0, 0);
+    return en == null ? null : en + urunler.filter((u) => u.kilit).reduce((t, u) => t + u.adet * u.birim(u.kalite), 0);
+  };
+  test('Kilitli ürünün kalitesi değişmez; ortalama hedefin altına düşmez; maliyet kaba kuvvetle bulunan en ucuz', () => {
+    const u = [urun(117, true, 3, 1000), urun(119, false, 7, 500), urun(143, false, 7, 100)];
+    const r = R.menuOner({ urunler: u, hedef: 7 });
+    ok(r.ok);
+    eq(r.kaliteler[117], 3);
+    ok(r.ortalama >= 7 - 1e-9, 'ortalama');
+    near(r.maliyet, brute(u, 7), 1e-6, 'en düşük maliyet');
+    // ucuz eğimli ürüne (kahve tozu) yüksek kalite, pahalı eğimliye (samosa) düşük kalite verilir
+    ok(r.kaliteler[119] > r.kaliteler[143], 'ucuz eğimli ürün daha yüksek kalite alır');
+  });
+  test('Kaba kuvvet karşılaştırması: farklı hedef ve kilit düzenlerinde aynı en düşük maliyet', () => {
+    for (const hedef of [2, 4.5, 6, 7.34, 9, 11]) {
+      for (const kilit of [[], [117], [143], [117, 119]]) {
+        const u = [117, 119, 143].map((id) => urun(id, kilit.includes(id), 5, 100 + id % 7 * 50));
+        const r = R.menuOner({ urunler: u, hedef });
+        const b = brute(u, hedef);
+        if (b == null) eq(r.ok, false, `hedef ${hedef} kilit ${kilit}`);
+        else { ok(r.ok, `hedef ${hedef} kilit ${kilit}`); near(r.maliyet, b, 1e-6, `hedef ${hedef} kilit ${kilit}`); ok(r.ortalama >= hedef - 1e-9); }
+      }
+    }
+  });
+  test('Ulaşılamaz hedef: en yüksek ortalama bildirilir; fiyatı olmayan ürün: neden fiyat', () => {
+    const u = [urun(117, true, 3, 1000), urun(119, false, 7, 500)];
+    const r = R.menuOner({ urunler: u, hedef: 11 });
+    eq(r.ok, false); eq(r.neden, 'hedef'); near(r.enYuksek, 7.5, 1e-9);
+    const f = R.menuOner({ urunler: [urun(117, false, 3, 10, () => null)], hedef: 5 });
+    eq(f.ok, false); eq(f.neden, 'fiyat'); eq(f.eksik, [117]);
+    eq(R.menuOner({ urunler: [], hedef: 5 }), null);
+  });
+  test('Tamsayı toplam: hedefin altına düşmez (6,67 hedefi 6 üründe toplam 41 ister), tam hedef tam toplam', () => {
+    const u = [117, 119, 143, 117, 119, 143].map((id, i) => urun(i, false, 5, 100, fiyat[id]));
+    near(R.menuOner({ urunler: u, hedef: 6 + 2 / 3 }).ortalama * 6, 40, 1e-9);
+    near(R.menuOner({ urunler: u, hedef: 6.67 }).ortalama * 6, 41, 1e-9);
+  });
+  test('Rating farkı: 1 Q = 0,20; lüks ×1,25', () => {
+    near(R.kaliteRatingFarki(8, 7), 0.2, 1e-9);
+    near(R.kaliteRatingFarki(8, 7, 'luks'), 0.25, 1e-9);
+  });
+
+  // arayüz akışı: kilitle → kaliteyi değiştir → öneriyi uygula
+  const marketOf = (id, q) => (id in { 117: 1, 119: 1, 142: 1, 143: 1, 124: 1, 125: 1 } ? (RS_FIYAT[id] ?? 10) + q * (RS_EGIM[id] ?? 1) : null);
+  const RS_FIYAT = { 117: 8, 119: 30, 142: 700, 143: 700, 124: 30, 125: 30 };
+  const RS_EGIM = { 117: 0.5, 119: 3, 142: 40, 143: 40, 124: 2, 125: 2 };
+  const kur = () => {
+    const rs = RS.varsayilanRestoran();
+    rs.items.push({ id: 'a', ad: '', tip: 'eko', iyiHizmet: false, seviye: 17, fiyat: 60, rating: null, doluluk: null, menu: null, hedefQ: null });
+    return rs;
+  };
+  const tikla = (rs, act, p, v) => RS.restoranTikla(rs, { dataset: { act, s: 'o', p: String(p), v } }, { marketOf, acik: new Set() });
+  test('Kilit işaretlenirken hedef, değişiklikten önceki ortalamayla kaydedilir; kaydet/temizle kilidi ve hedefi korur', () => {
+    const rs = kur();
+    const once = R.menuKalitesi(Object.values(rs.menu).filter((x) => x.secili));
+    tikla(rs, 'rm.kilit', 117);
+    eq(rs.menu[117].kilit, true);
+    near(rs.hedefQ, once, 1e-9);
+    const t = RS.temizleRestoran(JSON.parse(JSON.stringify(rs)));
+    eq(t.menu[117].kilit, true); near(t.hedefQ, once, 1e-9);
+    eq(RS.temizleRestoran({ hedefQ: 'abc' }).hedefQ, null);
+    eq(RS.temizleRestoran({ hedefQ: 99 }).hedefQ, 12);
+  });
+  test('Kilitli ürünün kalitesi düşürülünce öneri diğerlerini yükseltir; uygula sonrası ortalama hedefe eşit ya da üstünde', () => {
+    const rs = kur();
+    const once = R.menuKalitesi(Object.values(rs.menu).filter((x) => x.secili));
+    tikla(rs, 'rm.kilit', 117);
+    rs.menu[117].kalite = 1; // elde yalnız Q1 süt var
+    const html = RS.restoranBinalarHtml(rs, RS.degerlendirRestoran(rs, { adminNet: 0.45, ratingBonus: 1.1, buildings: {}, faz: 'normal' }, marketOf), marketOf, new Set());
+    ok(html.includes('Menü önerisi') && html.includes('Öneriyi uygula'), 'öneri paneli ve düğme görünür');
+    tikla(rs, 'rm.uygula', 117);
+    eq(rs.menu[117].kalite, 1, 'kilitli kalite');
+    const ort = R.menuKalitesi(Object.values(rs.menu).filter((x) => x.secili));
+    ok(ort >= once - 1e-9, `ortalama ${ort} < hedef ${once}`);
+    ok(ort < once + 1 / 6 + 1e-9, 'gereğinden pahalı menü seçilmemeli');
+    const sonra = RS.restoranBinalarHtml(rs, RS.degerlendirRestoran(rs, { adminNet: 0.45, ratingBonus: 1.1, buildings: {}, faz: 'normal' }, marketOf), marketOf, new Set());
+    ok(sonra.includes('Menü zaten en uygun'), 'uygulandıktan sonra yeni öneri yok');
+  });
+  test('Elle maliyetli ürün kilitli sayılır; hedef alanı elle yazılabilir ve 0–12 arasına kırpılır', () => {
+    const rs = kur();
+    rs.menu[119].kaynak = 'manuel'; rs.menu[119].manuel = 5; rs.menu[119].kalite = 2;
+    RS.restoranDegis(rs, { dataset: { rm: 'o|-|hedef' }, value: '7,5' }, { marketOf });
+    eq(rs.hedefQ, 7.5);
+    tikla(rs, 'rm.uygula', 117);
+    eq(rs.menu[119].kalite, 2, 'elle maliyetli ürünün kalitesi değişmez');
+    RS.restoranDegis(rs, { dataset: { rm: 'o|-|hedef' }, value: '20' }, { marketOf });
+    eq(rs.hedefQ, 12);
+    RS.restoranDegis(rs, { dataset: { rm: 'o|-|hedef' }, value: '' }, { marketOf });
+    eq(rs.hedefQ, null);
+  });
+}
 
 const failed = results.filter((r) => !r.ok);
 let last = '';
