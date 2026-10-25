@@ -203,13 +203,59 @@ export function menuKalitesi(menu) {
   return q.length ? q.reduce((a, b) => a + b, 0) / q.length : null;
 }
 
-export function hedefRating(item, bonus = BONUS_REFERANS, kalite = REFERANS_KALITE, cesit = 0) {
+// ---------------------------------------------------------------------------------------------------------------
+// Rating modeli B: "maliyet puanı" [hipotez]
+// ---------------------------------------------------------------------------------------------------------------
+// Oyun rehberi: "Her yemeğin yeni ratinge etkisi çoğunlukla maliyetine bağlıdır". Oranlar referans fiyattan türetilmiş (oran × Ref = 7200,
+// R² = 0,99; Süt 25 $, Portakal suyu 50 $ …). Bir ürünün maliyet puanı = o kalitedeki borsa fiyatının referans fiyata oranı.
+// Puan, ödenen güncel fiyata değil bu SABİT tabloya bağlanır (aksi halde fazla ödemek ratingi artırır, sözleşme indirimi düşürürdü).
+// Tablo: 21 Eylül–25 Ekim 2026 borsa medyan fiyatı (VWAP) ÷ (7200 ÷ oran); eksik kaliteler komşulardan, kaliteyle azalmaz.
+export const REF_C = 7200;
+export const referansFiyat = (id) => (URUNLER[id] ? REF_C / URUNLER[id].oran : null);
+export const MALIYET_PUANI = {
+  117: [0.28, 0.3, 0.33, 0.35, 0.38, 0.45, 0.5, 0.52, 0.54, 0.74, 0.74, 0.76, 0.8],
+  121: [0.48, 0.54, 0.59, 0.65, 0.7, 0.73, 0.74, 0.8, 0.89, 0.89, 0.9, 0.92, 0.94],
+  134: [0.57, 0.59, 0.6, 0.62, 0.67, 0.7, 0.77, 0.79, 0.82, 0.9, 0.99, 1.04, 1.1],
+  122: [0.62, 0.63, 0.63, 0.66, 0.68, 0.72, 0.75, 0.76, 0.83, 0.85, 0.9, 1.12, 1.16],
+  119: [0.44, 0.46, 0.47, 0.5, 0.53, 0.68, 0.72, 0.73, 0.79, 0.81, 0.83, 0.88, 0.89],
+  123: [0.64, 0.64, 0.64, 0.65, 0.66, 0.67, 0.72, 0.72, 0.76, 0.79, 0.84, 0.89, 0.94],
+  129: [0.96, 0.99, 1.06, 1.24, 1.31, 1.37, 1.4, 1.47, 1.57, 1.71, 1.85, 1.98, 2.0],
+  130: [1.04, 1.08, 1.18, 1.29, 1.34, 1.42, 1.58, 1.62, 1.64, 1.65, 1.69, 1.73, 2.26],
+  131: [1.07, 1.07, 1.13, 1.14, 1.24, 1.37, 1.38, 1.41, 1.43, 1.43, 1.44, 1.53, 1.74],
+  142: [1.0, 1.04, 1.04, 1.12, 1.16, 1.2, 1.25, 1.3, 1.39, 1.53, 1.53, 1.67, 1.89],
+  143: [1.03, 1.03, 1.06, 1.14, 1.17, 1.21, 1.29, 1.35, 1.43, 1.53, 1.53, 1.77, 1.95],
+  149: [0.87, 0.93, 0.99, 1.09, 1.15, 1.22, 1.22, 1.29, 1.37, 1.37, 1.51, 1.73, 1.95],
+  132: [1.09, 1.19, 1.32, 1.43, 1.55, 1.56, 1.59, 1.68, 1.74, 1.8, 1.85, 1.98, 2.25],
+  124: [0.66, 0.67, 0.68, 0.72, 0.75, 0.82, 0.89, 0.96, 1.0, 1.04, 1.25, 1.34, 1.54],
+  125: [0.47, 0.48, 0.51, 0.61, 0.7, 0.73, 0.82, 0.85, 0.88, 0.9, 1.0, 1.0, 1.2],
+  126: [0.81, 0.81, 0.82, 0.84, 0.88, 0.91, 0.98, 1.0, 1.09, 1.22, 1.4, 1.62, 1.84],
+};
+export const maliyetPuani = (id, q) => MALIYET_PUANI[id]?.[clamp(Math.floor(Number(q) || 0), 0, 12)] ?? null;
+// Menünün ortalama maliyet puanı ρ = Σ çarpan × puan ÷ Σ çarpan (çarpan: kategorideki ürün sayısına göre). Bu, gerçek malzeme gideri ÷ referans bütçeye eşittir.
+// Fotoğraflardaki 9 restoranın 26 döngüsünde gider ÷ referans bütçe 0,90–0,95 çıktı; puan tablosundan 0,94 hesaplanıyor.
+export function menuMaliyetPuani(menu) {
+  const list = (menu || []).filter((m) => URUNLER[m?.id] && maliyetPuani(m.id, m.kalite) != null);
+  if (!list.length) return null;
+  const say = kategoriSayilari(list.map((m) => Number(m.id)));
+  let a = 0;
+  let w = 0;
+  for (const m of list) { const c = kategoriCarpani(say[URUNLER[m.id].kat]); a += c * maliyetPuani(m.id, m.kalite); w += c; }
+  return a / w;
+}
+// Menü puanı = B_TABAN + B_EGIM × ρ. Taban: 9 restoranın (aynı menü, ρ = 0,94, bonus ≈ 1,0) ortalama ratingi 6,45 ± 0,15 → menü puanı 5,43.
+// Eğim: kalite başına 0,23 puanın kalite başına ρ artışına (≈ 0,058) oranı ≈ 4,0; Süt/Köfte/Elma deneyi ≈ 4,3. Belirsizlik: eğim ± 1.
+export const B_TABAN = 1.47;
+export const B_EGIM = 4.2;
+export const menuPuaniB = (rho) => B_TABAN + B_EGIM * rho;
+export const rhoGerekli = (rating, bonus, cesit, carpan = 1) => (rating / carpan - (Number(cesit) || 0) - (Number(bonus) || 0) - B_TABAN) / B_EGIM;
+
+export function hedefRating(item, bonus = BONUS_REFERANS, kalite = REFERANS_KALITE, cesit = 0, menuPuani = null) {
   const elle = pos(Number(item?.hedef));
   if (elle != null) return { deger: clamp(elle, 0, 10), kaynak: 'girilen' };
   const once = Number(item?.onceki);
   const simdi = Number(item?.rating);
   if (fin(once) && fin(simdi) && item?.onceki !== '' && item?.onceki != null) return { deger: clamp(once + (simdi - once) / RATING.k, 0, 10), kaynak: 'tahmin' };
-  const menu = KALITE_TABAN + KALITE_RATING * (fin(kalite) ? kalite : REFERANS_KALITE);
+  const menu = fin(menuPuani) ? menuPuani : KALITE_TABAN + KALITE_RATING * (fin(kalite) ? kalite : REFERANS_KALITE);
   return { deger: clamp((menu + (Number(bonus) || 0) + (fin(cesit) ? cesit : 0)) * oturmaCarpani(item?.tip), 0, 10), kaynak: 'varsayilan' };
 }
 
@@ -228,7 +274,7 @@ export const GUN_DONGU = 24 / DONGU_SAAT;
 
 /**
  * @param {Array} restoranlar  [{ id, ad, tip, profesyonel?, seviye, fiyat, rating, onceki, doluluk, hedef, menu? }]
- * @param {{ adminNet: number, averageSalary?: number, salaryModifier?: number, ratingBonus: number, mod: 'beklenen'|'simdi',
+ * @param {{ adminNet: number, averageSalary?: number, salaryModifier?: number, ratingBonus: number, mod: 'beklenen'|'simdi', model?: 'kalite'|'maliyet',
  *           menuOf: (item) => Array<{ id: number, birim: number|null, kalite?: number }> }} ctx
  * Dönen toplamlar Perakende'nin toplamlarıyla aynı adlarla: revenueDay, costDay (malzeme), wagesDay (yönetim dahil),
  * baseWagesDay (yönetimsiz), profitDay, levels.
@@ -246,7 +292,8 @@ export function restoranDegerlendir(restoranlar, ctx) {
     const g = donguGideri({ menu, seviye: L, tip, saatlikMaas: saatlik, fiyat, profesyonel: !!it.profesyonel });
     const kalite = menuKalitesi(menu);
     const cesit = menu.length ? cesitRating(kategoriSayilari(menu.map((m) => Number(m.id)))) : 0;
-    const hedef = hedefRating(it, ctx.ratingBonus, kalite ?? REFERANS_KALITE, cesit);
+    const rho = menuMaliyetPuani(menu);
+    const hedef = hedefRating(it, ctx.ratingBonus, kalite ?? REFERANS_KALITE, cesit, ctx.model === 'maliyet' && rho != null ? menuPuaniB(rho) : null);
     const simdiR = fin(Number(it.rating)) && it.rating !== '' && it.rating != null ? Number(it.rating) : hedef.deger;
     const sonD = fin(Number(it.doluluk)) && it.doluluk !== '' && it.doluluk != null ? clamp(Number(it.doluluk), 0, 100) : null;
     // Borsada fiyatı olmayan ürün ya da eksik kategori varsa maliyet bilinmez: kâr hesaplanmaz (null), elle fiyat girilmesi istenir
@@ -261,7 +308,7 @@ export function restoranDegerlendir(restoranlar, ctx) {
     const costDay = g.malzeme * GUN_DONGU;
     const wagesDay = (g.maas ?? 0) * GUN_DONGU;
     const baseWagesDay = taban * 24 * L * (tip === 'luks' ? LUKS_MAAS : 1) * (it.profesyonel ? PROFESYONEL_MAAS : 1);
-    rows.push({ id: it.id, ad: it.ad, tip, profesyonel: !!it.profesyonel, seviye: L, fiyat, gider: g, eksik, kalite, hedef, simdi, beklenen, secili, costDay, wagesDay, baseWagesDay,
+    rows.push({ id: it.id, ad: it.ad, tip, profesyonel: !!it.profesyonel, seviye: L, fiyat, gider: g, eksik, kalite, maliyetPuani: rho, hedef, simdi, beklenen, secili, costDay, wagesDay, baseWagesDay,
       kapanis: { sonra: kapanisSonrasi(simdiR), guvenli: yukseltmeGuvenli(simdiR) } });
     T.levels += L;
     T.customersDay += secili.customersDay;
@@ -428,7 +475,7 @@ export function enUcuzMenu(o) {
  *   { durum: 'ok', hedefKalite, secim: [{ id, kalite, adet, birim, tutar }], maliyet (döngü), ortalama, rating, cesit, carpan, sayilar }
  */
 export const OTOMATIK_EN_FAZLA = 3; // otomatik seçimde kategori başına en çok ürün; 4 ve üstü önerilmez
-export function oneriMenu(o) {
+function oneriMenuA(o) {
   if (!(o.binalar || []).some((b) => Number(b?.seviye) >= 1)) return { durum: 'seviye' };
   const bonus = Number(o.bonus) || 0;
   const carpan = oturmaCarpani(o.binalar.find((b) => Number(b?.seviye) >= 1)?.tip); // eko 1, lüks 1,25
@@ -458,4 +505,94 @@ export function oneriMenu(o) {
   }
   const cesit = cesitRating(en.sayilar);
   return { ...en, cesit, carpan, rating: (KALITE_TABAN + KALITE_RATING * en.ortalama + bonus + cesit) * carpan };
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Menü önerisi, model B (maliyet puanı): maliyet puanı hedefi sağlayan en ucuz menü
+// ---------------------------------------------------------------------------------------------------------------
+const PUAN_COZUNURLUK = 50; // ağırlıklı puan toplamı 1/50 adımla ayrıklaştırılır; aşağı yuvarlandığı için bulunan menü hedefi gerçekten sağlar
+
+// Kategoride tam k ürünlük menüler: tablo.get(u) = { c: en düşük maliyet, secim } (u = ağırlıklı puan toplamı × çözünürlük, aşağı yuvarlanmış)
+function kategoriTablosuB(kat, k, o) {
+  const carpan = kategoriCarpani(k);
+  const tablo = new Map();
+  for (const alt of altKumeler(kat.urunler, k)) {
+    const secenekler = alt.map((id) => {
+      const adet = toplamIhtiyac(URUNLER[id].oran, carpan, o.binalar || []);
+      const alin = alinabilir(o.arzOf, id);
+      const ops = [];
+      for (let q = 0; q <= MAX_KALITE; q++) {
+        const birim = o.fiyatOf(id, q);
+        if (!fin(birim) || birim < 0 || (alin && adet > alin[q])) continue;
+        ops.push({ id, kalite: q, adet, birim, tutar: adet * birim, u: Math.floor(carpan * maliyetPuani(id, q) * PUAN_COZUNURLUK + 1e-9) });
+      }
+      return ops;
+    });
+    if (secenekler.some((x) => !x.length)) continue;
+    let dp = new Map([[0, { c: 0, secim: [] }]]);
+    for (const ops of secenekler) {
+      const nx = new Map();
+      for (const [s0, e] of dp) for (const x of ops) {
+        const c = e.c + x.tutar;
+        const cur = nx.get(s0 + x.u);
+        if (!cur || c < cur.c - 1e-9) nx.set(s0 + x.u, { c, secim: [...e.secim, x] });
+      }
+      dp = nx;
+    }
+    for (const [s0, e] of dp) { const cur = tablo.get(s0); if (!cur || e.c < cur.c - 1e-9) tablo.set(s0, e); }
+  }
+  return tablo;
+}
+function birlestirB(A, B) {
+  const out = new Map();
+  for (const [a, ea] of A) for (const [b, eb] of B) {
+    const c = ea.c + eb.c;
+    const cur = out.get(a + b);
+    if (!cur || c < cur.c - 1e-9) out.set(a + b, { c, l: ea, r: eb });
+  }
+  return out;
+}
+const duzlestir = (e) => (e.secim ? e.secim : [...duzlestir(e.l), ...duzlestir(e.r)]);
+
+function oneriMenuB(o) {
+  if (!(o.binalar || []).some((b) => Number(b?.seviye) >= 1)) return { durum: 'seviye' };
+  const bonus = Number(o.bonus) || 0;
+  const carpan = oturmaCarpani(o.binalar.find((b) => Number(b?.seviye) >= 1)?.tip);
+  const n = Math.floor(Number(o.urunSayisi));
+  const hedefR = clamp(o.hedef === 'rating' ? Number(o.rating) || 0 : RATING.guvenli + RATING_PAYI, 0, 10);
+  const sayilar = n > 0 ? [n] : Array.from({ length: OTOMATIK_EN_FAZLA }, (_, i) => i + 1);
+  const desenler = n > 0 ? [[n, n, n]] : sayilar.flatMap((a) => sayilar.flatMap((b) => sayilar.map((c) => [a, b, c])));
+  const tablolar = KATEGORILER.map((kat) => Object.fromEntries(sayilar.map((k) => [k, kategoriTablosuB(kat, k, o)])));
+  let en = null;
+  let yok = null;
+  for (const d of desenler) {
+    const tb = d.map((k, i) => tablolar[i][k]);
+    const bosKat = tb.findIndex((t) => !t.size);
+    if (bosKat >= 0) { yok ||= { durum: 'yok', neden: 'fiyat', kategori: KATEGORILER[bosKat].ad }; continue; }
+    const sayi = { salata: d[0], ana: d[1], icecek: d[2] };
+    const cesit = cesitRating(sayi);
+    const w = d.reduce((t, k) => t + k * kategoriCarpani(k), 0);
+    const rhoH = rhoGerekli(hedefR, bonus, cesit, carpan);
+    const jMin = Math.max(0, Math.ceil(rhoH * w * PUAN_COZUNURLUK - 1e-9));
+    const birlesik = birlestirB(birlestirB(tb[0], tb[1]), tb[2]);
+    let iyi = null;
+    for (const [u, e] of birlesik) if (u >= jMin && (!iyi || e.c < iyi.c - 1e-9)) iyi = e;
+    if (!iyi) { if (!yok || (yok.neden !== 'fiyat' && rhoH < yok.hedefPuan)) yok = { durum: 'yok', neden: 'ulasilamaz', hedefPuan: rhoH }; continue; }
+    const secim = duzlestir(iyi);
+    const rho = menuMaliyetPuani(secim);
+    if (!en || iyi.c < en.maliyet - 1e-9 || (iyi.c <= en.maliyet + 1e-9 && rho > en.maliyetPuani)) {
+      en = { durum: 'ok', hedefPuan: Math.max(0, rhoH), secim, maliyet: iyi.c, maliyetPuani: rho, sayilar: sayi, cesit };
+    }
+  }
+  if (!en) return yok || { durum: 'yok', neden: 'ulasilamaz', hedefPuan: null };
+  return { ...en, carpan, rating: (menuPuaniB(en.maliyetPuani) + bonus + en.cesit) * carpan, ortalama: menuKalitesi(en.secim) };
+}
+
+/**
+ * Menü önerisi (model seçimli). o.model 'maliyet' (B, varsayılan değil: çağıran seçer) ya da 'kalite' (A).
+ * B için hedef: 'guvenli' (rating ≥ RATING.guvenli + RATING_PAYI) ya da 'rating' (o.rating); A için 'guvenli' ya da 'kalite' (o.kalite).
+ * B dönüşü: { durum: 'ok', hedefPuan, secim, maliyet, maliyetPuani, ortalama (kalite), rating, cesit, carpan, sayilar } ya da { durum: 'yok', neden, kategori?, hedefPuan }
+ */
+export function oneriMenu(o) {
+  return o.model === 'maliyet' ? oneriMenuB(o) : oneriMenuA(o);
 }
