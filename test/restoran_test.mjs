@@ -78,13 +78,16 @@ test('Lüks binanın saatlik maaşından eko seviye başına çevirme (×2)', ()
 });
 
 section('Kategori çarpanı');
-test('Kategoride 2 ürün: çarpan 1 (oyunda doğrulandı); 1 ürün 2,1 · 3 ürün 0,7 · 4+ 0,55 (makale)', () => {
-  eq([1, 2, 3, 4, 5, 6].map(R.kategoriCarpani), [2.1, 1, 0.7, 0.55, 0.55, 0.55]);
-  eq(R.CARPAN_DOGRULANDI[2], true);
+test('Kategori çarpanı oyunun istemci kodundan (index.js ZMr): 2,1 · 1 · 0,9 · 0,8 · 0,8 · 0,8', () => {
+  eq([1, 2, 3, 4, 5, 6].map(R.kategoriCarpani), [2.1, 1, 0.9, 0.8, 0.8, 0.8]);
+  eq(Object.values(R.CARPAN_DOGRULANDI).every(Boolean), true);
 });
-test('Makale örneği: süt + ekmek + tereyağı, seviye 2 → 404 süt, 35 ekmek, 130 tereyağı', () => {
+test('Salata barında 3 ürün (süt + ekmek + tereyağı), seviye 2 → 519 süt, 45 ekmek, 167 tereyağı', () => {
   const a = R.ihtiyac([117, 121, 134, 142, 124], 2, 'eko');
-  eq([a[117], a[121], a[134]], [404, 35, 130]);
+  eq([a[117], a[121], a[134]], [519, 45, 167]);
+});
+test('Bal kabağı çorbası oranı oyunda 9,2', () => {
+  eq(R.URUNLER[149].oran, 9.2);
 });
 test('Oyun rehberi kartı: tek başına salata, seviye 1 → 20', () => {
   eq(R.ihtiyac([117, 142, 124], 1, 'eko')[142], 20);
