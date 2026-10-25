@@ -226,7 +226,7 @@ export const KALITE_RATING = 0.20;
 // fiyatı en düşük Q3 ürünlerinden iç içe kuruldu (17 Ekim borsa fiyatlarıyla: süt, kahve tozu, tereyağı · samosa, bal kabağı çorbası, salata ·
 // portakal suyu, elma suyu, zencefilli bira), maliyet neredeyse sabit. Boom döngülerinden ortalama hedef: 1-1-1 (17 L, 3 döngü) 5,15 ± 0,22;
 // 2-2-2 (17 J, 4 döngü) 5,39 ± 0,25; 3-3-3 (17 D, 4 döngü) 6,45 ± 0,18 → 2-2-2'ye göre −0,24 ve +1,06 (±0,3). 3'ten sonrası ölçülmedi,
-// 3'te sabit tutulur (iyimser olmamak için). 3-3-3'ün üçüncü ana yemeği doğrulanmadı.
+// 3'te sabit tutulur (iyimser olmamak için). 3-3-3'ün üçüncü ana yemeği salata (köfte değil; oyuncu doğruladı), maliyet 2-2-2'ye çok yakın.
 export const CESIT_RATING = [[1, -0.2], [2, 0], [3, 0.9]];
 export function cesitlilikRating(say) {
   const n = say ? (Number(say.salata) || 0) + (Number(say.ana) || 0) + (Number(say.icecek) || 0) : 0;
