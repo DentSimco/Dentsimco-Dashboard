@@ -127,8 +127,8 @@ test('Profesyonel çalışan maaşı 5 katına çıkarır: donguMaasi, donguGide
   eq(ev(true).profesyonel, true);
   near(ev(true).hedef.deger, ev(false).hedef.deger, 1e-12, 'ratinge etkisi bilinmiyor: hedef aynı');
 });
-test('Doluluk modeli yalnız $60–64 aralığında ölçüldü: sınır sabiti', () => {
-  eq([R.FIYAT_MIN, R.DOLULUK_FIYAT_UST], [60, 64]);
+test('Menü fiyatı sınırları $60–350', () => {
+  eq([R.FIYAT_MIN, R.FIYAT_MAX], [60, 350]);
 });
 
 section('Yönetim, satış hızı ve rating bonusu');
@@ -179,15 +179,6 @@ test('Rating hedefe yaklaşır: 3,95 → 4,25 → 4,61 → 4,86 ölçümüyle ay
   near(R.hedefRating({ onceki: 3.95, rating: 4.25 }).deger, 3.95 + 0.30 / R.RATING.k, 1e-9);
   near(R.hedefRating({ onceki: 3.95, rating: 4.25 }).deger, 5.64, 0.01);
 });
-test('Beklenen doluluk: eşiğin üstünde son doluluk korunur, altında düşük; eşiğin altından çıkınca varsayılan üst', () => {
-  eq(R.beklenenDoluluk(6, 6.5, 91), 91);
-  eq(R.beklenenDoluluk(6, 6.5, null), R.DOLULUK.ust);
-  near(R.beklenenDoluluk(4, 6, 98), R.dolulukRating(4), 1e-9);
-  near(R.dolulukRating(0), 13, 1e-9); near(R.dolulukRating(4.61), 96.5, 1e-9); near(R.dolulukRating(8), 96.5, 1e-9);
-  ok(R.dolulukRating(4.1) > R.dolulukRating(3.5) && R.dolulukRating(3.5) > R.dolulukRating(1), 'doluluk ratingle artar');
-  eq(R.beklenenDoluluk(4, 4.2, 60), 60);
-  eq(R.beklenenDoluluk(6, 4, 46), R.DOLULUK.ust);
-});
 
 section('Bina bazlı değerlendirme (Perakende özetine giren)');
 const MENU25 = menuWith(C25, A25);
@@ -225,7 +216,7 @@ test('Şimdi ve beklenen: rating hedefi eşiğin altındaysa beklenen kâr düş
   const bek = R.restoranDegerlendir([it], ctxR({ mod: 'beklenen' }));
   const sim = R.restoranDegerlendir([it], ctxR({ mod: 'simdi' }));
   ok(bek.totals.profitDay < sim.totals.profitDay, 'beklenen daha düşük');
-  near(bek.rows[0].beklenen.doluluk, R.dolulukRating(3.5), 1e-9);
+  near(bek.rows[0].beklenen.doluluk, R.dolulukTahmini(3.5, 62), 1e-9);
   eq(sim.rows[0].simdi.doluluk, 98);
 });
 test('Satış hızı/iletişim bonusu hedefi kaydırır: bonus +0,2 → hedef +0,2 → beklenen rating +0,2', () => {

@@ -423,7 +423,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   // Mağazalar + restoranlar: toplamlar birleşir (adet ve marj yalnız mağazalara aittir)
   function evaluateAll(c) {
     const ev = R.evaluateRetail(engineSetup(c), c.ctx);
-    const rs = RS.degerlendirRestoran(setup.restoran, c.ctx, marketOf);
+    const rs = RS.degerlendirRestoran(setup.restoran, { ...c.ctx, evre: c.econ }, marketOf);
     const a = ev.totals;
     const b = rs.totals;
     // Borsada fiyatı olmayan ürün (mağaza ya da restoran) varsa toplam kâr hesaplanmaz; elle girilmesi istenir

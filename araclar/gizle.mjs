@@ -14,7 +14,7 @@ import { pathToFileURL } from 'node:url';
 import JavaScriptObfuscator from 'javascript-obfuscator';
 
 const DIR = path.resolve('public');
-const FORMUL = new Set(['hesap.js', 'hesap-perakende.js', 'perakende-veri.js', 'yonetici.js', 'optimum-hesap.js', 'hesap-restoran.js', 'perakende-restoran.js']);
+const FORMUL = new Set(['hesap.js', 'hesap-perakende.js', 'perakende-veri.js', 'yonetici.js', 'optimum-hesap.js', 'hesap-restoran.js', 'perakende-restoran.js', 'restoran-doluluk.js']);
 
 const ORTAK = {
   target: 'browser', sourceType: 'module', compact: true, sourceMap: false, // dosyalar ES modülü (import/export)

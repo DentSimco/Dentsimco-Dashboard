@@ -13,6 +13,7 @@ const TIPLER = [['eko', 'Eko'], ['luks', 'Lüks']];
 const CALISANLAR = [['eko', 'Ekonomi'], ['pro', 'Profesyonel']]; // çalışan kalitesi; profesyonel maaşı 5 katına çıkarır
 const GORUNUM = [['beklenen', 'Beklenen'], ['simdi', 'Şimdi']];
 const VARSAYILAN_MENU = { 117: 7, 119: 10, 142: 7, 143: 5, 124: 7, 125: 9 };
+const EVRELER = ['Durgunluk', 'Normal', 'Büyüme']; // hesap.js ECONOMY_PHASES ile aynı sıra
 const MODELLER = [['maliyet', 'Maliyet modeli'], ['kalite', 'Kalite modeli']]; // rating modeli: B (maliyet puanı, varsayılan) ya da A (düz ortalama kalite)
 const HEDEFLER = { maliyet: [['guvenli', 'Güvenli rating'], ['rating', 'Hedef rating']], kalite: [['guvenli', 'Güvenli rating'], ['kalite', 'Hedef kalite']] };
 const HEDEF_RATINGLER = Array.from({ length: 15 }, (_, i) => 3 + i / 2); // 3,0–10,0
@@ -170,7 +171,7 @@ function birimOf(rs, m, pid, marketOf) {
   if (b == null) return null;
   return m.kaynak === 'kontrat' ? b * (1 - rs.kontratPct / 100) : b;
 }
-// c: Perakende bağlamı (adminNet, ratingBonus, buildings, averageSalary); mod: görünüm
+// c: Perakende bağlamı (adminNet, ratingBonus, buildings, averageSalary, evre); mod: görünüm
 export function degerlendirRestoran(rs, c, marketOf) {
   const bina = c.buildings?.r || {};
   const menuOf = (it) => {
@@ -178,7 +179,7 @@ export function degerlendirRestoran(rs, c, marketOf) {
     return Object.keys(R.URUNLER).filter((id) => m[id]?.secili).map((id) => ({ id: Number(id), birim: birimOf(rs, m[id], id, marketOf), kalite: m[id].kalite }));
   };
   return R.restoranDegerlendir(rs.items, { adminNet: c.adminNet, averageSalary: c.averageSalary, salaryModifier: bina.salaryModifier,
-    ratingBonus: c.ratingBonus, mod: rs.gorunum, model: rs.oneri?.model, menuOf });
+    ratingBonus: c.ratingBonus, mod: rs.gorunum, model: rs.oneri?.model, evre: c.evre, menuOf });
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -314,8 +315,8 @@ function kart(rs, it, row, marketOf, acik) {
       ${field('Rating', a('rating'), inputVal(it.rating))}
     </div>
     <div class="ur-chips">${chips.join('')}</div>${uyar}
-    ${row.fiyat > R.DOLULUK_FIYAT_UST ? `<p class="ur-note">Menü fiyatı $${num(R.DOLULUK_FIYAT_UST)}'ın üstünde: doluluk modeli yalnız $${num(R.FIYAT_MIN)}–${num(R.DOLULUK_FIYAT_UST)} aralığında ölçüldü, bu fiyatta doluluk tahmini belirsizdir.</p>` : ''}
-    <p class="ur-note">Ekonomi evresinin (boom, normal, resesyon) restoran doluluğuna etkisi modellenmedi.</p>
+    <p class="ur-note">Doluluk, oyunun yayımladığı restoran ısı haritalarından (${num(R.DOLULUK_KAYNAK.donem)} dönem) ${EVRELER[row.evre]} evresine göre tahmin edilir. Piyasa ortalamasıdır; rakiplerin fiyatı ve ratingi değişirse sapar.</p>
+    ${row.dolulukVerisi < R.DOLULUK_AZ_VERI ? '<p class="ur-note">Bu rating ve fiyatta oyunun verisi az; doluluk tahmini zayıf.</p>' : ''}
     <div class="ur-metrics">
       <div class="ur-stat"><span>Gelir/gün</span><span>${money(row.secili.revenueDay)}</span></div>
       <div class="ur-stat"><span>Malzeme/gün</span><span>${money(row.costDay)}</span></div>
