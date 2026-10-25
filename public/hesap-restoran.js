@@ -652,12 +652,17 @@ export function oneriKari({ oneri, fiyat, evre = EVRE_NORMAL, seviye, tip = 'eko
   const gider = maas == null ? null : { koltuk, toplam: oneri.maliyet + maas };
   const doluluk = dolulukTahmini(oneri.rating, f, evre);
   const gelir = f * koltuk * (doluluk / 100);
-  const enKarli = gider ? enKarliFiyat(gider, oneri.rating, evre) : null;
+  // Açık if: gizlenmiş kodda `enKarli && { ...enKarli, kar: enKarli.kar … }` enKarli boşken de nesneyi hesaplıyordu
+  let enKarli = null;
+  if (gider) {
+    const iyi = enKarliFiyat(gider, oneri.rating, evre);
+    if (iyi) enKarli = { fiyat: iyi.fiyat, doluluk: iyi.doluluk, kar: iyi.kar * GUN_DONGU };
+  }
   return {
     rating: oneri.rating, fiyat: f, evre: evreOf(evre), doluluk, veri: dolulukVerisi(oneri.rating, f),
     gelir: gelir * GUN_DONGU, malzeme: oneri.maliyet * GUN_DONGU, maas: maas == null ? null : maas * GUN_DONGU,
     kar: gider ? (gelir - gider.toplam) * GUN_DONGU : null,
     basabas: gider ? (gider.toplam / (f * koltuk)) * 100 : null,
-    enKarli: enKarli && { ...enKarli, kar: enKarli.kar * GUN_DONGU },
+    enKarli,
   };
 }
