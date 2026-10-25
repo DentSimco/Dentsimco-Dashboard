@@ -237,10 +237,10 @@ function oneriHtml(rs, env) {
   const hedefNot = o.hedef === 'guvenli'
     ? `Hedef rating ${num(R.RATING.guvenli + R.RATING_PAYI, 1)} (güvenli ${num(R.RATING.guvenli, 1)} + pay ${num(R.RATING_PAYI, 1)}) için ortalama en az ${kaliteYaz(s.hedefKalite)} gerekir. Rating formülü tahminidir; uyguladıktan sonra ratingi birkaç döngü izleyin.`
     : `Ortalama menü kalitesi en az ${kaliteYaz(s.hedefKalite)}.`;
-  const luksNot = luks && o.hedef === 'guvenli' ? '<p class="ur-note">Lüks restoranlarda rating modeli yok; hedef eko formülüyle hesaplandı.</p>' : '';
+  const luksNot = luks ? '<p class="ur-note">Lüks restoranda hedef rating, formülün sonucu × 1,25 (lüks oturma çarpanı) olarak hesaplanır; çarpan oyunda ayrıca ölçülmedi.</p>' : '';
   const stat = (label, value) => `<div class="ur-stat"><span>${label}</span><span>${value}</span></div>`;
-  const ozet = `<div class="ur-metrics">${stat('Gider/gün', money(gun(s.maliyet)))}${stat('Ortalama kalite', kaliteYaz(s.ortalama))}${stat('Tahmini rating', luks ? '—' : num(s.rating, 2))}</div>
-    ${luks ? '' : `<p class="ur-note">Rating bonusu ${num(env.ratingBonus, 2)}: Kurulum'daki satış hızından ve yönetici ekibinin iletişim puanından gelir; girilmediyse 0 sayılır.</p>`}`;
+  const ozet = `<div class="ur-metrics">${stat('Gider/gün', money(gun(s.maliyet)))}${stat('Ortalama kalite', kaliteYaz(s.ortalama))}${stat('Tahmini rating', num(s.rating, 2))}</div>
+    <p class="ur-note">Rating bonusu ${num(env.ratingBonus, 2)}: Kurulum'daki satış hızından ve yönetici ekibinin iletişim puanından gelir; girilmediyse 0 sayılır.</p>`;
   const satirlar = R.KATEGORILER.map((kat) => {
     const list = s.secim.filter((x) => R.URUNLER[x.id].kat === kat.key);
     return `<tr class="cat"><td colspan="4">${esc(kat.ad)}</td></tr>${list.map((x) =>
@@ -250,7 +250,7 @@ function oneriHtml(rs, env) {
       <tbody>${satirlar}<tr class="deg"><td>Toplam</td><td></td><td></td><td>${money(gun(s.maliyet))}</td></tr></tbody></table>`;
   const tahmini = Object.values(s.sayilar).some((n) => !R.CARPAN_DOGRULANDI[Math.min(n, 4)]);
   const isaret = s.cesit > 0 ? '+' : s.cesit < 0 ? '−' : '';
-  const cesitNot = !luks && Object.values(s.sayilar).some((n) => n !== 2)
+  const cesitNot = Object.values(s.sayilar).some((n) => n !== 2)
     ? `<p class="ur-note">Ürün çeşitliliğinin rating etkisi (1 ürün −0,2 · 2 ürün 0 · 3 ürün +0,9 puan) tahminidir; oyunda ölçülmedi. Bu menüde etki: ${isaret}${num(Math.abs(s.cesit), 2)} puan.</p>` : '';
   return kabuk(`<p class="ur-note">${esc(hedefNot)}</p>${luksNot}${ozet}${tablo}
       <p class="ur-note">Fiyatlar anlık borsa fiyatıdır; borsa değişince öneri de değişir. Kontrat indirimi girilirse fiyatlara uygulanır ve borsa arzı sınır sayılmaz. Rating hesabı menü kalitesinin düz ortalamasını varsayar (oyunda henüz doğrulanmadı).</p>
@@ -262,7 +262,7 @@ function kart(rs, it, row, marketOf, acik) {
   const ayri = rs.menuMode === 'ayri';
   const a = (f) => `data-rf="${esc(it.id)}|${f}"`;
   const hedef = row.hedef;
-  const hedefEtiket = hedef.kaynak === 'bilinmiyor' ? 'bilinmiyor' : 'tahmini';
+  const hedefEtiket = 'tahmini';
   const chips = [chip(`Rating ${num(row.simdi.rating, 2)} → ${num(row.beklenen.rating, 2)}`), chip(`Hedef ${hedefEtiket}`, 'muted'),
     row.kalite != null ? chip(`Menü kalitesi Q${num(row.kalite, 1)}`, 'muted') : '',
     chip(`Doluluk %${num(row.simdi.doluluk, 1)} → %${num(row.beklenen.doluluk, 1)}`, 'muted'),

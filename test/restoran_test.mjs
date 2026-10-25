@@ -125,7 +125,11 @@ test('Hedef: elle girilen önce; önceki+mevcut varsa tahmin; yoksa eko varsayı
   near(t.deger, 6, 1e-9); eq(t.kaynak, 'tahmin');
   near(R.hedefRating({ tip: 'eko' }, 0.99).deger, 6.045, 1e-9); // kalite bilinmiyorsa referans menü (Q7,5)
   near(R.hedefRating({ tip: 'eko' }, 1.19).deger, 6.245, 1e-9); // bonus 0,2 artınca hedef 0,2 artar
-  eq(R.hedefRating({ tip: 'luks', rating: 8.75 }), { deger: 8.75, kaynak: 'bilinmiyor' });
+  // Lüks: [menü puanı + çeşitlilik + bonus] × 1,25 (oturma çarpanı); önceki + mevcut rating girildiyse yine ölçülen hedef önce gelir
+  near(R.hedefRating({ tip: 'luks' }, 0.99).deger, 6.045 * 1.25, 1e-9); // kalite bilinmiyorsa referans menü (Q7,5)
+  near(R.hedefRating({ tip: 'luks' }, 0.5, 6, 0.9).deger, (R.KALITE_TABAN + 6 * R.KALITE_RATING + 0.5 + 0.9) * 1.25, 1e-9);
+  near(R.hedefRating({ tip: 'luks', onceki: 5, rating: 5.177 }).deger, 6, 1e-9);
+  eq([R.oturmaCarpani('eko'), R.oturmaCarpani('luks'), R.oturmaCarpani(undefined)], [1, 1.25, 1]);
 });
 test('Kalite: 11 Ekim menüsü (Q7, Q10, Q7, Q5, Q7, Q9) ortalama 7,5 ve bonus 0,99 ile hedef ~6; seviye 2 testi (Q0,5, bonus 0,32) ~3,8', () => {
   const ref = [[117, 7], [119, 10], [142, 7], [143, 5], [124, 7], [125, 9]].map(([id, kalite]) => ({ id, birim: 1, kalite }));
@@ -282,6 +286,16 @@ test('Çeşitlilik hedef ratinge eklenir: 3-3-3 menü 2-2-2 menüden 0,9 yüksek
   const uc = R.restoranDegerlendir(it, ctx(kal([117, 119, 121, 142, 143, 129, 124, 125, 126]))).rows[0].hedef.deger;
   near(iki, R.KALITE_TABAN + 6 * R.KALITE_RATING + 0.5, 1e-9);
   near(uc - iki, 0.9, 1e-9);
+});
+test('Lüks menü önerisi: rating formülün sonucu × 1,25; güvenli hedefte gereken kalite 1,25 ile bölünen hedefe göre hesaplanır', () => {
+  const f = sabitQ6(Object.keys(R.URUNLER).map(Number), 10);
+  const g = (tip) => R.oneriMenu({ binalar: [{ seviye: 10, tip }], fiyatOf: tabloFiyat(f), hedef: 'guvenli', bonus: 0.99, urunSayisi: 2 });
+  const eko = g('eko'); const luks = g('luks');
+  near(luks.hedefKalite, R.gerekenKalite(5.5 / 1.25, 0.99), 1e-9);
+  ok(luks.hedefKalite < eko.hedefKalite, 'lüks için gereken kalite daha düşük');
+  eq(luks.carpan, 1.25);
+  ok(luks.rating >= 5.5 - 1e-9, 'lüks tahmini rating güvenli');
+  near(luks.rating, (R.KALITE_TABAN + R.KALITE_RATING * luks.ortalama + 0.99) * 1.25, 1e-9);
 });
 test('Güvenli hedef çeşitliliği hesaba katar: 3 ürünle gereken kalite 0,9 ÷ 0,23 ≈ 3,9 basamak düşer; otomatik en ucuz deseni seçer', () => {
   const f = sabitQ6(Object.keys(R.URUNLER).map(Number), 10);

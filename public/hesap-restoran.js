@@ -15,6 +15,8 @@
 //   Yemek, müşteri gelsin gelmesin döngü başında harcanır (gider dolulukla değişmez) [oyun]
 //   Maaş = binanın saatlik maaşı × 12 [oyun]
 //   Restoran kapanınca rating ×0,875 (kapanış başına bir kez; yükseltme de kapanıştır) [oyun]
+//   Hedef rating = [Menü puanı + Çeşitlilik puanı + Personel puanı] × Oturma çarpanı. Menü puanı = 3,33 + 0,23 × ortalama menü kalitesi [ölçüm];
+//     Personel puanı = 0,01 × etkin CMO iletişim puanı + 0,02 × taban satış hızı % (bonus) [oyun]; çeşitlilik [hipotez]; oturma çarpanı eko 1, lüks 1,25 [kullanıcı]
 //   Rating her döngü hedefine doğru yaklaşır: r' = r + k·(T − r), k ≈ 0,177, gürültü ±0,21 [ölçüm]
 //   Doluluk: rating ~4,5 altında çöker (%40–70), üstünde fiyat ($60–64) ve ratingden bağımsız ~%96,5 [ölçüm]
 //   Menü fiyatı en az $60, en çok $350 [oyun rehberi]
@@ -171,7 +173,7 @@ export const yukseltmeGuvenli = (r) => kapanisSonrasi(r) >= RATING.esik + 0.05;
  * Restoranın ratingin yerleşeceği hedef.
  *  1) elle girilen hedef;
  *  2) önceki ve mevcut rating girildiyse: rating her döngü farkın k kadarını kapatır, hedef = önceki + (mevcut − önceki) ÷ k;
- *  3) eko: varsayılan hedef, bonus farkıyla kaydırılır; lüks: veri yok, mevcut rating değişmez varsayılır.
+ *  3) varsayılan: [menü puanı + çeşitlilik + bonus] × oturma çarpanı (eko 1, lüks 1,25).
  */
 // Eko hedef rating = KALITE_TABAN + KALITE_RATING × ortalama menü kalitesi + bonus.
 // Üç ölçümden: 11 Ekim menüsü (ort. Q7,5, bonus 0,99 → ~6,0), 20 Ekim (aynı menü, bonus 1,09 → ~6,4) ve seviye 2 testi
@@ -179,6 +181,9 @@ export const yukseltmeGuvenli = (r) => kapanisSonrasi(r) >= RATING.esik + 0.05;
 export const KALITE_TABAN = 3.33;
 export const KALITE_RATING = 0.23;
 export const REFERANS_KALITE = 7.5; // menü kalitesi bilinmiyorsa
+// Hedef rating köşeli parantezin sonucu bu çarpanla çarpılır: eko 1, lüks 1,25 (değer kullanıcıdan; oyunda ayrıca ölçülmedi)
+export const LUKS_OTURMA_CARPANI = 1.25;
+export const oturmaCarpani = (tip) => (tipOf(tip) === 'luks' ? LUKS_OTURMA_CARPANI : 1);
 // Ürün çeşitliliğinin hedef ratinge etkisi: [kategorideki ürün sayısı, eklenen puan]. [hipotez] Başka bir sohbette tahmin edildi, oyunda ölçülmedi.
 // Kalibrasyon menüleri kategori başına 2 ürünlüydü; bu yüzden 2 → 0 alınır (etki KALITE_TABAN'a karışmış durumdadır). Üç kategorinin değerlerinin ORTALAMASI eklenir.
 export const CESIT_RATING = [[1, -0.2], [2, 0], [3, 0.9]];
@@ -203,8 +208,8 @@ export function hedefRating(item, bonus = BONUS_REFERANS, kalite = REFERANS_KALI
   const once = Number(item?.onceki);
   const simdi = Number(item?.rating);
   if (fin(once) && fin(simdi) && item?.onceki !== '' && item?.onceki != null) return { deger: clamp(once + (simdi - once) / RATING.k, 0, 10), kaynak: 'tahmin' };
-  if (tipOf(item?.tip) === 'luks') return { deger: fin(simdi) ? simdi : RATING.hedef, kaynak: 'bilinmiyor' };
-  return { deger: clamp(KALITE_TABAN + KALITE_RATING * (fin(kalite) ? kalite : REFERANS_KALITE) + bonus + (fin(cesit) ? cesit : 0), 0, 10), kaynak: 'varsayilan' };
+  const menu = KALITE_TABAN + KALITE_RATING * (fin(kalite) ? kalite : REFERANS_KALITE);
+  return { deger: clamp((menu + (Number(bonus) || 0) + (fin(cesit) ? cesit : 0)) * oturmaCarpani(item?.tip), 0, 10), kaynak: 'varsayilan' };
 }
 
 /** Rating yerleşince beklenen doluluk (%). Eşiğin üstünde son doluluk korunur; altında düşük doluluk. */
@@ -416,15 +421,16 @@ export function enUcuzMenu(o) {
  * Menü önerisi: hedefe göre en ucuz menü (mevcut menü gerekmez).
  * @param {{ binalar: Array<{ seviye: number, tip?: string }>, fiyatOf: (id, q) => number|null, arzOf?: (id, q) => number|null,
  *           hedef: 'guvenli'|'kalite', kalite?: number, bonus?: number, urunSayisi?: number }} o
- *   hedef guvenli: eko formülüyle (çeşitlilik puanı dahil) rating ≥ RATING.guvenli + RATING_PAYI; kalite: ortalama menü kalitesi ≥ o.kalite.
+ *   hedef guvenli: formülle (çeşitlilik ve oturma çarpanı dahil) rating ≥ RATING.guvenli + RATING_PAYI; kalite: ortalama menü kalitesi ≥ o.kalite.
  *   urunSayisi: her kategoride tam bu kadar ürün (2 oyunda doğrulanmış çarpan); 0 ya da yoksa 1–3 arasında en ucuzu seçilir (OTOMATIK_EN_FAZLA).
  * Dönüş: { durum: 'seviye' } | { durum: 'yok', neden, kategori?, hedefKalite } |
- *   { durum: 'ok', hedefKalite, secim: [{ id, kalite, adet, birim, tutar }], maliyet (döngü), ortalama, rating, cesit, sayilar }
+ *   { durum: 'ok', hedefKalite, secim: [{ id, kalite, adet, birim, tutar }], maliyet (döngü), ortalama, rating, cesit, carpan, sayilar }
  */
 export const OTOMATIK_EN_FAZLA = 3; // otomatik seçimde kategori başına en çok ürün; 4 ve üstü önerilmez
 export function oneriMenu(o) {
   if (!(o.binalar || []).some((b) => Number(b?.seviye) >= 1)) return { durum: 'seviye' };
   const bonus = Number(o.bonus) || 0;
+  const carpan = oturmaCarpani(o.binalar.find((b) => Number(b?.seviye) >= 1)?.tip); // eko 1, lüks 1,25
   const n = Math.floor(Number(o.urunSayisi));
   const temel = { binalar: o.binalar, fiyatOf: o.fiyatOf, arzOf: o.arzOf };
   const sonuc = (c, hedefKalite) => ({ durum: 'ok', hedefKalite, secim: c.secim, maliyet: c.maliyet, ortalama: c.ortalama, sayilar: kategoriSayilari(c.secim.map((x) => x.id)) });
@@ -442,7 +448,7 @@ export function oneriMenu(o) {
     const hedefRatingi = RATING.guvenli + RATING_PAYI;
     let yok = null;
     for (const [a, b, c3] of desenler) {
-      const hedefKalite = Math.max(0, gerekenKalite(hedefRatingi - cesitRating({ salata: a, ana: b, icecek: c3 }), bonus));
+      const hedefKalite = Math.max(0, gerekenKalite(hedefRatingi / carpan - cesitRating({ salata: a, ana: b, icecek: c3 }), bonus));
       const c = enUcuzMenu({ ...temel, hedefKalite, kategoriAdet: { salata: a, ana: b, icecek: c3 } });
       if (!c.ok) { if (!yok || hedefKalite < yok.hedefKalite) yok = { durum: 'yok', neden: c.neden, kategori: c.kategori, hedefKalite }; continue; }
       if (!en || c.maliyet < en.maliyet - 1e-9 || (c.maliyet <= en.maliyet + 1e-9 && c.ortalama > en.ortalama)) en = sonuc(c, hedefKalite);
@@ -450,5 +456,5 @@ export function oneriMenu(o) {
     if (!en) return yok;
   }
   const cesit = cesitRating(en.sayilar);
-  return { ...en, cesit, rating: KALITE_TABAN + KALITE_RATING * en.ortalama + bonus + cesit };
+  return { ...en, cesit, carpan, rating: (KALITE_TABAN + KALITE_RATING * en.ortalama + bonus + cesit) * carpan };
 }
