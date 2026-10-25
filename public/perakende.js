@@ -6,7 +6,7 @@
 // "günlük perakende marjı" alanları da buradan güncellenir.
 
 import { LOCALE, t as ceviri } from './i18n.js';
-import { readDocs, PATHS, dataField, loadProduct, summarizeDay, utcDay, addDays, START_YEAR, loadGamePhase, anlikFiyat } from './veri.js';
+import { readDocs, PATHS, dataField, loadProduct, summarizeDay, utcDay, addDays, START_YEAR, loadGamePhase, anlikFiyat, LIVE, ASK_FRESH_MS } from './veri.js';
 import * as H from './hesap.js';
 import * as Y from './yonetici.js';
 import { CSS, parseNum, kisayolKucuk, kisayolSatiri, bolumUyariHtml } from './uretim.js';
@@ -20,11 +20,11 @@ import { esc } from './esc.js';
 const STORE_KEY = (r) => `dentsimco.perakende.r${r}`;
 const TAB_KEY = 'dentsimco.perakende.tab';
 const PERIOD_KEY = 'dentsimco.perakende.period';
-export const TABS = [['kurulum', 'Kurulum'], ['binalar', 'Binalar'], ['pphpl', 'PPHPL Max'], ['restoran', 'Restoran'], ['tuketim', 'Tüketimler'], ['ozet', 'Özet']];
-// Üst sekmeler; Binalar ve Restoran'ın altında ikişer alt sekme var
-const GROUPS = [['kurulum', 'Kurulum', ['kurulum']], ['binalar', 'Binalar', ['binalar', 'pphpl']], ['restoran', 'Restoran', ['restoran', 'tuketim']], ['ozet', 'Özet', ['ozet']]];
-const RESTORAN_BINALAR_ACIK = false; // Restoran > Binalar geliştirme aşamasında: erişime kapalı, yalnız Tüketimler açık
-const SUBS = { binalar: [['binalar', 'Binalar'], ['pphpl', 'PPHPL Max']], restoran: [['restoran', 'Binalar'], ['tuketim', 'Tüketimler']] };
+export const TABS = [['kurulum', 'Kurulum'], ['binalar', 'Binalar'], ['pphpl', 'PPHPL Max'], ['restoran', 'Restoran'], ['oneri', 'Menü önerisi'], ['tuketim', 'Tüketimler'], ['ozet', 'Özet']];
+// Üst sekmeler; Binalar'ın altında iki, Restoran'ın altında üç alt sekme var
+const GROUPS = [['kurulum', 'Kurulum', ['kurulum']], ['binalar', 'Binalar', ['binalar', 'pphpl']], ['restoran', 'Restoran', ['restoran', 'oneri', 'tuketim']], ['ozet', 'Özet', ['ozet']]];
+const RESTORAN_BINALAR_ACIK = false; // Restoran > Binalar geliştirme aşamasında: erişime kapalı; Menü önerisi ve Tüketimler açık
+const SUBS = { binalar: [['binalar', 'Binalar'], ['pphpl', 'PPHPL Max']], restoran: [['restoran', 'Binalar'], ['oneri', 'Menü önerisi'], ['tuketim', 'Tüketimler']] };
 const PERIODS = [['hour', 'Saatlik', 1 / 24], ['day', 'Günlük', 1], ['week', 'Haftalık', 7], ['month', 'Aylık', 30]];
 const REC = [['park', 'Park'], ['temple', 'Tapınak'], ['lake', 'Göl']];
 const HISTORY_DAYS = 30;
@@ -176,6 +176,18 @@ function parseLive(doc) {
   }
   return out;
 }
+// Anlık borsa arzı: tam q kalitesindeki ilan adedi {id: {q: adet}}; yalnız anlık veri tazeyken (eskiyse arz sınırı uygulanmaz)
+function parseArz(doc, now = Date.now()) {
+  const out = {};
+  for (const [id, e] of Object.entries(doc?.items || {})) {
+    const askT = Array.isArray(e) ? Number(e[2]) : 0;
+    if (!(askT > 0 && now - askT <= ASK_FRESH_MS) || !e[1] || typeof e[1] !== 'object') continue;
+    const m = {};
+    for (const [q, row] of Object.entries(e[1])) { const a = Number(row?.[LIVE.SUPPLY]); if (Number.isFinite(a)) m[q] = a; }
+    out[id] = m;
+  }
+  return out;
+}
 async function loadData(r) {
   const P = { products: PATHS.meta(`products_r${r}`), buildings: PATHS.meta('buildings'), core: PATHS.meta('core'),
     retail: PATHS.meta(`retail_r${r}`), restaurant: PATHS.meta(`restaurant_r${r}`), modifiers: PATHS.meta(`modifiers_r${r}`), live: PATHS.live(r) };
@@ -197,6 +209,7 @@ async function loadData(r) {
     names: Object.fromEntries(Object.entries(products).map(([id, p]) => [id, urunAdi(id, p?.name) || `#${id}`])),
     saturation,
     market: parseLive(get('live')),
+    arz: parseArz(get('live')),
     liveT: Number(get('live')?.t) || null,
     qualityWeight: qw != null && Number.isFinite(Number(qw)) ? Number(qw) : undefined,
     hasRetailInfo: !!ri,
@@ -346,6 +359,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
 
   // ---- hesap ----
   const marketOf = (id, q) => data?.market?.[id]?.[q] ?? null;
+  const arzOf = (id, q) => data?.arz?.[id]?.[q] ?? null;
   const letters = () => R.retailLetters().filter((l) => !EXCLUDED.has(l) && R.buildingProducts(l, 1).length)
     .sort((a, b) => buildingName(a).localeCompare(buildingName(b), 'tr'));
 
@@ -467,7 +481,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       try {
         const c = context();
         const ev = evaluateAll(c);
-        body = tab === 'kurulum' ? viewKurulum(c) : tab === 'pphpl' ? viewPphpl(c) : tab === 'ozet' ? viewOzet(c, ev) : tab === 'restoran' ? viewRestoran(c, ev) : tab === 'tuketim' ? viewTuketim() : viewBinalar(c, ev);
+        body = tab === 'kurulum' ? viewKurulum(c) : tab === 'pphpl' ? viewPphpl(c) : tab === 'ozet' ? viewOzet(c, ev) : tab === 'restoran' ? viewRestoran(c, ev) : tab === 'oneri' ? viewOneri(c) : tab === 'tuketim' ? viewTuketim() : viewBinalar(c, ev);
       } catch (e) {
         console.error(e);
         body = `<div class="ur-msg err" role="alert">Bu ekran gösterilemedi: ${esc(e?.message || e)}. Sayfayı yenileyin; sürerse bize bildirin.</div>`;
@@ -475,7 +489,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     }
     const scroll = window.scrollY;
     const tabloKayma = view.querySelector('.tk-wrap')?.scrollLeft || 0; // tablo yeniden çizilince başa sıçramasın
-    view.innerHTML = tabs + (data && !loadError && tab !== 'tuketim' ? bolumUyariHtml(company, 'perakende', kbOnay) : '') + body;
+    view.innerHTML = tabs + (data && !loadError && tab !== 'tuketim' && tab !== 'oneri' ? bolumUyariHtml(company, 'perakende', kbOnay) : '') + body;
     window.scrollTo(0, scroll);
     const tablo = view.querySelector('.tk-wrap');
     if (tablo) {
@@ -647,7 +661,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   // ---- RESTORAN ----
   function viewRestoran(c, ev) {
     if (!RESTORAN_BINALAR_ACIK) {
-      return `<div class="ur-card ur-empty"><h2>Geliştiriliyor</h2><p class="ur-sub">Restoran binaları bölümü şu an geliştirme aşamasında; erişime kapalı. Restoran tüketimlerini Tüketimler sekmesinden görebilirsiniz.</p><a class="ur-btn" href="#perakende/tuketim">Tüketimlere git</a></div>`;
+      return `<div class="ur-card ur-empty"><h2>Geliştiriliyor</h2><p class="ur-sub">Restoran binaları bölümü şu an geliştirme aşamasında; erişime kapalı. Restoran tüketimlerini Tüketimler sekmesinden görebilirsiniz.</p><div class="ur-row" style="gap:8px;flex-wrap:wrap"><a class="ur-btn" href="#perakende/oneri">Menü önerisine git</a><a class="ur-btn" href="#perakende/tuketim">Tüketimlere git</a></div></div>`;
     }
     const t = ev.restoran.totals;
     return `
@@ -658,6 +672,15 @@ export function mountPerakende(root, { realm = 0 } = {}) {
         <div class="ur-stat"><span>Kullanılan seviye</span><span>${num(t.levels)}</span></div></div>` : ''}
       ${RS.restoranBinalarHtml(setup.restoran, ev.restoran, marketOf, restoranAcik)}
       ${kisayolSatiri('perakendeOzet')}`;
+  }
+
+  // ---- MENÜ ÖNERİSİ ----
+  function viewOneri(c) {
+    // Yöneticilerin iletişim puanı rating bonusuna girer; girilmediyse bonus eksik hesaplanır ve güvenli hedef için gereken kalite yükselir
+    const uyari = Y.bolumUyarilari(company, 'perakende').yoneticiYok ? `<div class="ur-msg err" role="alert"><b>Yönetici girilmedi</b>
+      <p style="margin:6px 0 10px">Yöneticilerinizin iletişim puanı restoranın rating bonusuna girer. Girmediğiniz için bonus eksik hesaplanıyor; güvenli hedef için gereken menü kalitesi olduğundan yüksek çıkabilir.</p>
+      <a class="ur-btn" href="#yonetim/ekip" style="text-decoration:none">Yönetim › Ekip'e git</a></div>` : '';
+    return uyari + RS.menuOnerisiSekmeHtml(setup.restoran, { marketOf, arzOf, ratingBonus: c.ctx.ratingBonus });
   }
 
   // ---- TÜKETİMLER ----
@@ -1052,7 +1075,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     if (act === 'rt.aralik') { tuketimAralik = [7, 14, 28].includes(Number(btn.dataset.v)) ? Number(btn.dataset.v) : 28; return softRender(); }
     if (act === 'rt.urun') { tuketimUrun = btn.dataset.v; return softRender(); }
     if (act === 'rt.gun') { tuketimGun = btn.dataset.v; return softRender(); }
-    if (/^r[kfm]\./.test(act)) {
+    if (/^r[kfmo]\./.test(act)) {
       const nx = clone();
       if (RS.restoranTikla(nx.restoran, btn, { marketOf, acik: restoranAcik })) return commit(nx);
     }
@@ -1081,7 +1104,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       if (pointerActive) { pendingRender = true; return; }
       return renderSheet();
     }
-    if (t?.dataset?.rk || t?.dataset?.rf || t?.dataset?.rm) {
+    if (t?.dataset?.rk || t?.dataset?.rf || t?.dataset?.rm || t?.dataset?.ro) {
       const nx = clone();
       if (RS.restoranDegis(nx.restoran, t, { marketOf })) commit(nx);
       return;
@@ -1116,7 +1139,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   }
   function onKey(ev) {
     if (ev.key === 'Escape' && sheet) { ev.preventDefault(); closeSheet(); }
-    if (ev.key === 'Enter' && ev.target.matches?.('.ur input[data-f], .ur input[data-rf], .ur input[data-rm], .ur input[data-rk], .ur-panel input[data-d]')) ev.target.blur();
+    if (ev.key === 'Enter' && ev.target.matches?.('.ur input[data-f], .ur input[data-rf], .ur input[data-rm], .ur input[data-rk], .ur input[data-ro], .ur-panel input[data-d]')) ev.target.blur();
   }
   function onHash() {
     const [key, sub] = location.hash.slice(1).split('/');
