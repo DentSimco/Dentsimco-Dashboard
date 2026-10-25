@@ -139,13 +139,18 @@ test('Yükseltme güvenliği (ısı haritası): $60\'ta kapanış sonrası dolul
 });
 
 section('Hedef rating ve beklenen doluluk');
-test('Hedef: elle girilen önce; önceki+mevcut varsa tahmin; yoksa eko varsayılan (bonusla kayar), lüks mevcut rating', () => {
+test('Hedef: elle girilen önce; önceki+mevcut varsa tahmin; yoksa eko varsayılan (bonusla kayar), lüks eko hedefin ×1,25 katı', () => {
   eq(R.hedefRating({ hedef: 7.2, tip: 'eko' }), { deger: 7.2, kaynak: 'girilen' });
   const t = R.hedefRating({ onceki: 5, rating: 5.177, tip: 'eko' });
   near(t.deger, 6, 1e-9); eq(t.kaynak, 'tahmin');
   near(R.hedefRating({ tip: 'eko' }, 0.99).deger, 6.045, 1e-9); // kalite bilinmiyorsa referans menü (Q7,5)
   near(R.hedefRating({ tip: 'eko' }, 1.19).deger, 6.245, 1e-9); // bonus 0,2 artınca hedef 0,2 artar
-  eq(R.hedefRating({ tip: 'luks', rating: 8.75 }), { deger: 8.75, kaynak: 'bilinmiyor' });
+  // lüks: eko hedef × 1,25 [hipotez], 10'a kırpılı; mevcut rating hedefi etkilemez
+  eq(R.hedefRating({ tip: 'luks', rating: 8.75 }, 0.99), { deger: 6.045 * 1.25, kaynak: 'varsayilan', luksCarpani: 1.25 });
+  near(R.hedefRating({ tip: 'luks' }, 0.99).deger, R.hedefRating({ tip: 'eko' }, 0.99).deger * R.LUKS_RATING_CARPANI, 1e-9);
+  eq(R.hedefRating({ tip: 'luks' }, 3).deger, 10);
+  eq(R.hedefRating({ tip: 'luks', hedef: 7.2 }), { deger: 7.2, kaynak: 'girilen' }); // elle girilen çarpılmaz
+  near(R.hedefRating({ tip: 'luks', onceki: 5, rating: 5.177 }).deger, 6, 1e-9); // ölçülmüş geçişten çıkan hedef çarpılmaz
 });
 test('Kalite: 11 Ekim menüsü (Q7, Q10, Q7, Q5, Q7, Q9) ortalama 7,5 ve bonus 0,99 ile hedef ~6; seviye 2 testi (Q0,5, bonus 0,32) ~3,8', () => {
   const ref = [[117, 7], [119, 10], [142, 7], [143, 5], [124, 7], [125, 9]].map(([id, kalite]) => ({ id, birim: 1, kalite }));

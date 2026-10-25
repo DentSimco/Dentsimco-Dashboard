@@ -19,6 +19,8 @@
 //   Doluluk = oyunun herkese açık ısı haritası (rating × menü fiyatı, 150 bin döngü, eko + lüks karışık): rating 6 altında ve
 //     fiyat yükseldikçe düşer, $60–89'da rating 7+ için ~%96–97 tavan [oyun: Sim Companies Times, Eylül 2026]
 //     Kendi ölçümümüz (47 döngü, $60–67, rating 5,4–7,2) bununla çelişmiyor; tek döngüde ±%5 gürültü var [ölçüm]
+//   Lüks restoran rating'in etkisini toplamaz, çarpar [oyun: rehber ve değişiklik günlüğü]; çarpan ×1,25 [hipotez: gazete rating dağılımı
+//     eko/lüks oranı ×1,2–1,5 (üst sınır, lüks sahipleri seçilmiş) ve tecrübeli oyuncu "%25"; kesin ölçüm için eko→lüks dönüşüm deneyi gerekir]
 //   Menü fiyatı en az $60, en çok $350 [oyun rehberi]
 
 export const DONGU_SAAT = 12;
@@ -29,6 +31,7 @@ export const FIYAT_MAX = 350;
 export const KOLTUK = { eko: 1000, luks: 500 }; // seviye başına
 export const LUKS_YEMEK = 0.5;
 export const LUKS_MAAS = 0.5;
+export const LUKS_RATING_CARPANI = 1.25; // [hipotez] lüks, ratingin etkisini çarpar; ×1,25 gazete verisinden ve oyuncu tahmininden, ölçülmedi
 export const IYI_HIZMET_MAAS = 5; // goodService açıkken toplam maaş çarpanı (yönetim gideri dahil)
 export const KAPANIS_CARPANI = 0.875;
 
@@ -200,7 +203,7 @@ export const yukseltmeGuvenli = (r, fiyat = FIYAT_MIN) => dolulukHaritasi(kapani
  * Restoranın ratingin yerleşeceği hedef.
  *  1) elle girilen hedef;
  *  2) önceki ve mevcut rating girildiyse: rating her döngü farkın k kadarını kapatır, hedef = önceki + (mevcut − önceki) ÷ k;
- *  3) eko: varsayılan hedef, bonus farkıyla kaydırılır; lüks: veri yok, mevcut rating değişmez varsayılır.
+ *  3) varsayılan hedef (eko formülü), bonus farkıyla kaydırılır; lüks restoranda bu hedef LUKS_RATING_CARPANI ile çarpılır (10'a kırpılı).
  */
 // Eko hedef rating = KALITE_TABAN + KALITE_RATING × ortalama menü kalitesi + bonus.
 // Üç ölçümden: 11 Ekim menüsü (ort. Q7,5, bonus 0,99 → ~6,0), 20 Ekim (aynı menü, bonus 1,09 → ~6,4) ve seviye 2 testi
@@ -220,8 +223,10 @@ export function hedefRating(item, bonus = BONUS_REFERANS, kalite = REFERANS_KALI
   const once = Number(item?.onceki);
   const simdi = Number(item?.rating);
   if (fin(once) && fin(simdi) && item?.onceki !== '' && item?.onceki != null) return { deger: clamp(once + (simdi - once) / RATING.k, 0, 10), kaynak: 'tahmin' };
-  if (tipOf(item?.tip) === 'luks') return { deger: fin(simdi) ? simdi : RATING.hedef, kaynak: 'bilinmiyor' };
-  return { deger: clamp(KALITE_TABAN + KALITE_RATING * (fin(kalite) ? kalite : REFERANS_KALITE) + bonus, 0, 10), kaynak: 'varsayilan' };
+  const eko = KALITE_TABAN + KALITE_RATING * (fin(kalite) ? kalite : REFERANS_KALITE) + bonus;
+  return tipOf(item?.tip) === 'luks'
+    ? { deger: clamp(eko * LUKS_RATING_CARPANI, 0, 10), kaynak: 'varsayilan', luksCarpani: LUKS_RATING_CARPANI }
+    : { deger: clamp(eko, 0, 10), kaynak: 'varsayilan' };
 }
 
 /**
