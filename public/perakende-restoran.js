@@ -13,7 +13,7 @@ const TIPLER = [['eko', 'Eko'], ['luks', 'Lüks']];
 const GORUNUM = [['beklenen', 'Beklenen'], ['simdi', 'Şimdi']];
 const VARSAYILAN_MENU = { 117: 7, 119: 10, 142: 7, 143: 5, 124: 7, 125: 9 };
 const HEDEFLER = [['guvenli', 'Güvenli rating'], ['kalite', 'Hedef kalite']];
-const URUN_SAYILARI = [['2', '2 ürün'], ['3', '3 ürün'], ['4', '4 ürün'], ['0', 'Otomatik']]; // kategori başına; 2 oyunda doğrulanmış çarpan
+const URUN_SAYILARI = [['1', '1 ürün'], ['2', '2 ürün'], ['3', '3 ürün'], ['0', 'Otomatik']]; // kategori başına; yalnız 2'nin çarpanı oyunda doğrulanmış
 const HEDEF_KALITELER = Array.from({ length: 25 }, (_, i) => i / 2); // Q0–Q12, yarım basamak
 const varsayilanOneri = () => ({ hedef: 'guvenli', kalite: 6, urunSayisi: 2, seviye: 0, tip: 'eko' });
 
@@ -85,7 +85,7 @@ export const RESTORAN_CSS = `
 // ---------------------------------------------------------------------------------------------------------------
 // Kayıt: setup.restoran
 // { menuMode: 'ortak' | 'ayri', menu: {id: {secili, kalite, kaynak, manuel}}, kontratPct, gorunum: 'beklenen' | 'simdi',
-//   oneri: { hedef: 'guvenli' | 'kalite', kalite, urunSayisi: 0 | 2 | 3 | 4, seviye, tip } (Menü önerisi sekmesi; menüden bağımsız),
+//   oneri: { hedef: 'guvenli' | 'kalite', kalite, urunSayisi: 0 | 1 | 2 | 3, seviye, tip } (Menü önerisi sekmesi; menüden bağımsız),
 //   items: [{ id, ad, tip, seviye, fiyat, rating, doluluk, menu? }] }
 // ---------------------------------------------------------------------------------------------------------------
 export function varsayilanMenu() {

@@ -259,6 +259,12 @@ test('Menü önerisi: hedef kalite; ürün sayısı verilmezse en ucuz sayı se�
   const oto = R.oneriMenu({ binalar: B10, fiyatOf: tabloFiyat(f), hedef: 'kalite', kalite: 6, urunSayisi: 0 });
   ok(oto.maliyet <= sabit.maliyet, 'serbest seçim sabit sayıdan pahalı olamaz');
   eq(R.oneriMenu({ binalar: B10, fiyatOf: tabloFiyat(f), hedef: 'kalite', kalite: 7, urunSayisi: 2 }).neden, 'ulasilamaz');
+  // Otomatik en çok 3 ürün seçer (4 ve üstü önerilmez); 1 ürün seçilince çarpan 2,1: ⌈oran × 2,1 × seviye⌉
+  ok(Object.values(oto.sayilar).every((n) => n >= 1 && n <= R.OTOMATIK_EN_FAZLA), 'otomatik 1–3 ürün');
+  const bir = R.oneriMenu({ binalar: B10, fiyatOf: tabloFiyat(f), hedef: 'kalite', kalite: 6, urunSayisi: 1 });
+  eq(bir.sayilar, { salata: 1, ana: 1, icecek: 1 });
+  eq(bir.secim.map((x) => x.adet), bir.secim.map((x) => Math.ceil(R.URUNLER[x.id].oran * 2.1 * 10 - 1e-9)));
+  eq(R.enUcuzMenu({ binalar: B10, fiyatOf: tabloFiyat(f), hedefKalite: 6, enFazla: 6 }).secim.length > 0, true);
   eq(R.oneriMenu({ binalar: B10, fiyatOf: tabloFiyat(sabitQ6([117, 121])), hedef: 'kalite', kalite: 6, urunSayisi: 2 }).kategori, 'Ana yemek');
 });
 test('Ortak menü: ihtiyaç binaların toplamı, her bina ayrı yuvarlanır (köfte tek başına: 2 × ⌈3,505 × 2,1⌉ = 16, seviye 2 tek bina 15)', () => {
