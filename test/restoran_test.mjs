@@ -112,6 +112,25 @@ test('Fiyatı bilinmeyen ürün toplama girmez, işaretlenir', () => {
   near(g.malzeme, Math.ceil(288 * 2.1) * 10 + Math.ceil(144 * 2.1) * 50, 1e-6);
 });
 
+section('Profesyonel çalışan (maaş ×5, oyun kodu)');
+test('Profesyonel çalışan maaşı 5 katına çıkarır: donguMaasi, donguGideri, bina değerlendirmesi ve yönetimsiz taban maaş', () => {
+  near(R.donguMaasi(100, 10, 'eko', true), 5 * R.donguMaasi(100, 10, 'eko', false), 1e-9);
+  near(R.donguMaasi(100, 10, 'luks', true), 5 * R.donguMaasi(100, 10, 'luks', false), 1e-9);
+  const menu = [{ id: 117, birim: 1 }, { id: 142, birim: 1 }, { id: 124, birim: 1 }];
+  const g = (profesyonel) => R.donguGideri({ menu, seviye: 5, saatlikMaas: 800, profesyonel });
+  near(g(true).maas, 5 * g(false).maas, 1e-9);
+  near(g(true).malzeme, g(false).malzeme, 1e-9);
+  const ev = (profesyonel) => R.restoranDegerlendir([{ id: 'a', tip: 'eko', profesyonel, seviye: 10, fiyat: 62, rating: 6, doluluk: 100 }],
+    { adminNet: 0.3, averageSalary: 345, salaryModifier: 1.7, ratingBonus: 0.99, mod: 'simdi', menuOf: () => menu }).rows[0];
+  near(ev(true).wagesDay, 5 * ev(false).wagesDay, 1e-6);
+  near(ev(true).baseWagesDay, 5 * ev(false).baseWagesDay, 1e-6);
+  eq(ev(true).profesyonel, true);
+  near(ev(true).hedef.deger, ev(false).hedef.deger, 1e-12, 'ratinge etkisi bilinmiyor: hedef aynı');
+});
+test('Doluluk modeli yalnız $60–64 aralığında ölçüldü: sınır sabiti', () => {
+  eq([R.FIYAT_MIN, R.DOLULUK_FIYAT_UST], [60, 64]);
+});
+
 section('Yönetim, satış hızı ve rating bonusu');
 test('Maaş: 1,7 × 345 × (1 + net yönetim gideri); 18 Ekim net %44,47 → $847,3/saat/seviye (oyun: $254.196 ÷ 12 ÷ 25)', () => {
   near(R.saatlikMaasSeviye({ salaryModifier: 1.7, averageSalary: 345, adminNet: 0.4447 }), 254196 / 12 / 25, 0.05);
