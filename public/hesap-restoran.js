@@ -18,8 +18,11 @@
 //   Hedef rating = [Menü puanı + Çeşitlilik puanı + Personel puanı] × Oturma çarpanı. Menü puanı = 3,33 + 0,23 × ortalama menü kalitesi [ölçüm];
 //     Personel puanı = 0,01 × etkin CMO iletişim puanı + 0,02 × taban satış hızı % (bonus) [oyun]; çeşitlilik [hipotez]; oturma çarpanı eko 1, lüks 1,25 [kullanıcı]
 //   Rating her döngü hedefine doğru yaklaşır: r' = r + k·(T − r), k ≈ 0,177, gürültü ±0,21 [ölçüm]
-//   Doluluk: rating ~4,5 altında çöker (%40–70), üstünde fiyat ($60–64) ve ratingden bağımsız ~%96,5 [ölçüm]
+//   Doluluk = f(rating, menü fiyatı, ekonomi evresi): oyunun gazetesindeki restoran ısı haritalarından (28 dönem, ~3 milyon döngü)
+//     evre paylarıyla regresyon; tablo public/restoran-doluluk.js (araclar/restoran-isi.mjs üretir). Piyasa ortalamasıdır [oyun verisi]
 //   Menü fiyatı en az $60, en çok $350 [oyun rehberi]
+
+import { DOLULUK_TABLO, DOLULUK_FIYATLAR, DOLULUK_KOSU, DOLULUK_KAYNAK } from './restoran-doluluk.js';
 
 export const DONGU_SAAT = 12;
 export const ORTALAMA_MAAS = 345; // yedek: veri okunamazsa (meta/core AVERAGE_SALARY)
@@ -65,18 +68,44 @@ export const URUNLER = {
 
 // Rating ve doluluk modeli [ölçüm]: veri büyüdükçe bu sabitler güncellenir
 export const RATING = { k: 0.177, hedef: 6.0, gurultu: 0.21, esik: 4.5, guvenli: 5.2 };
-export const DOLULUK = { ust: 96.5 };
-export const DOLULUK_FIYAT_UST = 64; // doluluk modelinin ölçüldüğü en yüksek menü fiyatı; üstünde fiyat etkisi bilinmiyor
-// Düşük ratingte doluluk [ölçüm]: rating ~0'da rastgele (%3–27, ortalama ~%13), 3,9–4,6 arasında hızla yükselir, 4,6'dan sonra ~%96,5.
-export const DOLULUK_EGRI = [[0, 13], [3.9, 38], [3.95, 40.6], [4.11, 56], [4.25, 69], [4.61, DOLULUK.ust]];
-export function dolulukRating(r) {
-  const x = Number(r);
-  if (!fin(x) || x <= 0) return DOLULUK_EGRI[0][1];
-  for (let i = 1; i < DOLULUK_EGRI.length; i++) {
-    const [a, b] = [DOLULUK_EGRI[i - 1], DOLULUK_EGRI[i]];
-    if (x <= b[0]) return a[1] + ((b[1] - a[1]) * (x - a[0])) / (b[0] - a[0]);
-  }
-  return DOLULUK.ust;
+
+// Ekonomi evresi: hesap.js ECONOMY_PHASES ile aynı dizin (0 Durgunluk, 1 Normal, 2 Büyüme); bilinmiyorsa Normal
+export const EVRE_NORMAL = 1;
+export const evreOf = (e) => (e !== null && e !== '' && [0, 1, 2].includes(Number(e)) ? Number(e) : EVRE_NORMAL);
+export { DOLULUK_KAYNAK };
+export const DOLULUK_AZ_VERI = 1000; // hücrede 28 dönemde bundan az döngü varsa tahmin zayıf sayılır
+
+// Tablodaki dilimin temsil ettiği nokta: rating dilimi r → r + 0,5 (rating 10 dilimi yalnız 10), fiyat dilimi p → p + 15
+const RATING_MERKEZ = DOLULUK_TABLO[0][0].map((_, i) => (i < 10 ? i + 0.5 : 10));
+const FIYAT_MERKEZ = DOLULUK_FIYATLAR.map((p) => p + 15);
+// Sıralı merkezler arasında konum: [alt dizin, üst dizin, ağırlık]; uçlarda sabit
+function konum(merkez, x) {
+  if (!(x > merkez[0])) return [0, 0, 0];
+  const n = merkez.length - 1;
+  if (x >= merkez[n]) return [n, n, 0];
+  let i = 0;
+  while (merkez[i + 1] < x) i++;
+  return [i, i + 1, (x - merkez[i]) / (merkez[i + 1] - merkez[i])];
+}
+
+/** Tahmini doluluk (%): rating (lüks çarpanı dahil), menü fiyatı ve evreye göre tablodan iki yönlü ara değer. */
+export function dolulukTahmini(rating, fiyat, evre = EVRE_NORMAL) {
+  const t = DOLULUK_TABLO[evreOf(evre)];
+  const r = clamp(fin(Number(rating)) ? Number(rating) : 0, 0, 10);
+  const p = clamp(fin(Number(fiyat)) ? Number(fiyat) : FIYAT_MIN, FIYAT_MIN, FIYAT_MAX);
+  const [r0, r1, a] = konum(RATING_MERKEZ, r);
+  const [p0, p1, b] = konum(FIYAT_MERKEZ, p);
+  const satir = (pi) => t[pi][r0] + (t[pi][r1] - t[pi][r0]) * a;
+  return satir(p0) + (satir(p1) - satir(p0)) * b;
+}
+
+/** Tahminin dayandığı hücredeki döngü sayısı (en yakın dilim); DOLULUK_AZ_VERI altı zayıf. */
+export function dolulukVerisi(rating, fiyat) {
+  const r = clamp(Math.floor(Number(rating) || 0), 0, 10);
+  const p = clamp(Number(fiyat) || FIYAT_MIN, FIYAT_MIN, FIYAT_MAX);
+  let pi = 0;
+  while (pi + 1 < DOLULUK_FIYATLAR.length && DOLULUK_FIYATLAR[pi + 1] <= p) pi++;
+  return DOLULUK_KOSU[pi][r];
 }
 
 const fin = (x) => typeof x === 'number' && Number.isFinite(x);
@@ -259,12 +288,19 @@ export function hedefRating(item, bonus = BONUS_REFERANS, kalite = REFERANS_KALI
   return { deger: clamp((menu + (Number(bonus) || 0) + (fin(cesit) ? cesit : 0)) * oturmaCarpani(item?.tip), 0, 10), kaynak: 'varsayilan' };
 }
 
-/** Rating yerleşince beklenen doluluk (%). Eşiğin üstünde son doluluk korunur; altında düşük doluluk. */
-export function beklenenDoluluk(beklenenRating, mevcutRating, sonDoluluk) {
-  const son = fin(Number(sonDoluluk)) && sonDoluluk !== '' && sonDoluluk != null ? clamp(Number(sonDoluluk), 0, 100) : null;
-  if (beklenenRating < RATING.esik) return son != null && mevcutRating < RATING.esik ? son : dolulukRating(beklenenRating);
-  if (mevcutRating >= RATING.esik) return son ?? DOLULUK.ust;
-  return DOLULUK.ust;
+/**
+ * Döngü kârını en yükselten menü fiyatı ($1 adım, $60–350). Gider fiyattan bağımsızdır (yemek her döngü harcanır).
+ * Dönen: { fiyat, doluluk, kar } (kar döngü başına); gider eksikse (fiyatı olmayan ürün) null.
+ */
+export function enKarliFiyat(gider, rating, evre = EVRE_NORMAL) {
+  if (!gider || !(gider.koltuk > 0) || !fin(gider.toplam)) return null;
+  let iyi = null;
+  for (let fiyat = FIYAT_MIN; fiyat <= FIYAT_MAX; fiyat++) {
+    const doluluk = dolulukTahmini(rating, fiyat, evre);
+    const kar = donguKari(gider, fiyat, doluluk);
+    if (!iyi || kar > iyi.kar + 1e-9) iyi = { fiyat, doluluk, kar };
+  }
+  return iyi;
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -274,7 +310,7 @@ export const GUN_DONGU = 24 / DONGU_SAAT;
 
 /**
  * @param {Array} restoranlar  [{ id, ad, tip, profesyonel?, seviye, fiyat, rating, onceki, doluluk, hedef, menu? }]
- * @param {{ adminNet: number, averageSalary?: number, salaryModifier?: number, ratingBonus: number, mod: 'beklenen'|'simdi', model?: 'kalite'|'maliyet',
+ * @param {{ adminNet: number, averageSalary?: number, salaryModifier?: number, ratingBonus: number, mod: 'beklenen'|'simdi', model?: 'kalite'|'maliyet', evre?: 0|1|2,
  *           menuOf: (item) => Array<{ id: number, birim: number|null, kalite?: number }> }} ctx
  * Dönen toplamlar Perakende'nin toplamlarıyla aynı adlarla: revenueDay, costDay (malzeme), wagesDay (yönetim dahil),
  * baseWagesDay (yönetimsiz), profitDay, levels.
@@ -302,13 +338,15 @@ export function restoranDegerlendir(restoranlar, ctx) {
       const gelirDong = fiyat * g.koltuk * (doluluk / 100);
       return { rating, doluluk, customersDay: g.koltuk * (doluluk / 100) * GUN_DONGU, revenueDay: gelirDong * GUN_DONGU, profitDay: eksik ? null : (gelirDong - g.toplam) * GUN_DONGU };
     };
-    const simdi = senaryo(simdiR, sonD ?? beklenenDoluluk(simdiR, simdiR, null));
-    const beklenen = senaryo(hedef.deger, beklenenDoluluk(hedef.deger, simdiR, sonD));
+    const evre = evreOf(ctx.evre);
+    const simdi = senaryo(simdiR, sonD ?? dolulukTahmini(simdiR, fiyat, evre));
+    const beklenen = senaryo(hedef.deger, dolulukTahmini(hedef.deger, fiyat, evre));
     const secili = ctx.mod === 'simdi' ? simdi : beklenen;
     const costDay = g.malzeme * GUN_DONGU;
     const wagesDay = (g.maas ?? 0) * GUN_DONGU;
     const baseWagesDay = taban * 24 * L * (tip === 'luks' ? LUKS_MAAS : 1) * (it.profesyonel ? PROFESYONEL_MAAS : 1);
     rows.push({ id: it.id, ad: it.ad, tip, profesyonel: !!it.profesyonel, seviye: L, fiyat, gider: g, eksik, kalite, maliyetPuani: rho, hedef, simdi, beklenen, secili, costDay, wagesDay, baseWagesDay,
+      evre, enKarli: eksik || g.eksikMaas ? null : enKarliFiyat(g, hedef.deger, evre), dolulukVerisi: dolulukVerisi(hedef.deger, fiyat),
       kapanis: { sonra: kapanisSonrasi(simdiR), guvenli: yukseltmeGuvenli(simdiR) } });
     T.levels += L;
     T.customersDay += secili.customersDay;
@@ -595,4 +633,31 @@ function oneriMenuB(o) {
  */
 export function oneriMenu(o) {
   return o.model === 'maliyet' ? oneriMenuB(o) : oneriMenuA(o);
+}
+
+/**
+ * Menü önerisinin günlük kâr hesabı. oneri: oneriMenu sonucu (durum 'ok'; rating lüks çarpanı dahil, maliyet döngü başına);
+ * fiyat: menü fiyatı; evre: 0 Durgunluk, 1 Normal, 2 Büyüme; seviye ve tip önerinin bina bilgisi; saatlikMaas: seviye başına (yönetim dahil).
+ * Dönen (tutarlar günlük): { rating, fiyat, evre, doluluk, veri, gelir, malzeme, maas, kar, basabas (%), enKarli: { fiyat, doluluk, kar } };
+ * maaş bilinmiyorsa kar, basabas ve enKarli null. Seviye yoksa null.
+ */
+export function oneriKari({ oneri, fiyat, evre = EVRE_NORMAL, seviye, tip = 'eko', saatlikMaas = null }) {
+  if (!oneri || oneri.durum !== 'ok') return null;
+  const t = tipOf(tip);
+  const L = Math.max(0, Math.floor(Number(seviye) || 0));
+  const koltuk = KOLTUK[t] * L;
+  if (!(koltuk > 0)) return null;
+  const f = clamp(fin(Number(fiyat)) ? Number(fiyat) : FIYAT_MIN, FIYAT_MIN, FIYAT_MAX);
+  const maas = donguMaasi(saatlikMaas, L, t);
+  const gider = maas == null ? null : { koltuk, toplam: oneri.maliyet + maas };
+  const doluluk = dolulukTahmini(oneri.rating, f, evre);
+  const gelir = f * koltuk * (doluluk / 100);
+  const enKarli = gider ? enKarliFiyat(gider, oneri.rating, evre) : null;
+  return {
+    rating: oneri.rating, fiyat: f, evre: evreOf(evre), doluluk, veri: dolulukVerisi(oneri.rating, f),
+    gelir: gelir * GUN_DONGU, malzeme: oneri.maliyet * GUN_DONGU, maas: maas == null ? null : maas * GUN_DONGU,
+    kar: gider ? (gelir - gider.toplam) * GUN_DONGU : null,
+    basabas: gider ? (gider.toplam / (f * koltuk)) * 100 : null,
+    enKarli: enKarli && { ...enKarli, kar: enKarli.kar * GUN_DONGU },
+  };
 }

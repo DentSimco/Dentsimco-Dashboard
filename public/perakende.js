@@ -423,7 +423,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   // Mağazalar + restoranlar: toplamlar birleşir (adet ve marj yalnız mağazalara aittir)
   function evaluateAll(c) {
     const ev = R.evaluateRetail(engineSetup(c), c.ctx);
-    const rs = RS.degerlendirRestoran(setup.restoran, c.ctx, marketOf);
+    const rs = RS.degerlendirRestoran(setup.restoran, { ...c.ctx, evre: c.econ }, marketOf);
     const a = ev.totals;
     const b = rs.totals;
     // Borsada fiyatı olmayan ürün (mağaza ya da restoran) varsa toplam kâr hesaplanmaz; elle girilmesi istenir
@@ -706,9 +706,10 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   function viewOneri(c) {
     // Yöneticilerin iletişim puanı rating bonusuna girer; girilmediyse bonus eksik hesaplanır ve güvenli hedef için gereken kalite yükselir
     const uyari = Y.bolumUyarilari(company, 'perakende').yoneticiYok ? `<div class="ur-msg err" role="alert"><b>Yönetici girilmedi</b>
-      <p style="margin:6px 0 10px">Yöneticilerinizin iletişim puanı restoranın rating bonusuna girer. Girmediğiniz için bonus eksik hesaplanıyor; güvenli hedef için gereken menü kalitesi olduğundan yüksek çıkabilir.</p>
+      <p style="margin:6px 0 10px">Yöneticilerinizin iletişim puanı restoranın rating bonusuna girer. Girmediğiniz için bonus eksik hesaplanıyor; hedef rating için önerilen menü olduğundan pahalı çıkabilir.</p>
       <a class="ur-btn" href="#yonetim/ekip" style="text-decoration:none">Yönetim › Ekip'e git</a></div>` : '';
-    return uyari + RS.menuOnerisiSekmeHtml(setup.restoran, { marketOf, arzOf, ratingBonus: c.ctx.ratingBonus });
+    return uyari + RS.menuOnerisiSekmeHtml(setup.restoran, { marketOf, arzOf, ratingBonus: c.ctx.ratingBonus, oyunEvresi: data.gamePhase,
+      maas: { adminNet: c.ctx.adminNet, averageSalary: c.ctx.averageSalary, salaryModifier: c.ctx.buildings?.r?.salaryModifier } });
   }
 
   // ---- TÜKETİMLER ----
