@@ -20,11 +20,11 @@ import { esc } from './esc.js';
 const STORE_KEY = (r) => `dentsimco.perakende.r${r}`;
 const TAB_KEY = 'dentsimco.perakende.tab';
 const PERIOD_KEY = 'dentsimco.perakende.period';
-export const TABS = [['kurulum', 'Kurulum'], ['binalar', 'Binalar'], ['pphpl', 'PPHPL Max'], ['restoran', 'Restoran'], ['tuketim', 'Tüketimler'], ['ozet', 'Özet']];
-// Üst sekmeler; Binalar ve Restoran'ın altında ikişer alt sekme var
-const GROUPS = [['kurulum', 'Kurulum', ['kurulum']], ['binalar', 'Binalar', ['binalar', 'pphpl']], ['restoran', 'Restoran', ['restoran', 'tuketim']], ['ozet', 'Özet', ['ozet']]];
-const RESTORAN_BINALAR_ACIK = false; // Restoran > Binalar geliştirme aşamasında: erişime kapalı, yalnız Tüketimler açık
-const SUBS = { binalar: [['binalar', 'Binalar'], ['pphpl', 'PPHPL Max']], restoran: [['restoran', 'Binalar'], ['tuketim', 'Tüketimler']] };
+export const TABS = [['kurulum', 'Kurulum'], ['binalar', 'Binalar'], ['pphpl', 'PPHPL Max'], ['restoran', 'Restoran'], ['oneri', 'Menü önerisi'], ['tuketim', 'Tüketimler'], ['ozet', 'Özet']];
+// Üst sekmeler; Binalar'ın altında iki, Restoran'ın altında üç alt sekme var
+const GROUPS = [['kurulum', 'Kurulum', ['kurulum']], ['binalar', 'Binalar', ['binalar', 'pphpl']], ['restoran', 'Restoran', ['restoran', 'oneri', 'tuketim']], ['ozet', 'Özet', ['ozet']]];
+const RESTORAN_BINALAR_ACIK = false; // Restoran > Binalar geliştirme aşamasında: erişime kapalı; Menü önerisi ve Tüketimler açık
+const SUBS = { binalar: [['binalar', 'Binalar'], ['pphpl', 'PPHPL Max']], restoran: [['restoran', 'Binalar'], ['oneri', 'Menü önerisi'], ['tuketim', 'Tüketimler']] };
 const PERIODS = [['hour', 'Saatlik', 1 / 24], ['day', 'Günlük', 1], ['week', 'Haftalık', 7], ['month', 'Aylık', 30]];
 const REC = [['park', 'Park'], ['temple', 'Tapınak'], ['lake', 'Göl']];
 const HISTORY_DAYS = 30;
@@ -482,7 +482,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       try {
         const c = context();
         const ev = evaluateAll(c);
-        body = tab === 'kurulum' ? viewKurulum(c) : tab === 'pphpl' ? viewPphpl(c) : tab === 'ozet' ? viewOzet(c, ev) : tab === 'restoran' ? viewRestoran(c, ev) : tab === 'tuketim' ? viewTuketim() : viewBinalar(c, ev);
+        body = tab === 'kurulum' ? viewKurulum(c) : tab === 'pphpl' ? viewPphpl(c) : tab === 'ozet' ? viewOzet(c, ev) : tab === 'restoran' ? viewRestoran(c, ev) : tab === 'oneri' ? viewOneri(c) : tab === 'tuketim' ? viewTuketim() : viewBinalar(c, ev);
       } catch (e) {
         console.error(e);
         body = `<div class="ur-msg err" role="alert">Bu ekran gösterilemedi: ${esc(e?.message || e)}. Sayfayı yenileyin; sürerse bize bildirin.</div>`;
@@ -490,7 +490,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     }
     const scroll = window.scrollY;
     const tabloKayma = view.querySelector('.tk-wrap')?.scrollLeft || 0; // tablo yeniden çizilince başa sıçramasın
-    view.innerHTML = tabs + (data && !loadError && tab !== 'tuketim' ? bolumUyariHtml(company, 'perakende', kbOnay) : '') + body;
+    view.innerHTML = tabs + (data && !loadError && tab !== 'tuketim' && tab !== 'oneri' ? bolumUyariHtml(company, 'perakende', kbOnay) : '') + body;
     window.scrollTo(0, scroll);
     const tablo = view.querySelector('.tk-wrap');
     if (tablo) {
@@ -662,7 +662,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   // ---- RESTORAN ----
   function viewRestoran(c, ev) {
     if (!RESTORAN_BINALAR_ACIK) {
-      return `<div class="ur-card ur-empty"><h2>Geliştiriliyor</h2><p class="ur-sub">Restoran binaları bölümü şu an geliştirme aşamasında; erişime kapalı. Restoran tüketimlerini Tüketimler sekmesinden görebilirsiniz.</p><a class="ur-btn" href="#perakende/tuketim">Tüketimlere git</a></div>`;
+      return `<div class="ur-card ur-empty"><h2>Geliştiriliyor</h2><p class="ur-sub">Restoran binaları bölümü şu an geliştirme aşamasında; erişime kapalı. Restoran tüketimlerini Tüketimler sekmesinden görebilirsiniz.</p><div class="ur-row" style="gap:8px;flex-wrap:wrap"><a class="ur-btn" href="#perakende/oneri">Menü önerisine git</a><a class="ur-btn" href="#perakende/tuketim">Tüketimlere git</a></div></div>`;
     }
     const t = ev.restoran.totals;
     return `
@@ -673,6 +673,11 @@ export function mountPerakende(root, { realm = 0 } = {}) {
         <div class="ur-stat"><span>Kullanılan seviye</span><span>${num(t.levels)}</span></div></div>` : ''}
       ${RS.restoranBinalarHtml(setup.restoran, ev.restoran, marketOf, restoranAcik, { arzOf, ratingBonus: c.ctx.ratingBonus, geri: restoranGeri })}
       ${kisayolSatiri('perakendeOzet')}`;
+  }
+
+  // ---- MENÜ ÖNERİSİ ----
+  function viewOneri(c) {
+    return RS.menuOnerisiSekmeHtml(setup.restoran, marketOf, { arzOf, ratingBonus: c.ctx.ratingBonus, geri: restoranGeri });
   }
 
   // ---- TÜKETİMLER ----
@@ -1131,7 +1136,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   }
   function onKey(ev) {
     if (ev.key === 'Escape' && sheet) { ev.preventDefault(); closeSheet(); }
-    if (ev.key === 'Enter' && ev.target.matches?.('.ur input[data-f], .ur input[data-rf], .ur input[data-rm], .ur input[data-rk], .ur-panel input[data-d]')) ev.target.blur();
+    if (ev.key === 'Enter' && ev.target.matches?.('.ur input[data-f], .ur input[data-rf], .ur input[data-rm], .ur input[data-rk], .ur input[data-ro], .ur-panel input[data-d]')) ev.target.blur();
   }
   function onHash() {
     const [key, sub] = location.hash.slice(1).split('/');
