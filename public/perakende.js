@@ -6,7 +6,7 @@
 // "günlük perakende marjı" alanları da buradan güncellenir.
 
 import { LOCALE, t as ceviri } from './i18n.js';
-import { readDocs, PATHS, dataField, loadProduct, summarizeDay, utcDay, addDays, START_YEAR, loadGamePhase, anlikFiyat } from './veri.js';
+import { readDocs, PATHS, dataField, loadProduct, summarizeDay, utcDay, addDays, START_YEAR, loadGamePhase, anlikFiyat, LIVE, ASK_FRESH_MS } from './veri.js';
 import * as H from './hesap.js';
 import * as Y from './yonetici.js';
 import { CSS, parseNum, kisayolKucuk, kisayolSatiri, bolumUyariHtml } from './uretim.js';
@@ -176,6 +176,18 @@ function parseLive(doc) {
   }
   return out;
 }
+// Anlık borsa arzı: tam q kalitesindeki ilan adedi {id: {q: adet}}; yalnız anlık veri tazeyken (eskiyse arz sınırı uygulanmaz)
+function parseArz(doc, now = Date.now()) {
+  const out = {};
+  for (const [id, e] of Object.entries(doc?.items || {})) {
+    const askT = Array.isArray(e) ? Number(e[2]) : 0;
+    if (!(askT > 0 && now - askT <= ASK_FRESH_MS) || !e[1] || typeof e[1] !== 'object') continue;
+    const m = {};
+    for (const [q, row] of Object.entries(e[1])) { const a = Number(row?.[LIVE.SUPPLY]); if (Number.isFinite(a)) m[q] = a; }
+    out[id] = m;
+  }
+  return out;
+}
 async function loadData(r) {
   const P = { products: PATHS.meta(`products_r${r}`), buildings: PATHS.meta('buildings'), core: PATHS.meta('core'),
     retail: PATHS.meta(`retail_r${r}`), restaurant: PATHS.meta(`restaurant_r${r}`), modifiers: PATHS.meta(`modifiers_r${r}`), live: PATHS.live(r) };
@@ -197,6 +209,7 @@ async function loadData(r) {
     names: Object.fromEntries(Object.entries(products).map(([id, p]) => [id, urunAdi(id, p?.name) || `#${id}`])),
     saturation,
     market: parseLive(get('live')),
+    arz: parseArz(get('live')),
     liveT: Number(get('live')?.t) || null,
     qualityWeight: qw != null && Number.isFinite(Number(qw)) ? Number(qw) : undefined,
     hasRetailInfo: !!ri,
@@ -267,6 +280,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   let tuketimUrun = null;
   let tuketimGun = null;
   const restoranAcik = new Set(); // ayrı menülü restoran kartlarında açık menüler
+  const restoranGeri = new Map(); // menü önerisi uygulanmadan önceki menüler (kapsam → menü); sayfa kapanınca unutulur
   let kbOnay = false; // öteki bölümün binalarını kaldırma onayı bekleniyor
   let kbGeri = null; // kaldırılanı geri almak için eski durum
   let sheet = null; // { draft: { index, id, letter, product, quality, level, cost, price } }
@@ -346,6 +360,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
 
   // ---- hesap ----
   const marketOf = (id, q) => data?.market?.[id]?.[q] ?? null;
+  const arzOf = (id, q) => data?.arz?.[id]?.[q] ?? null;
   const letters = () => R.retailLetters().filter((l) => !EXCLUDED.has(l) && R.buildingProducts(l, 1).length)
     .sort((a, b) => buildingName(a).localeCompare(buildingName(b), 'tr'));
 
@@ -656,7 +671,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
         <div class="ur-stat"><span>Günlük kâr</span><span class="${cls(t.profitDay)}">${money(t.profitDay)}</span></div>
         <div class="ur-stat"><span>Toplam maaş</span><span>${money(t.wagesDay)}</span></div>
         <div class="ur-stat"><span>Kullanılan seviye</span><span>${num(t.levels)}</span></div></div>` : ''}
-      ${RS.restoranBinalarHtml(setup.restoran, ev.restoran, marketOf, restoranAcik)}
+      ${RS.restoranBinalarHtml(setup.restoran, ev.restoran, marketOf, restoranAcik, { arzOf, ratingBonus: c.ctx.ratingBonus, geri: restoranGeri })}
       ${kisayolSatiri('perakendeOzet')}`;
   }
 
@@ -1052,9 +1067,9 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     if (act === 'rt.aralik') { tuketimAralik = [7, 14, 28].includes(Number(btn.dataset.v)) ? Number(btn.dataset.v) : 28; return softRender(); }
     if (act === 'rt.urun') { tuketimUrun = btn.dataset.v; return softRender(); }
     if (act === 'rt.gun') { tuketimGun = btn.dataset.v; return softRender(); }
-    if (/^r[kfm]\./.test(act)) {
+    if (/^r[kfmo]\./.test(act)) {
       const nx = clone();
-      if (RS.restoranTikla(nx.restoran, btn, { marketOf, acik: restoranAcik })) return commit(nx);
+      if (RS.restoranTikla(nx.restoran, btn, { marketOf, acik: restoranAcik, geri: restoranGeri })) return commit(nx);
     }
     const next = clone();
     if (act === 'phase') { next.economyPhase = btn.dataset.v === 'auto' ? null : Number(btn.dataset.v); return commit(next); }
@@ -1081,7 +1096,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       if (pointerActive) { pendingRender = true; return; }
       return renderSheet();
     }
-    if (t?.dataset?.rk || t?.dataset?.rf || t?.dataset?.rm) {
+    if (t?.dataset?.rk || t?.dataset?.rf || t?.dataset?.rm || t?.dataset?.ro) {
       const nx = clone();
       if (RS.restoranDegis(nx.restoran, t, { marketOf })) commit(nx);
       return;

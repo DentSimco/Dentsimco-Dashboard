@@ -205,6 +205,127 @@ test('Her restoran kendi menüsünü kullanabilir (menuOf bina başına)', () =>
   ok(r.rows[0].costDay !== r.rows[1].costDay, 'farklı menü farklı maliyet');
 });
 
+section('Menü önerisi: aynı ortalama kaliteyle en ucuz dağılım');
+// Fiyat tablosu: { id: { q: birim } }; tabloda olmayan kalite borsada yok sayılır
+const tabloFiyat = (t) => (id, q) => t[id]?.[q] ?? null;
+const sabitQ6 = (ids, p = 100) => Object.fromEntries(ids.map((id) => [id, { 6: p }]));
+// Örnek: süt Q2 + köfte Q10 (ortalama Q6). Süt Q2→Q3 basamağı 2.880 × $0,1 = $288, köfte Q10→Q9 basamağı 36 × $20 = $720.
+const ORNEK = [117, 121, 131, 129, 124, 125]; // süt, ekmek | köfte, hamburger | portakal, elma suyu
+const ORNEK_FIYAT = { ...sabitQ6([121, 129, 124, 125], 10), 117: { 2: 2, 3: 2.1, 4: 2.5 }, 131: { 8: 1060, 9: 1080, 10: 1100 } };
+const ORNEK_MENU = [[117, 2], [121, 6], [131, 10], [129, 6], [124, 6], [125, 6]].map(([id, kalite]) => ({ id, kalite }));
+const B10 = [{ seviye: 10, tip: 'eko' }];
+test('Süt Q2 + köfte Q10 → süt Q3 + köfte Q9: ortalama Q6 kalır, döngüde $288 − $720 = $432 tasarruf', () => {
+  const o = R.menuOnerisi(ORNEK_MENU, { binalar: B10, fiyatOf: tabloFiyat(ORNEK_FIYAT), hedef: 'koru', kapsam: 'kalite' });
+  eq(o.durum, 'ok');
+  eq(o.cozum.secim.map((x) => [x.id, x.kalite]), [[117, 3], [121, 6], [129, 6], [131, 9], [124, 6], [125, 6]]); // kategori sırası
+  near(o.cozum.ortalama, 6, 1e-9);
+  near(o.tasarruf, 432, 1e-6);
+  eq(o.degisim.filter((d) => d.degisti).map((d) => [d.id, d.once, d.sonra]), [[117, 2, 3], [131, 10, 9]]);
+  near(o.rating.sonra, o.rating.once, 1e-9, 'rating değişmez');
+  eq([o.ayni, o.onemsiz], [false, false]);
+});
+test('Süt Q3 basamağında arz yetmezse kalite değişmez; Q4 ilanları Q3 ihtiyacını karşılar (Σ q′ ≥ q)', () => {
+  const arz = (yuksek) => (id, q) => (id === 117 ? { 2: 1e6, 3: 1000, 4: yuksek }[q] ?? 0 : null);
+  const yok = R.menuOnerisi(ORNEK_MENU, { binalar: B10, fiyatOf: tabloFiyat(ORNEK_FIYAT), arzOf: arz(0), hedef: 'koru', kapsam: 'kalite' });
+  eq(yok.ayni, true);
+  near(yok.tasarruf, 0, 1e-9);
+  const var_ = R.menuOnerisi(ORNEK_MENU, { binalar: B10, fiyatOf: tabloFiyat(ORNEK_FIYAT), arzOf: arz(5000), hedef: 'koru', kapsam: 'kalite' });
+  eq(var_.cozum.secim.find((x) => x.id === 117).kalite, 3);
+  const m = R.menuMaliyeti([{ id: 117, kalite: 3 }, { id: 131, kalite: 9 }, { id: 124, kalite: 6 }], { binalar: B10, fiyatOf: tabloFiyat(ORNEK_FIYAT), arzOf: arz(0) });
+  eq(m.arzYetersiz, [117]);
+});
+test('Fiyatı olmayan kalite seçilmez; hiçbir kombinasyon hedefe ulaşmıyorsa çözüm yok', () => {
+  const o = R.enUcuzMenu({ binalar: B10, fiyatOf: tabloFiyat(ORNEK_FIYAT), hedefKalite: 6, urunler: ORNEK });
+  ok(o.secim.every((x) => ORNEK_FIYAT[x.id][x.kalite] != null), 'yalnız fiyatı olan kaliteler');
+  eq(R.enUcuzMenu({ binalar: B10, fiyatOf: tabloFiyat(ORNEK_FIYAT), hedefKalite: 7, urunler: ORNEK }), { ok: false, neden: 'ulasilamaz' });
+  eq(R.enUcuzMenu({ binalar: B10, fiyatOf: tabloFiyat(ORNEK_FIYAT), hedefKalite: 6, urunler: [117, 124] }).neden, 'kategori');
+});
+test('Ürün de seçilince kategorideki ürün sayısı (çarpan) korunur; birim fiyatı değil, toplam tutarı ucuz olan seçilir', () => {
+  // Hepsi Q6: tereyağının birim fiyatı ($5) ekmeğin ($10) yarısı ama oranı (92,6) ekmeğinkinin (24,89) ~4 katı
+  const f = { ...sabitQ6([131, 129, 124, 125], 10), 117: { 6: 1 }, 121: { 6: 10 }, 134: { 6: 5 } };
+  const menu = [117, 134, 131, 129, 124, 125].map((id) => ({ id, kalite: 6 }));
+  const o = R.menuOnerisi(menu, { binalar: B10, fiyatOf: tabloFiyat(f), hedef: 'koru', kapsam: 'urun' });
+  eq(R.kategoriSayilari(o.cozum.secim.map((x) => x.id)), { salata: 2, ana: 2, icecek: 2 });
+  eq(o.degisim.filter((d) => d.degisti).map((d) => [d.id, d.once, d.sonra]), [[121, null, 6], [134, 6, null]]);
+  near(o.tasarruf, 926 * 5 - 249 * 10, 1e-9); // ⌈92,6 × 10⌉ tereyağı yerine ⌈24,89 × 10⌉ ekmek
+});
+test('Güvenli hedef: rating 5,2 + 0,3 için bonus 0,99 ile ortalama ≥ (5,5 − 3,33 − 0,99) ÷ 0,23 ≈ Q5,13', () => {
+  near(R.gerekenKalite(5.5, 0.99), 5.1304, 1e-4);
+  const o = R.menuOnerisi(ORNEK_MENU, { binalar: B10, fiyatOf: tabloFiyat(ORNEK_FIYAT), hedef: 'guvenli', bonus: 0.99, kapsam: 'kalite' });
+  near(o.hedefKalite, 5.1304, 1e-4);
+  ok(o.cozum.ortalama >= o.hedefKalite, 'hedef sağlanır');
+  ok(o.rating.sonra >= R.RATING.guvenli + R.RATING_PAYI - 1e-9, 'tahmini rating güvenli');
+});
+test('Ortak menü: ihtiyaç binaların toplamı, her bina ayrı yuvarlanır (köfte tek başına: 2 × ⌈3,505 × 2,1⌉ = 16, seviye 2 tek bina 15)', () => {
+  const f = tabloFiyat({ 117: { 0: 1 }, 131: { 0: 1 }, 124: { 0: 1 } });
+  const menu = [117, 131, 124].map((id) => ({ id, kalite: 0 }));
+  const iki = R.menuMaliyeti(menu, { binalar: [{ seviye: 1 }, { seviye: 1 }], fiyatOf: f });
+  const tek = R.menuMaliyeti(menu, { binalar: [{ seviye: 2 }], fiyatOf: f });
+  eq([iki.kalemler[1].adet, tek.kalemler[1].adet], [16, 15]);
+  eq(R.menuMaliyeti(menu, { binalar: [{ seviye: 2, tip: 'luks' }], fiyatOf: f }).kalemler[1].adet, 8);
+});
+test('Küçük fark yalnız mevcut menü hedefi sağlıyorsa önemsizdir; hedefin altındaki menüye küçük ek gider önerilir', () => {
+  // Elma suyu Q6 → Q7 basamağı: 1.290 × $0,01 = $12,9 (malzemenin binde 2'sinden az)
+  const f = { ...ORNEK_FIYAT, 125: { 6: 10, 7: 10.01 } };
+  const yakin = R.menuOnerisi(ORNEK_MENU, { binalar: B10, fiyatOf: tabloFiyat(f), hedef: 'kalite', kalite: 6, kapsam: 'kalite' });
+  eq(yakin.onemsiz, false, 'Q6 hedefinde $432 tasarruf önemli');
+  const yukari = R.menuOnerisi(ORNEK_MENU.map((m) => (m.id === 117 ? { ...m, kalite: 3 } : m.id === 131 ? { ...m, kalite: 9 } : m)),
+    { binalar: B10, fiyatOf: tabloFiyat(f), hedef: 'kalite', kalite: 6.1, kapsam: 'kalite' });
+  ok(yukari.tasarruf < 0 && Math.abs(yukari.tasarruf) < R.ONEMSIZ_TASARRUF * yukari.mevcut.maliyet, 'küçük ek gider');
+  eq([yukari.ayni, yukari.onemsiz], [false, false], 'hedefin altındaki menü için öneri gizlenmez');
+});
+test('Seviye yoksa ya da kategori eksikse öneri yapılmaz', () => {
+  eq(R.menuOnerisi(ORNEK_MENU, { binalar: [{ seviye: 0 }], fiyatOf: tabloFiyat(ORNEK_FIYAT), hedef: 'koru', kapsam: 'kalite' }).durum, 'seviye');
+  eq(R.menuOnerisi(ORNEK_MENU.slice(0, 2), { binalar: B10, fiyatOf: tabloFiyat(ORNEK_FIYAT), hedef: 'koru', kapsam: 'kalite' }).durum, 'kategori');
+});
+
+// Kaba kuvvet: tüm ürün alt kümeleri ve kalite kombinasyonları denenir; motorun maliyeti en küçükle aynı olmalı
+let tohum = 7;
+const rastgele = () => { tohum = (tohum * 1103515245 + 12345) % 2147483648; return tohum / 2147483648; };
+function rastgeleFiyat(ids, kaliteler) {
+  const t = {};
+  for (const id of ids) {
+    let p = 1 + rastgele() * 50;
+    t[id] = {};
+    for (let q = 0; q <= 12; q++) { p += rastgele() * 8; if (kaliteler.includes(q) && rastgele() > 0.15) t[id][q] = p; } // kalitesi ≥ q en ucuz ilan: artan
+  }
+  return t;
+}
+function kabaKuvvet(adaylar, f, binalar, hedef, kaliteler) {
+  const katlar = R.KATEGORILER.map((k) => k.urunler.filter((id) => adaylar.includes(id)));
+  const altlar = katlar.map((l) => Array.from({ length: (1 << l.length) - 1 }, (_, m) => l.filter((_, i) => m + 1 & (1 << i))));
+  let en = Infinity;
+  for (const a of altlar[0]) for (const b of altlar[1]) for (const c of altlar[2]) {
+    const ids = [...a, ...b, ...c];
+    const kombi = (i, acc) => {
+      if (i === ids.length) {
+        const m = R.menuMaliyeti(ids.map((id, j) => ({ id, kalite: acc[j] })), { binalar, fiyatOf: f });
+        if (m.maliyet != null && m.ortalama >= hedef - 1e-9) en = Math.min(en, m.maliyet);
+        return;
+      }
+      for (const q of kaliteler) kombi(i + 1, [...acc, q]);
+    };
+    kombi(0, []);
+  }
+  return en;
+}
+test('Kaba kuvvetle aynı sonuç: 40 rastgele borsa, ürün seçimi serbest, birden çok bina', () => {
+  const adaylar = [117, 121, 131, 142, 124, 132];
+  const kaliteler = [1, 4, 6, 9];
+  for (let i = 0; i < 40; i++) {
+    const t = rastgeleFiyat(adaylar, kaliteler);
+    const binalar = [{ seviye: 1 + Math.floor(rastgele() * 30) }, { seviye: 1 + Math.floor(rastgele() * 10), tip: 'luks' }];
+    const hedef = Math.round(rastgele() * 18) / 2;
+    const o = R.enUcuzMenu({ binalar, fiyatOf: tabloFiyat(t), hedefKalite: hedef });
+    const k = kabaKuvvet(adaylar, tabloFiyat(t), binalar, hedef, kaliteler);
+    if (k === Infinity) { eq(o.ok, false, `#${i}`); continue; }
+    near(o.maliyet, k, 1e-6, `#${i}`);
+    const m = R.menuMaliyeti(o.secim, { binalar, fiyatOf: tabloFiyat(t) });
+    near(m.maliyet, o.maliyet, 1e-6, `#${i} motorun maliyeti menü hesabıyla aynı`);
+    ok(m.ortalama >= hedef - 1e-9 && m.eksikKategori.length === 0, `#${i} hedef ve kategori`);
+  }
+});
+
 const failed = results.filter((r) => !r.ok);
 let last = '';
 for (const r of results) {
