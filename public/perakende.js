@@ -676,7 +676,11 @@ export function mountPerakende(root, { realm = 0 } = {}) {
 
   // ---- MENÜ ÖNERİSİ ----
   function viewOneri(c) {
-    return RS.menuOnerisiSekmeHtml(setup.restoran, { marketOf, arzOf, ratingBonus: c.ctx.ratingBonus });
+    // Yöneticilerin iletişim puanı rating bonusuna girer; girilmediyse bonus eksik hesaplanır ve güvenli hedef için gereken kalite yükselir
+    const uyari = Y.bolumUyarilari(company, 'perakende').yoneticiYok ? `<div class="ur-msg err" role="alert"><b>Yönetici girilmedi</b>
+      <p style="margin:6px 0 10px">Yöneticilerinizin iletişim puanı restoranın rating bonusuna girer. Girmediğiniz için bonus eksik hesaplanıyor; güvenli hedef için gereken menü kalitesi olduğundan yüksek çıkabilir.</p>
+      <a class="ur-btn" href="#yonetim/ekip" style="text-decoration:none">Yönetim › Ekip'e git</a></div>` : '';
+    return uyari + RS.menuOnerisiSekmeHtml(setup.restoran, { marketOf, arzOf, ratingBonus: c.ctx.ratingBonus });
   }
 
   // ---- TÜKETİMLER ----

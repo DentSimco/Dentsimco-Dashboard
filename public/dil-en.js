@@ -1437,6 +1437,7 @@ export default {
   "Kategori başına ürün sayısı": "Products per category",
   "Ortalama kalite": "Average quality",
   "Tahmini rating": "Estimated rating",
+  "Yöneticilerinizin iletişim puanı restoranın rating bonusuna girer. Girmediğiniz için bonus eksik hesaplanıyor; güvenli hedef için gereken menü kalitesi olduğundan yüksek çıkabilir.": "Your executives' communication score counts toward the restaurant's rating bonus. Because it is not entered, the bonus is underestimated; the menu quality needed for the safe target may come out higher than it really is.",
   "Rating bonusu {0}: Kurulum'daki satış hızından ve yönetici ekibinin iletişim puanından gelir; girilmediyse 0 sayılır.": "Rating bonus {0}: comes from the sales speed in Setup and the communication score of your executive team; counted as 0 if not entered.",
   "Fiyatlar anlık borsa fiyatıdır; borsa değişince öneri de değişir. Kontrat indirimi girilirse fiyatlara uygulanır ve borsa arzı sınır sayılmaz. Rating hesabı menü kalitesinin düz ortalamasını varsayar (oyunda henüz doğrulanmadı).": "Prices are live exchange prices; when the exchange changes, the suggestion changes too. If a contract discount is entered it is applied to the prices and exchange supply is not treated as a limit. The rating calculation assumes the plain average of menu qualities (not yet verified in the game).",
   "Güvenli rating": "Safe rating",

@@ -1437,6 +1437,7 @@ export default {
   "Kategori başına ürün sayısı": "Produktů v kategorii",
   "Ortalama kalite": "Průměrná kvalita",
   "Tahmini rating": "Odhadované hodnocení",
+  "Yöneticilerinizin iletişim puanı restoranın rating bonusuna girer. Girmediğiniz için bonus eksik hesaplanıyor; güvenli hedef için gereken menü kalitesi olduğundan yüksek çıkabilir.": "Komunikační skóre vašich manažerů se počítá do bonusu k hodnocení restaurace. Protože není zadáno, bonus je podhodnocen; kvalita menu potřebná pro bezpečný cíl může vyjít vyšší, než je skutečně třeba.",
   "Rating bonusu {0}: Kurulum'daki satış hızından ve yönetici ekibinin iletişim puanından gelir; girilmediyse 0 sayılır.": "Bonus k hodnocení {0}: pochází z rychlosti prodeje v Nastavení a z komunikačního skóre vašeho týmu manažerů; pokud není zadán, počítá se 0.",
   "Fiyatlar anlık borsa fiyatıdır; borsa değişince öneri de değişir. Kontrat indirimi girilirse fiyatlara uygulanır ve borsa arzı sınır sayılmaz. Rating hesabı menü kalitesinin düz ortalamasını varsayar (oyunda henüz doğrulanmadı).": "Ceny jsou aktuální burzovní ceny; když se burza změní, změní se i návrh. Zadaná sleva z kontraktu se použije na ceny a burzovní nabídka se pak nepovažuje za omezení. Výpočet hodnocení předpokládá prostý průměr kvalit menu (ve hře zatím neověřeno).",
   "Güvenli rating": "Bezpečné hodnocení",

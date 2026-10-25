@@ -1437,6 +1437,7 @@ export default {
   "Kategori başına ürün sayısı": "每个类别的产品数",
   "Ortalama kalite": "平均质量",
   "Tahmini rating": "估算评级",
+  "Yöneticilerinizin iletişim puanı restoranın rating bonusuna girer. Girmediğiniz için bonus eksik hesaplanıyor; güvenli hedef için gereken menü kalitesi olduğundan yüksek çıkabilir.": "管理人员的沟通分数会计入餐厅的评级加成。由于尚未输入，加成被低估；安全目标所需的菜单质量可能比实际需要的更高。",
   "Rating bonusu {0}: Kurulum'daki satış hızından ve yönetici ekibinin iletişim puanından gelir; girilmediyse 0 sayılır.": "评级加成{0}：来自设置中的销售速度和管理团队的沟通分数；未输入时按0计算。",
   "Fiyatlar anlık borsa fiyatıdır; borsa değişince öneri de değişir. Kontrat indirimi girilirse fiyatlara uygulanır ve borsa arzı sınır sayılmaz. Rating hesabı menü kalitesinin düz ortalamasını varsayar (oyunda henüz doğrulanmadı).": "价格为交易所当前价格；交易所变化时建议也会变化。输入合同折扣后会应用到价格上，且不再把交易所供应视为限制。评级计算假设菜单质量为简单平均（游戏中尚未验证）。",
   "Güvenli rating": "安全评级",

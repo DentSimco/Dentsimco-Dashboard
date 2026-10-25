@@ -1437,6 +1437,7 @@ export default {
   "Kategori başına ürün sayısı": "Produits par catégorie",
   "Ortalama kalite": "Qualité moyenne",
   "Tahmini rating": "Notation estimée",
+  "Yöneticilerinizin iletişim puanı restoranın rating bonusuna girer. Girmediğiniz için bonus eksik hesaplanıyor; güvenli hedef için gereken menü kalitesi olduğundan yüksek çıkabilir.": "Le score de communication de vos dirigeants entre dans le bonus de notation du restaurant. Comme il n'est pas saisi, le bonus est sous-estimé ; la qualité de menu requise pour l'objectif sûr peut ressortir plus élevée que nécessaire.",
   "Rating bonusu {0}: Kurulum'daki satış hızından ve yönetici ekibinin iletişim puanından gelir; girilmediyse 0 sayılır.": "Bonus de notation {0} : provient de la vitesse de vente dans la Configuration et du score de communication de votre équipe de direction ; compté à 0 s'il n'est pas saisi.",
   "Fiyatlar anlık borsa fiyatıdır; borsa değişince öneri de değişir. Kontrat indirimi girilirse fiyatlara uygulanır ve borsa arzı sınır sayılmaz. Rating hesabı menü kalitesinin düz ortalamasını varsayar (oyunda henüz doğrulanmadı).": "Les prix sont les prix actuels de la bourse ; quand la bourse change, la suggestion change aussi. Une remise contrat saisie est appliquée aux prix et l'offre de la bourse n'est plus une limite. Le calcul de la notation suppose la moyenne simple des qualités du menu (pas encore vérifié dans le jeu).",
   "Güvenli rating": "Notation sûre",
