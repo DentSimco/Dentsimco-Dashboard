@@ -424,6 +424,7 @@ export default {
   'adet/gün': 'Einheiten/Tag',
   '{0} adet': '{0} Einheiten',
   '{0} bina': '{0} Gebäude',
+  "1 ürün": "1 Produkt",
   '{0} ürün': '{0} Produkte',
   '{0} kalem': '{0} Posten',
   'Planda': 'Im Plan',

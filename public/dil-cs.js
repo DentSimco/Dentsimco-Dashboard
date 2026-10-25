@@ -424,6 +424,7 @@ export default {
   'adet/gün': 'ks/den',
   '{0} adet': '{0} ks',
   '{0} bina': '{0} budov',
+  "1 ürün": "1 produkt",
   '{0} ürün': '{0} produktů',
   '{0} kalem': '{0} položek',
   'Planda': 'V plánu',

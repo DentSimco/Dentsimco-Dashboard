@@ -423,6 +423,7 @@ export default {
   'adet/gün': 'units/day',
   '{0} adet': '{0} units',
   '{0} bina': '{0} buildings',
+  "1 ürün": "1 product",
   '{0} ürün': '{0} products',
   '{0} kalem': '{0} items',
   'Planda': 'In plan',

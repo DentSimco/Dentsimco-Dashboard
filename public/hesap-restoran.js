@@ -328,7 +328,7 @@ export function menuMaliyeti(menu, o) {
  * @param {{ binalar: Array<{ seviye: number, tip?: string }>, fiyatOf: (id, q) => number|null, arzOf?: (id, q) => number|null,
  *           hedefKalite: number, urunler?: number[], kategoriAdet?: { salata?: number, ana?: number, icecek?: number } }} o
  *   urunler verilirse menü bu ürünlerden oluşur (hepsi kalır, yalnız kaliteler değişir). Yoksa ürünler de seçilir: kategoriAdet'te
- *   sayısı verilen kategoride tam o kadar, verilmeyende 1'den tümüne kadar (oyun her kategoriden en az bir ürün ister).
+ *   sayısı verilen kategoride tam o kadar, verilmeyende 1'den enFazla'ya (yoksa tümüne) kadar (oyun her kategoriden en az bir ürün ister).
  * Dönüş: { ok: true, secim: [{ id, kalite, adet, birim, tutar }], maliyet (döngü), ortalama } ya da { ok: false, neden, kategori? }
  */
 export function enUcuzMenu(o) {
@@ -342,7 +342,7 @@ export function enUcuzMenu(o) {
     const aday = kat.urunler.filter((id) => !sabit || sabit.has(id));
     if (!aday.length) return { ok: false, neden: 'kategori', kategori: kat.ad };
     const istek = Number(o.kategoriAdet?.[kat.key]);
-    const sayilar = sabit ? [aday.length] : istek > 0 ? [Math.min(Math.floor(istek), aday.length)] : aday.map((_, i) => i + 1);
+    const sayilar = sabit ? [aday.length] : istek > 0 ? [Math.min(Math.floor(istek), aday.length)] : aday.map((_, i) => i + 1).filter((k) => k <= (o.enFazla || Infinity));
     const alin = Object.fromEntries(aday.map((id) => [id, alinabilir(o.arzOf, id)]));
     const katTablo = new Map();
     for (const k of sayilar) {
@@ -404,17 +404,18 @@ export function enUcuzMenu(o) {
  * @param {{ binalar: Array<{ seviye: number, tip?: string }>, fiyatOf: (id, q) => number|null, arzOf?: (id, q) => number|null,
  *           hedef: 'guvenli'|'kalite', kalite?: number, bonus?: number, urunSayisi?: number }} o
  *   hedef guvenli: eko formülüyle rating ≥ RATING.guvenli + RATING_PAYI; kalite: ortalama menü kalitesi ≥ o.kalite.
- *   urunSayisi: her kategoride tam bu kadar ürün (2 oyunda doğrulanmış çarpan); 0 ya da yoksa 1'den tümüne kadar en ucuzu seçilir.
+ *   urunSayisi: her kategoride tam bu kadar ürün (2 oyunda doğrulanmış çarpan); 0 ya da yoksa 1–3 arasında en ucuzu seçilir (OTOMATIK_EN_FAZLA).
  * Dönüş: { durum: 'seviye' } | { durum: 'yok', neden, kategori?, hedefKalite } |
  *   { durum: 'ok', hedefKalite, secim: [{ id, kalite, adet, birim, tutar }], maliyet (döngü), ortalama, rating, sayilar }
  */
+export const OTOMATIK_EN_FAZLA = 3; // otomatik seçimde kategori başına en çok ürün; 4 ve üstü önerilmez
 export function oneriMenu(o) {
   if (!(o.binalar || []).some((b) => Number(b?.seviye) >= 1)) return { durum: 'seviye' };
   const hedefKalite = o.hedef === 'kalite' ? clamp(Number(o.kalite) || 0, 0, MAX_KALITE)
     : Math.max(0, gerekenKalite(RATING.guvenli + RATING_PAYI, o.bonus));
   const n = Math.floor(Number(o.urunSayisi));
   const c = enUcuzMenu({ binalar: o.binalar, fiyatOf: o.fiyatOf, arzOf: o.arzOf, hedefKalite,
-    ...(n > 0 ? { kategoriAdet: { salata: n, ana: n, icecek: n } } : {}) });
+    ...(n > 0 ? { kategoriAdet: { salata: n, ana: n, icecek: n } } : { enFazla: OTOMATIK_EN_FAZLA }) });
   if (!c.ok) return { durum: 'yok', neden: c.neden, kategori: c.kategori, hedefKalite };
   return { durum: 'ok', hedefKalite, secim: c.secim, maliyet: c.maliyet, ortalama: c.ortalama,
     rating: KALITE_TABAN + KALITE_RATING * c.ortalama + (Number(o.bonus) || 0), sayilar: kategoriSayilari(c.secim.map((x) => x.id)) };
