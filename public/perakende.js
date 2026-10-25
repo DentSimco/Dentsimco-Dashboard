@@ -280,7 +280,6 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   let tuketimUrun = null;
   let tuketimGun = null;
   const restoranAcik = new Set(); // ayrı menülü restoran kartlarında açık menüler
-  const restoranGeri = new Map(); // menü önerisi uygulanmadan önceki menüler (kapsam → menü); sayfa kapanınca unutulur
   let kbOnay = false; // öteki bölümün binalarını kaldırma onayı bekleniyor
   let kbGeri = null; // kaldırılanı geri almak için eski durum
   let sheet = null; // { draft: { index, id, letter, product, quality, level, cost, price } }
@@ -671,13 +670,13 @@ export function mountPerakende(root, { realm = 0 } = {}) {
         <div class="ur-stat"><span>Günlük kâr</span><span class="${cls(t.profitDay)}">${money(t.profitDay)}</span></div>
         <div class="ur-stat"><span>Toplam maaş</span><span>${money(t.wagesDay)}</span></div>
         <div class="ur-stat"><span>Kullanılan seviye</span><span>${num(t.levels)}</span></div></div>` : ''}
-      ${RS.restoranBinalarHtml(setup.restoran, ev.restoran, marketOf, restoranAcik, { arzOf, ratingBonus: c.ctx.ratingBonus, geri: restoranGeri })}
+      ${RS.restoranBinalarHtml(setup.restoran, ev.restoran, marketOf, restoranAcik)}
       ${kisayolSatiri('perakendeOzet')}`;
   }
 
   // ---- MENÜ ÖNERİSİ ----
   function viewOneri(c) {
-    return RS.menuOnerisiSekmeHtml(setup.restoran, marketOf, { arzOf, ratingBonus: c.ctx.ratingBonus, geri: restoranGeri });
+    return RS.menuOnerisiSekmeHtml(setup.restoran, { marketOf, arzOf, ratingBonus: c.ctx.ratingBonus });
   }
 
   // ---- TÜKETİMLER ----
@@ -1074,7 +1073,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     if (act === 'rt.gun') { tuketimGun = btn.dataset.v; return softRender(); }
     if (/^r[kfmo]\./.test(act)) {
       const nx = clone();
-      if (RS.restoranTikla(nx.restoran, btn, { marketOf, acik: restoranAcik, geri: restoranGeri })) return commit(nx);
+      if (RS.restoranTikla(nx.restoran, btn, { marketOf, acik: restoranAcik })) return commit(nx);
     }
     const next = clone();
     if (act === 'phase') { next.economyPhase = btn.dataset.v === 'auto' ? null : Number(btn.dataset.v); return commit(next); }

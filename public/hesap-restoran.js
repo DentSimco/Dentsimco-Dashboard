@@ -258,16 +258,15 @@ export function restoranDegerlendir(restoranlar, ctx) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// Menü önerisi: aynı ortalama kaliteyle (aynı ratingle) en ucuz ürün ve kalite dağılımı
+// Menü önerisi: hedef ortalama kaliteyi (rating hedefini) sağlayan en ucuz ürün ve kalite dağılımı
 // ---------------------------------------------------------------------------------------------------------------
-// Hedef rating ürüne değil, seçili ürünlerin ortalama kalitesine bağlıdır (hedefRating). Ortalamayı koruyup kaliteyi basamağı ucuz
+// Hedef rating ürüne değil, seçili ürünlerin ortalama kalitesine bağlıdır (hedefRating). Ortalama aynı kalırken kaliteyi basamağı ucuz
 // ürüne kaydırmak (süt Q2 → Q3, köfte Q10 → Q9) ya da kategoride daha ucuz ürünü seçmek ratingi değiştirmeden gideri düşürür.
 // Fiyat: anlık borsa fiyatı (kalitesi ≥ q olan en ucuz ilan). Arz: tam q kalitesindeki ilan adedi; q için alınabilecek adet Σ q' ≥ q.
 // Çözüm tamdır (dinamik programlama): kategori başına ürün alt kümesi × kalite toplamı, sonra kategoriler birleştirilir.
 
 export const MAX_KALITE = 12;
 export const RATING_PAYI = 0.3; // güvenli hedefte formül belirsizliğine karşı pay
-export const ONEMSIZ_TASARRUF = 0.002; // malzeme giderinin binde 2sinden küçük fark öneri sayılmaz (borsa gürültüsü)
 
 // Hedef rating için gereken ortalama menü kalitesi (eko hedef formülünün tersi)
 export const gerekenKalite = (rating, bonus = BONUS_REFERANS) => (rating - KALITE_TABAN - (Number(bonus) || 0)) / KALITE_RATING;
@@ -299,7 +298,7 @@ function altKumeler(list, k, bas = 0, acc = [], out = []) {
 }
 
 /**
- * Menünün döngü malzeme gideri (binaların toplamı).
+ * Menünün döngü malzeme gideri (binaların toplamı): enUcuzMenu'dan bağımsız bir hesap; sınamalar çözümü bununla doğrular.
  * @param {Array<{ id: number, kalite: number }>} menu  seçili ürünler
  * @param {{ binalar: Array<{ seviye: number, tip?: string }>, fiyatOf: (id, q) => number|null, arzOf?: (id, q) => number|null }} o
  * Dönüş: kalemler [{ id, kalite, adet, birim, tutar, arzYetersiz }], maliyet (fiyatı olmayan ürün varsa null), ortalama kalite,
@@ -401,38 +400,22 @@ export function enUcuzMenu(o) {
 }
 
 /**
- * Menü önerisi: mevcut menü ile hedefe göre en ucuz menünün karşılaştırması.
- * @param {Array<{ id: number, kalite: number }>} menu  seçili ürünler
- * @param {{ binalar, fiyatOf, arzOf?, hedef: 'koru'|'guvenli'|'kalite', kalite?: number, bonus?: number, kapsam: 'kalite'|'urun' }} o
- *   hedef koru: mevcut ortalama kalite korunur (rating değişmez); guvenli: eko formülüyle rating ≥ RATING.guvenli + RATING_PAYI;
- *   kalite: ortalama ≥ o.kalite. kapsam kalite: ürünler aynı kalır; urun: kategorilerdeki ürün sayısı (çarpan) aynı kalır, ürünler değişebilir.
- * Dönüş durum: 'ok' | 'seviye' (seviye yok) | 'kategori' (eksik kategori) | 'yok' (çözüm yok: neden). Tutarlar döngü başınadır.
+ * Menü önerisi: hedefe göre en ucuz menü (mevcut menü gerekmez).
+ * @param {{ binalar: Array<{ seviye: number, tip?: string }>, fiyatOf: (id, q) => number|null, arzOf?: (id, q) => number|null,
+ *           hedef: 'guvenli'|'kalite', kalite?: number, bonus?: number, urunSayisi?: number }} o
+ *   hedef guvenli: eko formülüyle rating ≥ RATING.guvenli + RATING_PAYI; kalite: ortalama menü kalitesi ≥ o.kalite.
+ *   urunSayisi: her kategoride tam bu kadar ürün (2 oyunda doğrulanmış çarpan); 0 ya da yoksa 1'den tümüne kadar en ucuzu seçilir.
+ * Dönüş: { durum: 'seviye' } | { durum: 'yok', neden, kategori?, hedefKalite } |
+ *   { durum: 'ok', hedefKalite, secim: [{ id, kalite, adet, birim, tutar }], maliyet (döngü), ortalama, rating, sayilar }
  */
-export function menuOnerisi(menu, o) {
-  const mevcut = menuMaliyeti(menu, o);
-  if (!(o.binalar || []).some((b) => Number(b?.seviye) >= 1)) return { durum: 'seviye', mevcut };
-  if (mevcut.eksikKategori.length) return { durum: 'kategori', mevcut };
-  const hedefKalite = o.hedef === 'guvenli' ? Math.max(0, gerekenKalite(RATING.guvenli + RATING_PAYI, o.bonus))
-    : o.hedef === 'kalite' ? clamp(Number(o.kalite) || 0, 0, MAX_KALITE) : mevcut.ortalama ?? 0;
-  const ids = mevcut.kalemler.map((k) => k.id);
-  const cozum = enUcuzMenu({ binalar: o.binalar, fiyatOf: o.fiyatOf, arzOf: o.arzOf, hedefKalite,
-    ...(o.kapsam === 'kalite' ? { urunler: ids } : { kategoriAdet: kategoriSayilari(ids) }) });
-  if (!cozum.ok) return { durum: 'yok', neden: cozum.neden, kategori: cozum.kategori, hedefKalite, mevcut };
-  const once = new Map(mevcut.kalemler.map((k) => [k.id, k]));
-  const sonra = new Map(cozum.secim.map((k) => [k.id, k]));
-  const degisim = KATEGORILER.flatMap((kat) => kat.urunler.filter((id) => once.has(id) || sonra.has(id)).map((id) => {
-    const a = once.get(id);
-    const b = sonra.get(id);
-    return { id, kat: kat.key, once: a?.kalite ?? null, sonra: b?.kalite ?? null, fark: (b?.tutar ?? 0) - (a?.tutar ?? 0), degisti: a?.kalite !== b?.kalite };
-  }));
-  const tasarruf = mevcut.maliyet == null ? null : mevcut.maliyet - cozum.maliyet;
-  const ayni = !degisim.some((d) => d.degisti);
-  // Önemsiz fark yalnız mevcut menü hedefi zaten sağlıyorsa: sağlamıyorsa öneri küçük bir ek giderle hedefe ulaştırır
-  const mevcutUygun = mevcut.maliyet != null && !mevcut.arzYetersiz.length && mevcut.ortalama >= hedefKalite - 1e-9;
-  const rating = (q) => KALITE_TABAN + KALITE_RATING * q + (Number(o.bonus) || 0);
-  return {
-    durum: 'ok', hedefKalite, mevcut, cozum, degisim, tasarruf, ayni,
-    onemsiz: !ayni && mevcutUygun && tasarruf < ONEMSIZ_TASARRUF * mevcut.maliyet,
-    rating: { once: mevcut.ortalama == null ? null : rating(mevcut.ortalama), sonra: rating(cozum.ortalama) },
-  };
+export function oneriMenu(o) {
+  if (!(o.binalar || []).some((b) => Number(b?.seviye) >= 1)) return { durum: 'seviye' };
+  const hedefKalite = o.hedef === 'kalite' ? clamp(Number(o.kalite) || 0, 0, MAX_KALITE)
+    : Math.max(0, gerekenKalite(RATING.guvenli + RATING_PAYI, o.bonus));
+  const n = Math.floor(Number(o.urunSayisi));
+  const c = enUcuzMenu({ binalar: o.binalar, fiyatOf: o.fiyatOf, arzOf: o.arzOf, hedefKalite,
+    ...(n > 0 ? { kategoriAdet: { salata: n, ana: n, icecek: n } } : {}) });
+  if (!c.ok) return { durum: 'yok', neden: c.neden, kategori: c.kategori, hedefKalite };
+  return { durum: 'ok', hedefKalite, secim: c.secim, maliyet: c.maliyet, ortalama: c.ortalama,
+    rating: KALITE_TABAN + KALITE_RATING * c.ortalama + (Number(o.bonus) || 0), sayilar: kategoriSayilari(c.secim.map((x) => x.id)) };
 }

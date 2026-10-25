@@ -12,10 +12,10 @@ const KAYNAKLAR = [['borsa', 'Borsa'], ['kontrat', 'Kontrat'], ['manuel', 'Elle'
 const TIPLER = [['eko', 'Eko'], ['luks', 'Lüks']];
 const GORUNUM = [['beklenen', 'Beklenen'], ['simdi', 'Şimdi']];
 const VARSAYILAN_MENU = { 117: 7, 119: 10, 142: 7, 143: 5, 124: 7, 125: 9 };
-const HEDEFLER = [['koru', 'Kaliteyi koru'], ['guvenli', 'Güvenli rating'], ['kalite', 'Hedef kalite']];
-const KAPSAMLAR = [['urun', 'Ürün ve kalite'], ['kalite', 'Yalnız kalite']];
+const HEDEFLER = [['guvenli', 'Güvenli rating'], ['kalite', 'Hedef kalite']];
+const URUN_SAYILARI = [['2', '2 ürün'], ['3', '3 ürün'], ['4', '4 ürün'], ['0', 'Otomatik']]; // kategori başına; 2 oyunda doğrulanmış çarpan
 const HEDEF_KALITELER = Array.from({ length: 25 }, (_, i) => i / 2); // Q0–Q12, yarım basamak
-const varsayilanOneri = () => ({ hedef: 'koru', kalite: 6, kapsam: 'urun', seviye: 0, tip: 'eko' });
+const varsayilanOneri = () => ({ hedef: 'guvenli', kalite: 6, urunSayisi: 2, seviye: 0, tip: 'eko' });
 
 // ---- biçimlendirme ----
 const NF = [0, 1, 2].map((d) => new Intl.NumberFormat(LOCALE, { minimumFractionDigits: d, maximumFractionDigits: d }));
@@ -85,7 +85,7 @@ export const RESTORAN_CSS = `
 // ---------------------------------------------------------------------------------------------------------------
 // Kayıt: setup.restoran
 // { menuMode: 'ortak' | 'ayri', menu: {id: {secili, kalite, kaynak, manuel}}, kontratPct, gorunum: 'beklenen' | 'simdi',
-//   oneri: { hedef: 'koru' | 'guvenli' | 'kalite', kalite, kapsam: 'urun' | 'kalite', seviye, tip } (seviye ve tip: Menü önerisi sekmesi),
+//   oneri: { hedef: 'guvenli' | 'kalite', kalite, urunSayisi: 0 | 2 | 3 | 4, seviye, tip } (Menü önerisi sekmesi; menüden bağımsız),
 //   items: [{ id, ad, tip, seviye, fiyat, rating, doluluk, menu? }] }
 // ---------------------------------------------------------------------------------------------------------------
 export function varsayilanMenu() {
@@ -97,7 +97,7 @@ function temizOneri(raw) {
   const o = varsayilanOneri();
   if (!raw || typeof raw !== 'object') return o;
   if (HEDEFLER.some(([k]) => k === raw.hedef)) o.hedef = raw.hedef;
-  if (KAPSAMLAR.some(([k]) => k === raw.kapsam)) o.kapsam = raw.kapsam;
+  if (URUN_SAYILARI.some(([k]) => k === String(raw.urunSayisi))) o.urunSayisi = Number(raw.urunSayisi);
   const q = Number(raw.kalite);
   if (fin(q)) o.kalite = Math.min(12, Math.max(0, Math.round(q * 2) / 2));
   o.seviye = Math.max(0, Math.floor(Number(raw.seviye) || 0));
@@ -156,10 +156,8 @@ export function eskiKayittanAktar(realm) {
 // Hesap bağlantısı
 // ---------------------------------------------------------------------------------------------------------------
 const menuOfItem = (rs, it) => (rs.menuMode === 'ayri' && it.menu ? it.menu : rs.menu);
-// Kapsam: 'o' ortak menü (Binalar), 'n' ortak menü (Menü önerisi sekmesi), yoksa restoranın kendi menüsü
-const menuOfScope = (rs, s) => (s === 'o' || s === 'n' ? rs.menu : rs.items.find((x) => x.id === s)?.menu);
-// Menü önerisi sekmesindeki restoran: sekmede girilen seviye ve tip
-const oneriBina = (rs) => ({ seviye: rs.oneri.seviye, tip: rs.oneri.tip });
+// Kapsam: 'o' ortak menü, yoksa restoranın kendi menüsü
+const menuOfScope = (rs, s) => (s === 'o' ? rs.menu : rs.items.find((x) => x.id === s)?.menu);
 function birimOf(rs, m, pid, marketOf) {
   if (m.kaynak === 'manuel') return m.manuel;
   const b = marketOf(Number(pid), m.kalite);
@@ -208,80 +206,55 @@ function menuHtml(rs, scope, m, g, marketOf, katAcik) {
   }).join('');
 }
 
-// Öneride birim maliyet: borsa ya da kontrat ise o kalitenin borsa fiyatı (kontrat indirimiyle). Elle girilen maliyet yalnız seçili
-// kalitede geçerlidir: başka kalitenin maliyeti bilinmediği için o ürünün kalitesi değiştirilmez. Arz yalnız borsadan alınan üründe sınırlar.
-const oneriFiyat = (rs, m, marketOf) => (id, q) => {
-  const x = m[id];
-  if (!x) return null;
-  if (x.kaynak === 'manuel') return q === x.kalite ? x.manuel : null;
-  return birimOf(rs, { ...x, kalite: q }, id, marketOf);
-};
-const oneriArz = (m, arzOf) => (id, q) => (arzOf && m[id]?.kaynak === 'borsa' ? arzOf(id, q) : null);
 const kaliteYaz = (q) => (fin(q) ? `Q${num(q, Math.abs(q - Math.round(q)) > 0.04 ? 1 : 0)}` : '—');
 
-// Menü önerisi bölümü. binalar: menüyü kullanan restoranlar; env: { marketOf, arzOf, ratingBonus, geri }
-function oneriHtml(rs, scope, m, binalar, env) {
+// Menü önerisi: mevcut menüden bağımsız; seviye, tip ve hedefe göre en ucuz menü. env: { marketOf, arzOf, ratingBonus }
+// Fiyat anlık borsa fiyatıdır; kontrat indirimi girildiyse fiyatlara uygulanır ve (kontrattan alındığı için) borsa arzı sınır sayılmaz.
+function oneriHtml(rs, env) {
   const o = rs.oneri;
-  const sc = esc(scope);
-  const menu = Object.keys(R.URUNLER).filter((id) => m[id]?.secili).map((id) => ({ id: Number(id), kalite: m[id].kalite }));
-  const s = R.menuOnerisi(menu, { binalar, fiyatOf: oneriFiyat(rs, m, env.marketOf), arzOf: oneriArz(m, env.arzOf), hedef: o.hedef,
-    kalite: o.kalite, bonus: env.ratingBonus, kapsam: o.kapsam });
-  const kontrol = `<div class="ro-ctl">${seg('ro.hedef', HEDEFLER, o.hedef, 'Öneri hedefi')}${seg('ro.kapsam', KAPSAMLAR, o.kapsam, 'Öneride neler değişebilir')}
+  const bina = { seviye: o.seviye, tip: o.tip };
+  const kontrat = rs.kontratPct > 0;
+  const s = R.oneriMenu({ binalar: [bina], fiyatOf: (id, q) => { const b = env.marketOf(id, q); return b == null ? null : b * (1 - rs.kontratPct / 100); },
+    arzOf: kontrat ? null : env.arzOf, hedef: o.hedef, kalite: o.kalite, bonus: env.ratingBonus, urunSayisi: o.urunSayisi });
+  const girdi = `<div class="rs-form">${field('Seviye', 'data-ro="seviye"', o.seviye || '', { mode: 'numeric' })}
+      ${field('Kontrat indirimi', 'data-rk="kontratPct"', inputVal(rs.kontratPct), { unit: '%' })}</div>
+    ${seg('ro.tip', TIPLER, o.tip, 'Restoran tipi')}
+    <div class="ro-ctl">${seg('ro.hedef', HEDEFLER, o.hedef, 'Öneri hedefi')}
       ${o.hedef === 'kalite' ? `<label class="rs-mini"><span>Ortalama en az</span><select data-ro="kalite">${HEDEF_KALITELER.map((q) =>
-        `<option value="${q}" ${q === o.kalite ? 'selected' : ''}>${kaliteYaz(q)}</option>`).join('')}</select></label>` : ''}</div>`;
-  const geri = env.geri?.has(scope) ? `<button type="button" class="ur-btn" data-act="ro.geri" data-s="${sc}">Uygulamadan önceki menüye dön</button>` : '';
-  const kabuk = (ic) => `<div class="ro">${kontrol}${ic}${geri}</div>`;
+        `<option value="${q}" ${q === o.kalite ? 'selected' : ''}>${kaliteYaz(q)}</option>`).join('')}</select></label>` : ''}</div>
+    <div class="rs-mini"><span>Kategori başına ürün sayısı</span>${seg('ro.urunsayi', URUN_SAYILARI, String(o.urunSayisi), 'Kategori başına ürün sayısı')}</div>
+    <p class="ur-note">Aynı menüyü kullanan birden çok restoranınız varsa seviyelerini toplayıp girin.</p>`;
+  const kabuk = (ic) => `<div class="ro">${girdi}${ic}</div>`;
   if (s.durum === 'seviye') return kabuk('<p class="ur-note">Öneri için restorana seviye girin.</p>');
-  if (s.durum === 'kategori') return kabuk('<div class="ur-msg err">Önce her kategoriden en az bir ürün seçin.</div>');
   if (s.durum === 'yok') {
     const neden = s.neden === 'fiyat' ? `${s.kategori} kategorisinde fiyatı ve arzı uygun ürün yok.`
       : s.hedefKalite > R.MAX_KALITE ? 'Bu rating menü kalitesiyle ulaşılamaz: gereken ortalama Q12\'yi aşıyor.'
         : `Ortalama ${kaliteYaz(s.hedefKalite)} için borsada uygun fiyatlı ilan bulunamadı.`;
     return kabuk(`<div class="ur-msg err">${esc(neden)}</div>`);
   }
-  const gun = (x) => (x == null ? null : x * R.GUN_DONGU);
-  const luks = binalar.some((b) => b.tip === 'luks');
+  const gun = (x) => x * R.GUN_DONGU;
+  const luks = o.tip === 'luks';
   const hedefNot = o.hedef === 'guvenli'
     ? `Hedef rating ${num(R.RATING.guvenli + R.RATING_PAYI, 1)} (güvenli ${num(R.RATING.guvenli, 1)} + pay ${num(R.RATING_PAYI, 1)}) için ortalama en az ${kaliteYaz(s.hedefKalite)} gerekir. Rating formülü tahminidir; uyguladıktan sonra ratingi birkaç döngü izleyin.`
-    : o.hedef === 'kalite' ? `Ortalama menü kalitesi en az ${kaliteYaz(s.hedefKalite)}.`
-      : `Ortalama menü kalitesi ${kaliteYaz(s.hedefKalite)} korunur; tahmini rating değişmez.`;
+    : `Ortalama menü kalitesi en az ${kaliteYaz(s.hedefKalite)}.`;
   const luksNot = luks && o.hedef === 'guvenli' ? '<p class="ur-note">Lüks restoranlarda rating modeli yok; hedef eko formülüyle hesaplandı.</p>' : '';
-  const t = s.tasarruf;
-  const yuzde = (x) => (s.mevcut.maliyet > 0 ? ` (%${num((Math.abs(x) / s.mevcut.maliyet) * 100, 1)})` : '');
-  const stat = (label, value, c = '') => `<div class="ur-stat"><span>${label}</span><span class="${c}">${value}</span></div>`;
-  const ozet = `<div class="ur-metrics">${stat('Şu an/gün', money(gun(s.mevcut.maliyet)))}${stat('Öneri/gün', money(gun(s.cozum.maliyet)))}
-      ${t == null ? stat('Fark/gün', '—') : t >= 0 ? stat(`Tasarruf${yuzde(t)}`, money(gun(t)), 'c-up') : stat(`Ek gider${yuzde(t)}`, money(gun(-t)), 'c-down')}</div>
-    <p class="ur-note">Ortalama kalite ${kaliteYaz(s.mevcut.ortalama)} → ${kaliteYaz(s.cozum.ortalama)}${luks ? ''
-      : `<span> · tahmini hedef rating ${num(s.rating.once, 2)} → ${num(s.rating.sonra, 2)}</span>`}</p>`;
-  const adlar = (ids) => ids.map((id) => ad(id)).join(', ');
-  const uyari = [
-    s.mevcut.eksikFiyat.length ? `<div class="ur-msg err">Fiyatı bilinmeyen ürün: ${esc(adlar(s.mevcut.eksikFiyat))}. Mevcut menünün maliyeti hesaplanamadı.</div>` : '',
-    s.mevcut.arzYetersiz.length ? `<div class="ur-msg err">Borsada yeterli ilan yok: ${esc(adlar(s.mevcut.arzYetersiz))}. Seçili kalitede ihtiyaç, ilanlardaki adetten fazla.</div>` : '',
-  ].join('');
-  let durum = '';
-  if (s.ayni) durum = '<div class="ur-msg">Mevcut menü bu hedefte zaten en ucuz.</div>';
-  else if (s.onemsiz) durum = `<div class="ur-msg">Mevcut menü en ucuza çok yakın (fark %${num((Math.abs(t) / s.mevcut.maliyet) * 100, 2)}); borsa dalgalanması bu farkı silebilir.</div>`;
-  const deg = new Map(s.degisim.map((d) => [d.id, d]));
-  const satirlar = s.ayni ? '' : R.KATEGORILER.map((kat) => {
-    const list = kat.urunler.filter((id) => deg.has(id));
-    return `<tr class="cat"><td colspan="4">${esc(kat.ad)}</td></tr>${list.map((id) => {
-      const d = deg.get(id);
-      const sonra = d.sonra == null ? 'çıkar' : kaliteYaz(d.sonra);
-      return `<tr class="${d.degisti ? 'deg' : ''}"><td>${esc(ad(id))}</td><td>${d.once == null ? 'ekle' : kaliteYaz(d.once)}</td><td>${sonra}</td>
-        <td class="${cls(-d.fark)}">${Math.abs(d.fark) < 0.005 ? '—' : `${d.fark < 0 ? '−' : '+'}${money(gun(Math.abs(d.fark)))}`}</td></tr>`;
-    }).join('')}`;
+  const stat = (label, value) => `<div class="ur-stat"><span>${label}</span><span>${value}</span></div>`;
+  const ozet = `<div class="ur-metrics">${stat('Gider/gün', money(gun(s.maliyet)))}${stat('Ortalama kalite', kaliteYaz(s.ortalama))}${stat('Tahmini rating', luks ? '—' : num(s.rating, 2))}</div>
+    ${luks ? '' : `<p class="ur-note">Rating bonusu ${num(env.ratingBonus, 2)}: Kurulum'daki satış hızından ve yönetici ekibinin iletişim puanından gelir; girilmediyse 0 sayılır.</p>`}`;
+  const satirlar = R.KATEGORILER.map((kat) => {
+    const list = s.secim.filter((x) => R.URUNLER[x.id].kat === kat.key);
+    return `<tr class="cat"><td colspan="4">${esc(kat.ad)}</td></tr>${list.map((x) =>
+      `<tr><td>${esc(ad(x.id))}</td><td>${kaliteYaz(x.kalite)}</td><td>${num(x.adet)}</td><td>${money(gun(x.tutar))}</td></tr>`).join('')}`;
   }).join('');
-  const tablo = satirlar ? `<table class="ro-tab"><thead><tr><th>Ürün</th><th>Şu an</th><th>Öneri</th><th>Gider/gün</th></tr></thead><tbody>${satirlar}</tbody></table>` : '';
-  const plan = s.cozum.secim.map((x) => `${x.id}:${x.kalite}`).join(',');
-  const uygula = !s.ayni && !s.onemsiz ? `<button type="button" class="ur-btn primary" data-act="ro.uygula" data-s="${sc}" data-plan="${esc(plan)}">Öneriyi menüye uygula</button>` : '';
-  const say = R.kategoriSayilari(s.cozum.secim.map((x) => x.id));
-  const tahmini = Object.values(say).some((n) => !R.CARPAN_DOGRULANDI[Math.min(n, 4)]);
-  return kabuk(`<p class="ur-note">${esc(hedefNot)}</p>${luksNot}${ozet}${uyari}${durum}${tablo}${uygula}
-      <p class="ur-note">Fiyatlar anlık borsa fiyatıdır (kontrat indirimi dahil); borsa değişince öneri de değişir. Elle maliyet girilen ürünün kalitesi değiştirilmez. Rating hesabı menü kalitesinin düz ortalamasını varsayar (oyunda henüz doğrulanmadı).</p>
+  const tablo = `<table class="ro-tab"><thead><tr><th>Ürün</th><th>Kalite</th><th>Adet</th><th>Gider/gün</th></tr></thead>
+      <tbody>${satirlar}<tr class="deg"><td>Toplam</td><td></td><td></td><td>${money(gun(s.maliyet))}</td></tr></tbody></table>`;
+  const tahmini = Object.values(s.sayilar).some((n) => !R.CARPAN_DOGRULANDI[Math.min(n, 4)]);
+  return kabuk(`<p class="ur-note">${esc(hedefNot)}</p>${luksNot}${ozet}${tablo}
+      <p class="ur-note">Fiyatlar anlık borsa fiyatıdır; borsa değişince öneri de değişir. Kontrat indirimi girilirse fiyatlara uygulanır ve borsa arzı sınır sayılmaz. Rating hesabı menü kalitesinin düz ortalamasını varsayar (oyunda henüz doğrulanmadı).</p>
       ${tahmini ? '<p class="ur-note">Kategoride 2 dışında ürün sayısı var: o kategorinin çarpanı oyunda henüz doğrulanmadı.</p>' : ''}`);
 }
 
-function kart(rs, it, row, marketOf, acik, env) {
+function kart(rs, it, row, marketOf, acik) {
   const m = menuOfItem(rs, it);
   const ayri = rs.menuMode === 'ayri';
   const a = (f) => `data-rf="${esc(it.id)}|${f}"`;
@@ -312,43 +285,28 @@ function kart(rs, it, row, marketOf, acik, env) {
       <div class="ur-stat"><span>Malzeme/gün</span><span>${money(row.costDay)}</span></div>
       <div class="ur-stat"><span>Maaş/gün</span><span>${money(row.wagesDay)}</span></div></div>
     ${ayri ? `<button type="button" class="pk-fold" data-act="rf.menu" data-i="${esc(it.id)}" aria-expanded="${acik}"><span class="grow">Bu binanın menüsü</span>${chip(`${Object.values(m).filter((x) => x.secili).length} ürün`, 'muted')}</button>
-      ${acik ? `<div>${menuHtml(rs, it.id, m, g, marketOf)}</div>
-        <div class="ur-box"><b>Menü önerisi</b>${oneriHtml(rs, it.id, m, [it], env)}</div>` : ''}` : ''}
+      ${acik ? `<div>${menuHtml(rs, it.id, m, g, marketOf)}</div>` : ''}` : ''}
     <div class="ur-row"><button type="button" class="ur-btn danger grow" data-act="rf.sil" data-i="${esc(it.id)}">Restoranı sil</button></div>
   </article>`;
 }
 
-// Menü önerisi sekmesi: restoran binalarından bağımsızdır; ortak menü (rs.menu) burada da düzenlenir.
-// ek: { arzOf(id, q), ratingBonus, geri: Map(kapsam → uygulamadan önceki menü) }
-export function menuOnerisiSekmeHtml(rs, marketOf, ek = {}) {
-  const o = rs.oneri;
-  const bina = oneriBina(rs);
-  const menu = Object.keys(R.URUNLER).filter((id) => rs.menu[id]?.secili).map((id) => ({ id: Number(id), birim: birimOf(rs, rs.menu[id], id, marketOf) }));
-  const g = R.donguGideri({ menu, seviye: bina.seviye, tip: bina.tip });
-  return `<section class="ur-card" aria-labelledby="h-mo"><div class="ur-head"><h2 id="h-mo">Restoran</h2></div>
-      <p class="ur-sub">Menünüzü ve restoran seviyenizi girin; aynı ortalama kaliteyle (aynı ratingle) daha ucuz ürün ve kalite dağılımı aşağıda önerilir.</p>
-      <div class="rs-form">${field('Seviye', 'data-ro="seviye"', o.seviye || '', { mode: 'numeric' })}
-        ${field('Kontrat indirimi', 'data-rk="kontratPct"', inputVal(rs.kontratPct), { unit: '%' })}</div>
-      ${seg('ro.tip', TIPLER, o.tip, 'Restoran tipi')}
-      <p class="ur-note">Aynı menüyü kullanan birden çok restoranınız varsa seviyelerini toplayıp girin.</p></section>
-    <section class="ur-card" aria-labelledby="h-ro"><div class="ur-head"><h2 id="h-ro">Menü önerisi</h2></div>${oneriHtml(rs, 'n', rs.menu, [bina], { marketOf, ...ek })}</section>
-    <section class="ur-card" aria-labelledby="h-mm"><div class="ur-head"><h2 id="h-mm">Mevcut menü</h2></div>${menuHtml(rs, 'n', rs.menu, g, marketOf)}</section>`;
+// Menü önerisi sekmesi: restoran binalarından ve menüden bağımsızdır. env: { marketOf, arzOf(id, q), ratingBonus }
+export function menuOnerisiSekmeHtml(rs, env) {
+  return `<section class="ur-card" aria-labelledby="h-ro"><div class="ur-head"><h2 id="h-ro">Menü önerisi</h2></div>
+      <p class="ur-sub">Seviyenizi ve hedefinizi girin; hedefi sağlayan en ucuz ürün ve kalite dağılımı aşağıda önerilir.</p>${oneriHtml(rs, env)}</section>`;
 }
 
-// Binalar sekmesindeki bölüm. ek: { arzOf(id, q), ratingBonus, geri: Map(kapsam → uygulamadan önceki menü) }
-export function restoranBinalarHtml(rs, res, marketOf, acikSet, ek = {}) {
+// Binalar sekmesindeki bölüm
+export function restoranBinalarHtml(rs, res, marketOf, acikSet) {
   const ortak = rs.menuMode !== 'ayri';
-  const env = { marketOf, ...ek };
-  const ortakOneri = ortak ? `<section class="ur-card" aria-labelledby="h-ro"><div class="ur-head"><h2 id="h-ro">Menü önerisi</h2></div>
-      ${oneriHtml(rs, 'o', rs.menu, rs.items, env)}</section>` : '';
   const ortakMenu = ortak ? `<section class="ur-card"><div class="ur-head"><h2>Menü</h2></div>
       <div class="ur-grid2">${field('Kontrat indirimi', 'data-rk="kontratPct"', inputVal(rs.kontratPct), { unit: '%' })}</div>
       ${menuHtml(rs, 'o', rs.menu, res.rows[0]?.gider, marketOf)}</section>` : `<section class="ur-card"><div class="ur-grid2">${field('Kontrat indirimi', 'data-rk="kontratPct"', inputVal(rs.kontratPct), { unit: '%' })}</div></section>`;
   return `<section class="ur-card" aria-labelledby="h-rs"><div class="ur-head"><h2 id="h-rs">Restoranlar</h2></div>
       ${seg('rk.mod', [['ortak', 'Ortak menü'], ['ayri', 'Ayrı menü']], rs.menuMode, 'Menü uygulaması')}
       <button type="button" class="ur-btn primary" data-act="rk.ekle" style="width:100%">Restoran ekle</button></section>
-    ${rs.items.length ? ortakMenu + ortakOneri : ''}
-    ${rs.items.map((it, i) => kart(rs, it, res.rows[i], marketOf, acikSet.has(it.id), env)).join('')}`;
+    ${rs.items.length ? ortakMenu : ''}
+    ${rs.items.map((it, i) => kart(rs, it, res.rows[i], marketOf, acikSet.has(it.id))).join('')}`;
 }
 
 // Özet sekmesindeki restoran kartları
@@ -368,7 +326,7 @@ export function restoranOzetHtml(rs, res, k, periodName) {
 
 // ---------------------------------------------------------------------------------------------------------------
 // Olaylar. rs doğrudan değiştirilir (çağıran kopya verir); işlendiyse true döner.
-// env: { marketOf(id, q), acik: Set, geri: Map(kapsam → uygulamadan önceki menü) }
+// env: { marketOf(id, q), acik: Set }
 // ---------------------------------------------------------------------------------------------------------------
 export function restoranTikla(rs, btn, env) {
   const act = btn.dataset.act || '';
@@ -390,28 +348,10 @@ export function restoranTikla(rs, btn, env) {
     if (!x) return true;
     x.kaynak = KAYNAKLAR.some(([k]) => k === btn.dataset.v) ? btn.dataset.v : 'borsa';
     if (x.kaynak === 'manuel' && x.manuel == null) x.manuel = env.marketOf(Number(btn.dataset.p), x.kalite);
-  } else if (act === 'ro.hedef') rs.oneri.hedef = HEDEFLER.some(([k]) => k === btn.dataset.v) ? btn.dataset.v : 'koru';
-  else if (act === 'ro.kapsam') rs.oneri.kapsam = btn.dataset.v === 'kalite' ? 'kalite' : 'urun';
+  } else if (act === 'ro.hedef') rs.oneri.hedef = HEDEFLER.some(([k]) => k === btn.dataset.v) ? btn.dataset.v : 'guvenli';
+  else if (act === 'ro.urunsayi') rs.oneri.urunSayisi = temizOneri({ urunSayisi: btn.dataset.v }).urunSayisi;
   else if (act === 'ro.tip') rs.oneri.tip = tipOf(btn.dataset.v);
-  else if (act === 'ro.uygula') {
-    // Plan düğmenin üstünde ("ürün:kalite,…"): ekranda görülen öneri aynen uygulanır; önceki menü geri almak için saklanır
-    const m = scopeMenu();
-    const plan = new Map(String(btn.dataset.plan || '').split(',').map((x) => x.split(':').map(Number))
-      .filter(([id, q]) => m?.[id] && Number.isInteger(q) && q >= 0 && q <= 12));
-    if (!plan.size) return true;
-    env.geri?.set(btn.dataset.s, kopyaMenu(m));
-    for (const id of Object.keys(m)) {
-      const q = plan.get(Number(id));
-      m[id].secili = q != null;
-      if (q != null) m[id].kalite = q;
-    }
-  } else if (act === 'ro.geri') {
-    const eski = env.geri?.get(btn.dataset.s);
-    if (!eski) return true;
-    if (btn.dataset.s === 'o' || btn.dataset.s === 'n') rs.menu = kopyaMenu(eski);
-    else { const it = rs.items.find((x) => x.id === btn.dataset.s); if (it) it.menu = kopyaMenu(eski); }
-    env.geri.delete(btn.dataset.s);
-  } else return false;
+  else return false;
   return true;
 }
 
@@ -444,7 +384,7 @@ export function restoranDegis(rs, t, env) {
     else if (f === 'satir') {
       // Oyundaki "Sourcing Cost" satırı: toplam tutar ÷ adet = birim maliyet
       const tutar = posOr(parseNum(t.value));
-      const it = scope === 'n' ? oneriBina(rs) : scope === 'o' ? rs.items[0] : rs.items.find((y) => y.id === scope);
+      const it = scope === 'o' ? rs.items[0] : rs.items.find((y) => y.id === scope);
       const ids = Object.keys(m).filter((i) => m[i].secili).map(Number);
       const adet = it ? R.ihtiyac(ids, it.seviye, it.tip)[pid] : null;
       if (tutar != null && adet > 0) { x.kaynak = 'manuel'; x.manuel = tutar / adet; }
