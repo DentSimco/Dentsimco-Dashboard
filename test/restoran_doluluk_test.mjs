@@ -155,6 +155,70 @@ test('Az veri işareti: rating 10 · $120 çok veri, rating 1 · $270 veri yok',
   ok(R.dolulukVerisi(1.5, 280) < R.DOLULUK_AZ_VERI);
 });
 
+// ---- Menü önerisi: doluluk ve kâr ----
+const ONERI = { durum: 'ok', rating: 6.2, maliyet: 40000 };
+test('Öneri kârı: eko seviye 1, $75, Normal: gelir = fiyat × 1.000 × doluluk × 2; malzeme ve maaş doluluktan bağımsız', () => {
+  const k = R.oneriKari({ oneri: ONERI, fiyat: 75, evre: NOR, seviye: 1, tip: 'eko', saatlikMaas: 847.5 });
+  const d = R.dolulukTahmini(6.2, 75, NOR);
+  near(k.doluluk, d, 1e-12);
+  near(k.gelir, 75 * 1000 * (d / 100) * 2, 1e-6);
+  near(k.malzeme, 80000, 1e-9);
+  near(k.maas, 847.5 * 12 * 2, 1e-9);
+  near(k.kar, k.gelir - k.malzeme - k.maas, 1e-6);
+  near(k.basabas, ((40000 + 847.5 * 12) / 75000) * 100, 1e-9);
+  eq([k.fiyat, k.evre, k.rating], [75, NOR, 6.2]);
+});
+test('Öneri kârı: lüks koltuk 500, maaş yarı; evre doluluğu ve kârı değiştirir; en kârlı fiyat günlük ve girilenden kötü değil', () => {
+  const eko = R.oneriKari({ oneri: ONERI, fiyat: 100, evre: NOR, seviye: 10, tip: 'eko', saatlikMaas: 800 });
+  const luks = R.oneriKari({ oneri: ONERI, fiyat: 100, evre: NOR, seviye: 10, tip: 'luks', saatlikMaas: 800 });
+  near(luks.maas * 2, eko.maas, 1e-9);
+  near(luks.gelir * 2, eko.gelir, 1e-6);
+  const res = R.oneriKari({ oneri: ONERI, fiyat: 100, evre: RES, seviye: 10, tip: 'eko', saatlikMaas: 800 });
+  ok(res.doluluk > eko.doluluk + 10 && res.kar > eko.kar, 'resesyonda rating 6 · $100 daha dolu ve kârlı');
+  for (const k of [eko, luks, res]) ok(k.enKarli.kar >= k.kar - 1e-6, 'en kârlı fiyat girilenden kötü değil');
+  const g = { koltuk: 10000, toplam: 40000 + 800 * 12 * 10 };
+  near(eko.enKarli.kar, 2 * R.enKarliFiyat(g, 6.2, NOR).kar, 1e-6, 'günlük = 2 döngü');
+});
+test('Öneri kârı: fiyat $60–350 içine alınır; seviye yoksa ya da öneri yoksa null; maaş bilinmiyorsa kâr null', () => {
+  eq(R.oneriKari({ oneri: ONERI, fiyat: 20, seviye: 1, saatlikMaas: 800 }).fiyat, 60);
+  eq(R.oneriKari({ oneri: ONERI, fiyat: 900, seviye: 1, saatlikMaas: 800 }).fiyat, 350);
+  eq(R.oneriKari({ oneri: ONERI, fiyat: 75, seviye: 0, saatlikMaas: 800 }), null);
+  eq(R.oneriKari({ oneri: { durum: 'yok' }, fiyat: 75, seviye: 1, saatlikMaas: 800 }), null);
+  const k = R.oneriKari({ oneri: ONERI, fiyat: 75, seviye: 1, saatlikMaas: null });
+  eq([k.kar, k.basabas, k.enKarli, k.maas], [null, null, null, null]);
+  ok(k.doluluk > 0 && k.gelir > 0);
+});
+
+const RS = await import('../public/perakende-restoran.js');
+test('Menü önerisi kaydı: eski model/hedef alanları atılır; güvenli hedefli eski kayıt 5,5 ile açılır; evre, rating ve fiyat sınırlanır', () => {
+  eq(RS.temizleRestoran({ oneri: { model: 'kalite', hedef: 'guvenli', rating: 8, kalite: 9, seviye: 4, tip: 'luks' } }).oneri,
+    { evre: null, rating: 5.5, fiyat: 65, urunSayisi: 2, seviye: 4, tip: 'luks', fiyatTablosu: false });
+  eq(RS.temizleRestoran({ oneri: { hedef: 'rating', rating: 7.3, evre: 2, fiyat: 512, urunSayisi: 0, fiyatTablosu: true } }).oneri,
+    { evre: 2, rating: 7.25, fiyat: 350, urunSayisi: 0, seviye: 0, tip: 'eko', fiyatTablosu: true });
+  eq(RS.temizleRestoran({ oneri: { evre: 5, rating: 1, fiyat: 59.6 } }).oneri.evre, null);
+  eq(RS.temizleRestoran({ oneri: { rating: 1, fiyat: 59.6 } }).oneri.rating, 3);
+  eq(RS.temizleRestoran({ oneri: { fiyat: 59.6 } }).oneri.fiyat, 60);
+});
+// Sekme çıktısı: her ürün her kalitede $50, arz sınırsız
+const ENV = (extra = {}) => ({ marketOf: () => 50, arzOf: () => 1e9, ratingBonus: 1, maas: { adminNet: 0.4, averageSalary: 345, salaryModifier: 1.7 }, oyunEvresi: null, ...extra });
+const sekme = (oneri, env) => RS.menuOnerisiSekmeHtml(RS.temizleRestoran({ oneri: { seviye: 10, ...oneri } }), ENV(env));
+test('Menü önerisi sekmesi: evre seçici, hedef rating, menü fiyatı, doluluk ve kâr bölümü; model ve kalite hedefi yok', () => {
+  const h = sekme({ fiyat: 90, rating: 6 });
+  for (const parca of ['data-act="ro.evre"', 'data-ro="rating"', 'data-ro="fiyat"', 'Doluluk ve kâr', 'Tahmini doluluk', 'Kâr/gün', 'Başabaş doluluk', 'en kârlı fiyat', 'data-act="ro.fiyattablo"'])
+    ok(h.includes(parca), parca);
+  for (const parca of ['ro.model', 'data-ro="kalite"', 'Güvenli rating', 'Kalite modeli']) ok(!h.includes(parca), `kalmamalı: ${parca}`);
+  ok(!h.includes('<th>Doluluk</th>'), 'fiyat tablosu kapalıyken çizilmez');
+  ok(sekme({ fiyat: 90, rating: 6, fiyatTablosu: true }).includes('<th>Doluluk</th>'), 'açıkken çizilir');
+});
+test('Menü önerisi sekmesi: Otomatik evre oyunun evresini kullanır; süresi dolmuşsa uyarı; elle seçim önceliklidir', () => {
+  const oyun = (index, expired) => ({ oyunEvresi: { index, end: Date.UTC(2026, 9, 23, 15), expired } });
+  ok(sekme({}, oyun(0, false)).includes('Otomatik: oyunun güncel evresi Durgunluk.'));
+  ok(sekme({}, oyun(1, true)).includes('Evre bilgisi güncel değil: son bilinen Normal'));
+  ok(sekme({}, {}).includes('Oyunun güncel evresi okunamadı; Normal kullanılıyor.'));
+  const elle = sekme({ evre: 2 }, oyun(0, false));
+  ok(!elle.includes('Otomatik: oyunun') && elle.includes(' · Büyüme</span>'), 'elle seçilen evre');
+});
+
 const failed = results.filter((r) => !r.ok);
 for (const r of results) console.log(`${r.ok ? '  ✓' : '  ✗'} ${r.name}${r.ok ? '' : `\n      ${r.error}`}`);
 console.log(`\n${results.length - failed.length}/${results.length} test geçti.`);

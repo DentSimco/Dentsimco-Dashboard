@@ -634,3 +634,30 @@ function oneriMenuB(o) {
 export function oneriMenu(o) {
   return o.model === 'maliyet' ? oneriMenuB(o) : oneriMenuA(o);
 }
+
+/**
+ * Menü önerisinin günlük kâr hesabı. oneri: oneriMenu sonucu (durum 'ok'; rating lüks çarpanı dahil, maliyet döngü başına);
+ * fiyat: menü fiyatı; evre: 0 Durgunluk, 1 Normal, 2 Büyüme; seviye ve tip önerinin bina bilgisi; saatlikMaas: seviye başına (yönetim dahil).
+ * Dönen (tutarlar günlük): { rating, fiyat, evre, doluluk, veri, gelir, malzeme, maas, kar, basabas (%), enKarli: { fiyat, doluluk, kar } };
+ * maaş bilinmiyorsa kar, basabas ve enKarli null. Seviye yoksa null.
+ */
+export function oneriKari({ oneri, fiyat, evre = EVRE_NORMAL, seviye, tip = 'eko', saatlikMaas = null }) {
+  if (!oneri || oneri.durum !== 'ok') return null;
+  const t = tipOf(tip);
+  const L = Math.max(0, Math.floor(Number(seviye) || 0));
+  const koltuk = KOLTUK[t] * L;
+  if (!(koltuk > 0)) return null;
+  const f = clamp(fin(Number(fiyat)) ? Number(fiyat) : FIYAT_MIN, FIYAT_MIN, FIYAT_MAX);
+  const maas = donguMaasi(saatlikMaas, L, t);
+  const gider = maas == null ? null : { koltuk, toplam: oneri.maliyet + maas };
+  const doluluk = dolulukTahmini(oneri.rating, f, evre);
+  const gelir = f * koltuk * (doluluk / 100);
+  const enKarli = gider ? enKarliFiyat(gider, oneri.rating, evre) : null;
+  return {
+    rating: oneri.rating, fiyat: f, evre: evreOf(evre), doluluk, veri: dolulukVerisi(oneri.rating, f),
+    gelir: gelir * GUN_DONGU, malzeme: oneri.maliyet * GUN_DONGU, maas: maas == null ? null : maas * GUN_DONGU,
+    kar: gider ? (gelir - gider.toplam) * GUN_DONGU : null,
+    basabas: gider ? (gider.toplam / (f * koltuk)) * 100 : null,
+    enKarli: enKarli && { ...enKarli, kar: enKarli.kar * GUN_DONGU },
+  };
+}
