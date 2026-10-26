@@ -292,22 +292,9 @@ function oneriHtml(rs, env) {
   const tablo = `<div class="rs-cat"><b>Menü</b><span>${money(gun(s.maliyet))}/gün</span></div>
     <table class="ro-tab"><thead><tr><th>Ürün</th><th>Kalite</th><th>Adet</th><th>Gider/gün</th></tr></thead>
       <tbody>${satirlar}<tr class="deg"><td>Toplam</td><td></td><td></td><td>${money(gun(s.maliyet))}</td></tr></tbody></table>`;
-  const isaret = s.cesit > 0 ? '+' : s.cesit < 0 ? '−' : '';
-  // 3 ürünlü kategori içeren öneri çeşitlilik tahminine dayanır: aynı hedefte 2 ürünlü menüyle fark gösterilir
-  let ikiNot = '';
-  if (Object.values(s.sayilar).some((n) => n >= 3)) {
-    const iki = calistir(2);
-    if (iki.durum === 'ok') {
-      const fark = gun(iki.maliyet - s.maliyet);
-      ikiNot = `<p class="ur-note">Bu öneri 3 ürünlü kategori içeriyor; kazanç çeşitlilik tahminine dayanır. Aynı hedefte 2 ürünlü menü: ${money(gun(iki.maliyet))}/gün (${fark < 0 ? '−' : '+'}${money(Math.abs(fark))}).</p>`;
-    }
-  }
-  const cesitNot = Object.values(s.sayilar).some((n) => n !== 2)
-    ? `<p class="ur-note">Ürün çeşitliliğinin rating etkisi (1 ürün −0,2 · 2 ürün 0 · 3 ürün +0,9 puan) tahminidir; oyunda ölçülmedi. Bu menüde etki: ${isaret}${num(Math.abs(s.cesit), 2)} puan.</p>` : '';
   return kabuk(`<p class="ur-note">${esc(hedefNot)}</p>${luksNot}${ozet}${karHtml}${tablo}
       <p class="ur-note">Fiyatlar anlık borsa fiyatıdır; borsa değişince öneri de değişir. Kontrat indirimi girilirse fiyatlara uygulanır ve borsa arzı sınır sayılmaz.</p>
-      <p class="ur-note">Rating, menünün ortalama kalitesine göre hesaplanır (3,33 + 0,23 × ortalama kalite + bonus + çeşitlilik). Model 19–22 Ekim'de standart menüyle ölçülen ratingle uyumludur; menü fiyatının ve ürün maliyetinin ratinge etkisi hesaba katılmadı.</p>
-      ${cesitNot}${ikiNot}`);
+      <p class="ur-note">Rating, menünün ortalama kalitesine göre hesaplanır (3,33 + 0,23 × ortalama kalite + bonus). Model 19–22 Ekim'de standart menüyle ölçülen ratingle uyumludur; menü fiyatının ve ürün maliyetinin ratinge etkisi hesaba katılmadı.</p>`);
 }
 
 function kart(rs, it, row, marketOf, acik) {

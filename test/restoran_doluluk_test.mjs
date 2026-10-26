@@ -210,7 +210,7 @@ test('Menü önerisi sekmesi: evre seçici, hedef rating, menü fiyatı, doluluk
   ok(!h.includes('<th>Doluluk</th>'), 'fiyat tablosu kapalıyken çizilmez');
   ok(sekme({ fiyat: 90, rating: 6, fiyatTablosu: true }).includes('<th>Doluluk</th>'), 'açıkken çizilir');
 });
-test('Menü önerisi A modeliyle çalışır: hedef rating → gereken ortalama kalite = (rating ÷ çarpan − çeşitlilik − bonus − 3,33) ÷ 0,23; tahmini rating hedefi sağlar', () => {
+test('Menü önerisi A modeliyle çalışır: hedef rating → gereken ortalama kalite = (rating ÷ çarpan − bonus − 3,33) ÷ 0,23; tahmini rating hedefi sağlar', () => {
   const o = (rating, tip = 'eko', urunSayisi = 2) => R.oneriMenu({ model: 'kalite', binalar: [{ seviye: 10, tip }], fiyatOf: () => 50, arzOf: () => 1e9, hedef: 'rating', rating, bonus: 1.06, urunSayisi });
   const e = o(6.5);
   eq(e.durum, 'ok');
@@ -220,7 +220,7 @@ test('Menü önerisi A modeliyle çalışır: hedef rating → gereken ortalama 
   const l = o(8, 'luks');
   near(l.hedefKalite, (8 / 1.25 - 1.06 - R.KALITE_TABAN) / R.KALITE_RATING, 1e-9);
   ok(l.rating >= 8 - 1e-9, 'lüks çarpan dahil hedef sağlanır');
-  ok(o(6.5, 'eko', 1).hedefKalite > o(6.5, 'eko', 3).hedefKalite, '1 ürün (−0,2) daha yüksek, 3 ürün (+0,9) daha düşük kalite ister');
+  near(o(6.5, 'eko', 1).hedefKalite, o(6.5, 'eko', 3).hedefKalite, 1e-9);
   eq(o(10).durum, 'yok');
 });
 test('Menü önerisi sekmesi: Otomatik evre oyunun evresini kullanır; süresi dolmuşsa uyarı; elle seçim önceliklidir', () => {

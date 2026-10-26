@@ -15,8 +15,9 @@
 //   Yemek, müşteri gelsin gelmesin döngü başında harcanır (gider dolulukla değişmez) [oyun]
 //   Maaş = binanın saatlik maaşı × 12 [oyun]
 //   Restoran kapanınca rating ×0,875 (kapanış başına bir kez; yükseltme de kapanıştır) [oyun]
-//   Hedef rating = [Menü puanı + Çeşitlilik puanı + Personel puanı] × Oturma çarpanı. Menü puanı = 3,33 + 0,23 × ortalama menü kalitesi [ölçüm];
-//     Personel puanı = 0,01 × etkin CMO iletişim puanı + 0,02 × taban satış hızı % (bonus) [oyun]; çeşitlilik [hipotez]; oturma çarpanı eko 1, lüks 1,25 [kullanıcı]
+//   Hedef rating = [Menü puanı + Personel puanı] × Oturma çarpanı. Menü puanı = 3,33 + 0,23 × ortalama menü kalitesi [ölçüm];
+//     Personel puanı = 0,01 × etkin CMO iletişim puanı + 0,02 × taban satış hızı % (bonus) [oyun]; oturma çarpanı eko 1, lüks 1,25 [kullanıcı]
+//     Ürün çeşitliliği (oyunda ayrı bir bonus var) ve ürün maliyeti şu an hesaba katılmıyor; rating yalnız ortalama kaliteden hesaplanır
 //   Rating her döngü hedefine doğru yaklaşır: r' = r + k·(T − r), k ≈ 0,177, gürültü ±0,21 [ölçüm]
 //   Doluluk = f(rating, menü fiyatı, ekonomi evresi): oyunun gazetesindeki restoran ısı haritalarından (28 dönem, ~3 milyon döngü)
 //     evre paylarıyla regresyon; tablo public/restoran-doluluk.js (araclar/restoran-isi.mjs üretir). Piyasa ortalamasıdır [oyun verisi]
@@ -203,7 +204,7 @@ export const yukseltmeGuvenli = (r) => kapanisSonrasi(r) >= RATING.esik + 0.05;
  * Restoranın ratingin yerleşeceği hedef.
  *  1) elle girilen hedef;
  *  2) önceki ve mevcut rating girildiyse: rating her döngü farkın k kadarını kapatır, hedef = önceki + (mevcut − önceki) ÷ k;
- *  3) varsayılan: [menü puanı + çeşitlilik + bonus] × oturma çarpanı (eko 1, lüks 1,25).
+ *  3) varsayılan: [menü puanı + bonus] × oturma çarpanı (eko 1, lüks 1,25).
  */
 // Eko hedef rating = KALITE_TABAN + KALITE_RATING × ortalama menü kalitesi + bonus.
 // Üç ölçümden: 11 Ekim menüsü (ort. Q7,5, bonus 0,99 → ~6,0), 20 Ekim (aynı menü, bonus 1,09 → ~6,4) ve seviye 2 testi
@@ -214,17 +215,9 @@ export const REFERANS_KALITE = 7.5; // menü kalitesi bilinmiyorsa
 // Hedef rating köşeli parantezin sonucu bu çarpanla çarpılır: eko 1, lüks 1,25 (değer kullanıcıdan; oyunda ayrıca ölçülmedi)
 export const LUKS_OTURMA_CARPANI = 1.25;
 export const oturmaCarpani = (tip) => (tipOf(tip) === 'luks' ? LUKS_OTURMA_CARPANI : 1);
-// Ürün çeşitliliğinin hedef ratinge etkisi: [kategorideki ürün sayısı, eklenen puan]. [hipotez] Başka bir sohbette tahmin edildi, oyunda ölçülmedi.
-// Kalibrasyon menüleri kategori başına 2 ürünlüydü; bu yüzden 2 → 0 alınır (etki KALITE_TABAN'a karışmış durumdadır). Üç kategorinin değerlerinin ORTALAMASI eklenir.
-export const CESIT_RATING = [[1, -0.2], [2, 0], [3, 0.9]];
-const cesitDegeri = (n) => {
-  const t = CESIT_RATING;
-  if (n <= t[0][0]) return t[0][1]; // tablodan küçük (0 ürün: eksik kategori) ilk satır gibi
-  if (n >= t[t.length - 1][0]) return t[t.length - 1][1]; // tablodan büyük (4 ve üstü) son satır gibi; 4+ ürün ölçülmedi
-  return (t.find(([k]) => k === n) ?? [0, 0])[1];
-};
-// sayilar: kategoriSayilari çıktısı { salata, ana, icecek }
-export const cesitRating = (sayilar) => KATEGORILER.reduce((t, k) => t + cesitDegeri(Math.floor(Number(sayilar?.[k.key]) || 0)), 0) / KATEGORILER.length;
+// Ürün çeşitliliğinin ratinge etkisi şu an hesaba katılmıyor, her menü için 0 döner. Önceki tablo (1 ürün −0,2 · 3 ürün +0,9) oyunda ölçülmemiş bir tahmindi
+// ve harcamayla karışıyordu (kategori harcaması 1/2/3 üründe 2,1/2,0/2,7 C). Ölçülünce bu işlev doldurulur; çağıranlar (B modeli dahil) değişmez.
+export const cesitRating = () => 0;
 
 // Seçili ürünlerin ortalama kalitesi; kalite bilgisi yoksa null
 export function menuKalitesi(menu) {
@@ -507,7 +500,7 @@ export function enUcuzMenu(o) {
  * Menü önerisi: hedefe göre en ucuz menü (mevcut menü gerekmez).
  * @param {{ binalar: Array<{ seviye: number, tip?: string }>, fiyatOf: (id, q) => number|null, arzOf?: (id, q) => number|null,
  *           hedef: 'guvenli'|'kalite', kalite?: number, bonus?: number, urunSayisi?: number }} o
- *   hedef guvenli: formülle (çeşitlilik ve oturma çarpanı dahil) rating ≥ RATING.guvenli + RATING_PAYI; kalite: ortalama menü kalitesi ≥ o.kalite.
+ *   hedef guvenli: formülle (oturma çarpanı dahil) rating ≥ RATING.guvenli + RATING_PAYI; kalite: ortalama menü kalitesi ≥ o.kalite.
  *   urunSayisi: her kategoride tam bu kadar ürün (2 oyunda doğrulanmış çarpan); 0 ya da yoksa 1–3 arasında en ucuzu seçilir (OTOMATIK_EN_FAZLA).
  * Dönüş: { durum: 'seviye' } | { durum: 'yok', neden, kategori?, hedefKalite } |
  *   { durum: 'ok', hedefKalite, secim: [{ id, kalite, adet, birim, tutar }], maliyet (döngü), ortalama, rating, cesit, carpan, sayilar }
@@ -522,13 +515,13 @@ function oneriMenuA(o) {
   const sonuc = (c, hedefKalite) => ({ durum: 'ok', hedefKalite, secim: c.secim, maliyet: c.maliyet, ortalama: c.ortalama, sayilar: kategoriSayilari(c.secim.map((x) => x.id)) });
   let en = null;
   if (o.hedef === 'kalite') {
-    // Hedef kalite olarak verilir; çeşitlilik yalnız gösterilen tahmini ratingi etkiler. Kategorilerin ürün sayısı serbest seçilebilir.
+    // Hedef kalite olarak verilir. Kategorilerin ürün sayısı serbest seçilebilir.
     const hedefKalite = clamp(Number(o.kalite) || 0, 0, MAX_KALITE);
     const c = enUcuzMenu({ ...temel, hedefKalite, ...(n > 0 ? { kategoriAdet: { salata: n, ana: n, icecek: n } } : { enFazla: OTOMATIK_EN_FAZLA }) });
     if (!c.ok) return { durum: 'yok', neden: c.neden, kategori: c.kategori, hedefKalite };
     en = sonuc(c, hedefKalite);
   } else {
-    // Güvenli rating (ya da hedef 'rating': o.rating): gereken ortalama kalite, seçilen ürün sayılarının çeşitlilik puanına bağlıdır. Ürün sayısı desenleri (kategori başına 1–3)
+    // Güvenli rating (ya da hedef 'rating': o.rating): gereken ortalama kalite ürün sayısından bağımsızdır (çeşitlilik hesaba katılmıyor). Ürün sayısı desenleri (kategori başına 1–3)
     // tek tek denenir, her desenin kendi hedef kalitesiyle en ucuz menü bulunur; en ucuzu seçilir (eşitlikte ortalaması yüksek olan).
     const desenler = n > 0 ? [[n, n, n]] : [1, 2, 3].flatMap((a) => [1, 2, 3].flatMap((b) => [1, 2, 3].map((c) => [a, b, c])));
     const hedefRatingi = o.hedef === 'rating' ? clamp(Number(o.rating) || 0, 0, 10) : RATING.guvenli + RATING_PAYI;
