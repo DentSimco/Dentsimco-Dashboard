@@ -25,26 +25,26 @@ const varsayilanOneri = () => ({ evre: null, rating: 5.5, fiyat: 65, urunSayisi:
 // ---- biçimlendirme ----
 const NF = [0, 1, 2].map((d) => new Intl.NumberFormat(LOCALE, { minimumFractionDigits: d, maximumFractionDigits: d }));
 const fin = (x) => typeof x === 'number' && Number.isFinite(x);
-const num = (x, d = 0) => (fin(x) ? NF[d].format(x) : '—');
-const money = (x, d = 0) => {
+export const num = (x, d = 0) => (fin(x) ? NF[d].format(x) : '—');
+export const money = (x, d = 0) => {
   if (!fin(x)) return '—';
   const s = `$${NF[d].format(Math.abs(x))}`;
   return Math.round(x * 10 ** d) < 0 ? `−${s}` : s;
 };
 const birimFmt = (x) => (!fin(x) ? '—' : money(x, Math.abs(x) < 100 ? 2 : 0));
-const cls = (x) => (x > 0.004 ? 'c-up' : x < -0.004 ? 'c-down' : '');
-const inputVal = (x) => (x == null || x === '' ? '' : String(x).replace('.', ','));
-const uid = () => `r${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+export const cls = (x) => (x > 0.004 ? 'c-up' : x < -0.004 ? 'c-down' : '');
+export const inputVal = (x) => (x == null || x === '' ? '' : String(x).replace('.', ','));
+export const uid = () => `r${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 const ad = (id) => urunAdi(id, R.URUNLER[id]?.ad) || R.URUNLER[id]?.ad || `#${id}`;
-const kopyaMenu = (m) => JSON.parse(JSON.stringify(m));
+export const kopyaMenu = (m) => JSON.parse(JSON.stringify(m));
 const tipOf = (t) => (t === 'luks' ? 'luks' : 'eko');
 const numOr = (x, d = null) => (x === '' || x == null || !fin(Number(x)) ? d : Number(x));
 const posOr = (x, d = null) => (fin(Number(x)) && Number(x) > 0 && x !== '' && x != null ? Number(x) : d);
-const kv = (label, value, c = '', strong = false) => `<div class="ur-kv${strong ? ' strong' : ''}"><span>${label}</span><span class="${c}">${value}</span></div>`;
-const chip = (text, kind = '') => `<span class="ur-chip ${kind}">${esc(text)}</span>`;
-const seg = (act, options, value, label, extra = '') => `<div class="ur-seg" role="group" aria-label="${esc(label)}">${options.map(([v, t]) =>
+export const kv = (label, value, c = '', strong = false) => `<div class="ur-kv${strong ? ' strong' : ''}"><span>${label}</span><span class="${c}">${value}</span></div>`;
+export const chip = (text, kind = '') => `<span class="ur-chip ${kind}">${esc(text)}</span>`;
+export const seg = (act, options, value, label, extra = '') => `<div class="ur-seg" role="group" aria-label="${esc(label)}">${options.map(([v, t]) =>
   `<button type="button" data-act="${act}" data-v="${esc(v)}"${extra} aria-pressed="${String(v) === String(value)}">${esc(t)}</button>`).join('')}</div>`;
-function field(label, attr, value, { unit = '', mode = 'decimal', placeholder = '' } = {}) {
+export function field(label, attr, value, { unit = '', mode = 'decimal', placeholder = '' } = {}) {
   return `<label class="ur-field"><span>${esc(label)}</span><div class="ur-input">${unit === '$' ? '<i>$</i>' : ''}<input type="text" inputmode="${mode}" autocomplete="off" ${attr} value="${esc(value)}" placeholder="${esc(placeholder)}">${unit && unit !== '$' ? `<i>${esc(unit)}</i>` : ''}</div></label>`;
 }
 
@@ -187,7 +187,11 @@ export function degerlendirRestoran(rs, c, marketOf) {
 // ---------------------------------------------------------------------------------------------------------------
 // Çizim
 // ---------------------------------------------------------------------------------------------------------------
-function menuHtml(rs, scope, m, g, marketOf, katAcik) {
+// o: { on: olay öneki ('rm' Restoran bölümü, 'pm' Perakende restoran binaları), kontrat: Kontrat maliyet seçeneği, kilit: salt okunur }
+export function menuHtml(rs, scope, m, g, marketOf, o = {}) {
+  const on = o.on || 'rm';
+  const kaynaklar = o.kontrat === false ? KAYNAKLAR.filter(([k]) => k !== 'kontrat') : KAYNAKLAR;
+  const dis = o.kilit ? ' disabled' : '';
   const ids = Object.keys(R.URUNLER).filter((id) => m[id]?.secili).map(Number);
   const say = R.kategoriSayilari(ids);
   return R.KATEGORILER.map((kat) => {
@@ -200,12 +204,12 @@ function menuHtml(rs, scope, m, g, marketOf, katAcik) {
       const alt = x.kaynak === 'manuel' ? 'elle' : b == null ? `Q${x.kalite} ilan yok` : x.kaynak === 'kontrat' ? `borsa ${birimFmt(b)} −%${num(rs.kontratPct, 0)}` : `borsa Q${x.kalite}`;
       const key = `data-s="${esc(scope)}" data-p="${id}"`;
       const opts = x.secili ? `<div class="rs-opts">
-          <label class="rs-mini"><span>Kalite</span><select data-rm="${esc(scope)}|${id}|kalite">${Array.from({ length: 13 }, (_, q) => `<option value="${q}" ${q === x.kalite ? 'selected' : ''}>Q${q}</option>`).join('')}</select></label>
-          <div class="rs-mini"><span>Maliyet</span>${seg('rm.kaynak', KAYNAKLAR, x.kaynak, `${ad(id)} maliyet kaynağı`, ` ${key}`)}</div>
-          ${x.kaynak === 'manuel' ? `<label class="rs-mini"><span>Sourcing Cost $</span><input type="text" inputmode="decimal" autocomplete="off" data-rm="${esc(scope)}|${id}|satir" value="${esc(inputVal(x.manuel != null && k?.adet > 0 ? Math.round(x.manuel * k.adet * 100) / 100 : ''))}" placeholder="${esc(k?.adet > 0 ? 'oyundaki satır' : 'önce seviye girin')}"></label>` : ''}
+          <label class="rs-mini"><span>Kalite</span><select data-${on}="${esc(scope)}|${id}|kalite"${dis}>${Array.from({ length: 13 }, (_, q) => `<option value="${q}" ${q === x.kalite ? 'selected' : ''}>Q${q}</option>`).join('')}</select></label>
+          <div class="rs-mini"><span>Maliyet</span>${seg(`${on}.kaynak`, kaynaklar, x.kaynak, `${ad(id)} maliyet kaynağı`, ` ${key}${dis}`)}</div>
+          ${x.kaynak === 'manuel' ? `<label class="rs-mini"><span>Sourcing Cost $</span><input type="text" inputmode="decimal" autocomplete="off" data-${on}="${esc(scope)}|${id}|satir"${dis} value="${esc(inputVal(x.manuel != null && k?.adet > 0 ? Math.round(x.manuel * k.adet * 100) / 100 : ''))}" placeholder="${esc(k?.adet > 0 ? 'oyundaki satır' : 'önce seviye girin')}"></label>` : ''}
         </div>` : '';
       return `<div class="rs-item"><div class="rs-top">
-          <button type="button" class="rs-pick" data-act="rm.urun" ${key} aria-pressed="${x.secili}"><span class="rs-box"></span><span class="nm">${esc(ad(id))}</span></button>
+          <button type="button" class="rs-pick" data-act="${on}.urun" ${key} aria-pressed="${x.secili}"${dis}><span class="rs-box"></span><span class="nm">${esc(ad(id))}</span></button>
           <div class="rs-num"><b>${x.secili ? num(k?.adet) : '—'}</b><small>adet</small></div>
           <div class="rs-num"><b>${x.secili ? birimFmt(k?.birim) : birimFmt(b)}</b><small>${x.secili ? esc(alt) : `borsa Q${x.kalite}`}</small></div>
           <div class="rs-num"><b>${x.secili ? money(k?.tutar) : '—'}</b><small>${x.secili ? esc(KAYNAKLAR.find(([v]) => v === x.kaynak)?.[1]) : ''}</small></div>
