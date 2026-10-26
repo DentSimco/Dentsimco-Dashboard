@@ -58,15 +58,21 @@ export function temizleRb(raw) {
 }
 
 // Bina ekle panelinin taslağı; menuFrom: '' standart menü, yoksa kopyalanacak binanın kimliği
-export const yeniTaslak = () => ({ ad: '', tip: 'eko', seviye: 0, fiyat: null, doluluk: null, menuFrom: '' });
+export const yeniTaslak = () => ({ ad: '', tip: 'eko', seviye: 0, fiyat: null, doluluk: null, menuFrom: '', menu: RS.varsayilanMenu() });
+// Taslağı tek binalık kayıt gibi göstermek: menü aynı nesne olduğundan kayıt olayları taslağı doğrudan değiştirir
+export const TASLAK_ID = 'taslak';
+export const taslakRb = (d) => ({ kaynak: null, items: [{ ...d, id: TASLAK_ID }] });
+export function taslakMenuKaynagi(d, rb) {
+  const k = rb.items.find((x) => x.id === d.menuFrom);
+  d.menu = k ? kopyaMenu(k.menu) : RS.varsayilanMenu();
+}
 
 export function rbEkle(rb, g) {
-  const kopya = rb.items.find((x) => x.id === g.menuFrom);
   const dolu = Number(g.doluluk);
   const it = { id: RS.uid(), ad: String(g.ad || '').trim().slice(0, 40) || `Restoran ${rb.items.length + 1}`, tip: g.tip === 'luks' ? 'luks' : 'eko',
     seviye: Math.max(0, Math.floor(Number(g.seviye) || 0)), fiyat: posOr(Number(g.fiyat)),
     doluluk: g.doluluk == null || g.doluluk === '' || !Number.isFinite(dolu) ? null : Math.min(100, Math.max(0, dolu)),
-    menu: kopya ? kopyaMenu(kopya.menu) : RS.varsayilanMenu() };
+    menu: g.menu ? kopyaMenu(g.menu) : RS.varsayilanMenu() };
   rb.items.push(it);
   esitle(rb);
   return it.id;
@@ -96,6 +102,21 @@ export function karZarar(degerler) {
 // ---------------------------------------------------------------------------------------------------------------
 const chevron = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
 
+function uyariHtml(g) {
+  return [g.eksikKategori.length ? `<div class="ur-msg err">Her kategoriden en az bir ürün gerekir: ${esc(g.eksikKategori.join(', '))} eksik.</div>` : '',
+    g.eksikFiyat ? `<div class="ur-msg err">Borsada fiyatı olmayan ürün var: ${esc(g.kalemler.filter((k) => k.birim == null).map((k) => urunAdi(k.id, R.URUNLER[k.id]?.ad) || R.URUNLER[k.id]?.ad).join(', '))}. Kâr hesaplanmadı; kaliteyi değiştirin ya da maliyeti elle girin.</div>` : ''].join('');
+}
+function karKutusu(row) {
+  const kar = row.eksik ? null : row.secili.profitDay;
+  return `<div class="rb-kar ${kar == null ? '' : kar > 0.5 ? 'up' : kar < -0.5 ? 'down' : ''}" aria-live="polite">
+        <span class="ur-note" style="font-weight:600">Bu binanın kârı (günlük)</span>
+        <span class="big ${kar == null ? '' : cls(kar)}">${money(kar)}</span>
+        <div class="ur-kv"><span>Gelir</span><span>${money(row.secili.revenueDay)}</span></div>
+        <div class="ur-kv"><span>Malzeme</span><span>${money(-row.costDay)}</span></div>
+        <div class="ur-kv"><span>Maaş ve yönetim</span><span>${money(-row.wagesDay)}</span></div>
+      </div>`;
+}
+
 function kart(rb, it, row, marketOf, acik) {
   const kaynak = rb.kaynak === it.id;
   const kopya = kopyaMi(rb, it);
@@ -105,8 +126,7 @@ function kart(rb, it, row, marketOf, acik) {
   const kar = row.eksik ? null : row.secili.profitDay;
   const secili = Object.values(it.menu).filter((x) => x.secili).length;
   const dolulukTahmin = row.simdi.doluluk;
-  const uyar = [g.eksikKategori.length ? `<div class="ur-msg err">Her kategoriden en az bir ürün gerekir: ${esc(g.eksikKategori.join(', '))} eksik.</div>` : '',
-    g.eksikFiyat ? `<div class="ur-msg err">Borsada fiyatı olmayan ürün var: ${esc(g.kalemler.filter((k) => k.birim == null).map((k) => urunAdi(k.id, R.URUNLER[k.id]?.ad) || R.URUNLER[k.id]?.ad).join(', '))}. Kâr hesaplanmadı; kaliteyi değiştirin ya da maliyeti elle girin.</div>` : ''].join('');
+  const uyar = uyariHtml(g);
   const govde = acik ? `
       ${RS.seg('pr.tip', TIPLER, it.tip, 'Restoran tipi', ` data-i="${esc(it.id)}"`)}
       <div class="rs-form">
@@ -120,13 +140,7 @@ function kart(rb, it, row, marketOf, acik) {
         ${RS.menuHtml({ kontratPct: 0 }, it.id, it.menu, g, marketOf, { on: 'pm', kontrat: false, kilit: kopya })}
       </div>
       ${uyar}
-      <div class="rb-kar ${kar == null ? '' : kar > 0.5 ? 'up' : kar < -0.5 ? 'down' : ''}" aria-live="polite">
-        <span class="ur-note" style="font-weight:600">Bu binanın kârı (günlük)</span>
-        <span class="big ${kar == null ? '' : cls(kar)}">${money(kar)}</span>
-        <div class="ur-kv"><span>Gelir</span><span>${money(row.secili.revenueDay)}</span></div>
-        <div class="ur-kv"><span>Malzeme</span><span>${money(-row.costDay)}</span></div>
-        <div class="ur-kv"><span>Maaş ve yönetim</span><span>${money(-row.wagesDay)}</span></div>
-      </div>
+      ${karKutusu(row)}
       <div class="ur-row"><button type="button" class="ur-btn danger grow" data-act="pr.sil" data-i="${esc(it.id)}">Restoranı sil</button></div>` : '';
   return `<article class="ur-card${kaynak ? ' rb-kaynak' : ''}" aria-label="${esc(it.ad || 'Restoran')}">
     <div class="ur-row" style="gap:12px;align-items:flex-start">
@@ -149,18 +163,28 @@ export function rbKartlarHtml(rb, res, marketOf, acikSet) {
     ${rb.items.map((it, i) => kart(rb, it, res.rows[i], marketOf, acikSet.has(it.id))).join('')}</section>`;
 }
 
-// Bina ekle panelindeki restoran alanları (menü kartta girilir)
-export function sheetHtml(d, rb) {
+// Bina ekle panelindeki restoran alanları: bina bilgisi, altında menü, en altta binanın kârı.
+// env: { c: Perakende bağlamı (adminNet, ratingBonus, evre ...), marketOf }
+export function sheetHtml(d, rb, env) {
   const kopyalar = rb.items.map((x) => `<option value="${esc(x.id)}" ${d.menuFrom === x.id ? 'selected' : ''}>${esc(x.ad || 'Restoran')} menüsünü kopyala</option>`).join('');
+  const t = taslakRb(d);
+  const row = rbDegerlendir(t, env.c, env.marketOf).rows[0];
+  const kaynakAd = rb.items.find((x) => x.id === rb.kaynak)?.ad;
   return `<div class="rs-mini"><span>Restoran tipi</span>${seg('rb.tip', TIPLER, d.tip, 'Restoran tipi')}</div>
     <div class="rs-form">
       ${field('Seviye', 'data-d="rb.seviye"', d.seviye || '', { mode: 'numeric' })}
-      ${field('Doluluk', 'data-d="rb.doluluk"', inputVal(d.doluluk), { unit: '%', placeholder: 'boşsa tahmin' })}
+      ${field('Doluluk', 'data-d="rb.doluluk"', inputVal(d.doluluk), { unit: '%', placeholder: `${num(row.simdi.doluluk, 1)} (tahmin)` })}
       ${field('Menü fiyatı', 'data-d="rb.fiyat"', inputVal(d.fiyat), { unit: '$', placeholder: '60' })}
       ${field('Ad (isteğe bağlı)', 'data-d="rb.ad"', d.ad, { mode: 'text', placeholder: `Restoran ${rb.items.length + 1}` })}
     </div>
-    <label class="ur-field"><span>Başlangıç menüsü</span><select data-d="rb.menuFrom" aria-label="Başlangıç menüsü"><option value="" ${d.menuFrom ? '' : 'selected'}>Standart menü</option>${kopyalar}</select></label>
-    <p class="ur-note">Menüyü ve kaliteleri eklendikten sonra binanın kartında seçersiniz. Ürün, PPHPL ve fiyat grafiği restoranda yoktur.</p>`;
+    <p class="ur-note">Doluluk, oyundaki son döngü doluluğudur. Boş bırakırsanız oyunun ısı haritalarından tahmin edilir.</p>
+    <label class="ur-field"><span>Menünün çıkış noktası</span><select data-d="rb.menuFrom" aria-label="Menünün çıkış noktası"><option value="" ${d.menuFrom ? '' : 'selected'}>Standart menü</option>${kopyalar}</select></label>
+    <div class="rs-cat"><b>Menü</b><span>${num(Object.values(d.menu).filter((x) => x.secili).length)} ürün</span></div>
+    ${RS.menuHtml({ kontratPct: 0 }, TASLAK_ID, d.menu, row.gider, env.marketOf, { on: 'pm', kontrat: false })}
+    ${uyariHtml(row.gider)}
+    ${karKutusu(row)}
+    ${kaynakAd ? `<p class="ur-note">"Bu menüyü tüm binalara uygula" ${esc(kaynakAd)} için açık: eklenen bina o binanın menüsünü alır.</p>` : ''}
+    <p class="ur-note">Ürün, PPHPL ve fiyat grafiği restoranda yoktur.</p>`;
 }
 
 // Özet'te restoranın gelir, malzeme ve maaş ayrıntısı
