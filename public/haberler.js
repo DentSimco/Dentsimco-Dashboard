@@ -397,22 +397,22 @@ function viewFront(st) {
     <p class="nw-foot">Haberler DentSimco verileriyle hazırlanır ve her sabah 08:00'de (TR) yenilenir. Yatırım tavsiyesi değildir; rakamları Piyasa ve Şirketler bölümlerinden doğrulayabilirsin.</p>`;
 }
 
-function viewArticle(st, id) {
+export function viewArticle(st, id) {
   const { news } = st;
   const all = [news.manset, ...(news.haberler || [])].filter(Boolean);
   const isKose = news.kose?.id === id;
   const h = isKose ? news.kose : all.find((x) => x.id === id);
   if (!h) return `<div class="nw-art"><a class="nw-back" href="#haberler">← Haberler</a><div class="nw-empty"><h2>Haber bulunamadı</h2><p>Bu haber yeni baskıda yer almıyor olabilir.</p></div></div>`;
-  const t = dil(h);
+  const tx = dil(h); // t, i18n çeviri işlevi: gölgelenmemeli
   const more = all.filter((x) => x.id !== id).slice(0, 5);
   return `<article class="nw-art ${isKose ? 'kose' : ''}">
     <a class="nw-back" href="#haberler">← Haberler</a>
     ${isKose ? '<div class="nw-kicker"><span>KÖŞE YAZISI</span></div>' : kicker(h)}
-    <h1 data-no-t>${esc(t.baslik)}</h1>
-    ${t.spot ? `<p class="nw-spot" data-no-t>${esc(t.spot)}</p>` : ''}
+    <h1 data-no-t>${esc(tx.baslik)}</h1>
+    ${tx.spot ? `<p class="nw-spot" data-no-t>${esc(tx.spot)}</p>` : ''}
     <div class="nw-meta">${isKose ? `<b style="color:var(--text)" data-no-t>${esc(t('Masa'))}</b> · ` : ''}${esc(fmtDateTime(h.t))}</div>
     ${h.grafik ? chartBox(h.grafik, { big: true }) : ''}
-    <div class="nw-body">${t.govde.map((p) => `<p data-no-t>${esc(p)}</p>`).join('')}</div>
+    <div class="nw-body">${tx.govde.map((p) => `<p data-no-t>${esc(p)}</p>`).join('')}</div>
     ${more.length ? `<nav class="nw-more-list" aria-label="Diğer haberler"><div class="nw-sec"><h4>Diğer haberler</h4></div>${more.map((x) => `<a href="#haberler/${esc(x.id)}" data-no-t>${esc(dil(x).baslik)}</a>`).join('')}</nav>` : ''}
   </article>`;
 }
