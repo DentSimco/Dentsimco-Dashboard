@@ -181,7 +181,7 @@ export function degerlendirRestoran(rs, c, marketOf) {
     return Object.keys(R.URUNLER).filter((id) => m[id]?.secili).map((id) => ({ id: Number(id), birim: birimOf(rs, m[id], id, marketOf), kalite: m[id].kalite }));
   };
   return R.restoranDegerlendir(rs.items, { adminNet: c.adminNet, averageSalary: c.averageSalary, salaryModifier: bina.salaryModifier,
-    ratingBonus: c.ratingBonus, mod: rs.gorunum, model: 'kalite', evre: c.evre, menuOf });
+    ratingBonus: c.ratingBonus, mod: rs.gorunum, evre: c.evre, menuOf });
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -226,7 +226,7 @@ function oneriHtml(rs, env) {
   const bina = { seviye: o.seviye, tip: o.tip };
   const kontrat = rs.kontratPct > 0;
   const fiyatOf = (id, q) => { const b = env.marketOf(id, q); return b == null ? null : b * (1 - rs.kontratPct / 100); };
-  const calistir = (urunSayisi) => R.oneriMenu({ model: 'kalite', binalar: [bina], fiyatOf, arzOf: kontrat ? null : env.arzOf, hedef: 'rating', rating: o.rating,
+  const calistir = (urunSayisi) => R.oneriMenu({ binalar: [bina], fiyatOf, arzOf: kontrat ? null : env.arzOf, hedef: 'rating', rating: o.rating,
     bonus: env.ratingBonus, urunSayisi });
   const s = calistir(o.urunSayisi);
   const oyun = env.oyunEvresi;
