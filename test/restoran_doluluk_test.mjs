@@ -211,7 +211,7 @@ test('Menü önerisi sekmesi: evre seçici, hedef rating, menü fiyatı, doluluk
   ok(sekme({ fiyat: 90, rating: 6, fiyatTablosu: true }).includes('<th>Doluluk</th>'), 'açıkken çizilir');
 });
 test('Menü önerisi A modeliyle çalışır: hedef rating → gereken ortalama kalite = (rating ÷ çarpan − çeşitlilik − bonus − 3,33) ÷ 0,23; tahmini rating hedefi sağlar', () => {
-  const o = (rating, tip = 'eko', urunSayisi = 2) => R.oneriMenu({ model: 'kalite', binalar: [{ seviye: 10, tip }], fiyatOf: () => 50, arzOf: () => 1e9, hedef: 'rating', rating, bonus: 1.06, urunSayisi });
+  const o = (rating, tip = 'eko', urunSayisi = 2) => R.oneriMenu({ binalar: [{ seviye: 10, tip }], fiyatOf: () => 50, arzOf: () => 1e9, hedef: 'rating', rating, bonus: 1.06, urunSayisi });
   const e = o(6.5);
   eq(e.durum, 'ok');
   near(e.hedefKalite, (6.5 - 0 - 1.06 - R.KALITE_TABAN) / R.KALITE_RATING, 1e-9);
