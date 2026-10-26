@@ -19,7 +19,7 @@ const HEDEF_RATINGLER = Array.from({ length: 29 }, (_, i) => 3 + i / 4); // 3,00
 const URUN_SAYILARI = [['1', '1 ürün'], ['2', '2 ürün'], ['3', '3 ürün'], ['0', 'Otomatik']]; // kategori başına; yalnız 2'nin çarpanı oyunda doğrulanmış
 const FIYAT_TABLOSU = [60, 75, 90, 105, 120, 150, 180, 210]; // Menü önerisindeki fiyat tablosu ($)
 const YUKSEK_FIYAT = 180; // bu fiyat ve üstünde ısı haritası verisi az, çoğu yüksek ratingli lüks restorandan
-// Menü önerisi rating modeli B (maliyet puanı) ile çalışır; hedef rating 5,5 = güvenli eşik 5,2 + pay 0,3
+// Menü önerisi rating modeli A (ortalama menü kalitesi) ile çalışır; hedef rating 5,5 = güvenli eşik 5,2 + pay 0,3
 const varsayilanOneri = () => ({ evre: null, rating: 5.5, fiyat: 65, urunSayisi: 2, seviye: 0, tip: 'eko', fiyatTablosu: false });
 
 // ---- biçimlendirme ----
@@ -181,7 +181,7 @@ export function degerlendirRestoran(rs, c, marketOf) {
     return Object.keys(R.URUNLER).filter((id) => m[id]?.secili).map((id) => ({ id: Number(id), birim: birimOf(rs, m[id], id, marketOf), kalite: m[id].kalite }));
   };
   return R.restoranDegerlendir(rs.items, { adminNet: c.adminNet, averageSalary: c.averageSalary, salaryModifier: bina.salaryModifier,
-    ratingBonus: c.ratingBonus, mod: rs.gorunum, model: 'maliyet', evre: c.evre, menuOf });
+    ratingBonus: c.ratingBonus, mod: rs.gorunum, model: 'kalite', evre: c.evre, menuOf });
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -226,7 +226,7 @@ function oneriHtml(rs, env) {
   const bina = { seviye: o.seviye, tip: o.tip };
   const kontrat = rs.kontratPct > 0;
   const fiyatOf = (id, q) => { const b = env.marketOf(id, q); return b == null ? null : b * (1 - rs.kontratPct / 100); };
-  const calistir = (urunSayisi) => R.oneriMenu({ model: 'maliyet', binalar: [bina], fiyatOf, arzOf: kontrat ? null : env.arzOf, hedef: 'rating', rating: o.rating,
+  const calistir = (urunSayisi) => R.oneriMenu({ model: 'kalite', binalar: [bina], fiyatOf, arzOf: kontrat ? null : env.arzOf, hedef: 'rating', rating: o.rating,
     bonus: env.ratingBonus, urunSayisi });
   const s = calistir(o.urunSayisi);
   const oyun = env.oyunEvresi;
@@ -250,15 +250,16 @@ function oneriHtml(rs, env) {
   if (s.durum === 'seviye') return kabuk('<p class="ur-note">Öneri için restorana seviye girin.</p>');
   if (s.durum === 'yok') {
     const neden = s.neden === 'fiyat' ? `${s.kategori} kategorisinde fiyatı ve arzı uygun ürün yok.`
-      : `Bu hedefe ulaşılamaz: gereken ortalama maliyet puanı ${num(s.hedefPuan, 2)}; en yüksek kalitelerde bile bu puana çıkılamıyor.`;
+      : s.hedefKalite > R.MAX_KALITE ? 'Bu rating menü kalitesiyle ulaşılamaz: gereken ortalama Q12\'yi aşıyor.'
+        : `Ortalama ${kaliteYaz(s.hedefKalite)} için borsada uygun fiyatlı ilan bulunamadı.`;
     return kabuk(`<div class="ur-msg err">${esc(neden)}</div>`);
   }
   const gun = (x) => x * R.GUN_DONGU;
   const luks = o.tip === 'luks';
-  const hedefNot = `Hedef rating ${num(o.rating, 2)} için ortalama maliyet puanı en az ${num(s.hedefPuan, 2)} gerekir.`;
+  const hedefNot = `Hedef rating ${num(o.rating, 2)} için ortalama menü kalitesi en az ${kaliteYaz(s.hedefKalite)} gerekir.`;
   const luksNot = luks ? '<p class="ur-note">Lüks restoranda hedef rating, formülün sonucu × 1,25 (lüks oturma çarpanı) olarak hesaplanır; çarpan oyunda ayrıca ölçülmedi.</p>' : '';
   const stat = (label, value, c = '') => `<div class="ur-stat"><span>${label}</span><span class="${c}">${value}</span></div>`;
-  const ozet = `<div class="ur-metrics">${stat('Tahmini rating', num(s.rating, 2))}${stat('Maliyet puanı', num(s.maliyetPuani, 2))}${stat('Malzeme/gün', money(gun(s.maliyet)))}</div>
+  const ozet = `<div class="ur-metrics">${stat('Tahmini rating', num(s.rating, 2))}${stat('Ortalama kalite', kaliteYaz(s.ortalama))}${stat('Malzeme/gün', money(gun(s.maliyet)))}</div>
     <p class="ur-note">Rating bonusu ${num(env.ratingBonus, 2)}: Kurulum'daki satış hızından ve yönetici ekibinin iletişim puanından gelir; girilmediyse 0 sayılır.</p>`;
   // Doluluk ve kâr: girilen menü fiyatı ve seçilen evre
   const kari = (fiyat) => R.oneriKari({ oneri: s, fiyat, evre, seviye: o.seviye, tip: o.tip, saatlikMaas: R.saatlikMaasSeviye(env.maas || {}) });
@@ -285,12 +286,12 @@ function oneriHtml(rs, env) {
   }
   const satirlar = R.KATEGORILER.map((kat) => {
     const list = s.secim.filter((x) => R.URUNLER[x.id].kat === kat.key);
-    return `<tr class="cat"><td colspan="5">${esc(kat.ad)}</td></tr>${list.map((x) =>
-      `<tr><td>${esc(ad(x.id))}</td><td>${kaliteYaz(x.kalite)}</td><td>${num(R.maliyetPuani(x.id, x.kalite), 2)}</td><td>${num(x.adet)}</td><td>${money(gun(x.tutar))}</td></tr>`).join('')}`;
+    return `<tr class="cat"><td colspan="4">${esc(kat.ad)}</td></tr>${list.map((x) =>
+      `<tr><td>${esc(ad(x.id))}</td><td>${kaliteYaz(x.kalite)}</td><td>${num(x.adet)}</td><td>${money(gun(x.tutar))}</td></tr>`).join('')}`;
   }).join('');
   const tablo = `<div class="rs-cat"><b>Menü</b><span>${money(gun(s.maliyet))}/gün</span></div>
-    <table class="ro-tab"><thead><tr><th>Ürün</th><th>Kalite</th><th>Puan</th><th>Adet</th><th>Gider/gün</th></tr></thead>
-      <tbody>${satirlar}<tr class="deg"><td>Toplam</td><td></td><td></td><td></td><td>${money(gun(s.maliyet))}</td></tr></tbody></table>`;
+    <table class="ro-tab"><thead><tr><th>Ürün</th><th>Kalite</th><th>Adet</th><th>Gider/gün</th></tr></thead>
+      <tbody>${satirlar}<tr class="deg"><td>Toplam</td><td></td><td></td><td>${money(gun(s.maliyet))}</td></tr></tbody></table>`;
   const isaret = s.cesit > 0 ? '+' : s.cesit < 0 ? '−' : '';
   // 3 ürünlü kategori içeren öneri çeşitlilik tahminine dayanır: aynı hedefte 2 ürünlü menüyle fark gösterilir
   let ikiNot = '';
@@ -305,7 +306,7 @@ function oneriHtml(rs, env) {
     ? `<p class="ur-note">Ürün çeşitliliğinin rating etkisi (1 ürün −0,2 · 2 ürün 0 · 3 ürün +0,9 puan) tahminidir; oyunda ölçülmedi. Bu menüde etki: ${isaret}${num(Math.abs(s.cesit), 2)} puan.</p>` : '';
   return kabuk(`<p class="ur-note">${esc(hedefNot)}</p>${luksNot}${ozet}${karHtml}${tablo}
       <p class="ur-note">Fiyatlar anlık borsa fiyatıdır; borsa değişince öneri de değişir. Kontrat indirimi girilirse fiyatlara uygulanır ve borsa arzı sınır sayılmaz.</p>
-      <p class="ur-note">Rating, ürünlerin maliyet puanına (borsa fiyatı ÷ referans fiyat) göre hesaplanır; puan ödediğiniz fiyata değil sabit bir tabloya bağlıdır. Model 9 restoranın ortalamasına göre kalibre edildi ve tahminidir.</p>
+      <p class="ur-note">Rating, menünün ortalama kalitesine göre hesaplanır (3,33 + 0,23 × ortalama kalite + bonus + çeşitlilik). Model 19–22 Ekim'de standart menüyle ölçülen ratingle uyumludur; menü fiyatının ve ürün maliyetinin ratinge etkisi hesaba katılmadı.</p>
       ${cesitNot}${ikiNot}`);
 }
 

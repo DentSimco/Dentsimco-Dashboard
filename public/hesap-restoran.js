@@ -528,10 +528,10 @@ function oneriMenuA(o) {
     if (!c.ok) return { durum: 'yok', neden: c.neden, kategori: c.kategori, hedefKalite };
     en = sonuc(c, hedefKalite);
   } else {
-    // Güvenli rating: gereken ortalama kalite, seçilen ürün sayılarının çeşitlilik puanına bağlıdır. Ürün sayısı desenleri (kategori başına 1–3)
+    // Güvenli rating (ya da hedef 'rating': o.rating): gereken ortalama kalite, seçilen ürün sayılarının çeşitlilik puanına bağlıdır. Ürün sayısı desenleri (kategori başına 1–3)
     // tek tek denenir, her desenin kendi hedef kalitesiyle en ucuz menü bulunur; en ucuzu seçilir (eşitlikte ortalaması yüksek olan).
     const desenler = n > 0 ? [[n, n, n]] : [1, 2, 3].flatMap((a) => [1, 2, 3].flatMap((b) => [1, 2, 3].map((c) => [a, b, c])));
-    const hedefRatingi = RATING.guvenli + RATING_PAYI;
+    const hedefRatingi = o.hedef === 'rating' ? clamp(Number(o.rating) || 0, 0, 10) : RATING.guvenli + RATING_PAYI;
     let yok = null;
     for (const [a, b, c3] of desenler) {
       const hedefKalite = Math.max(0, gerekenKalite(hedefRatingi / carpan - cesitRating({ salata: a, ana: b, icecek: c3 }), bonus));

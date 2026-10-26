@@ -205,9 +205,23 @@ test('Menü önerisi sekmesi: evre seçici, hedef rating, menü fiyatı, doluluk
   const h = sekme({ fiyat: 90, rating: 6 });
   for (const parca of ['data-act="ro.evre"', 'data-ro="rating"', 'data-ro="fiyat"', 'Doluluk ve kâr', 'Tahmini doluluk', 'Kâr/gün', 'Başabaş doluluk', 'en kârlı fiyat', 'data-act="ro.fiyattablo"'])
     ok(h.includes(parca), parca);
-  for (const parca of ['ro.model', 'data-ro="kalite"', 'Güvenli rating', 'Kalite modeli']) ok(!h.includes(parca), `kalmamalı: ${parca}`);
+  for (const parca of ['ro.model', 'data-ro="kalite"', 'Güvenli rating', 'Kalite modeli', 'Maliyet puanı', '<th>Puan</th>']) ok(!h.includes(parca), `kalmamalı: ${parca}`);
+  for (const parca of ['Ortalama kalite', 'ortalama menü kalitesi en az']) ok(h.includes(parca), parca);
   ok(!h.includes('<th>Doluluk</th>'), 'fiyat tablosu kapalıyken çizilmez');
   ok(sekme({ fiyat: 90, rating: 6, fiyatTablosu: true }).includes('<th>Doluluk</th>'), 'açıkken çizilir');
+});
+test('Menü önerisi A modeliyle çalışır: hedef rating → gereken ortalama kalite = (rating ÷ çarpan − çeşitlilik − bonus − 3,33) ÷ 0,23; tahmini rating hedefi sağlar', () => {
+  const o = (rating, tip = 'eko', urunSayisi = 2) => R.oneriMenu({ model: 'kalite', binalar: [{ seviye: 10, tip }], fiyatOf: () => 50, arzOf: () => 1e9, hedef: 'rating', rating, bonus: 1.06, urunSayisi });
+  const e = o(6.5);
+  eq(e.durum, 'ok');
+  near(e.hedefKalite, (6.5 - 0 - 1.06 - R.KALITE_TABAN) / R.KALITE_RATING, 1e-9);
+  ok(e.ortalama >= e.hedefKalite - 1e-9 && e.rating >= 6.5 - 1e-9, 'menü hedefi sağlar');
+  near(e.rating, R.KALITE_TABAN + R.KALITE_RATING * e.ortalama + 1.06, 1e-9);
+  const l = o(8, 'luks');
+  near(l.hedefKalite, (8 / 1.25 - 1.06 - R.KALITE_TABAN) / R.KALITE_RATING, 1e-9);
+  ok(l.rating >= 8 - 1e-9, 'lüks çarpan dahil hedef sağlanır');
+  ok(o(6.5, 'eko', 1).hedefKalite > o(6.5, 'eko', 3).hedefKalite, '1 ürün (−0,2) daha yüksek, 3 ürün (+0,9) daha düşük kalite ister');
+  eq(o(10).durum, 'yok');
 });
 test('Menü önerisi sekmesi: Otomatik evre oyunun evresini kullanır; süresi dolmuşsa uyarı; elle seçim önceliklidir', () => {
   const oyun = (index, expired) => ({ oyunEvresi: { index, end: Date.UTC(2026, 9, 23, 15), expired } });
