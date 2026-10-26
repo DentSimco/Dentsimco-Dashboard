@@ -102,6 +102,29 @@ test('Kaynak silinince uygulama kapanır; yeni bina kaynak menüsünü alır', (
   eq(rb.items.length, 2);
 });
 
+section('Bina ekle taslağı');
+test('Taslakta seçilen menü eklenen binaya geçer; olaylar taslağı değiştirir', () => {
+  const rb = RB.varsayilanRb();
+  const d = RB.yeniTaslak();
+  d.seviye = 6;
+  RB.rbTikla(RB.taslakRb(d), btn({ act: 'pm.urun', s: RB.TASLAK_ID, p: '121' }), env());
+  eq(d.menu[121].secili, true, 'taslak değişti');
+  eq(RB.rbDegis(RB.taslakRb(d), { dataset: { pm: `${RB.TASLAK_ID}|121|kalite` }, value: '5' }), true);
+  eq(d.menu[121].kalite, 5);
+  const id = RB.rbEkle(rb, d);
+  eq(rb.items.find((x) => x.id === id).menu[121].kalite, 5);
+  d.menu[121].kalite = 9;
+  eq(rb.items[0].menu[121].kalite, 5, 'eklenen bina taslaktan bağımsız');
+});
+test('Başka binanın menüsü taslağa kopyalanır', () => {
+  const { rb, a } = iki();
+  rb.items[0].menu[121] = { secili: true, kalite: 4, kaynak: 'borsa', manuel: null };
+  const d = RB.yeniTaslak();
+  d.menuFrom = a;
+  RB.taslakMenuKaynagi(d, rb);
+  eq(d.menu[121].kalite, 4);
+});
+
 section('Hesap');
 test('Kâr, gelir − malzeme − maaş; doluluk girilince o doluluk, boşsa tahmin', () => {
   const { rb } = iki();

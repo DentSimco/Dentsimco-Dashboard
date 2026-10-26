@@ -970,7 +970,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     let rest = '';
     if (d.letter === 'r') {
       d.rb ||= RB.yeniTaslak();
-      rest = RB.sheetHtml(d.rb, setup.restoranBinalari);
+      rest = RB.sheetHtml(d.rb, setup.restoranBinalari, { c: { ...c.ctx, evre: c.econ }, marketOf });
     } else if (d.letter) {
       const top = ranking(c, [d.letter], 10);
       const picks = top.map((x, i) => `<button type="button" class="pk-pick" data-act="pick" data-v="${x.product}|${x.quality}" aria-pressed="${x.product === d.product && x.quality === d.quality}">
@@ -1148,6 +1148,10 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     if (act === 'rt.aralik') { tuketimAralik = [7, 14, 28].includes(Number(btn.dataset.v)) ? Number(btn.dataset.v) : 28; return softRender(); }
     if (act === 'rt.urun') { tuketimUrun = btn.dataset.v; return softRender(); }
     if (act === 'rt.gun') { tuketimGun = btn.dataset.v; return softRender(); }
+    if (sheet?.draft?.letter === 'r' && btn.dataset.s === RB.TASLAK_ID) {
+      RB.rbTikla(RB.taslakRb(sheet.draft.rb), btn, { marketOf, acik: new Set() }); // menü nesnesi paylaşıldığından taslak güncellenir
+      return renderSheet();
+    }
     if (act === 'pr.ozet') { if (ozetAcik.has(btn.dataset.i)) ozetAcik.delete(btn.dataset.i); else ozetAcik.add(btn.dataset.i); return softRender(); }
     if (/^p[rm]\./.test(act)) {
       const nx = clone();
@@ -1183,11 +1187,16 @@ export function mountPerakende(root, { realm = 0 } = {}) {
         else if (f === 'doluluk') d.rb.doluluk = n == null ? null : Math.min(100, Math.max(0, n));
         else if (f === 'fiyat') d.rb.fiyat = posNum(n);
         else if (f === 'ad') d.rb.ad = t.value.trim().slice(0, 40);
-        else if (f === 'menuFrom') d.rb.menuFrom = t.value;
+        else if (f === 'menuFrom') { d.rb.menuFrom = t.value; RB.taslakMenuKaynagi(d.rb, setup.restoranBinalari); }
       }
       // Belirsiz "2.345" gibi yazımlar borsa maliyetine / en kârlı fiyata yakın olan biçimde okunur
       else if (k === 'cost') d.cost = posNum(parseNum(t.value, { ref: marketOf(d.product, d.quality) ?? calc(c, { ...d, cost: null, price: null }).cAct }));
       else if (k === 'price') d.price = posNum(parseNum(t.value, { ref: calc(c, { ...d, price: null }).rMax }));
+      if (pointerActive) { pendingRender = true; return; }
+      return renderSheet();
+    }
+    if (sheet?.draft?.letter === 'r' && t?.dataset?.pm?.startsWith(`${RB.TASLAK_ID}|`)) {
+      RB.rbDegis(RB.taslakRb(sheet.draft.rb), t);
       if (pointerActive) { pendingRender = true; return; }
       return renderSheet();
     }
