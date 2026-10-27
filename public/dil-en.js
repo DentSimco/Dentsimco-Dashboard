@@ -809,7 +809,6 @@ export default {
   'Doluluk, oyundaki son döngü doluluğudur. Boş bırakırsanız oyunun ısı haritalarından tahmin edilir (şu an': 'Occupancy is the last cycle\'s occupancy in the game. If left empty it is estimated from the game\'s heat maps (currently',
   'Bu bina kaynak: menüsü tüm restoran binalarına uygulanıyor. Adetler her binanın kendi seviyesine göre hesaplanır.': 'This building is the source: its menu applies to all restaurant buildings. Amounts are calculated from each building\'s own level.',
   'Bu binanın kârı (günlük)': 'Profit of this building (daily)',
-  'Bina ve menü': 'Building and menu',
   'Bu menüyü tüm binalara uygula': 'Apply this menu to all buildings',
   'Her binadaki ürünün maliyeti, satış fiyatı ve maaş payı.': 'Cost, selling price and wage share of the product in each building.',
   'Binalara dön': 'Back to Buildings',

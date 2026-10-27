@@ -755,7 +755,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       const row = ev.restoran.rows[i];
       const v = row.eksik ? null : row.secili.profitDay;
       const acik = ozetAcik.has(it.id);
-      rows.push({ v, html: `<div><button type="button" class="rb-ozet-ac ur-kv" data-act="pr.ozet" data-i="${esc(it.id)}" aria-expanded="${acik}" style="width:100%"><span>${esc(it.ad || 'Restoran')} <span class="ur-note">Restoran · seviye ${num(it.seviye)} · ${acik ? 'ayrıntıyı gizle' : 'ayrıntıyı aç'}</span></span><span class="${cls(v)}">${ms(v)}</span></button>${acik ? RB.ozetDetayHtml(row, k) : ''}</div>` });
+      rows.push({ v, html: `<div><button type="button" class="rb-ozet-ac ur-kv" data-act="pr.ozet" data-i="${esc(it.id)}" aria-expanded="${acik}" style="width:100%"><span>${esc(it.ad || 'Restoran')} <span class="ur-note">Restoran · seviye ${num(it.seviye)}${it.insaat ? ' · inşaatta' : ''} · ${acik ? 'ayrıntıyı gizle' : 'ayrıntıyı aç'}</span></span><span class="${cls(v)}">${ms(v)}</span></button>${acik ? RB.ozetDetayHtml(row, k) : ''}</div>` });
     });
     const z = RB.karZarar(rows.map((x) => x.v));
     return `<section class="ur-card" aria-labelledby="h-kz"><h2 id="h-kz">Kâr ve zarar dağılımı (${periodName})</h2>
@@ -1131,7 +1131,11 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     if (act === 'pr.ozet') { if (ozetAcik.has(btn.dataset.i)) ozetAcik.delete(btn.dataset.i); else ozetAcik.add(btn.dataset.i); return softRender(); }
     if (/^p[rm]\./.test(act)) {
       const nx = clone();
-      if (RB.rbTikla(nx.restoranBinalari, btn, { marketOf, acik: restoranBinaAcik })) return commit(nx);
+      if (RB.rbTikla(nx.restoranBinalari, btn, { marketOf, acik: restoranBinaAcik })) {
+        commit(nx);
+        const bildirim = RB.bildirim(act, nx.restoranBinalari, btn.dataset.i);
+        return bildirim ? toast(bildirim) : undefined;
+      }
     }
     if (/^r[kfmo]\./.test(act)) {
       const nx = clone();
