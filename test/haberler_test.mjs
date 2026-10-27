@@ -1,6 +1,6 @@
 // node test/haberler_test.mjs — Haberler sayfasının saf yardımcıları (ağ ve tarayıcı kullanmaz)
 import assert from 'node:assert/strict';
-import { tickerItems, sparkPaths, splitColumns, compactUsd, chartSeries, guncelBaski, OZEL_MANSETLER } from '../public/haberler.js';
+import { tickerItems, sparkPaths, splitColumns, compactUsd, chartSeries, guncelBaski, OZEL_MANSETLER, viewArticle } from '../public/haberler.js';
 
 // Şerit: canlı fiyat ana kaliteden, değişim dünkü kapanışa göre; canlı yoksa kapanış, değişim boş; fiyatsız ürün atlanır
 const fiyatlar = { 1: ['Elma', 10, 1], 2: ['Su', 5, 0], 3: ['Yok', null, 0] };
@@ -116,4 +116,12 @@ console.log('haberler_test: tamam');
   assert.ok(px() !== c, 'sonunda yine kendiliğinden akar');
   dur();
   console.log('✓ şerit kaydırma');
+}
+
+// Köşe yazısı sayfası açılır (yerel değişken i18n çeviri işlevini gölgelediğinde "t is not a function" hatası veriyordu)
+{
+  const yazi = { id: 'k1', t: Date.now(), tr: { baslik: 'Başlık', spot: 'Özet', govde: ['Bir.', 'İki.'] }, en: { baslik: 'Title', spot: 'Sum', govde: ['One.'] } };
+  const html = viewArticle({ news: { manset: { id: 'm', t: Date.now(), tr: { baslik: 'M', govde: [] }, en: { baslik: 'M', govde: [] } }, haberler: [], kose: yazi } }, 'k1');
+  assert.ok(html.includes('KÖŞE YAZISI') && html.includes('nw-art kose'), 'köşe yazısı çizilir');
+  console.log('✓ köşe yazısı sayfası');
 }
