@@ -15,8 +15,8 @@
 //   Yemek, müşteri gelsin gelmesin döngü başında harcanır (gider dolulukla değişmez) [oyun]
 //   Maaş = binanın saatlik maaşı × 12 [oyun]
 //   Restoran kapanınca rating ×0,875 (kapanış başına bir kez; yükseltme de kapanıştır) [oyun]
-//   Hedef rating = [Menü puanı + Çeşitlilik puanı + Personel puanı] × Oturma çarpanı. Menü puanı = 3,33 + 0,23 × ortalama menü kalitesi [ölçüm];
-//     Personel puanı = 0,01 × etkin CMO iletişim puanı + 0,02 × taban satış hızı % (bonus) [oyun]; çeşitlilik [hipotez]; oturma çarpanı eko 1, lüks 1,25 [kullanıcı]
+//   Rating bonusu = 0,01 × etkin CMO iletişim puanı + 0,02 × taban satış hızı % [oyun]. Menüden rating tahmini yok: hedef rating
+//     elle girilir ya da önceki ve mevcut ratingten çıkarılır (menü önerisi ve menü-rating formülleri kaldırıldı)
 //   Rating her döngü hedefine doğru yaklaşır: r' = r + k·(T − r), k ≈ 0,177, gürültü ±0,21 [ölçüm]
 //   Doluluk = f(rating, menü fiyatı, ekonomi evresi): oyunun gazetesindeki restoran ısı haritalarından (28 dönem, ~3 milyon döngü)
 //     evre paylarıyla regresyon; tablo public/restoran-doluluk.js (araclar/restoran-isi.mjs üretir). Piyasa ortalamasıdır [oyun verisi]
@@ -67,7 +67,7 @@ export const URUNLER = {
 };
 
 // Rating ve doluluk modeli [ölçüm]: veri büyüdükçe bu sabitler güncellenir
-export const RATING = { k: 0.177, hedef: 6.0, gurultu: 0.21, esik: 4.5, guvenli: 5.2 };
+export const RATING = { k: 0.177, gurultu: 0.21, esik: 4.5 };
 
 // Ekonomi evresi: hesap.js ECONOMY_PHASES ile aynı dizin (0 Durgunluk, 1 Normal, 2 Büyüme); bilinmiyorsa Normal
 export const EVRE_NORMAL = 1;
@@ -144,7 +144,6 @@ export function ihtiyac(ids, seviye, tip = 'eko') {
 
 export const SATIS_HIZI_RATING = 0.02; // ekip dışı satış hızı % başına
 export const ILETISIM_RATING = 0.01; // etkili iletişim puanı başına
-export const BONUS_REFERANS = 0.99; // varsayılan hedefin (6) ölçüldüğü andaki bonus: 0,02 × %15 + 0,01 × 69
 
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 
@@ -200,61 +199,19 @@ export const kapanisSonrasi = (r) => r * KAPANIS_CARPANI;
 export const yukseltmeGuvenli = (r) => kapanisSonrasi(r) >= RATING.esik + 0.05;
 
 /**
- * Restoranın ratingin yerleşeceği hedef.
+ * Restoranın ratingin yerleşeceği hedef; menüden tahmin edilmez.
  *  1) elle girilen hedef;
  *  2) önceki ve mevcut rating girildiyse: rating her döngü farkın k kadarını kapatır, hedef = önceki + (mevcut − önceki) ÷ k;
- *  3) varsayılan: [menü puanı + çeşitlilik + bonus] × oturma çarpanı (eko 1, lüks 1,25).
+ *  3) yalnız mevcut rating girildiyse hedef = mevcut rating; hiçbiri yoksa 0.
  */
-// Eko hedef rating = KALITE_TABAN + KALITE_RATING × ortalama menü kalitesi + bonus.
-// Üç ölçümden: 11 Ekim menüsü (ort. Q7,5, bonus 0,99 → ~6,0), 20 Ekim (aynı menü, bonus 1,09 → ~6,4) ve seviye 2 testi
-// (ort. Q0,5, bonus 0,32 → ~3,6). Belirsizlik: taban ±1,2, eğim ±0,15.
-export const KALITE_TABAN = 3.33;
-export const KALITE_RATING = 0.23;
-export const REFERANS_KALITE = 7.5; // menü kalitesi bilinmiyorsa
-// Hedef rating köşeli parantezin sonucu bu çarpanla çarpılır: eko 1, lüks 1,25 (değer kullanıcıdan; oyunda ayrıca ölçülmedi)
-export const LUKS_OTURMA_CARPANI = 1.25;
-export const oturmaCarpani = (tip) => (tipOf(tip) === 'luks' ? LUKS_OTURMA_CARPANI : 1);
-// Ürün çeşitliliğinin hedef ratinge etkisi: [kategorideki ürün sayısı, eklenen puan]. [hipotez] Başka bir sohbette tahmin edildi, oyunda ölçülmedi.
-// Kalibrasyon menüleri kategori başına 2 ürünlüydü; bu yüzden 2 → 0 alınır (etki KALITE_TABAN'a karışmış durumdadır). Üç kategorinin değerlerinin ORTALAMASI eklenir.
-export const CESIT_RATING = [[1, -0.2], [2, 0], [3, 0.9]];
-const cesitDegeri = (n) => {
-  const t = CESIT_RATING;
-  if (n <= t[0][0]) return t[0][1]; // tablodan küçük (0 ürün: eksik kategori) ilk satır gibi
-  if (n >= t[t.length - 1][0]) return t[t.length - 1][1]; // tablodan büyük (4 ve üstü) son satır gibi; 4+ ürün ölçülmedi
-  return (t.find(([k]) => k === n) ?? [0, 0])[1];
-};
-// sayilar: kategoriSayilari çıktısı { salata, ana, icecek }
-export const cesitRating = (sayilar) => KATEGORILER.reduce((t, k) => t + cesitDegeri(Math.floor(Number(sayilar?.[k.key]) || 0)), 0) / KATEGORILER.length;
-
-// Seçili ürünlerin ortalama kalitesi; kalite bilgisi yoksa null
-export function menuKalitesi(menu) {
-  const q = (menu || []).map((m) => Number(m?.kalite)).filter((x) => fin(x));
-  return q.length ? q.reduce((a, b) => a + b, 0) / q.length : null;
-}
-
-export function hedefRating(item, bonus = BONUS_REFERANS, kalite = REFERANS_KALITE, cesit = 0) {
+export function hedefRating(item) {
   const elle = pos(Number(item?.hedef));
   if (elle != null) return { deger: clamp(elle, 0, 10), kaynak: 'girilen' };
   const once = Number(item?.onceki);
   const simdi = Number(item?.rating);
   if (fin(once) && fin(simdi) && item?.onceki !== '' && item?.onceki != null) return { deger: clamp(once + (simdi - once) / RATING.k, 0, 10), kaynak: 'tahmin' };
-  const menu = KALITE_TABAN + KALITE_RATING * (fin(kalite) ? kalite : REFERANS_KALITE);
-  return { deger: clamp((menu + (Number(bonus) || 0) + (fin(cesit) ? cesit : 0)) * oturmaCarpani(item?.tip), 0, 10), kaynak: 'varsayilan' };
-}
-
-/**
- * Döngü kârını en yükselten menü fiyatı ($1 adım, $60–350). Gider fiyattan bağımsızdır (yemek her döngü harcanır).
- * Dönen: { fiyat, doluluk, kar } (kar döngü başına); gider eksikse (fiyatı olmayan ürün) null.
- */
-export function enKarliFiyat(gider, rating, evre = EVRE_NORMAL) {
-  if (!gider || !(gider.koltuk > 0) || !fin(gider.toplam)) return null;
-  let iyi = null;
-  for (let fiyat = FIYAT_MIN; fiyat <= FIYAT_MAX; fiyat++) {
-    const doluluk = dolulukTahmini(rating, fiyat, evre);
-    const kar = donguKari(gider, fiyat, doluluk);
-    if (!iyi || kar > iyi.kar + 1e-9) iyi = { fiyat, doluluk, kar };
-  }
-  return iyi;
+  if (fin(simdi) && item?.rating !== '' && item?.rating != null) return { deger: clamp(simdi, 0, 10), kaynak: 'mevcut' };
+  return { deger: 0, kaynak: 'yok' };
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -264,7 +221,7 @@ export const GUN_DONGU = 24 / DONGU_SAAT;
 
 /**
  * @param {Array} restoranlar  [{ id, ad, tip, profesyonel?, seviye, fiyat, rating, onceki, doluluk, hedef, menu? }]
- * @param {{ adminNet: number, averageSalary?: number, salaryModifier?: number, ratingBonus: number, mod: 'beklenen'|'simdi', evre?: 0|1|2,
+ * @param {{ adminNet: number, averageSalary?: number, salaryModifier?: number, mod: 'beklenen'|'simdi', evre?: 0|1|2,
  *           menuOf: (item) => Array<{ id: number, birim: number|null, kalite?: number }> }} ctx
  * Dönen toplamlar Perakende'nin toplamlarıyla aynı adlarla: revenueDay, costDay (malzeme), wagesDay (yönetim dahil),
  * baseWagesDay (yönetimsiz), profitDay, levels.
@@ -280,9 +237,7 @@ export function restoranDegerlendir(restoranlar, ctx) {
     const fiyat = clamp(pos(Number(it.fiyat)) ?? FIYAT_MIN, FIYAT_MIN, FIYAT_MAX);
     const menu = ctx.menuOf(it);
     const g = donguGideri({ menu, seviye: L, tip, saatlikMaas: saatlik, fiyat, profesyonel: !!it.profesyonel });
-    const kalite = menuKalitesi(menu);
-    const cesit = menu.length ? cesitRating(kategoriSayilari(menu.map((m) => Number(m.id)))) : 0;
-    const hedef = hedefRating(it, ctx.ratingBonus, kalite ?? REFERANS_KALITE, cesit);
+    const hedef = hedefRating(it);
     const simdiR = fin(Number(it.rating)) && it.rating !== '' && it.rating != null ? Number(it.rating) : hedef.deger;
     const sonD = fin(Number(it.doluluk)) && it.doluluk !== '' && it.doluluk != null ? clamp(Number(it.doluluk), 0, 100) : null;
     // Borsada fiyatı olmayan ürün ya da eksik kategori varsa maliyet bilinmez: kâr hesaplanmaz (null), elle fiyat girilmesi istenir
@@ -298,8 +253,8 @@ export function restoranDegerlendir(restoranlar, ctx) {
     const costDay = g.malzeme * GUN_DONGU;
     const wagesDay = (g.maas ?? 0) * GUN_DONGU;
     const baseWagesDay = taban * 24 * L * (tip === 'luks' ? LUKS_MAAS : 1) * (it.profesyonel ? PROFESYONEL_MAAS : 1);
-    rows.push({ id: it.id, ad: it.ad, tip, profesyonel: !!it.profesyonel, seviye: L, fiyat, gider: g, eksik, kalite, hedef, simdi, beklenen, secili, costDay, wagesDay, baseWagesDay,
-      evre, enKarli: eksik || g.eksikMaas ? null : enKarliFiyat(g, hedef.deger, evre), dolulukVerisi: dolulukVerisi(hedef.deger, fiyat),
+    rows.push({ id: it.id, ad: it.ad, tip, profesyonel: !!it.profesyonel, seviye: L, fiyat, gider: g, eksik, hedef, simdi, beklenen, secili, costDay, wagesDay, baseWagesDay,
+      evre, dolulukVerisi: dolulukVerisi(hedef.deger, fiyat),
       kapanis: { sonra: kapanisSonrasi(simdiR), guvenli: yukseltmeGuvenli(simdiR) } });
     T.levels += L;
     T.customersDay += secili.customersDay;
@@ -312,220 +267,4 @@ export function restoranDegerlendir(restoranlar, ctx) {
   }
   if (T.eksik) T.profitDay = null;
   return { rows, totals: T };
-}
-
-// ---------------------------------------------------------------------------------------------------------------
-// Menü önerisi: hedef ortalama kaliteyi (rating hedefini) sağlayan en ucuz ürün ve kalite dağılımı
-// ---------------------------------------------------------------------------------------------------------------
-// Hedef rating ürüne değil, seçili ürünlerin ortalama kalitesine bağlıdır (hedefRating). Ortalama aynı kalırken kaliteyi basamağı ucuz
-// ürüne kaydırmak (süt Q2 → Q3, köfte Q10 → Q9) ya da kategoride daha ucuz ürünü seçmek ratingi değiştirmeden gideri düşürür.
-// Fiyat: anlık borsa fiyatı (kalitesi ≥ q olan en ucuz ilan). Arz: tam q kalitesindeki ilan adedi; q için alınabilecek adet Σ q' ≥ q.
-// Çözüm tamdır (dinamik programlama): kategori başına ürün alt kümesi × kalite toplamı, sonra kategoriler birleştirilir.
-
-export const MAX_KALITE = 12;
-export const RATING_PAYI = 0.3; // güvenli hedefte formül belirsizliğine karşı pay
-
-// Hedef rating için gereken ortalama menü kalitesi (eko hedef formülünün tersi)
-export const gerekenKalite = (rating, bonus = BONUS_REFERANS) => (rating - KALITE_TABAN - (Number(bonus) || 0)) / KALITE_RATING;
-
-// Menüyü kullanan binaların toplam döngü ihtiyacı; her bina oyundaki gibi ayrı yuvarlanır (ihtiyac ile aynı sıra)
-function toplamIhtiyac(oran, carpan, binalar) {
-  let t = 0;
-  for (const b of binalar) {
-    const L = Math.max(0, Math.floor(Number(b?.seviye) || 0));
-    t += Math.ceil(oran * carpan * L * (tipOf(b?.tip) === 'luks' ? LUKS_YEMEK : 1) - 1e-9);
-  }
-  return t;
-}
-
-// Kalite başına alınabilecek adet (Σ q' ≥ q arz); arz hiç bilinmiyorsa null (sınır yok)
-function alinabilir(arzOf, id) {
-  const a = Array.from({ length: MAX_KALITE + 1 }, (_, q) => (arzOf ? arzOf(id, q) : null));
-  if (!a.some(fin)) return null;
-  const out = new Array(MAX_KALITE + 1).fill(0);
-  for (let q = MAX_KALITE, t = 0; q >= 0; q--) { t += fin(a[q]) && a[q] > 0 ? a[q] : 0; out[q] = t; }
-  return out;
-}
-
-// k elemanlı alt kümeler (liste sırası korunur)
-function altKumeler(list, k, bas = 0, acc = [], out = []) {
-  if (acc.length === k) { out.push([...acc]); return out; }
-  for (let i = bas; i <= list.length - (k - acc.length); i++) { acc.push(list[i]); altKumeler(list, k, i + 1, acc, out); acc.pop(); }
-  return out;
-}
-
-/**
- * Menünün döngü malzeme gideri (binaların toplamı): enUcuzMenu'dan bağımsız bir hesap; sınamalar çözümü bununla doğrular.
- * @param {Array<{ id: number, kalite: number }>} menu  seçili ürünler
- * @param {{ binalar: Array<{ seviye: number, tip?: string }>, fiyatOf: (id, q) => number|null, arzOf?: (id, q) => number|null }} o
- * Dönüş: kalemler [{ id, kalite, adet, birim, tutar, arzYetersiz }], maliyet (fiyatı olmayan ürün varsa null), ortalama kalite,
- *   eksikFiyat ve arzYetersiz (ürün numaraları), eksikKategori (kategori adları)
- */
-export function menuMaliyeti(menu, o) {
-  const list = (menu || []).filter((m) => URUNLER[m?.id]);
-  const say = kategoriSayilari(list.map((m) => m.id));
-  const kalemler = list.map((m) => {
-    const id = Number(m.id);
-    const kalite = clamp(Math.floor(Number(m.kalite) || 0), 0, MAX_KALITE);
-    const adet = toplamIhtiyac(URUNLER[id].oran, kategoriCarpani(say[URUNLER[id].kat]), o.binalar || []);
-    const f = o.fiyatOf(id, kalite);
-    const birim = fin(f) && f >= 0 ? f : null;
-    const alin = alinabilir(o.arzOf, id);
-    return { id, kalite, adet, birim, tutar: birim == null ? null : adet * birim, arzYetersiz: !!alin && adet > alin[kalite] };
-  });
-  const eksikFiyat = kalemler.filter((k) => k.birim == null).map((k) => k.id);
-  return {
-    kalemler, maliyet: eksikFiyat.length ? null : kalemler.reduce((s, k) => s + k.tutar, 0), ortalama: menuKalitesi(kalemler), eksikFiyat,
-    arzYetersiz: kalemler.filter((k) => k.arzYetersiz).map((k) => k.id), eksikKategori: menuEksikleri(kalemler.map((k) => k.id)),
-  };
-}
-
-/**
- * Ortalama kalitesi en az hedefKalite olan en ucuz menü. Fiyatı olmayan ya da arzı ihtiyaca yetmeyen kalite seçilmez.
- * @param {{ binalar: Array<{ seviye: number, tip?: string }>, fiyatOf: (id, q) => number|null, arzOf?: (id, q) => number|null,
- *           hedefKalite: number, urunler?: number[], kategoriAdet?: { salata?: number, ana?: number, icecek?: number } }} o
- *   urunler verilirse menü bu ürünlerden oluşur (hepsi kalır, yalnız kaliteler değişir). Yoksa ürünler de seçilir: kategoriAdet'te
- *   sayısı verilen kategoride tam o kadar, verilmeyende 1'den enFazla'ya (yoksa tümüne) kadar (oyun her kategoriden en az bir ürün ister).
- * Dönüş: { ok: true, secim: [{ id, kalite, adet, birim, tutar }], maliyet (döngü), ortalama } ya da { ok: false, neden, kategori? }
- */
-export function enUcuzMenu(o) {
-  const hedef = Number(o.hedefKalite);
-  if (!fin(hedef)) return { ok: false, neden: 'hedef' };
-  if (hedef > MAX_KALITE + 1e-9) return { ok: false, neden: 'ulasilamaz' };
-  const sabit = Array.isArray(o.urunler) ? new Set(o.urunler.map(Number)) : null;
-  // Birleşik tablo: anahtar ürün sayısı × 1000 + kalite toplamı → en ucuz { c, onceki, ekle }
-  let tablo = new Map([[0, { c: 0, onceki: null, ekle: null }]]);
-  for (const kat of KATEGORILER) {
-    const aday = kat.urunler.filter((id) => !sabit || sabit.has(id));
-    if (!aday.length) return { ok: false, neden: 'kategori', kategori: kat.ad };
-    const istek = Number(o.kategoriAdet?.[kat.key]);
-    const sayilar = sabit ? [aday.length] : istek > 0 ? [Math.min(Math.floor(istek), aday.length)] : aday.map((_, i) => i + 1).filter((k) => k <= (o.enFazla || Infinity));
-    const alin = Object.fromEntries(aday.map((id) => [id, alinabilir(o.arzOf, id)]));
-    const katTablo = new Map();
-    for (const k of sayilar) {
-      const carpan = kategoriCarpani(k);
-      const sec = {};
-      for (const id of aday) {
-        const adet = toplamIhtiyac(URUNLER[id].oran, carpan, o.binalar || []);
-        sec[id] = [];
-        for (let q = 0; q <= MAX_KALITE; q++) {
-          const birim = o.fiyatOf(id, q);
-          if (!fin(birim) || birim < 0 || (alin[id] && adet > alin[id][q])) continue;
-          sec[id].push({ id, kalite: q, adet, birim, tutar: adet * birim });
-        }
-      }
-      for (const alt of altKumeler(aday, k)) {
-        if (alt.some((id) => !sec[id].length)) continue;
-        let dp = new Map([[0, { c: 0, secim: [] }]]);
-        for (const id of alt) {
-          const nx = new Map();
-          for (const [s, e] of dp) for (const x of sec[id]) {
-            const c = e.c + x.tutar;
-            const cur = nx.get(s + x.kalite);
-            if (!cur || c < cur.c - 1e-9) nx.set(s + x.kalite, { c, secim: [...e.secim, x] });
-          }
-          dp = nx;
-        }
-        for (const [s, e] of dp) {
-          const cur = katTablo.get(k * 1000 + s);
-          if (!cur || e.c < cur.c - 1e-9) katTablo.set(k * 1000 + s, e);
-        }
-      }
-    }
-    if (!katTablo.size) return { ok: false, neden: 'fiyat', kategori: kat.ad };
-    const yeni = new Map();
-    for (const [a, ea] of tablo) for (const [b, eb] of katTablo) {
-      const c = ea.c + eb.c;
-      const cur = yeni.get(a + b);
-      if (!cur || c < cur.c - 1e-9) yeni.set(a + b, { c, onceki: ea, ekle: eb.secim });
-    }
-    tablo = yeni;
-  }
-  let en = null;
-  let enOrt = -1;
-  for (const [key, e] of tablo) {
-    const n = Math.floor(key / 1000);
-    const ort = (key % 1000) / n;
-    if (ort < hedef - 1e-9) continue;
-    // Eşit maliyette ortalaması yüksek olan (ratingi daha yüksek) seçilir
-    if (!en || e.c < en.c - 1e-9 || (e.c <= en.c + 1e-9 && ort > enOrt)) { en = e; enOrt = ort; }
-  }
-  if (!en) return { ok: false, neden: 'ulasilamaz' };
-  const secim = [];
-  for (let e = en; e?.ekle; e = e.onceki) secim.unshift(...e.ekle);
-  return { ok: true, secim, maliyet: en.c, ortalama: enOrt };
-}
-
-/**
- * Menü önerisi: hedefe göre en ucuz menü (mevcut menü gerekmez).
- * @param {{ binalar: Array<{ seviye: number, tip?: string }>, fiyatOf: (id, q) => number|null, arzOf?: (id, q) => number|null,
- *           hedef: 'rating'|'guvenli'|'kalite', rating?: number, kalite?: number, bonus?: number, urunSayisi?: number }} o
- *   hedef rating: formülle (çeşitlilik ve oturma çarpanı dahil) rating ≥ o.rating; guvenli: rating ≥ RATING.guvenli + RATING_PAYI; kalite: ortalama menü kalitesi ≥ o.kalite.
- *   urunSayisi: her kategoride tam bu kadar ürün (2 oyunda doğrulanmış çarpan); 0 ya da yoksa 1–3 arasında en ucuzu seçilir (OTOMATIK_EN_FAZLA).
- * Dönüş: { durum: 'seviye' } | { durum: 'yok', neden, kategori?, hedefKalite } |
- *   { durum: 'ok', hedefKalite, secim: [{ id, kalite, adet, birim, tutar }], maliyet (döngü), ortalama, rating, cesit, carpan, sayilar }
- */
-export const OTOMATIK_EN_FAZLA = 3; // otomatik seçimde kategori başına en çok ürün; 4 ve üstü önerilmez
-export function oneriMenu(o) {
-  if (!(o.binalar || []).some((b) => Number(b?.seviye) >= 1)) return { durum: 'seviye' };
-  const bonus = Number(o.bonus) || 0;
-  const carpan = oturmaCarpani(o.binalar.find((b) => Number(b?.seviye) >= 1)?.tip); // eko 1, lüks 1,25
-  const n = Math.floor(Number(o.urunSayisi));
-  const temel = { binalar: o.binalar, fiyatOf: o.fiyatOf, arzOf: o.arzOf };
-  const sonuc = (c, hedefKalite) => ({ durum: 'ok', hedefKalite, secim: c.secim, maliyet: c.maliyet, ortalama: c.ortalama, sayilar: kategoriSayilari(c.secim.map((x) => x.id)) });
-  let en = null;
-  if (o.hedef === 'kalite') {
-    // Hedef kalite olarak verilir; çeşitlilik yalnız gösterilen tahmini ratingi etkiler. Kategorilerin ürün sayısı serbest seçilebilir.
-    const hedefKalite = clamp(Number(o.kalite) || 0, 0, MAX_KALITE);
-    const c = enUcuzMenu({ ...temel, hedefKalite, ...(n > 0 ? { kategoriAdet: { salata: n, ana: n, icecek: n } } : { enFazla: OTOMATIK_EN_FAZLA }) });
-    if (!c.ok) return { durum: 'yok', neden: c.neden, kategori: c.kategori, hedefKalite };
-    en = sonuc(c, hedefKalite);
-  } else {
-    // Güvenli rating (ya da hedef 'rating': o.rating): gereken ortalama kalite, seçilen ürün sayılarının çeşitlilik puanına bağlıdır. Ürün sayısı desenleri (kategori başına 1–3)
-    // tek tek denenir, her desenin kendi hedef kalitesiyle en ucuz menü bulunur; en ucuzu seçilir (eşitlikte ortalaması yüksek olan).
-    const desenler = n > 0 ? [[n, n, n]] : [1, 2, 3].flatMap((a) => [1, 2, 3].flatMap((b) => [1, 2, 3].map((c) => [a, b, c])));
-    const hedefRatingi = o.hedef === 'rating' ? clamp(Number(o.rating) || 0, 0, 10) : RATING.guvenli + RATING_PAYI;
-    let yok = null;
-    for (const [a, b, c3] of desenler) {
-      const hedefKalite = Math.max(0, gerekenKalite(hedefRatingi / carpan - cesitRating({ salata: a, ana: b, icecek: c3 }), bonus));
-      const c = enUcuzMenu({ ...temel, hedefKalite, kategoriAdet: { salata: a, ana: b, icecek: c3 } });
-      if (!c.ok) { if (!yok || hedefKalite < yok.hedefKalite) yok = { durum: 'yok', neden: c.neden, kategori: c.kategori, hedefKalite }; continue; }
-      if (!en || c.maliyet < en.maliyet - 1e-9 || (c.maliyet <= en.maliyet + 1e-9 && c.ortalama > en.ortalama)) en = sonuc(c, hedefKalite);
-    }
-    if (!en) return yok;
-  }
-  const cesit = cesitRating(en.sayilar);
-  return { ...en, cesit, carpan, rating: (KALITE_TABAN + KALITE_RATING * en.ortalama + bonus + cesit) * carpan };
-}
-
-/**
- * Menü önerisinin günlük kâr hesabı. oneri: oneriMenu sonucu (durum 'ok'; rating lüks çarpanı dahil, maliyet döngü başına);
- * fiyat: menü fiyatı; evre: 0 Durgunluk, 1 Normal, 2 Büyüme; seviye ve tip önerinin bina bilgisi; saatlikMaas: seviye başına (yönetim dahil).
- * Dönen (tutarlar günlük): { rating, fiyat, evre, doluluk, veri, gelir, malzeme, maas, kar, basabas (%), enKarli: { fiyat, doluluk, kar } };
- * maaş bilinmiyorsa kar, basabas ve enKarli null. Seviye yoksa null.
- */
-export function oneriKari({ oneri, fiyat, evre = EVRE_NORMAL, seviye, tip = 'eko', saatlikMaas = null }) {
-  if (!oneri || oneri.durum !== 'ok') return null;
-  const t = tipOf(tip);
-  const L = Math.max(0, Math.floor(Number(seviye) || 0));
-  const koltuk = KOLTUK[t] * L;
-  if (!(koltuk > 0)) return null;
-  const f = clamp(fin(Number(fiyat)) ? Number(fiyat) : FIYAT_MIN, FIYAT_MIN, FIYAT_MAX);
-  const maas = donguMaasi(saatlikMaas, L, t);
-  const gider = maas == null ? null : { koltuk, toplam: oneri.maliyet + maas };
-  const doluluk = dolulukTahmini(oneri.rating, f, evre);
-  const gelir = f * koltuk * (doluluk / 100);
-  // Açık if: gizlenmiş kodda `enKarli && { ...enKarli, kar: enKarli.kar … }` enKarli boşken de nesneyi hesaplıyordu
-  let enKarli = null;
-  if (gider) {
-    const iyi = enKarliFiyat(gider, oneri.rating, evre);
-    if (iyi) enKarli = { fiyat: iyi.fiyat, doluluk: iyi.doluluk, kar: iyi.kar * GUN_DONGU };
-  }
-  return {
-    rating: oneri.rating, fiyat: f, evre: evreOf(evre), doluluk, veri: dolulukVerisi(oneri.rating, f),
-    gelir: gelir * GUN_DONGU, malzeme: oneri.maliyet * GUN_DONGU, maas: maas == null ? null : maas * GUN_DONGU,
-    kar: gider ? (gelir - gider.toplam) * GUN_DONGU : null,
-    basabas: gider ? (gider.toplam / (f * koltuk)) * 100 : null,
-    enKarli,
-  };
 }

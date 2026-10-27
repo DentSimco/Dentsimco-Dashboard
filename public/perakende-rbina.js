@@ -3,7 +3,8 @@
 // çizimi perakende-restoran.js ve hesap-restoran.js'ten gelir; bu dosya yalnız bina kartı, bina ekleme alanları ve olaylar.
 // Kullanıcı seviye ve doluluğu girer (doluluk boşsa ısı haritası tahmini); kâr "şimdi" senaryosuyla hesaplanır.
 //
-// Kayıt: { kaynak: id | null, items: [{ id, ad, tip, seviye, fiyat, doluluk, menu }] }
+// Kayıt: { kaynak: id | null, items: [{ id, ad, tip, seviye, fiyat, doluluk, menu, insaat }] }
+// insaat: bina inşaatta; satmaz, maaş ve yemek gideri yok, seviyesi yönetim giderine girer (mağazalardaki gibi)
 // kaynak: "Bu menüyü tüm binalara uygula" açık olan bina; diğer binaların menüsü onun kopyasıdır ve salt okunurdur.
 
 import * as R from './hesap-restoran.js';
@@ -15,6 +16,11 @@ import { esc } from './esc.js';
 const { num, money, cls, chip, inputVal, field, seg, kopyaMenu } = RS;
 const TIPLER = [['eko', 'Eko'], ['luks', 'Lüks']];
 const posOr = (x) => (Number.isFinite(x) && x > 0 ? x : null);
+const ICON = {
+  copy: '<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V6a2 2 0 0 1 2-2h9"/>',
+  trash: '<path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3"/>', edit: '<path d="M4 20h4L19 9l-4-4L4 16v4zM14 6l4 4"/>',
+};
+const icon = (n) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICON[n]}</svg>`;
 
 export const RBINA_CSS = `
 .rb-sw { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0; border: 0; background: transparent; color: var(--text); font: 600 15px var(--font); text-align: left; }
@@ -52,7 +58,8 @@ export function temizleRb(raw) {
   const rb = varsayilanRb();
   if (!raw || typeof raw !== 'object') return rb;
   const t = RS.temizleRestoran({ menuMode: 'ayri', items: raw.items });
-  rb.items = t.items.map(({ id, ad, tip, seviye, fiyat, doluluk, menu }) => ({ id, ad, tip, seviye, fiyat, doluluk, menu }));
+  const ham = new Map((Array.isArray(raw.items) ? raw.items : []).map((x) => [String(x?.id), x]));
+  rb.items = t.items.map(({ id, ad, tip, seviye, fiyat, doluluk, menu }) => ({ id, ad, tip, seviye, fiyat, doluluk, menu, insaat: !!ham.get(id)?.insaat }));
   rb.kaynak = rb.items.some((x) => x.id === raw.kaynak) ? raw.kaynak : null;
   return esitle(rb);
 }
@@ -72,7 +79,7 @@ export function rbEkle(rb, g) {
   const it = { id: RS.uid(), ad: String(g.ad || '').trim().slice(0, 40) || `Restoran ${rb.items.length + 1}`, tip: g.tip === 'luks' ? 'luks' : 'eko',
     seviye: Math.max(0, Math.floor(Number(g.seviye) || 0)), fiyat: posOr(Number(g.fiyat)),
     doluluk: g.doluluk == null || g.doluluk === '' || !Number.isFinite(dolu) ? null : Math.min(100, Math.max(0, dolu)),
-    menu: g.menu ? kopyaMenu(g.menu) : RS.varsayilanMenu() };
+    menu: g.menu ? kopyaMenu(g.menu) : RS.varsayilanMenu(), insaat: false };
   rb.items.push(it);
   esitle(rb);
   return it.id;
@@ -82,8 +89,15 @@ export function rbEkle(rb, g) {
 // Hesap: Restoran bölümüyle aynı motor, her binanın kendi menüsüyle; kâr son döngü doluluğuna (boşsa tahmine) göre
 // ---------------------------------------------------------------------------------------------------------------
 export function rbDegerlendir(rb, c, marketOf) {
-  const rs = { menuMode: 'ayri', menu: RS.varsayilanMenu(), kontratPct: 0, gorunum: 'simdi', items: rb.items };
-  return RS.degerlendirRestoran(rs, c, marketOf);
+  const motor = (items) => RS.degerlendirRestoran({ menuMode: 'ayri', menu: RS.varsayilanMenu(), kontratPct: 0, gorunum: 'simdi', items }, c, marketOf);
+  const tam = motor(rb.items);
+  if (!rb.items.some((x) => x.insaat)) return tam;
+  // İnşaattaki bina satış, maaş ve yemek gideri üretmez: satırı sıfırlanır, toplamlara girmez. Menü tablosu yine gerçek adetleri gösterir.
+  const sifir = { revenueDay: 0, customersDay: 0, profitDay: 0 };
+  const rows = tam.rows.map((r, i) => (rb.items[i].insaat
+    ? { ...r, insaat: true, eksik: false, costDay: 0, wagesDay: 0, secili: { ...r.secili, ...sifir }, simdi: { ...r.simdi, ...sifir }, beklenen: { ...r.beklenen, ...sifir } }
+    : r));
+  return { rows, totals: motor(rb.items.filter((x) => !x.insaat)).totals };
 }
 
 // Özet: kâr ve zarar toplamları. satirlar: bina başına kâr (bilinmiyorsa null)
@@ -100,8 +114,6 @@ export function karZarar(degerler) {
 // ---------------------------------------------------------------------------------------------------------------
 // Çizim
 // ---------------------------------------------------------------------------------------------------------------
-const chevron = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
-
 function uyariHtml(g) {
   return [g.eksikKategori.length ? `<div class="ur-msg err">Her kategoriden en az bir ürün gerekir: ${esc(g.eksikKategori.join(', '))} eksik.</div>` : '',
     g.eksikFiyat ? `<div class="ur-msg err">Borsada fiyatı olmayan ürün var: ${esc(g.kalemler.filter((k) => k.birim == null).map((k) => urunAdi(k.id, R.URUNLER[k.id]?.ad) || R.URUNLER[k.id]?.ad).join(', '))}. Kâr hesaplanmadı; kaliteyi değiştirin ya da maliyeti elle girin.</div>` : ''].join('');
@@ -126,7 +138,8 @@ function kart(rb, it, row, marketOf, acik) {
   const kar = row.eksik ? null : row.secili.profitDay;
   const secili = Object.values(it.menu).filter((x) => x.secili).length;
   const dolulukTahmin = row.simdi.doluluk;
-  const uyar = uyariHtml(g);
+  const insaat = !!it.insaat;
+  const uyar = insaat ? '' : uyariHtml(g);
   const govde = acik ? `
       ${RS.seg('pr.tip', TIPLER, it.tip, 'Restoran tipi', ` data-i="${esc(it.id)}"`)}
       <div class="rs-form">
@@ -140,19 +153,23 @@ function kart(rb, it, row, marketOf, acik) {
         ${RS.menuHtml({ kontratPct: 0 }, it.id, it.menu, g, marketOf, { on: 'pm', kontrat: false, kilit: kopya })}
       </div>
       ${uyar}
-      ${karKutusu(row)}
-      <div class="ur-row"><button type="button" class="ur-btn danger grow" data-act="pr.sil" data-i="${esc(it.id)}">Restoranı sil</button></div>` : '';
+      ${insaat ? '<p class="ur-note">İnşaatta: satış ve maaş yok; seviyesi yönetim giderine girer.</p>' : karKutusu(row)}` : '';
   return `<article class="ur-card${kaynak ? ' rb-kaynak' : ''}" aria-label="${esc(it.ad || 'Restoran')}">
     <div class="ur-row" style="gap:12px;align-items:flex-start">
       <div class="grow" style="min-width:140px">
         <input type="text" class="rb-ad" ${a('ad')} value="${esc(it.ad)}" placeholder="Restoran" aria-label="Bina adı" autocomplete="off">
-        <div class="ur-chips" style="margin-top:6px">${chip(it.tip === 'luks' ? 'Lüks' : 'Eko')}${chip(`Doluluk %${num(row.simdi.doluluk, 1)}${it.doluluk == null ? ' (tahmin)' : ''}`, 'muted')}
-          ${kar == null ? chip('Kâr hesaplanamadı', 'down') : chip(`Kâr ${money(kar)}/gün`, kar > 0 ? 'up' : 'down')}</div></div>
+        <div class="ur-chips" style="margin-top:6px">${chip(it.tip === 'luks' ? 'Lüks' : 'Eko')}${insaat
+          ? `${chip('İnşaatta', 'muted')}${chip('Satmaz, maaş ödemez; seviyesi yönetim giderine girer', 'muted')}`
+          : `${chip(`Doluluk %${num(row.simdi.doluluk, 1)}${it.doluluk == null ? ' (tahmin)' : ''}`, 'muted')}
+          ${kar == null ? chip('Kâr hesaplanamadı', 'down') : chip(`Kâr ${money(kar)}/gün`, kar > 0 ? 'up' : 'down')}`}</div></div>
       <div class="ur-level"><small>Seviye</small><b>${num(it.seviye)}</b></div></div>
     <button type="button" class="rb-sw" data-act="pr.uygula" data-i="${esc(it.id)}" aria-pressed="${kaynak}"><span class="tr" aria-hidden="true"></span><span>Bu menüyü tüm binalara uygula</span></button>
     ${kaynak ? '<p class="ur-note">Bu bina kaynak: menüsü tüm restoran binalarına uygulanıyor. Adetler her binanın kendi seviyesine göre hesaplanır.</p>' : ''}
     ${kopya ? `<p class="ur-note">Menü <b>${esc(kaynakAd)}</b> binasından geliyor. Değiştirmek için o binanın menüsünü düzenleyin ya da bu binanın anahtarını açın.</p>` : ''}
-    <button type="button" class="pk-fold" data-act="pr.ac" data-i="${esc(it.id)}" aria-expanded="${acik}"><span class="grow">Bina ve menü</span>${chip(`${num(secili)} ürün`, 'muted')}${chevron}</button>
+    <div class="ur-row"><button type="button" class="ur-btn grow${insaat ? ' tint' : ''}" data-act="pr.insaat" data-i="${esc(it.id)}" aria-pressed="${insaat}">İnşaatta</button></div>
+    <div class="ur-row"><button type="button" class="ur-btn tint grow" data-act="pr.ac" data-i="${esc(it.id)}" aria-expanded="${acik}">${icon('edit')}Düzenle</button>
+      <button type="button" class="ur-btn" data-act="pr.kopya" data-i="${esc(it.id)}" aria-label="Aynı özelliklerle kopyala">${icon('copy')}</button>
+      <button type="button" class="ur-btn danger" data-act="pr.sil" data-i="${esc(it.id)}" aria-label="Sil">${icon('trash')}</button></div>
     ${govde}
   </article>`;
 }
@@ -207,6 +224,12 @@ export function rbTikla(rb, btn, env) {
   if (act === 'pr.tip') it.tip = btn.dataset.v === 'luks' ? 'luks' : 'eko';
   else if (act === 'pr.sil') { rb.items = rb.items.filter((x) => x !== it); env.acik.delete(it.id); }
   else if (act === 'pr.uygula') rb.kaynak = rb.kaynak === it.id ? null : it.id;
+  else if (act === 'pr.insaat') it.insaat = !it.insaat;
+  else if (act === 'pr.kopya') {
+    // Aynı özelliklerle bina; menü da kopyalanır. Kaynak anahtarı kopyaya geçmez.
+    const k = { ...it, id: RS.uid(), ad: it.ad ? `${it.ad} (kopya)`.slice(0, 40) : '', menu: kopyaMenu(it.menu) };
+    rb.items.splice(rb.items.indexOf(it) + 1, 0, k);
+  }
   else if (kopyaMi(rb, it)) return true; // kopya menü salt okunur
   else if (act === 'pm.urun') { const x = it.menu[btn.dataset.p]; if (x) x.secili = !x.secili; }
   else if (act === 'pm.kaynak') {
@@ -217,6 +240,15 @@ export function rbTikla(rb, btn, env) {
   } else return false;
   esitle(rb);
   return true;
+}
+
+// Düğme olayından sonra kullanıcıya gösterilecek kısa bildirim (yoksa boş)
+export function bildirim(act, rb, id) {
+  const it = rb.items.find((x) => x.id === id);
+  if (act === 'pr.insaat' && it) return it.insaat ? 'Bina inşaatta: satış ve maaş yok, seviyesi yönetim giderine girer.' : 'Bina inşaattan çıktı.';
+  if (act === 'pr.kopya') return 'Bina kopyalandı.';
+  if (act === 'pr.sil') return 'Bina silindi.';
+  return '';
 }
 
 export function rbDegis(rb, t) {

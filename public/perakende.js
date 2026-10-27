@@ -6,7 +6,7 @@
 // "günlük perakende marjı" alanları da buradan güncellenir.
 
 import { LOCALE, t as ceviri } from './i18n.js';
-import { readDocs, PATHS, dataField, loadProduct, summarizeDay, utcDay, addDays, START_YEAR, loadGamePhase, anlikFiyat, LIVE, ASK_FRESH_MS } from './veri.js';
+import { readDocs, PATHS, dataField, loadProduct, summarizeDay, utcDay, addDays, START_YEAR, loadGamePhase, anlikFiyat } from './veri.js';
 import * as H from './hesap.js';
 import * as Y from './yonetici.js';
 import { CSS, parseNum, kisayolKucuk, kisayolSatiri, bolumUyariHtml } from './uretim.js';
@@ -22,11 +22,11 @@ import { kilitAcik, kilitDene, BEKLEME_MS } from './kilit.js';
 const STORE_KEY = (r) => `dentsimco.perakende.r${r}`;
 const TAB_KEY = 'dentsimco.perakende.tab';
 const PERIOD_KEY = 'dentsimco.perakende.period';
-export const TABS = [['kurulum', 'Kurulum'], ['binalar', 'Binalar'], ['pphpl', 'PPHPL Max'], ['restoran', 'Restoran'], ['oneri', 'Menü önerisi'], ['tuketim', 'Tüketimler'], ['ozet', 'Özet']];
-// Üst sekmeler; Binalar'ın altında iki, Restoran'ın altında üç alt sekme var
-const GROUPS = [['kurulum', 'Kurulum', ['kurulum']], ['binalar', 'Binalar', ['binalar', 'pphpl']], ['restoran', 'Restoran', ['restoran', 'oneri', 'tuketim']], ['ozet', 'Özet', ['ozet']]];
-const RESTORAN_BINALAR_ACIK = false; // Restoran > Binalar geliştirme aşamasında: erişime kapalı; Menü önerisi ve Tüketimler açık
-const SUBS = { binalar: [['binalar', 'Binalar'], ['pphpl', 'PPHPL Max']], restoran: [['restoran', 'Binalar'], ['oneri', 'Menü önerisi'], ['tuketim', 'Tüketimler']] };
+export const TABS = [['kurulum', 'Kurulum'], ['binalar', 'Binalar'], ['pphpl', 'PPHPL Max'], ['restoran', 'Restoran'], ['tuketim', 'Tüketimler'], ['ozet', 'Özet']];
+// Üst sekmeler; Binalar'ın altında iki, Restoran'ın altında iki alt sekme var
+const GROUPS = [['kurulum', 'Kurulum', ['kurulum']], ['binalar', 'Binalar', ['binalar', 'pphpl']], ['restoran', 'Restoran', ['restoran', 'tuketim']], ['ozet', 'Özet', ['ozet']]];
+const RESTORAN_BINALAR_ACIK = false; // Restoran > Binalar geliştirme aşamasında: erişime kapalı; Tüketimler açık
+const SUBS = { binalar: [['binalar', 'Binalar'], ['pphpl', 'PPHPL Max']], restoran: [['restoran', 'Binalar'], ['tuketim', 'Tüketimler']] };
 const PERIODS = [['hour', 'Saatlik', 1 / 24], ['day', 'Günlük', 1], ['week', 'Haftalık', 7], ['month', 'Aylık', 30]];
 const REC = [['park', 'Park'], ['temple', 'Tapınak'], ['lake', 'Göl']];
 const HISTORY_DAYS = 30;
@@ -179,18 +179,6 @@ function parseLive(doc) {
   }
   return out;
 }
-// Anlık borsa arzı: tam q kalitesindeki ilan adedi {id: {q: adet}}; yalnız anlık veri tazeyken (eskiyse arz sınırı uygulanmaz)
-function parseArz(doc, now = Date.now()) {
-  const out = {};
-  for (const [id, e] of Object.entries(doc?.items || {})) {
-    const askT = Array.isArray(e) ? Number(e[2]) : 0;
-    if (!(askT > 0 && now - askT <= ASK_FRESH_MS) || !e[1] || typeof e[1] !== 'object') continue;
-    const m = {};
-    for (const [q, row] of Object.entries(e[1])) { const a = Number(row?.[LIVE.SUPPLY]); if (Number.isFinite(a)) m[q] = a; }
-    out[id] = m;
-  }
-  return out;
-}
 async function loadData(r) {
   const P = { products: PATHS.meta(`products_r${r}`), buildings: PATHS.meta('buildings'), core: PATHS.meta('core'),
     retail: PATHS.meta(`retail_r${r}`), restaurant: PATHS.meta(`restaurant_r${r}`), modifiers: PATHS.meta(`modifiers_r${r}`), live: PATHS.live(r) };
@@ -212,7 +200,6 @@ async function loadData(r) {
     names: Object.fromEntries(Object.entries(products).map(([id, p]) => [id, urunAdi(id, p?.name) || `#${id}`])),
     saturation,
     market: parseLive(get('live')),
-    arz: parseArz(get('live')),
     liveT: Number(get('live')?.t) || null,
     qualityWeight: qw != null && Number.isFinite(Number(qw)) ? Number(qw) : undefined,
     hasRetailInfo: !!ri,
@@ -365,7 +352,6 @@ export function mountPerakende(root, { realm = 0 } = {}) {
 
   // ---- hesap ----
   const marketOf = (id, q) => data?.market?.[id]?.[q] ?? null;
-  const arzOf = (id, q) => data?.arz?.[id]?.[q] ?? null;
   const letters = () => R.retailLetters().filter((l) => !EXCLUDED.has(l) && R.buildingProducts(l, 1).length)
     .sort((a, b) => buildingName(a).localeCompare(buildingName(b), 'tr'));
 
@@ -489,7 +475,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       try {
         const c = context();
         const ev = evaluateAll(c);
-        body = tab === 'kurulum' ? viewKurulum(c) : tab === 'pphpl' ? viewPphpl(c) : tab === 'ozet' ? viewOzet(c, ev) : tab === 'restoran' ? viewRestoran(c, ev) : tab === 'oneri' ? viewOneri(c) : tab === 'tuketim' ? viewTuketim() : viewBinalar(c, ev);
+        body = tab === 'kurulum' ? viewKurulum(c) : tab === 'pphpl' ? viewPphpl(c) : tab === 'ozet' ? viewOzet(c, ev) : tab === 'restoran' ? viewRestoran(c, ev) : tab === 'tuketim' ? viewTuketim() : viewBinalar(c, ev);
       } catch (e) {
         console.error(e);
         body = `<div class="ur-msg err" role="alert">Bu ekran gösterilemedi: ${esc(e?.message || e)}. Sayfayı yenileyin; sürerse bize bildirin.</div>`;
@@ -497,7 +483,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     }
     const scroll = window.scrollY;
     const tabloKayma = view.querySelector('.tk-wrap')?.scrollLeft || 0; // tablo yeniden çizilince başa sıçramasın
-    view.innerHTML = tabs + (data && !loadError && tab !== 'tuketim' && tab !== 'oneri' ? bolumUyariHtml(company, 'perakende', kbOnay) : '') + body;
+    view.innerHTML = tabs + (data && !loadError && tab !== 'tuketim' ? bolumUyariHtml(company, 'perakende', kbOnay) : '') + body;
     window.scrollTo(0, scroll);
     const tablo = view.querySelector('.tk-wrap');
     if (tablo) {
@@ -709,16 +695,6 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       ${kisayolSatiri('perakendeOzet')}`;
   }
 
-  // ---- MENÜ ÖNERİSİ ----
-  function viewOneri(c) {
-    // Yöneticilerin iletişim puanı rating bonusuna girer; girilmediyse bonus eksik hesaplanır ve güvenli hedef için gereken kalite yükselir
-    const uyari = Y.bolumUyarilari(company, 'perakende').yoneticiYok ? `<div class="ur-msg err" role="alert"><b>Yönetici girilmedi</b>
-      <p style="margin:6px 0 10px">Yöneticilerinizin iletişim puanı restoranın rating bonusuna girer. Girmediğiniz için bonus eksik hesaplanıyor; hedef rating için önerilen menü olduğundan pahalı çıkabilir.</p>
-      <a class="ur-btn" href="#yonetim/ekip" style="text-decoration:none">Yönetim › Ekip'e git</a></div>` : '';
-    return uyari + RS.menuOnerisiSekmeHtml(setup.restoran, { marketOf, arzOf, ratingBonus: c.ctx.ratingBonus, oyunEvresi: data.gamePhase,
-      maas: { adminNet: c.ctx.adminNet, averageSalary: c.ctx.averageSalary, salaryModifier: c.ctx.buildings?.r?.salaryModifier } });
-  }
-
   // ---- TÜKETİMLER ----
   function viewTuketim() {
     // Kayıtta fiyatı olmayan ürünlerde borsanın kalite ortalaması
@@ -779,7 +755,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       const row = ev.restoran.rows[i];
       const v = row.eksik ? null : row.secili.profitDay;
       const acik = ozetAcik.has(it.id);
-      rows.push({ v, html: `<div><button type="button" class="rb-ozet-ac ur-kv" data-act="pr.ozet" data-i="${esc(it.id)}" aria-expanded="${acik}" style="width:100%"><span>${esc(it.ad || 'Restoran')} <span class="ur-note">Restoran · seviye ${num(it.seviye)} · ${acik ? 'ayrıntıyı gizle' : 'ayrıntıyı aç'}</span></span><span class="${cls(v)}">${ms(v)}</span></button>${acik ? RB.ozetDetayHtml(row, k) : ''}</div>` });
+      rows.push({ v, html: `<div><button type="button" class="rb-ozet-ac ur-kv" data-act="pr.ozet" data-i="${esc(it.id)}" aria-expanded="${acik}" style="width:100%"><span>${esc(it.ad || 'Restoran')} <span class="ur-note">Restoran · seviye ${num(it.seviye)}${it.insaat ? ' · inşaatta' : ''} · ${acik ? 'ayrıntıyı gizle' : 'ayrıntıyı aç'}</span></span><span class="${cls(v)}">${ms(v)}</span></button>${acik ? RB.ozetDetayHtml(row, k) : ''}</div>` });
     });
     const z = RB.karZarar(rows.map((x) => x.v));
     return `<section class="ur-card" aria-labelledby="h-kz"><h2 id="h-kz">Kâr ve zarar dağılımı (${periodName})</h2>
@@ -1155,7 +1131,11 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     if (act === 'pr.ozet') { if (ozetAcik.has(btn.dataset.i)) ozetAcik.delete(btn.dataset.i); else ozetAcik.add(btn.dataset.i); return softRender(); }
     if (/^p[rm]\./.test(act)) {
       const nx = clone();
-      if (RB.rbTikla(nx.restoranBinalari, btn, { marketOf, acik: restoranBinaAcik })) return commit(nx);
+      if (RB.rbTikla(nx.restoranBinalari, btn, { marketOf, acik: restoranBinaAcik })) {
+        commit(nx);
+        const bildirim = RB.bildirim(act, nx.restoranBinalari, btn.dataset.i);
+        return bildirim ? toast(bildirim) : undefined;
+      }
     }
     if (/^r[kfmo]\./.test(act)) {
       const nx = clone();
