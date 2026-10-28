@@ -1431,8 +1431,6 @@ export default {
   "Geliştiriliyor": '開發中',
   "Restoran binaları bölümü şu an geliştirme aşamasında; erişime kapalı. Restoran tüketimlerini Tüketimler sekmesinden görebilirsiniz.": '餐廳建築欄目正在開發中，暫不開放。餐廳消耗可在「消耗」分頁查看。',
   "Tüketimlere git": '前往消耗',
-  "Menü önerisi": "菜單建議",
-  "Menü önerisine git": "前往菜單建議",
   "Çalışan kalitesi": "員工品質",
   "Ekonomi": "經濟型",
   "Profesyonel": "專業型",

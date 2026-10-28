@@ -13,6 +13,7 @@ import { CSS, parseNum, kisayolKucuk, kisayolSatiri, bolumUyariHtml } from './ur
 import * as R from './hesap-perakende.js';
 import * as RS from './perakende-restoran.js';
 import * as RB from './perakende-rbina.js';
+import * as RT from './restoran-tavsiye.js';
 import { guideCard } from './rehber.js';
 import { binaAdi } from './adlar.js';
 import { urunAdi } from './urun-adlari.js';
@@ -21,12 +22,13 @@ import { kilitAcik, kilitDene, BEKLEME_MS } from './kilit.js';
 
 const STORE_KEY = (r) => `dentsimco.perakende.r${r}`;
 const TAB_KEY = 'dentsimco.perakende.tab';
+const TAVSIYE_KEY = 'dentsimco.restoran.tavsiye';
 const PERIOD_KEY = 'dentsimco.perakende.period';
-export const TABS = [['kurulum', 'Kurulum'], ['binalar', 'Binalar'], ['pphpl', 'PPHPL Max'], ['restoran', 'Restoran'], ['tuketim', 'Tüketimler'], ['ozet', 'Özet']];
-// Üst sekmeler; Binalar'ın altında iki, Restoran'ın altında iki alt sekme var
-const GROUPS = [['kurulum', 'Kurulum', ['kurulum']], ['binalar', 'Binalar', ['binalar', 'pphpl']], ['restoran', 'Restoran', ['restoran', 'tuketim']], ['ozet', 'Özet', ['ozet']]];
+export const TABS = [['kurulum', 'Kurulum'], ['binalar', 'Binalar'], ['pphpl', 'PPHPL Max'], ['restoran', 'Restoran'], ['tuketim', 'Tüketimler'], ['maliyet', 'Maliyetler'], ['tavsiye', 'Tavsiye'], ['ozet', 'Özet']];
+// Üst sekmeler; Binalar'ın altında iki, Restoran'ın altında dört alt sekme var
+const GROUPS = [['kurulum', 'Kurulum', ['kurulum']], ['binalar', 'Binalar', ['binalar', 'pphpl']], ['restoran', 'Restoran', ['restoran', 'tuketim', 'maliyet', 'tavsiye']], ['ozet', 'Özet', ['ozet']]];
 const RESTORAN_BINALAR_ACIK = false; // Restoran > Binalar geliştirme aşamasında: erişime kapalı; Tüketimler açık
-const SUBS = { binalar: [['binalar', 'Binalar'], ['pphpl', 'PPHPL Max']], restoran: [['restoran', 'Binalar'], ['tuketim', 'Tüketimler']] };
+const SUBS = { binalar: [['binalar', 'Binalar'], ['pphpl', 'PPHPL Max']], restoran: [['restoran', 'Binalar'], ['tuketim', 'Tüketimler'], ['maliyet', 'Maliyetler'], ['tavsiye', 'Tavsiye']] };
 const PERIODS = [['hour', 'Saatlik', 1 / 24], ['day', 'Günlük', 1], ['week', 'Haftalık', 7], ['month', 'Aylık', 30]];
 const REC = [['park', 'Park'], ['temple', 'Tapınak'], ['lake', 'Göl']];
 const HISTORY_DAYS = 30;
@@ -260,6 +262,9 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   let r = realm;
   let company = Y.loadCompanyRecord(r).company;
   let setup = loadSetup(r);
+  let rt = RT.varsayilanTavsiye(); // Restoran > Maliyetler ve Tavsiye ayarları (tarayıcıda saklanır)
+  try { rt = RT.temizleTavsiye(JSON.parse(localStorage.getItem(TAVSIYE_KEY) || 'null')); } catch { /* gizli sekme ya da bozuk kayıt: varsayılan */ }
+  const rtKaydet = () => { try { localStorage.setItem(TAVSIYE_KEY, JSON.stringify(rt)); } catch { /* gizli sekme */ } };
   let data = null;
   let loadError = null;
   let loadToken = 0;
@@ -288,7 +293,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
 
   const style = document.createElement('style');
   style.dataset.module = 'perakende';
-  style.textContent = CSS + EXTRA_CSS + RS.RESTORAN_CSS + RS.TUKETIM_CSS + RB.RBINA_CSS;
+  style.textContent = CSS + EXTRA_CSS + RS.RESTORAN_CSS + RS.TUKETIM_CSS + RB.RBINA_CSS + RT.TAVSIYE_CSS;
   document.head.append(style);
   root.innerHTML = '<div class="ur"></div><div data-sheet></div><div data-toast></div>';
   const view = root.querySelector('.ur');
@@ -475,7 +480,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       try {
         const c = context();
         const ev = evaluateAll(c);
-        body = tab === 'kurulum' ? viewKurulum(c) : tab === 'pphpl' ? viewPphpl(c) : tab === 'ozet' ? viewOzet(c, ev) : tab === 'restoran' ? viewRestoran(c, ev) : tab === 'tuketim' ? viewTuketim() : viewBinalar(c, ev);
+        body = tab === 'kurulum' ? viewKurulum(c) : tab === 'pphpl' ? viewPphpl(c) : tab === 'ozet' ? viewOzet(c, ev) : tab === 'restoran' ? viewRestoran(c, ev) : tab === 'tuketim' ? viewTuketim() : tab === 'maliyet' ? viewMaliyet() : tab === 'tavsiye' ? viewTavsiye(c) : viewBinalar(c, ev);
       } catch (e) {
         console.error(e);
         body = `<div class="ur-msg err" role="alert">Bu ekran gösterilemedi: ${esc(e?.message || e)}. Sayfayı yenileyin; sürerse bize bildirin.</div>`;
@@ -483,7 +488,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     }
     const scroll = window.scrollY;
     const tabloKayma = view.querySelector('.tk-wrap')?.scrollLeft || 0; // tablo yeniden çizilince başa sıçramasın
-    view.innerHTML = tabs + (data && !loadError && tab !== 'tuketim' ? bolumUyariHtml(company, 'perakende', kbOnay) : '') + body;
+    view.innerHTML = tabs + (data && !loadError && tab !== 'tuketim' && tab !== 'maliyet' ? bolumUyariHtml(company, 'perakende', kbOnay) : '') + body;
     window.scrollTo(0, scroll);
     const tablo = view.querySelector('.tk-wrap');
     if (tablo) {
@@ -682,7 +687,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   // ---- RESTORAN ----
   function viewRestoran(c, ev) {
     if (!RESTORAN_BINALAR_ACIK) {
-      return `<div class="ur-card ur-empty"><h2>Geliştiriliyor</h2><p class="ur-sub">Restoran binaları bölümü şu an geliştirme aşamasında; erişime kapalı. Restoran tüketimlerini Tüketimler sekmesinden görebilirsiniz.</p><div class="ur-row" style="gap:8px;flex-wrap:wrap"><a class="ur-btn" href="#perakende/oneri">Menü önerisine git</a><a class="ur-btn" href="#perakende/tuketim">Tüketimlere git</a></div></div>`;
+      return `<div class="ur-card ur-empty"><h2>Geliştiriliyor</h2><p class="ur-sub">Restoran binaları bölümü şu an geliştirme aşamasında; erişime kapalı. Restoran tüketimlerini Tüketimler sekmesinden görebilirsiniz.</p><div class="ur-row" style="gap:8px;flex-wrap:wrap"><a class="ur-btn" href="#perakende/tavsiye">Menü tavsiyesine git</a><a class="ur-btn" href="#perakende/maliyet">Maliyetlere git</a><a class="ur-btn" href="#perakende/tuketim">Tüketimlere git</a></div></div>`;
     }
     const t = ev.restoranBolum.totals;
     return `
@@ -701,6 +706,10 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     const fiyatYedek = (id) => { const v = Object.values(data.market?.[id] || {}); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
     return RS.tuketimHtml(data.consumption, { nameOf, metrik: tuketimMetrik, aralik: tuketimAralik, urun: tuketimUrun, gun: tuketimGun, fiyatYedek });
   }
+
+  // ---- MALİYETLER ve TAVSİYE ----
+  function viewMaliyet() { return RT.maliyetHtml(rt, marketOf); }
+  function viewTavsiye(c) { return RT.tavsiyeHtml(rt, marketOf, { bonus: c.ctx.ratingBonus }); } // rating bonusu: ekip dışı satış hızı (Kurulum) ve Yönetim ekibi
 
   // ---- PPHPL MAX ----
   function viewPphpl(c) {
@@ -1037,6 +1046,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     if (act === 'retry') return load();
     if (act === 'kilitAc') return kilitGiris();
     if (!data) return;
+    if (act.startsWith('rt.')) { if (RT.tavsiyeTikla(rt, btn)) { rtKaydet(); softRender(); } return; }
     if (act === 'kbOnay') { kbOnay = true; return render(); }
     if (act === 'kbIptal') { kbOnay = false; return render(); }
     if (act === 'kbSil') {
@@ -1175,6 +1185,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       if (pointerActive) { pendingRender = true; return; }
       return renderSheet();
     }
+    if (t?.dataset?.rt) { if (RT.tavsiyeDegis(rt, t)) { rtKaydet(); softRender(); } return; }
     if (sheet?.draft?.letter === 'r' && t?.dataset?.pm?.startsWith(`${RB.TASLAK_ID}|`)) {
       RB.rbDegis(RB.taslakRb(sheet.draft.rb), t);
       if (pointerActive) { pendingRender = true; return; }
@@ -1227,7 +1238,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   function onKey(ev) {
     if (ev.key === 'Enter' && ev.target.matches?.('input[data-kilit]')) { ev.preventDefault(); kilitGiris(); return; }
     if (ev.key === 'Escape' && sheet) { ev.preventDefault(); closeSheet(); }
-    if (ev.key === 'Enter' && ev.target.matches?.('.ur input[data-f], .ur input[data-rf], .ur input[data-rm], .ur input[data-rk], .ur input[data-ro], .ur input[data-pf], .ur input[data-pm], .ur-panel input[data-d]')) ev.target.blur();
+    if (ev.key === 'Enter' && ev.target.matches?.('.ur input[data-f], .ur input[data-rf], .ur input[data-rm], .ur input[data-rt], .ur input[data-rk], .ur input[data-ro], .ur input[data-pf], .ur input[data-pm], .ur-panel input[data-d]')) ev.target.blur();
   }
   function onHash() {
     const [key, sub] = location.hash.slice(1).split('/');

@@ -9,6 +9,14 @@ const TABS = [['nedir', 'Nedir'], ['guncellemeler', 'Güncellemeler'], ['kaynakc
 // En yeni en üstte. { date: 'gün ay yıl', items: ['...', '...'] }
 export const UPDATES = [
   {
+    date: '28 Ekim 2026',
+    items: [
+      'Perakende › Restoran: Maliyetler sekmesi eklendi. Seviye 1 restoranda her ürünün her kalitedeki döngü maliyeti tablo olarak görünür; kategoride aynı kalitenin en ucuz ürünü mavi işaretlenir.',
+      'Perakende › Restoran: Tavsiye sekmesi eklendi. Kaliteyi seçersiniz; Otomatik, hedef ratinge ulaşan en ucuz menüyü bulur ya da her kategorideki ürün sayısını kendiniz seçersiniz. Bina seviyesi girilebilir; yalnız tahmini rating aralığı ve döngü başına yemek maliyeti verilir (doluluk ve kâr yok). Rating, rehber ve ölçümlerle kurulmuş doğrusal bir modelle tahmin edilir: kalite ve çeşit (toplam ürün sayısı) ratingi artırır, Yönetim ekibinin bonusu eklenir.',
+      'Restoran: eski menü önerisi bağlantısı kaldırıldı; yerini Tavsiye sekmesi aldı.',
+    ],
+  },
+  {
     date: '22 Ekim 2026',
     items: [
       'Piyasa › İndeks eklendi (Canlı Borsa ile Sinyaller arasında): borsanın toplam indeksi, grafiği ve gün gün hesabı (seviye, değişim, puan, yükselen ve düşen ürün sayısı, işlem tutarı). Her gün ve her hafta için indeksin neden yükseldiği ya da düştüğü değerlendirilir: en çok yukarı ve aşağı çeken ürünler, bina türlerine göre katkı, hareketin genişliği ve büyüklüğü, işlem hacmi, ekonomi evresi değişimi ve üretim hızı olayları. İndeks her gece sinyallerle birlikte hesaplanır; grafikte ya da tabloda bir güne dokununca o günün değerlendirmesi açılır.',

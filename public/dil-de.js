@@ -1431,8 +1431,6 @@ export default {
   "Geliştiriliyor": 'In Entwicklung',
   "Restoran binaları bölümü şu an geliştirme aşamasında; erişime kapalı. Restoran tüketimlerini Tüketimler sekmesinden görebilirsiniz.": 'Der Bereich Restaurantgebäude ist noch in Entwicklung und derzeit gesperrt. Den Restaurantverbrauch findest du im Tab Verbrauch.',
   "Tüketimlere git": 'Zum Verbrauch',
-  "Menü önerisi": "Menüvorschlag",
-  "Menü önerisine git": "Zum Menüvorschlag",
   "Çalışan kalitesi": "Personalqualität",
   "Ekonomi": "Wirtschaftlich",
   "Profesyonel": "Professionell",

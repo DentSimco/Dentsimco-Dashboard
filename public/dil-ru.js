@@ -1431,8 +1431,6 @@ export default {
   "Geliştiriliyor": 'В разработке',
   "Restoran binaları bölümü şu an geliştirme aşamasında; erişime kapalı. Restoran tüketimlerini Tüketimler sekmesinden görebilirsiniz.": 'Раздел зданий ресторанов в разработке и пока закрыт. Потребление ресторанов можно посмотреть на вкладке «Потребление».',
   "Tüketimlere git": 'К Потреблению',
-  "Menü önerisi": "Подбор меню",
-  "Menü önerisine git": "К подбору меню",
   "Çalışan kalitesi": "Качество персонала",
   "Ekonomi": "Эконом",
   "Profesyonel": "Профессиональный",
