@@ -12,7 +12,7 @@ export const UPDATES = [
     date: '28 Ekim 2026',
     items: [
       'Perakende › Restoran: Maliyetler sekmesi eklendi. Seviye 1 restoranda her ürünün her kalitedeki döngü maliyeti tablo olarak görünür; kategoride aynı kalitenin en ucuz ürünü mavi işaretlenir.',
-      'Perakende › Restoran: Tavsiye sekmesi eklendi. Kaliteyi seçersiniz; Otomatik, hedef ratinge ulaşan en ucuz menüyü bulur ya da her kategorideki ürün sayısını kendiniz seçersiniz. Bina seviyesi girilebilir; yalnız tahmini rating aralığı ve döngü başına yemek maliyeti verilir (doluluk ve kâr yok). Rating, rehber ve ölçümlerle kurulmuş doğrusal bir modelle tahmin edilir: kalite ve çeşit (toplam ürün sayısı) ratingi artırır, Yönetim ekibinin bonusu eklenir.',
+      'Perakende › Restoran: Tavsiye sekmesi eklendi. Hedef ratinge ulaşan en ucuz menüyü, her ürün için ayrı kalite önererek bulur: rating menüdeki kalite ortalamasından hesaplandığı için kalite en ucuza yükseltilebilen ürünlere verilir. Otomatik ürün sayısını da kendisi belirler ya da her kategorideki ürün sayısını kendiniz seçersiniz; önerilen kalite aralığı sınırlanabilir. Bina seviyesi girilebilir; yalnız tahmini rating aralığı ve döngü başına yemek maliyeti verilir (doluluk ve kâr yok). Rating, rehber ve ölçümlerle kurulmuş doğrusal bir modelle tahmin edilir: kalite ve çeşit (toplam ürün sayısı) ratingi artırır, Yönetim ekibinin bonusu eklenir.',
       'Restoran: eski menü önerisi bağlantısı kaldırıldı; yerini Tavsiye sekmesi aldı.',
     ],
   },

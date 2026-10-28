@@ -3,8 +3,9 @@
 // Hesap saf fonksiyonlardadır (Node'da sınanır); arayüz parçaları Perakende > Restoran içinde çizilir. Burada kâr ve doluluk yoktur:
 // yalnız yemek maliyeti ve tahmini rating aralığı verilir. Rating modeli restoran-rating.js'te.
 //   • Maliyetler: seviye 1 restoranda her ürünün her kalitedeki döngü maliyeti; kategoride aynı kalitenin en ucuzu mavi.
-//   • Tavsiye: kaliteyi siz seçersiniz; her kategoride o kalitenin en ucuz ürünleri seçilir. Çeşit sayısını kendiniz seçersiniz
-//     ya da Otomatik, hedef ratinge ulaşan en ucuz menüyü bulur.
+//   • Tavsiye: hedef ratinge ulaşan EN DÜŞÜK MALİYETLİ menü. Her ürün için ayrı kalite önerilir: rating menüdeki ürünlerin kalite
+//     ortalamasından hesaplanır, bu yüzden gereken kalite toplamı en ucuza yükseltilebilen ürünlere dağıtılır. Çeşit sayısını
+//     kendiniz seçersiniz ya da Otomatik, ürün sayısını da kendisi belirler.
 // Yemek adedi = yukarı yuvarla(oran × kategori çarpanı × seviye × lüks çarpanı); çarpan kategorideki ürün sayısına bağlıdır.
 
 import * as R from './hesap-restoran.js';
@@ -27,12 +28,14 @@ const tamSayi = (x, a, b, d) => { const n = Math.floor(Number(x)); return Number
 // ---------------------------------------------------------------------------------------------------------------
 // Kayıt (tarayıcıda saklanan ayarlar)
 // ---------------------------------------------------------------------------------------------------------------
-export const varsayilanTavsiye = () => ({ kalite: 7, seviye: 1, tip: 'eko', mod: 'oto', hedef: 7, carpan: 2, cesit: { salata: 2, ana: 2, icecek: 2 } });
+export const varsayilanTavsiye = () => ({ kMin: 0, kMax: 12, seviye: 1, tip: 'eko', mod: 'oto', hedef: 7, carpan: 2, cesit: { salata: 2, ana: 2, icecek: 2 } });
 
 export function temizleTavsiye(raw) {
   const s = varsayilanTavsiye();
   if (!raw || typeof raw !== 'object') return s;
-  s.kalite = tamSayi(raw.kalite, 0, 12, s.kalite);
+  s.kMin = tamSayi(raw.kMin, 0, 12, s.kMin);
+  s.kMax = tamSayi(raw.kMax, 0, 12, s.kMax);
+  if (s.kMin > s.kMax) s.kMax = s.kMin;
   s.seviye = tamSayi(raw.seviye, 1, 9999, s.seviye);
   s.tip = raw.tip === 'luks' ? 'luks' : 'eko';
   s.mod = raw.mod === 'elle' ? 'elle' : 'oto';
@@ -75,57 +78,124 @@ export function maliyetTablosu(marketOf, { carpan = 2, tip = 'eko' } = {}) {
   });
 }
 
-/** Kategoride n ürünün en ucuz seçimi (verilen kalitede). Fiyatı olan ürün n'den azsa null. */
-export function enUcuzSecim(marketOf, katKey, n, kalite, seviye = 1, tip = 'eko') {
+/**
+ * Kategoride n ürün seçimi için her kalite toplamına (seçilen ürünlerin kalitelerinin toplamı) en ucuz çözüm.
+ * Dönen: Map(kalite toplamı → { toplam, urunler: [{ id, q, adet, birim, tutar }] }). Kalite aralığı [kMin, kMax]; fiyatı olmayan kalite seçilmez.
+ * Küçük bir dinamik programlama: ürünler sırayla, durum = (seçilen ürün sayısı, kalite toplamı).
+ */
+export function kategoriSecenekleri(marketOf, katKey, n, { seviye = 1, tip = 'eko', kMin = 0, kMax = 12 } = {}) {
   const kat = KAT.find((k) => k.key === katKey);
-  if (!kat || !(n >= 1)) return null;
-  const adaylar = [];
+  if (!kat || !(n >= 1)) return new Map();
+  let dp = Array.from({ length: n + 1 }, () => new Map());
+  dp[0].set(0, { toplam: 0, urunler: [] });
   for (const id of kat.urunler) {
-    const birim = fiyatOf(marketOf, id, kalite);
-    if (birim == null) continue;
     const a = adet(id, n, seviye, tip);
-    adaylar.push({ id, adet: a, birim, tutar: a * birim });
+    const secenek = [];
+    for (let q = kMin; q <= kMax; q++) { const birim = fiyatOf(marketOf, id, q); if (birim != null) secenek.push({ id, q, adet: a, birim, tutar: a * birim }); }
+    if (!secenek.length) continue;
+    const yeni = dp.map((m) => new Map(m)); // bu ürünü seçmeme
+    for (let c = 0; c < n; c++) for (const [s, st] of dp[c]) for (const o of secenek) {
+      const ns = s + o.q, toplam = st.toplam + o.tutar;
+      const cur = yeni[c + 1].get(ns);
+      if (!cur || toplam < cur.toplam - 1e-9) yeni[c + 1].set(ns, { toplam, urunler: [...st.urunler, o] });
+    }
+    dp = yeni;
   }
-  if (adaylar.length < n) return null;
-  adaylar.sort((x, y) => x.tutar - y.tutar || x.id - y.id);
-  const urunler = adaylar.slice(0, n);
-  return { key: kat.key, ad: kat.ad, n, urunler, toplam: urunler.reduce((t, u) => t + u.tutar, 0) };
+  return dp[n];
 }
 
-function birlestir(parcalar, { kalite, seviye, tip, bonus }) {
-  const urunSayisi = parcalar.reduce((t, p) => t + p.n, 0);
-  const toplam = parcalar.reduce((t, p) => t + p.toplam, 0);
-  return { kategoriler: parcalar, urunSayisi, toplam, gunluk: toplam * R.GUN_DONGU, seviyeBasi: toplam / Math.max(1, seviye),
-    cesit: parcalar.map((p) => p.n).join('-'), rating: M.ratingAraligi({ kalite, urunSayisi, bonus, tip }) };
+/** Rating hedefine ulaşmak için N ürünlük menünün gereken en küçük kalite toplamı; ulaşılamazsa null. */
+export function gerekliKaliteToplami(urunSayisi, { hedef, bonus = 0, tip = 'eko' }) {
+  for (let s = 0; s <= urunSayisi * 12; s++) {
+    const r = M.hedefRating({ kalite: s / urunSayisi, urunSayisi, bonus, tip });
+    if (r != null && r >= hedef - 1e-9) return s;
+  }
+  return null;
 }
 
-/** Elle seçilen çeşit sayılarıyla menü. Bir kategoride yeterli fiyatlı ürün yoksa { eksik: [kategori adları] }. */
-export function menuOner(marketOf, { kalite, seviye = 1, tip = 'eko', cesit, bonus = 0 }) {
-  const parcalar = [], eksik = [];
-  for (const kat of KAT) {
-    const p = enUcuzSecim(marketOf, kat.key, cesit?.[kat.key], kalite, seviye, tip);
-    if (p) parcalar.push(p); else eksik.push(kat.ad);
+// n = [salata, ana, içecek] ürün sayıları; secimler = kategori başına kategoriSecenekleri sonuçları
+function enIyiBirlesim(secimler, S) {
+  const [a, b, c] = secimler;
+  let maks3 = -1;
+  for (const s of c.keys()) maks3 = Math.max(maks3, s);
+  const suf = new Array(maks3 + 2).fill(null); // suf[s]: kalite toplamı ≥ s olan en ucuz içecek seçimi
+  for (let s = maks3; s >= 0; s--) {
+    const o = c.get(s);
+    suf[s] = o && (!suf[s + 1] || o.toplam < suf[s + 1].toplam) ? o : suf[s + 1];
   }
-  return eksik.length ? { eksik } : birlestir(parcalar, { kalite, seviye, tip, bonus });
+  let best = null;
+  for (const [s1, x] of a) for (const [s2, y] of b) {
+    const gerek = Math.max(0, S - s1 - s2);
+    if (gerek > maks3) continue;
+    const z = suf[gerek];
+    if (!z) continue;
+    const toplam = x.toplam + y.toplam + z.toplam;
+    if (!best || toplam < best.toplam - 1e-9) best = { toplam, parcalar: [x, y, z] };
+  }
+  return best;
+}
+
+const maksToplam = (m) => { let t = -1; for (const s of m.keys()) t = Math.max(t, s); return t; };
+
+function sonucOlustur(parcalar, ns, { seviye, tip, bonus }) {
+  const urunSayisi = ns.reduce((t, x) => t + x, 0);
+  const kategoriler = parcalar.map((p, i) => {
+    const sira = (id) => KAT[i].urunler.indexOf(id);
+    const urunler = [...p.urunler].sort((x, y) => sira(x.id) - sira(y.id));
+    return { key: KAT[i].key, ad: KAT[i].ad, n: ns[i], urunler, toplam: p.toplam };
+  });
+  const toplam = kategoriler.reduce((t, k) => t + k.toplam, 0);
+  const kaliteToplam = kategoriler.reduce((t, k) => t + k.urunler.reduce((s, u) => s + u.q, 0), 0);
+  const ortKalite = kaliteToplam / urunSayisi;
+  return { kategoriler, urunSayisi, toplam, gunluk: toplam * R.GUN_DONGU, seviyeBasi: toplam / Math.max(1, seviye), ortKalite,
+    cesit: ns.join('-'), rating: M.ratingAraligi({ kalite: ortKalite, urunSayisi, bonus, tip }) };
+}
+
+function cozum(secimler, ns, o) {
+  const urunSayisi = ns.reduce((t, x) => t + x, 0);
+  const maks = secimler.reduce((t, m) => t + maksToplam(m), 0);
+  const S = gerekliKaliteToplami(urunSayisi, o);
+  const best = S != null && S <= maks ? enIyiBirlesim(secimler, S) : null;
+  if (best) return { ok: sonucOlustur(best.parcalar, ns, o) };
+  // hedefe ulaşılamıyor: bu çeşitte ulaşılabilecek en yüksek rating
+  return { yok: true, enYuksek: M.hedefRating({ kalite: maks / urunSayisi, urunSayisi, bonus: o.bonus, tip: o.tip }) };
+}
+
+const secimleri = (marketOf, ns, o) => KAT.map((k, i) => kategoriSecenekleri(marketOf, k.key, ns[i], o));
+
+/**
+ * Elle seçilen çeşit sayılarıyla, hedef ratinge ulaşan en ucuz menü ve her ürünün kalitesi.
+ * Dönen: menü | { eksik: [kategori adları] } (kalite aralığında yeterli fiyatlı ürün yok) | { yok: true, enYuksek }.
+ */
+export function menuOner(marketOf, { seviye = 1, tip = 'eko', cesit, bonus = 0, hedef = 7, kMin = 0, kMax = 12 }) {
+  const ns = KAT.map((k) => cesit?.[k.key]);
+  const o = { seviye, tip, bonus, hedef, kMin, kMax };
+  const secimler = secimleri(marketOf, ns, o);
+  const eksik = KAT.filter((k, i) => !secimler[i].size).map((k) => k.ad);
+  if (eksik.length) return { eksik };
+  const c = cozum(secimler, ns, o);
+  return c.ok || { yok: true, enYuksek: c.enYuksek ?? null };
 }
 
 /**
- * Otomatik: hedef ratinge (tahminin ortası) ulaşan en ucuz menü ve en ucuz 4 diğer seçenek.
+ * Otomatik: ürün sayısını ve her ürünün kalitesini kendisi seçer; hedef ratinge ulaşan en ucuz menü ve en ucuz 4 diğer seçenek.
  * Dönen: { en, secenekler } ya da { fiyatYok: true } (hiçbir menü kurulamıyor) ya da { yok: true, enYuksek } (hedef çok yüksek).
  */
-export function otomatikOner(marketOf, { kalite, seviye = 1, tip = 'eko', hedef = 7, bonus = 0 }) {
-  const secim = {};
-  for (const kat of KAT) {
-    secim[kat.key] = [];
-    for (let n = 1; n <= MAKS_CESIT[kat.key]; n++) { const p = enUcuzSecim(marketOf, kat.key, n, kalite, seviye, tip); if (p) secim[kat.key].push(p); }
+export function otomatikOner(marketOf, { seviye = 1, tip = 'eko', hedef = 7, bonus = 0, kMin = 0, kMax = 12 }) {
+  const o = { seviye, tip, bonus, hedef, kMin, kMax };
+  const tablo = KAT.map((k) => Array.from({ length: MAKS_CESIT[k.key] }, (_, i) => kategoriSecenekleri(marketOf, k.key, i + 1, o)));
+  const ok = [];
+  let var_ = false, enYuksek = null;
+  for (let a = 1; a <= MAKS_CESIT.salata; a++) for (let b = 1; b <= MAKS_CESIT.ana; b++) for (let c = 1; c <= MAKS_CESIT.icecek; c++) {
+    const secimler = [tablo[0][a - 1], tablo[1][b - 1], tablo[2][c - 1]];
+    if (secimler.some((m) => !m.size)) continue;
+    var_ = true;
+    const r = cozum(secimler, [a, b, c], o);
+    if (r.ok) ok.push(r.ok); else if (r.enYuksek != null) enYuksek = Math.max(enYuksek ?? 0, r.enYuksek);
   }
-  const [s, a, i] = KAT.map((k) => secim[k.key]);
-  const uygun = [];
-  for (const x of s) for (const y of a) for (const z of i) uygun.push(birlestir([x, y, z], { kalite, seviye, tip, bonus }));
-  if (!uygun.length) return { fiyatYok: true };
-  const ok = uygun.filter((m) => m.rating.orta >= hedef - 1e-9)
-    .sort((x, y) => x.toplam - y.toplam || x.urunSayisi - y.urunSayisi || (x.cesit < y.cesit ? -1 : 1));
-  if (!ok.length) return { yok: true, enYuksek: Math.max(...uygun.map((m) => m.rating.orta)) };
+  if (!var_) return { fiyatYok: true };
+  if (!ok.length) return { yok: true, enYuksek };
+  ok.sort((x, y) => x.toplam - y.toplam || x.urunSayisi - y.urunSayisi || (x.cesit < y.cesit ? -1 : 1));
   return { en: ok[0], secenekler: ok.slice(1, 5) };
 }
 
@@ -142,6 +212,7 @@ export const TAVSIYE_CSS = `
 .rt-m .nm small { display: block; color: var(--faint); font: 500 11px var(--font); }
 .rt-m tbody tr:last-child td, .rt-m tbody tr:last-child th { border-bottom: 0; }
 .rt-m td.low { background: var(--tint-bg); color: var(--accent); font-weight: 700; box-shadow: inset 0 0 0 1px var(--tint-line); }
+.rt-m td.q { color: var(--accent); font-weight: 700; }
 .rt-m td.yok { color: var(--faint); }
 .rt-m tfoot th, .rt-m tfoot td { background: var(--raise); font-weight: 700; border-bottom: 0; }
 .rt-m .grp th { height: 30px; text-align: left; background: var(--raise); color: var(--accent); font: 600 12px var(--font-c); letter-spacing: .06em; text-transform: uppercase; }
@@ -184,23 +255,28 @@ const stepper = (k, ad2, n, max) => `<div class="rt-step"><span>${esc(ad2)}</spa
   <button type="button" data-act="rt.cesit" data-k="${k}" data-v="1" aria-label="Arttır"${n >= max ? ' disabled' : ''}>+</button></div></div>`;
 
 function menuTablo(m) {
-  const satir = (p) => `<tr class="grp"><th colspan="4" scope="colgroup">${esc(p.ad)} · ${p.n} <span>ürün</span></th></tr>${p.urunler.map((u, i) =>
-    `<tr><th class="nm" scope="row">${esc(ad(u.id))}</th><td>${num(u.adet)}</td><td>${birimFmt(u.birim)}</td><td${u.tutar === p.urunler[0].tutar ? ' class="low"' : ''}>${money(u.tutar)}</td></tr>`).join('')}`;
-  return `<div class="rt-wrap" tabindex="0" role="region" aria-label="Önerilen menü"><table class="rt-m"><thead><tr><th class="nm" scope="col">Ürün</th><th scope="col">Adet</th><th scope="col">Birim</th><th scope="col">Tutar</th></tr></thead>
-    <tbody>${m.kategoriler.map(satir).join('')}</tbody><tfoot><tr><th class="nm" scope="row">Toplam</th><td></td><td></td><td>${money(m.toplam)}</td></tr></tfoot></table></div>`;
+  const satir = (p) => `<tr class="grp"><th colspan="5" scope="colgroup">${esc(p.ad)} · ${p.n} <span>ürün</span></th></tr>${p.urunler.map((u) =>
+    `<tr><th class="nm" scope="row">${esc(ad(u.id))}</th><td class="q">Q${u.q}</td><td>${num(u.adet)}</td><td>${birimFmt(u.birim)}</td><td>${money(u.tutar)}</td></tr>`).join('')}`;
+  return `<div class="rt-wrap" tabindex="0" role="region" aria-label="Önerilen menü"><table class="rt-m"><thead><tr><th class="nm" scope="col">Ürün</th><th scope="col">Kalite</th><th scope="col">Adet</th><th scope="col">Birim</th><th scope="col">Tutar</th></tr></thead>
+    <tbody>${m.kategoriler.map(satir).join('')}</tbody><tfoot><tr><th class="nm" scope="row">Toplam</th><td></td><td></td><td></td><td>${money(m.toplam)}</td></tr></tfoot></table></div>`;
 }
 
-/** Tavsiye sekmesi. ctx: { bonus } (Yönetim ekibinden gelen rating bonusu). */
+const kaliteSecim = (f, deger, etiket) => `<label class="ur-field"><span>${etiket}</span><select data-rt="${f}" aria-label="${etiket}">${KALITELER.map((q) =>
+  `<option value="${q}" ${q === deger ? 'selected' : ''}>Q${q}</option>`).join('')}</select></label>`;
+
+/** Tavsiye sekmesi. ctx: { bonus } (ekip dışı satış hızı ve Yönetim ekibinden gelen rating bonusu). */
 export function tavsiyeHtml(st, marketOf, ctx = {}) {
   const bonus = fin(ctx.bonus) ? ctx.bonus : 0;
-  const girdi = { kalite: st.kalite, seviye: st.seviye, tip: st.tip, bonus };
+  const girdi = { seviye: st.seviye, tip: st.tip, bonus, hedef: st.hedef, kMin: st.kMin, kMax: st.kMax };
   const oto = st.mod === 'oto';
+  const aralik = `Q${st.kMin}–Q${st.kMax}`;
   const hata = (t) => `<div class="ur-msg err" role="alert">${t}</div>`;
+  const yokMesaji = (en) => hata(`Hedef rating ${num(st.hedef, 1)} bu kalite aralığında tahmini olarak ulaşılamıyor.${en != null ? ` En yüksek tahmin: ${num(en, 1)}.` : ''} Hedefi ya da kalite aralığını değiştirin.`);
   let sonuc = '', diger = '';
   if (oto) {
-    const o = otomatikOner(marketOf, { ...girdi, hedef: st.hedef });
-    if (o.fiyatYok) sonuc = hata(`Q${st.kalite} için borsada yeterli ilan yok; başka bir kalite seçin.`);
-    else if (o.yok) sonuc = hata(`Bu kalite ve bonusla hedef rating ${num(st.hedef, 1)} tahmini olarak ulaşılamıyor. En yüksek tahmin: ${num(o.enYuksek, 1)}. Kaliteyi ya da hedefi değiştirin.`);
+    const o = otomatikOner(marketOf, girdi);
+    if (o.fiyatYok) sonuc = hata(`${aralik} aralığında borsada yeterli ilan yok; aralığı genişletin.`);
+    else if (o.yok) sonuc = yokMesaji(o.enYuksek);
     else {
       sonuc = menuSonuc(o.en, st);
       if (o.secenekler.length) diger = `<section class="ur-card"><div class="ur-head"><h2>Diğer seçenekler</h2></div>${o.secenekler.map((m) =>
@@ -209,19 +285,22 @@ export function tavsiyeHtml(st, marketOf, ctx = {}) {
     }
   } else {
     const m = menuOner(marketOf, { ...girdi, cesit: st.cesit });
-    sonuc = m.eksik ? hata(`Q${st.kalite} için borsada yeterli ilan yok (${esc(m.eksik.join(', '))}); çeşit sayısını azaltın ya da başka bir kalite seçin.`) : menuSonuc(m, st);
+    sonuc = m.eksik ? hata(`${aralik} aralığında borsada yeterli ilan yok (${esc(m.eksik.join(', '))}); çeşit sayısını azaltın ya da aralığı genişletin.`)
+      : m.yok ? yokMesaji(m.enYuksek) : menuSonuc(m, st);
   }
   return `<section class="ur-card" aria-labelledby="h-rt-t"><div class="ur-head"><h2 id="h-rt-t">Menü tavsiyesi</h2></div>
-      <p class="ur-sub">Kaliteyi siz seçersiniz; her kategoride o kalitenin en ucuz ürünleri seçilir. Doluluk ve kâr hesaplanmaz.</p>
+      <p class="ur-sub">Hedef ratinge ulaşan en düşük maliyetli menüyü, her ürün için ayrı kalite önererek bulur. Doluluk ve kâr hesaplanmaz.</p>
       <div class="rs-form">
-        <label class="ur-field"><span>Kalite</span><select data-rt="kalite" aria-label="Kalite">${KALITELER.map((q) => `<option value="${q}" ${q === st.kalite ? 'selected' : ''}>Q${q}</option>`).join('')}</select></label>
+        ${field('Hedef rating', 'data-rt="hedef"', inputVal(st.hedef), { mode: 'decimal' })}
         ${field('Bina seviyesi', 'data-rt="seviye"', st.seviye, { mode: 'numeric' })}
+        ${kaliteSecim('kmin', st.kMin, 'En düşük kalite')}
+        ${kaliteSecim('kmax', st.kMax, 'En yüksek kalite')}
       </div>
+      <p class="ur-note">Önerilen kaliteler bu aralıkta kalır.</p>
       <div class="rs-mini"><span>Oturma</span>${seg('rt.tip', TIPLER, st.tip, 'Oturma')}</div>
       ${kv('Rating bonusu (satış hızı ve yönetici ekibi)', `+${num(bonus, 2)}`)}
       ${seg('rt.mod', MODLAR, st.mod, 'Çeşit seçimi')}
-      ${oto ? `<div class="rs-form">${field('Hedef rating', 'data-rt="hedef"', inputVal(st.hedef), { mode: 'decimal' })}</div>
-        <p class="ur-note">Hedefe ulaşan en ucuz menüyü seçer; kategori başına ürün sayısını kendisi belirler.</p>`
+      ${oto ? '<p class="ur-note">Ürün sayısını ve her ürünün kalitesini kendisi belirler.</p>'
       : `<div class="rt-steps">${KAT.map((k) => stepper(k.key, k.ad, st.cesit[k.key], MAKS_CESIT[k.key])).join('')}</div>`}
     </section>${sonuc}${diger}`;
 }
@@ -232,9 +311,9 @@ function menuSonuc(m, st) {
   return `<section class="ur-card" aria-label="Önerilen menü">
     <div class="rt-tiles"><div class="rt-tile"><small>Tahmini rating</small><b>${num(r.alt, 1)} – ${num(r.ust, 1)}</b><small>orta ${num(r.orta, 1)}</small></div>
       <div class="rt-tile"><small>Maliyet / döngü (12 saat)</small><b>${money(m.toplam)}</b><small>günlük ${money(m.gunluk)}</small></div></div>
-    <div class="ur-chips">${chip(`Q${st.kalite}`)}${chip(`${m.cesit} çeşit`)}${chip(`${m.urunSayisi} ürün`, 'muted')}${chip(`Seviye ${num(st.seviye)}`, 'muted')}${st.tip === 'luks' ? chip('Lüks', 'muted') : ''}</div>
+    <div class="ur-chips">${chip(`Ort. Q${num(m.ortKalite, 1)}`)}${chip(`${m.cesit} çeşit`)}${chip(`${m.urunSayisi} ürün`, 'muted')}${chip(`Seviye ${num(st.seviye)}`, 'muted')}${st.tip === 'luks' ? chip('Lüks', 'muted') : ''}</div>
     ${menuTablo(m)}
-    <p class="ur-note">Mavi tutar, kategoride aynı kalitenin en düşük maliyetli ürünüdür; seçilen ürünler her kategoride en ucuz olanlardır. Yalnız yemek maliyeti; maaş dahil değildir.</p>
+    <p class="ur-note">Rating, menüdeki ürünlerin kalite ortalamasından hesaplanır; bu yüzden kalite en ucuza yükseltilebilen ürünlere verilir, pahalıya yükselenlerin kalitesi düşük bırakılır. Yalnız yemek maliyeti; maaş dahil değildir.</p>
     <p class="ur-note">Rating her döngüde (12 saat) hedefin yaklaşık beşte biri kadar yaklaşır; hedefin %90'ına ≈ ${yaklas} döngüde ulaşır. Tahmin, ölçümlerle kurulmuş bir modeldir; profesyonel personel hesaba katılmadı.</p></section>`;
 }
 
@@ -257,7 +336,8 @@ export function tavsiyeTikla(st, btn) {
 export function tavsiyeDegis(st, el) {
   const f = el.dataset?.rt;
   if (!f) return false;
-  if (f === 'kalite') st.kalite = tamSayi(el.value, 0, 12, st.kalite);
+  if (f === 'kmin') { st.kMin = tamSayi(el.value, 0, 12, st.kMin); if (st.kMax < st.kMin) st.kMax = st.kMin; }
+  else if (f === 'kmax') { st.kMax = tamSayi(el.value, 0, 12, st.kMax); if (st.kMin > st.kMax) st.kMin = st.kMax; }
   else if (f === 'seviye') st.seviye = tamSayi(parseNum(el.value), 1, 9999, st.seviye);
   else if (f === 'hedef') { const n = parseNum(el.value); if (fin(n)) st.hedef = Math.min(M.RATING_MAX, Math.max(0, n)); }
   else return false;
