@@ -24,11 +24,11 @@ const STORE_KEY = (r) => `dentsimco.perakende.r${r}`;
 const TAB_KEY = 'dentsimco.perakende.tab';
 const TAVSIYE_KEY = 'dentsimco.restoran.tavsiye';
 const PERIOD_KEY = 'dentsimco.perakende.period';
-export const TABS = [['kurulum', 'Kurulum'], ['binalar', 'Binalar'], ['pphpl', 'PPHPL Max'], ['restoran', 'Restoran'], ['tuketim', 'Tüketimler'], ['maliyet', 'Maliyetler'], ['tavsiye', 'Tavsiye'], ['ozet', 'Özet']];
+export const TABS = [['kurulum', 'Kurulum'], ['binalar', 'Binalar'], ['pphpl', 'PPHPL Max'], ['restoran', 'Restoran'], ['tuketim', 'Tüketimler'], ['maliyet', 'Maliyetler'], ['ozet', 'Özet']]; // Tavsiye sekmesi gizli: geri açmak için TABS, GROUPS ve SUBS'a ['tavsiye', 'Tavsiye'] ekleyin
 // Üst sekmeler; Binalar'ın altında iki, Restoran'ın altında dört alt sekme var
-const GROUPS = [['kurulum', 'Kurulum', ['kurulum']], ['binalar', 'Binalar', ['binalar', 'pphpl']], ['restoran', 'Restoran', ['restoran', 'tuketim', 'maliyet', 'tavsiye']], ['ozet', 'Özet', ['ozet']]];
+const GROUPS = [['kurulum', 'Kurulum', ['kurulum']], ['binalar', 'Binalar', ['binalar', 'pphpl']], ['restoran', 'Restoran', ['restoran', 'tuketim', 'maliyet']], ['ozet', 'Özet', ['ozet']]];
 const RESTORAN_BINALAR_ACIK = false; // Restoran > Binalar geliştirme aşamasında: erişime kapalı; Tüketimler açık
-const SUBS = { binalar: [['binalar', 'Binalar'], ['pphpl', 'PPHPL Max']], restoran: [['restoran', 'Binalar'], ['tuketim', 'Tüketimler'], ['maliyet', 'Maliyetler'], ['tavsiye', 'Tavsiye']] };
+const SUBS = { binalar: [['binalar', 'Binalar'], ['pphpl', 'PPHPL Max']], restoran: [['restoran', 'Binalar'], ['tuketim', 'Tüketimler'], ['maliyet', 'Maliyetler']] };
 const PERIODS = [['hour', 'Saatlik', 1 / 24], ['day', 'Günlük', 1], ['week', 'Haftalık', 7], ['month', 'Aylık', 30]];
 const REC = [['park', 'Park'], ['temple', 'Tapınak'], ['lake', 'Göl']];
 const HISTORY_DAYS = 30;
@@ -687,7 +687,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   // ---- RESTORAN ----
   function viewRestoran(c, ev) {
     if (!RESTORAN_BINALAR_ACIK) {
-      return `<div class="ur-card ur-empty"><h2>Geliştiriliyor</h2><p class="ur-sub">Restoran binaları bölümü şu an geliştirme aşamasında; erişime kapalı. Restoran tüketimlerini Tüketimler sekmesinden görebilirsiniz.</p><div class="ur-row" style="gap:8px;flex-wrap:wrap"><a class="ur-btn" href="#perakende/tavsiye">Menü tavsiyesine git</a><a class="ur-btn" href="#perakende/maliyet">Maliyetlere git</a><a class="ur-btn" href="#perakende/tuketim">Tüketimlere git</a></div></div>`;
+      return `<div class="ur-card ur-empty"><h2>Geliştiriliyor</h2><p class="ur-sub">Restoran binaları bölümü şu an geliştirme aşamasında; erişime kapalı. Restoran tüketimlerini Tüketimler sekmesinden görebilirsiniz.</p><div class="ur-row" style="gap:8px;flex-wrap:wrap"><a class="ur-btn" href="#perakende/maliyet">Maliyetlere git</a><a class="ur-btn" href="#perakende/tuketim">Tüketimlere git</a></div></div>`;
     }
     const t = ev.restoranBolum.totals;
     return `
