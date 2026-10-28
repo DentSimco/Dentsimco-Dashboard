@@ -1431,8 +1431,6 @@ export default {
   "Geliştiriliyor": 'Ve vývoji',
   "Restoran binaları bölümü şu an geliştirme aşamasında; erişime kapalı. Restoran tüketimlerini Tüketimler sekmesinden görebilirsiniz.": 'Část Budovy restaurací je ve vývoji a zatím nepřístupná. Spotřebu restaurací najdete na kartě Spotřeba.',
   "Tüketimlere git": 'Přejít na Spotřebu',
-  "Menü önerisi": "Návrh menu",
-  "Menü önerisine git": "Přejít na Návrh menu",
   "Çalışan kalitesi": "Kvalita personálu",
   "Ekonomi": "Ekonomický",
   "Profesyonel": "Profesionální",
