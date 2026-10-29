@@ -9,6 +9,12 @@ const TABS = [['nedir', 'Nedir'], ['guncellemeler', 'Güncellemeler'], ['kaynakc
 // En yeni en üstte. { date: 'gün ay yıl', items: ['...', '...'] }
 export const UPDATES = [
   {
+    date: '29 Ekim 2026',
+    items: [
+      'Perakende › Restoran: Analiz sekmesi eklendi. Harita, borsa fiyatını ürünün referans maliyetinden hesaplanan eşikle karşılaştırır (ürün × Q0–Q12, kademeli yeşil ve kırmızı); hücreye dokunmak ürünün Grafik\'ini açar. Grafik, kalitelere göre fiyatı ve eşiği ile botun kayıtlarından 7, 14 ya da 30 günlük fiyat geçmişini gösterir. Maliyetler sekmesi Analiz\'in altına, Maliyet adıyla taşındı.',
+    ],
+  },
+  {
     date: '28 Ekim 2026',
     items: [
       'Perakende › Restoran: Maliyetler sekmesi eklendi. Seviye 1 restoranda her ürünün her kalitedeki döngü maliyeti tablo olarak görünür; kategoride aynı kalitenin en ucuz ürünü mavi işaretlenir.',
