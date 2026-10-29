@@ -1046,7 +1046,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     if (act === 'retry') return load();
     if (act === 'kilitAc') return kilitGiris();
     if (!data) return;
-    if (act.startsWith('rt.')) { if (RT.tavsiyeTikla(rt, btn)) { rtKaydet(); softRender(); } return; }
+    if (act.startsWith('rt.') && RT.tavsiyeTikla(rt, btn)) { rtKaydet(); softRender(); return; } // tüketim düğmeleri (rt.metrik/aralik/urun/gun) aşağıda işlenir
     if (act === 'kbOnay') { kbOnay = true; return render(); }
     if (act === 'kbIptal') { kbOnay = false; return render(); }
     if (act === 'kbSil') {
