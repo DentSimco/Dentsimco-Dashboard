@@ -16,6 +16,7 @@ import * as RB from './perakende-rbina.js';
 import * as RT from './restoran-tavsiye.js';
 import * as AN from './restoran-analiz.js';
 import * as MS from './restoran-menusec.js';
+import * as IS from './restoran-isi.js';
 import { guideCard } from './rehber.js';
 import { binaAdi } from './adlar.js';
 import { urunAdi } from './urun-adlari.js';
@@ -26,10 +27,11 @@ const STORE_KEY = (r) => `dentsimco.perakende.r${r}`;
 const TAB_KEY = 'dentsimco.perakende.tab';
 const TAVSIYE_KEY = 'dentsimco.restoran.tavsiye';
 const MENUSEC_KEY = 'dentsimco.restoran.menusec';
+const ISI_KEY = 'dentsimco.restoran.isi';
 const PERIOD_KEY = 'dentsimco.perakende.period';
-export const TABS = [['kurulum', 'Kurulum'], ['binalar', 'Binalar'], ['pphpl', 'PPHPL Max'], ['restoran', 'Restoran'], ['tuketim', 'Tüketimler'], ['rating', 'Rating'], ['maliyet', 'Maliyet'], ['menusec', 'Menü Seç'], ['ozet', 'Özet']]; // Tavsiye sekmesi gizli: geri açmak için TABS, GROUPS ve SUBS'a ['tavsiye', 'Tavsiye'] ekleyin
-// Üst sekmeler; Binalar'ın altında iki, Restoran'ın altında üç alt sekme var (Analiz'in altında bir sıra daha: Rating, Maliyet, Menü Seç)
-const GROUPS = [['kurulum', 'Kurulum', ['kurulum']], ['binalar', 'Binalar', ['binalar', 'pphpl']], ['restoran', 'Restoran', ['restoran', 'tuketim', 'rating', 'maliyet', 'menusec']], ['ozet', 'Özet', ['ozet']]];
+export const TABS = [['kurulum', 'Kurulum'], ['binalar', 'Binalar'], ['pphpl', 'PPHPL Max'], ['restoran', 'Restoran'], ['tuketim', 'Tüketimler'], ['rating', 'Rating'], ['maliyet', 'Maliyet'], ['menusec', 'Menü Seç'], ['isi', 'Isı Haritası'], ['ozet', 'Özet']]; // Tavsiye sekmesi gizli: geri açmak için TABS, GROUPS ve SUBS'a ['tavsiye', 'Tavsiye'] ekleyin
+// Üst sekmeler; Binalar'ın altında iki, Restoran'ın altında üç alt sekme var (Analiz'in altında bir sıra daha: Rating, Maliyet, Menü Seç, Isı Haritası)
+const GROUPS = [['kurulum', 'Kurulum', ['kurulum']], ['binalar', 'Binalar', ['binalar', 'pphpl']], ['restoran', 'Restoran', ['restoran', 'tuketim', 'rating', 'maliyet', 'menusec', 'isi']], ['ozet', 'Özet', ['ozet']]];
 const RESTORAN_BINALAR_ACIK = false; // Restoran > Binalar geliştirme aşamasında: erişime kapalı; Tüketimler açık
 const SUBS = { binalar: [['binalar', 'Binalar'], ['pphpl', 'PPHPL Max']], restoran: [['restoran', 'Binalar'], ['tuketim', 'Tüketimler'], ['rating', 'Analiz']] }; // Analiz'in altında Rating | Maliyet | Menü Seç (restoran-analiz.js SEKMELER)
 const ESKI_SEKME = { harita: 'rating', grafik: 'rating' }; // kaldırılan Harita ve yeniden adlandırılan Grafik sekmelerinin eski bağlantıları
@@ -272,6 +274,9 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   let ms = MS.varsayilanMenuSec(); // Restoran > Analiz > Menü Seç: çeşit sayıları, hedef rating, seviye, oturma (tarayıcıda saklanır)
   try { ms = MS.temizleMenuSec(JSON.parse(localStorage.getItem(MENUSEC_KEY) || 'null')); } catch { /* gizli sekme ya da bozuk kayıt: varsayılan */ }
   const msKaydet = () => { try { localStorage.setItem(MENUSEC_KEY, JSON.stringify(ms)); } catch { /* gizli sekme */ } };
+  let is = IS.varsayilanIsi(); // Restoran > Analiz > Isı Haritası: seçilen gazete sayıları, kâr/doluluk, oturma, restoran (tarayıcıda saklanır)
+  try { is = IS.temizleIsi(JSON.parse(localStorage.getItem(ISI_KEY) || 'null')); } catch { /* gizli sekme ya da bozuk kayıt: varsayılan */ }
+  const isKaydet = () => { try { localStorage.setItem(ISI_KEY, JSON.stringify(is)); } catch { /* gizli sekme */ } };
   let data = null;
   let loadError = null;
   let loadToken = 0;
@@ -301,7 +306,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
 
   const style = document.createElement('style');
   style.dataset.module = 'perakende';
-  style.textContent = CSS + EXTRA_CSS + RS.RESTORAN_CSS + RS.TUKETIM_CSS + RB.RBINA_CSS + RT.TAVSIYE_CSS + AN.ANALIZ_CSS + MS.MENUSEC_CSS;
+  style.textContent = CSS + EXTRA_CSS + RS.RESTORAN_CSS + RS.TUKETIM_CSS + RB.RBINA_CSS + RT.TAVSIYE_CSS + AN.ANALIZ_CSS + MS.MENUSEC_CSS + IS.ISI_CSS;
   document.head.append(style);
   root.innerHTML = '<div class="ur"></div><div data-sheet></div><div data-toast></div>';
   const view = root.querySelector('.ur');
@@ -491,7 +496,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       try {
         const c = context();
         const ev = evaluateAll(c);
-        body = tab === 'kurulum' ? viewKurulum(c) : tab === 'pphpl' ? viewPphpl(c) : tab === 'ozet' ? viewOzet(c, ev) : tab === 'restoran' ? viewRestoran(c, ev) : tab === 'tuketim' ? viewTuketim() : tab === 'rating' ? viewRating() : tab === 'maliyet' ? viewMaliyet() : tab === 'menusec' ? viewMenuSec(c) : tab === 'tavsiye' ? viewTavsiye(c) : viewBinalar(c, ev);
+        body = tab === 'kurulum' ? viewKurulum(c) : tab === 'pphpl' ? viewPphpl(c) : tab === 'ozet' ? viewOzet(c, ev) : tab === 'restoran' ? viewRestoran(c, ev) : tab === 'tuketim' ? viewTuketim() : tab === 'rating' ? viewRating() : tab === 'maliyet' ? viewMaliyet() : tab === 'menusec' ? viewMenuSec(c) : tab === 'isi' ? viewIsi(c) : tab === 'tavsiye' ? viewTavsiye(c) : viewBinalar(c, ev);
       } catch (e) {
         console.error(e);
         body = `<div class="ur-msg err" role="alert">Bu ekran gösterilemedi: ${esc(e?.message || e)}. Sayfayı yenileyin; sürerse bize bildirin.</div>`;
@@ -721,6 +726,12 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   // ---- ANALİZ (Rating, Maliyet, Menü Seç) ve TAVSİYE ----
   function viewRating() { return AN.ratingHtml(); }
   function viewMaliyet() { return AN.maliyetHtml(rt, marketOf); }
+  // Isı Haritası: rating bonusu (Yönetim ve Kurulum), yönetim gideri (Perakende) ve restoran kartları buradaki bağlamdan okunur; ayrı hesap yok
+  const isiCtx = (c) => ({
+    restoranlar: (setup.restoran?.items || []).map((it) => ({ id: it.id, ad: it.ad, tip: it.tip, profesyonel: !!it.profesyonel, seviye: it.seviye, fiyat: it.fiyat, rating: it.rating })),
+    iletisim: c.ctx.iletisim, hiz: c.ctx.ekipDisiHiz, adminNet: c.ctx.adminNet, averageSalary: c.ctx.averageSalary, salaryModifier: c.ctx.buildings?.r?.salaryModifier,
+  });
+  function viewIsi(c) { return IS.isiHtml(is, isiCtx(c)); }
   function viewMenuSec(c) { return MS.menuSecHtml(ms, marketOf, { iletisim: c.ctx.iletisim, hiz: c.ctx.ekipDisiHiz, kaynak: data.market }); } // yönetici bonusu: etkin iletişim (Yönetim) ve ekip dışı satış hızı (Kurulum)
   function viewTavsiye(c) { return RT.tavsiyeHtml(rt, marketOf, { bonus: c.ctx.ratingBonus }); } // rating bonusu: ekip dışı satış hızı (Kurulum) ve Yönetim ekibi
 
@@ -1061,6 +1072,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     if (!data) return;
     if (act.startsWith('rt.') && RT.tavsiyeTikla(rt, btn)) { rtKaydet(); softRender(); return; } // tüketim düğmeleri (rt.metrik/aralik/urun/gun) aşağıda işlenir
     if (act.startsWith('ms.') && MS.menuSecTikla(ms, btn)) { msKaydet(); softRender(); return; }
+    if (act.startsWith('is.') && IS.isiTikla(is, btn, isiCtx(context()))) { isKaydet(); softRender(); return; }
     if (act === 'kbOnay') { kbOnay = true; return render(); }
     if (act === 'kbIptal') { kbOnay = false; return render(); }
     if (act === 'kbSil') {
@@ -1200,6 +1212,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       return renderSheet();
     }
     if (t?.dataset?.ms) { if (MS.menuSecDegis(ms, t)) { msKaydet(); softRender(); } return; }
+    if (t?.dataset?.is) { if (IS.isiDegis(is, t, isiCtx(context()))) { isKaydet(); softRender(); } return; }
     if (t?.dataset?.rt) { if (RT.tavsiyeDegis(rt, t)) { rtKaydet(); softRender(); } return; }
     if (sheet?.draft?.letter === 'r' && t?.dataset?.pm?.startsWith(`${RB.TASLAK_ID}|`)) {
       RB.rbDegis(RB.taslakRb(sheet.draft.rb), t);

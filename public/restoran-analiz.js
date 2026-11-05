@@ -12,7 +12,7 @@ import { esc } from './esc.js';
 import { urunAdi } from './urun-adlari.js';
 import { num, money, seg } from './perakende-restoran.js';
 
-export const SEKMELER = [['rating', 'Rating'], ['maliyet', 'Maliyet'], ['menusec', 'Menü Seç']];
+export const SEKMELER = [['rating', 'Rating'], ['maliyet', 'Maliyet'], ['menusec', 'Menü Seç'], ['isi', 'Isı Haritası']];
 const TIPLER = [['eko', 'Eko'], ['luks', 'Lüks (yemek ×0,5)']];
 const ad = (id) => urunAdi(id, R.URUNLER[id]?.ad) || R.URUNLER[id]?.ad || `#${id}`;
 
@@ -24,6 +24,7 @@ export const ANALIZ_CSS = `
 .ur-subtabs2 { margin-top: 6px; }
 .ur-subtabs2 a { background: var(--surface); min-height: 38px; }
 .ur-subtabs2 a[aria-current="page"] { background: var(--tint-bg); color: var(--accent); border-color: var(--accent); }
+@media (max-width: 420px) { .ur-subtabs2 a { font-size: 14px; padding: 0 2px; } }
 .an-opt { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
 .an-opt .ur-seg { max-width: 100%; overflow-x: auto; }
 `;
