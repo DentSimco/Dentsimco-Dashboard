@@ -233,6 +233,11 @@ test('tek tek seçim yok: durumda mod ve liste alanı bulunmaz; "is.mod" olayı 
   const st = IS.varsayilanIsi(); eq('mod' in st || 'tek' in st, false); ok(!IS.isiTikla(st, btn('is.mod', 'tek'), ctx));
   ok(!IS.isiHtml(st, ctx).includes('Tek tek') && !IS.isiHtml(st, ctx).includes('is.mod'));
 });
+test('seçici ve şerit en yeniden en eskiye sıralı', () => {
+  const h = IS.isiHtml(IS.varsayilanIsi(), ctx), sirali = (re) => [...h.matchAll(re)].map((m) => Number(m[1]));
+  const sec = sirali(/<option value="(\d+)"/g).slice(0, ISI_DONEMLER.length), serit = sirali(/data-act="is\.sayi" data-v="(\d+)"/g);
+  const beklenen = ISI_DONEMLER.map((d) => d.sayi).reverse(); eq(sec, beklenen); eq(serit, beklenen);
+});
 test('en son sayı "güncel" yazar: seçicide, şeritte ve ipucunda; evre renkleri kâr/zarar renginden ayrı', () => {
   const h = IS.isiHtml(IS.varsayilanIsi(), ctx);
   ok(h.includes(`#${SON.sayi} · güncel`) && h.includes('<small>güncel</small>') && h.includes(', güncel)') && h.includes(`Güncel sayı #${SON.sayi}`));

@@ -161,10 +161,10 @@ export const ISI_CSS = `
 `;
 
 function sayiAlani(st, sec, donemler) {
-  const idx = new Set(sec.map((d) => d.sayi)), enSon = donemler[donemler.length - 1].sayi;
+  const idx = new Set(sec.map((d) => d.sayi)), enSon = donemler[donemler.length - 1].sayi, yeniden = [...donemler].reverse(); // seçici ve şerit en yeniden en eskiye
   const etiket = (d) => (d.sayi === enSon ? `#${d.sayi} · güncel` : `#${d.sayi} · ${tarih(d.bas)} – ${tarih(d.bit)}`);
-  const secenek = (sayi) => donemler.map((d) => `<option value="${d.sayi}"${d.sayi === sayi ? ' selected' : ''}>${esc(etiket(d))}</option>`).join('');
-  const serit = donemler.map((d) => `<button type="button" class="is-iss" data-act="is.sayi" data-v="${d.sayi}" aria-pressed="${idx.has(d.sayi)}" title="${esc(`${tarih(d.bas, true)} – ${tarih(d.bit, true)}`)}">#${d.sayi}<span class="bar" aria-hidden="true"><i style="width:${d.evre[2] * 100}%;background:var(--ph-boom)"></i><i style="width:${d.evre[1] * 100}%;background:var(--ph-normal)"></i><i style="width:${d.evre[0] * 100}%;background:var(--ph-rec)"></i></span><small>${d.sayi === enSon ? 'güncel' : esc(tarih(d.bit))}</small></button>`).join('');
+  const secenek = (sayi) => yeniden.map((d) => `<option value="${d.sayi}"${d.sayi === sayi ? ' selected' : ''}>${esc(etiket(d))}</option>`).join('');
+  const serit = yeniden.map((d) => `<button type="button" class="is-iss" data-act="is.sayi" data-v="${d.sayi}" aria-pressed="${idx.has(d.sayi)}" title="${esc(`${tarih(d.bas, true)} – ${tarih(d.bit, true)}`)}">#${d.sayi}<span class="bar" aria-hidden="true"><i style="width:${d.evre[2] * 100}%;background:var(--ph-boom)"></i><i style="width:${d.evre[1] * 100}%;background:var(--ph-normal)"></i><i style="width:${d.evre[0] * 100}%;background:var(--ph-rec)"></i></span><small>${d.sayi === enSon ? 'güncel' : esc(tarih(d.bit))}</small></button>`).join('');
   const bas = sec[0], son = sec[sec.length - 1], nums = sec.map((d) => `#${d.sayi}`);
   const sonYazi = son.sayi === enSon ? `${tarih(son.bit, true)}, güncel` : tarih(son.bit, true);
   const ipucu = `${sec.length} sayı seçili: ${nums[0]}${sec.length > 1 ? ` – ${nums[nums.length - 1]}` : ''} (${tarih(bas.bas, true)} – ${sonYazi}). ${st.capa != null ? 'Aralığı bitirmek için ikinci sayıya dokunun.' : 'Sayıya dokunun; bitiş için ikinci sayıya dokunun.'}`;
