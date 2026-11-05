@@ -30,7 +30,7 @@ test('Kalite puanı: Q0 ≈ 0,4, Q5 ≈ 4,9, Q12 ≈ 6,1; artan ve içbükey', (
   for (let q = 2; q <= 12; q++) ok(RR.kalitePuani(q) - RR.kalitePuani(q - 1) < RR.kalitePuani(q - 1) - RR.kalitePuani(q - 2), `içbükey Q${q}`);
 });
 test('Sekmeler: Rating, Maliyet, Menü Seç (Harita yok, Menü Seç Maliyet\'in sağında)', () => {
-  eq(A.SEKMELER, [['rating', 'Rating'], ['maliyet', 'Maliyet'], ['menusec', 'Menü Seç']]);
+  eq(A.SEKMELER, [['rating', 'Rating'], ['maliyet', 'Maliyet'], ['menusec', 'Menü Seç'], ['isi', 'Isı Haritası']]);
   for (const k of ['haritaHtml', 'grafikHtml', 'analizTikla', 'analizDegis', 'temizleAnaliz', 'ratingOf']) eq(typeof A[k], 'undefined', k);
 });
 

@@ -5,20 +5,34 @@
 //   başına döngü sayısı ve toplam doluluğu. API: /api/v3/en/{realm}/newspaper/{sayı}/ (makalenin charts[] içinde type "H").
 // Kaynak 2: ekonomi evreleri, api.simcotools.com/v1/realms/{realm}/phases (botun kullandığı kaynak).
 //
+// Kaynak 3: SimcoTools günlük mumları (api.simcotools.com/v1/realms/{realm}/market/resources/{ürün}/{kalite}/candlesticks). Restoranda satılan
+//   16 ürünün 13 kalitesi için her sayının dönemindeki hacim ağırlıklı ortalama fiyat (VWAP) ham veriye eklenir. SimcoTools yalnız son 364 günü
+//   tutar: sayı çıkınca bu betik bir kez çalışırsa o dönemin fiyatı kalıcı olur; dönemin başı penceredeki ilk günden 10 günden fazla önceyse atlanır.
+//
 // Ham veri araclar/veri/restoran-isi.json dosyasında birikir (yalnız yeni sayılar indirilir; --tam baştan tarar).
 // Her hücre için dönemlerin evre paylarıyla ağırlıklı regresyon yapılır: doluluk = boom·b + normal·n + resesyon·r (+ zaman eğilimi);
 // sonuç bugünkü düzeye göre üç evrenin doluluğudur. Sonuç public/restoran-doluluk.js olarak yazılır; o dosya elle değiştirilmez.
+// Isı Haritası sekmesi için fiyatı olan her sayının hücreleri, evre payları, fiyatları ve maliyet eğrisi public/restoran-isi-donem.js olarak yazılır
+// (restoran-isi-hesap.js hesaplar; o dosya da elle değiştirilmez).
 import { readFile, writeFile, mkdir } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import * as R from '../public/hesap-restoran.js';
+import * as IH from '../public/restoran-isi-hesap.js';
 
 const KOK = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const HAM = path.join(KOK, 'araclar', 'veri', 'restoran-isi.json');
 const CIKTI = path.join(KOK, 'public', 'restoran-doluluk.js');
+const CIKTI_DONEM = path.join(KOK, 'public', 'restoran-isi-donem.js');
 const REALM = 0;
 const ILK_SAYI = 220; // ısı haritası 228. sayıdan (Ocak 2023) önce yok
 const GAZETE = (sayi) => `https://www.simcompanies.com/api/v3/en/${REALM}/newspaper/${sayi}/`;
 const EVRE_API = (sayfa) => `https://api.simcotools.com/v1/realms/${REALM}/phases?page=${sayfa}`;
+const MUM_API = (id, q, ms) => `https://api.simcotools.com/v1/realms/${REALM}/market/resources/${id}/${q}/candlesticks?start=${ms}`; // start: ms; en çok 364 gün döner
+const URUN_IDLERI = R.KATEGORILER.flatMap((k) => k.urunler);
+const KALITELER = Array.from({ length: 13 }, (_, q) => q);
+const FIYAT_PENCERESI_GUN = 364; // SimcoTools'un tuttuğu süre
+const KAPSAM_TOLERANS_GUN = 10; // dönemin başı penceredeki ilk günden en çok bu kadar önce olabilir
 
 export const RATINGLER = Array.from({ length: 11 }, (_, i) => i); // rating dilimi 0–10
 export const FIYATLAR = Array.from({ length: 10 }, (_, i) => 60 + 30 * i); // fiyat dilimi alt sınırı: $60–89 … $330–359
@@ -55,14 +69,19 @@ function donemOf(sayi, d) {
     if (!h || !Array.isArray(h.data) || !h.data.length) continue;
     const hucreler = h.data.map((c) => [c.rating_bracket, c.price_bracket, c.count, Math.round(c.sum_occupancy * 1e4) / 1e4])
       .sort((x, y) => x[0] - y[0] || x[1] - y[1]);
-    return { sayi, makale: a.id, bas: a.dateRangeFrom, bit: a.dateRangeTo, hucreler };
+    // D grafiği: rating dilimi başına [eko seviye, lüks seviye] (doğrulama için saklanır; sekme kullanmaz)
+    const dg = (a.charts || []).find((c) => c.type === 'D');
+    const seviyeler = dg && Array.isArray(dg.data) ? dg.data.map((x) => [x.ratingBracket, x.economyLevels, x.luxuryLevels]).sort((x, y) => x[0] - y[0]) : undefined;
+    return { sayi, makale: a.id, bas: a.dateRangeFrom, bit: a.dateRangeTo, hucreler, ...(seviyeler ? { seviyeler } : {}) };
   }
   return null;
 }
 
 async function hamGuncelle(tam) {
   let ham = { v: 1, realm: REALM, evreler: [], donemler: [] };
-  if (!tam) { try { ham = JSON.parse(await readFile(HAM, 'utf8')); } catch { /* ilk çalıştırma */ } }
+  let eski = null;
+  try { eski = JSON.parse(await readFile(HAM, 'utf8')); } catch { /* ilk çalıştırma */ }
+  if (!tam && eski) ham = eski;
   const liste = await getJson(`https://www.simcompanies.com/api/v3/en/${REALM}/newspaper/`);
   const enSon = Math.max(...liste.map((x) => Number(x.issueId)).filter(Number.isFinite));
   const bas = ham.donemler.length ? Math.max(...ham.donemler.map((x) => x.sayi)) + 1 : ILK_SAYI;
@@ -73,11 +92,106 @@ async function hamGuncelle(tam) {
     await sleep(250);
   }
   ham.donemler.sort((a, b) => a.sayi - b.sayi);
+  // --tam gazete verisini baştan okur ama fiyatlar yeniden alınamaz (SimcoTools yalnız son 364 günü tutar): eskiler korunur
+  if (tam && eski) for (const d of ham.donemler) { const o = eski.donemler.find((x) => x.sayi === d.sayi); if (o?.fiyat) d.fiyat = o.fiyat; }
   ham.evreler = await evreleriIndir();
+  await fiyatlariGuncelle(ham);
   ham.guncellendi = new Date().toISOString().slice(0, 10);
   await mkdir(path.dirname(HAM), { recursive: true });
   await writeFile(HAM, `${JSON.stringify(ham, null, 0).replace(/\],\[/g, '],\n[')}\n`);
   return ham;
+}
+
+
+// ---------------------------------------------------------------------------------------------------------------
+// Dönem fiyatları (SimcoTools günlük mumları)
+// ---------------------------------------------------------------------------------------------------------------
+
+// Gazete tarihleri 22:00/23:00 UTC'dir; oyun gününe çevirmek için +3 saat (analizdeki kural). Dönem [bas, bit) gün aralığıdır.
+export const gunSiniri = (iso) => new Date(Date.parse(iso) + 3 * 3600e3).toISOString().slice(0, 10);
+
+/**
+ * Bir dönemin fiyatları. mumlar: { [id]: { [kalite]: [[gün 'YYYY-AA-GG', vwap, hacim], ...] } }
+ * Dönen: { gun, urun: { [id]: [ [vwap, işlemGünü, hacim] | 0 (13 kalite) ] } }; vwap hacim ağırlıklı ortalama, 2 ondalık.
+ */
+export function donemFiyati(mumlar, bas, bit) {
+  const b = gunSiniri(bas), e = gunSiniri(bit);
+  const urun = {};
+  for (const [id, kaliteler] of Object.entries(mumlar)) {
+    urun[id] = KALITELER.map((q) => {
+      const r = (kaliteler[q] || []).filter((x) => x[0] >= b && x[0] < e && x[1] > 0 && x[2] > 0);
+      const hacim = r.reduce((s, x) => s + x[2], 0);
+      if (!hacim) return 0;
+      return [Math.round((r.reduce((s, x) => s + x[1] * x[2], 0) / hacim) * 100) / 100, r.length, Math.round(hacim)];
+    });
+  }
+  return { gun: Math.round((Date.parse(`${e}T00:00:00Z`) - Date.parse(`${b}T00:00:00Z`)) / 864e5), urun };
+}
+
+async function mumlariIndir(baslangicMs) {
+  const mumlar = {};
+  for (const id of URUN_IDLERI) {
+    mumlar[id] = {};
+    for (const q of KALITELER) {
+      const d = await getJson(MUM_API(id, q, baslangicMs));
+      mumlar[id][q] = (d.candlesticks || []).map((x) => [x.date.slice(0, 10), x.vwap, x.volume]);
+      await sleep(560); // SimcoTools: saniyede 2 istek
+    }
+    process.stdout.write(`${id} `);
+  }
+  process.stdout.write('\n');
+  return mumlar;
+}
+
+// Fiyatı olmayan ve yayımlanmış dönemler için fiyat toplar (bir kez). Pencerenin dışında kalan eski dönemler fiyatsız kalır.
+export async function fiyatlariGuncelle(ham, simdi = Date.now()) {
+  const eksik = ham.donemler.filter((d) => !d.fiyat && Date.parse(d.bit) <= simdi && Date.parse(d.bas) >= simdi - (FIYAT_PENCERESI_GUN + KAPSAM_TOLERANS_GUN) * 864e5);
+  if (!eksik.length) return;
+  const bas = Math.min(...eksik.map((d) => Date.parse(gunSiniri(d.bas))));
+  console.log(`fiyat: ${eksik.map((d) => `#${d.sayi}`).join(', ')} için SimcoTools mumları indiriliyor (${URUN_IDLERI.length * KALITELER.length} istek)`);
+  const mumlar = await mumlariIndir(bas);
+  const ilkGun = Object.values(mumlar).flatMap((k) => Object.values(k)).flatMap((m) => (m.length ? [m[0][0]] : [])).sort()[0];
+  for (const d of eksik) {
+    if (ilkGun && Date.parse(`${gunSiniri(d.bas)}T00:00:00Z`) < Date.parse(`${ilkGun}T00:00:00Z`) - KAPSAM_TOLERANS_GUN * 864e5) { console.log(`  #${d.sayi}: dönem pencerenin dışında, atlandı`); continue; }
+    d.fiyat = donemFiyati(mumlar, d.bas, d.bit);
+    console.log(`  #${d.sayi}: ${d.fiyat.gun} gün`);
+  }
+}
+
+// ---------------------------------------------------------------------------------------------------------------
+// Isı Haritası veri dosyası
+// ---------------------------------------------------------------------------------------------------------------
+
+/**
+ * Fiyatı olan dönemlerden istemci verisi: [{ sayi, bas, bit, gun, evre [resesyon, normal, boom], h: [[rating, fiyat dilimi (0–9), döngü, doluluk toplamı]],
+ *   fiyat, egri: { eko, luks } }]. $360 ve üstü dilim (döngülerin %0,2'si) dışarıda kalır. egri: restoran-isi-hesap.js maliyetEgrisi.
+ */
+export function donemVerisi(ham) {
+  const out = [];
+  for (const d of ham.donemler) {
+    if (!d.fiyat) continue;
+    const evre = evrePayi(d.bas, d.bit, ham.evreler) || [0, 1, 0];
+    const h = d.hucreler.flatMap(([r, p, n, s]) => { const pi = IH.FIYAT_DILIMLERI.indexOf(p); return pi < 0 || r < 0 || r > 10 ? [] : [[r, pi, n, s]]; });
+    const donem = { sayi: d.sayi, bas: d.bas.slice(0, 10), bit: d.bit.slice(0, 10), gun: d.fiyat.gun, evre: evre.map((x) => Math.round(x * 1e3) / 1e3), h, fiyat: d.fiyat.urun };
+    donem.egri = { eko: IH.maliyetEgrisi(donem, 'eko'), luks: IH.maliyetEgrisi(donem, 'luks') };
+    out.push(donem);
+  }
+  return out.sort((a, b) => a.sayi - b.sayi);
+}
+
+export function donemDosyasi(donemler, guncellendi) {
+  const satir = (d) => `  ${JSON.stringify(d)},`;
+  return `// DentSimco — Restoran Isı Haritası verisi. ÜRETİLMİŞ DOSYA: elle değiştirmeyin, node araclar/restoran-isi.mjs yeniden üretir.
+// Kaynak: oyunun gazetesindeki restoran ısı haritaları (Sim Companies Times, H grafiği), SimcoTools ekonomi evreleri ve günlük mum fiyatları.
+// Her dönem (7 haftalık gazete sayısı): h = [rating dilimi, fiyat dilimi (ISI_FIYAT_DILIMLERI dizini), döngü sayısı, doluluk toplamı (0–1 × döngü)],
+// fiyat[ürün][kalite] = [VWAP $, işlem günü, hacim] | 0, egri = seviye başına döngü malzeme maliyeti, bonussuz, $: [[hedef rating ızgara dizini (× 0,005), maliyet | null], ...]
+// yalnız maliyetin değiştiği noktalar (restoran-isi-hesap.js maliyetEgrisi).
+export const ISI_KAYNAK = { guncellendi: '${guncellendi}', donem: ${donemler.length} };
+export const ISI_FIYAT_DILIMLERI = [${IH.FIYAT_DILIMLERI.join(', ')}]; // dilim alt sınırı, genişlik $30
+export const ISI_DONEMLER = [
+${donemler.map(satir).join('\n')}
+];
+`;
 }
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -241,4 +355,7 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
   const u = dolulukUyumu(ham);
   await writeFile(CIKTI, tabloDosyasi(u));
   console.log(`${u.donem} dönem (${u.ilk} – ${u.son}), ${u.toplamKosu} döngü → ${path.relative(KOK, CIKTI)}`);
+  const donemler = donemVerisi(ham);
+  await writeFile(CIKTI_DONEM, donemDosyasi(donemler, ham.guncellendi));
+  console.log(`${donemler.length} dönem fiyatlı (${donemler.map((d) => `#${d.sayi}`).join(', ')}) → ${path.relative(KOK, CIKTI_DONEM)}`);
 }
