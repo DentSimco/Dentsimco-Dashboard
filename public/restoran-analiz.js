@@ -1,15 +1,17 @@
 // DentSimco — Restoran › Analiz: Harita, Grafik, Maliyet
 //
 // Hesap saf fonksiyonlardadır (Node'da sınanır); çizim HTML metni döndürür, olaylar perakende.js'te bağlanır.
-//   Referans maliyet = 7200 ÷ oran: ürünün sabit taban fiyatı (borsanın Q0 fiyatına yakın). Kalite q için eşik, referansın
-//   kalite adımı başına küçük bir payla artmış hâlidir; borsa fiyatı eşiğin altındaysa o kaliteye yükselmek kârlıdır.
-//   Pay [ölçüm]: 1 kalite adımı ratingi ≈ +0,019 artırır (restoran-rating.js), eko seviye 1'de +1 rating ≈ $15.000 döngü geliri;
-//   bu bütçe ürünün döngülük adedine bölününce referansın ≈ %3,9'u çıkar. Arayüzde gösterilmez.
+//   Referans maliyet = 7200 ÷ oran: ürünün sabit taban fiyatı (borsanın Q0 fiyatına yakın). Kalite q için eşik = referans + o kalitenin
+//   Q0'a göre birim başına değeri. Değer: ürünün kalite puanı artışı (restoran-rating.js kalitePuani, içbükey) ÷ 6 (2-2-2 menüde ürün
+//   payı) × $15.000 (eko seviye 1'de +1 rating'in en iyi fiyatla döngü geliri) ÷ 7200 (ürünün döngülük referans harcaması).
+//   Böylece eşik(q) = referans × (1 + K × (f(q) − f(0))), K ≈ 0,35. En kârlı kalite: eşik − borsa fiyatı en büyük olan kalite.
+//   Katsayılar arayüzde gösterilmez.
 //   Harita: ürün × kalite, borsa fiyatının eşikten sapması. Grafik: bir ürünün kaliteye göre fiyatı ve eşik, 30 günlük geçmiş.
 //   Maliyet: seviye 1 restoranda her ürünün her kalitedeki döngü maliyeti.
 
 import * as R from './hesap-restoran.js';
 import * as T from './restoran-tavsiye.js';
+import { kalitePuani } from './restoran-rating.js';
 import { addDays } from './veri.js';
 import { esc } from './esc.js';
 import { urunAdi } from './urun-adlari.js';
@@ -17,8 +19,10 @@ import { num, money, seg } from './perakende-restoran.js';
 
 const KAT = R.KATEGORILER;
 export const SEKMELER = [['harita', 'Harita'], ['grafik', 'Grafik'], ['maliyet', 'Maliyet']];
-export const ESIK_PAYI = 0.039; // kalite adımı başına referans payı
 export const REFERANS_BUTCE = 7200;
+export const RATING_DEGERI = 15000; // eko seviye 1'de +1 rating'in döngü geliri, en iyi fiyatla [ölçüm: doluluk tablosu]
+export const STANDART_CESIT = 6; // eşik 2-2-2 menüye göre: bir ürün menü puanının altıda biri
+export const DEGER_KATSAYISI = RATING_DEGERI / (REFERANS_BUTCE * STANDART_CESIT);
 export const KADEMELER = [0.05, 0.1, 0.25, 0.5]; // sapma sınırları: ±%5, %10, %25, %50
 export const ARALIKLAR = [7, 14, 30];
 const TIPLER = [['eko', 'Eko'], ['luks', 'Lüks (yemek ×0,5)']];
@@ -46,7 +50,7 @@ export function temizleAnaliz(raw) {
 // Hesap
 // ---------------------------------------------------------------------------------------------------------------
 export const referans = (id) => (R.URUNLER[id] ? REFERANS_BUTCE / R.URUNLER[id].oran : null);
-export const esik = (id, q) => { const r = referans(id); return r == null ? null : r * (1 + ESIK_PAYI * q); };
+export const esik = (id, q) => { const r = referans(id); return r == null ? null : r * (1 + DEGER_KATSAYISI * (kalitePuani(q) - kalitePuani(0))); };
 /** Borsa fiyatının eşikten sapması: −0,12 = eşiğin %12 altında. Fiyat ya da ürün yoksa null. */
 export const fark = (fiyat, id, q) => { const e = esik(id, q); return fin(fiyat) && fiyat > 0 && e ? fiyat / e - 1 : null; };
 /** Sapmanın renk kademesi: n (±%5 içi), g1–g4 (eşiğin altı, koyulaşır), r1–r4 (üstü), yok (fiyat yok). */
@@ -58,28 +62,23 @@ export function ton(d) {
 }
 export const yuzde = (d) => { const r = Math.round(Math.abs(d) * 100); return r === 0 ? '%0' : `${d > 0 ? '+' : '−'}%${r}`; };
 const pc = (d) => String(Math.round(Math.abs(d) * 100));
-/** Bir kalitenin yorumu (Türkçe cümle). */
-export function yorum(d, q) {
-  if (!fin(d)) return 'Borsada ilan yok';
-  const p = pc(d);
-  if (q === 0) return d <= 0 ? `Taban kalite; eşiğin %${p} altında` : `Taban kalite; eşiğin %${p} üstünde`;
-  if (d <= -0.1) return `Eşiğin %${p} altında: kalite yükseltmesi kârlı, öncelik verin`;
-  if (d <= -0.005) return `Eşiğin %${p} altında: yükseltme marjinal kârlı`;
-  if (d <= 0.005) return 'Eşikte: yükseltme başabaş';
-  if (d <= 0.1) return `Eşiğe yakın (%${p} üstünde): fark edilir kazanç yok`;
-  return `Eşiğin %${p} üstünde: bu kalite pahalı, düşük kalite tercih edin`;
-}
-/** Eşiğin altında (ya da başabaş) kalan en yüksek kalite (Q0 hariç); yoksa null. */
-export function enYuksekKalite(marketOf, id) {
+/** En kârlı kalite: eşik − borsa fiyatı (birim başına kâr payı) en büyük olan kalite; fiyat yoksa null. */
+export function enKarliKalite(marketOf, id) {
   let best = null;
-  for (let q = 1; q <= 12; q++) { const d = fark(marketOf?.(id, q), id, q); if (d != null && d <= 0) best = q; }
+  for (let q = 0; q <= 12; q++) {
+    const f = marketOf?.(id, q), e = esik(id, q);
+    if (!fin(f) || !(f > 0) || e == null) continue;
+    const pay = e - f;
+    if (best == null || pay > best.pay + 1e-9) best = { q, pay };
+  }
   return best;
 }
-/** Eşiğe en yakın kalite (Q0 hariç): hiçbiri eşiğin altında değilken gösterilir. */
-export function enYakinKalite(marketOf, id) {
-  let best = null;
-  for (let q = 1; q <= 12; q++) { const d = fark(marketOf?.(id, q), id, q); if (d != null && (best == null || Math.abs(d) < Math.abs(best.d))) best = { q, d }; }
-  return best;
+/** Bir kalitenin yorumu (Türkçe cümle): en kârlı kaliteye göre. */
+export function yorum(marketOf, id, q) {
+  if (!fin(marketOf?.(id, q))) return 'Borsada ilan yok';
+  const b = enKarliKalite(marketOf, id);
+  if (!b || b.q === q) return 'Bu ürünün en kârlı kalitesi';
+  return q < b.q ? `Daha kârlı kalite: Q${b.q} (yükseltin)` : `Daha kârlı kalite: Q${b.q} (bu kalite fazla pahalı)`;
 }
 /** Geçmiş satırlarından (gün → {q: [açılış, yüksek, düşük, kapanış, …]}) bir kalitenin son n günü: [{ day, low, close, high }]. */
 export function gecmisSeri(h, q, n) {
@@ -134,6 +133,9 @@ export const ANALIZ_CSS = `
 .an-t.t-r4 { background: color-mix(in srgb, var(--down) 78%, var(--surface)); color: var(--on-accent); font-weight: 700; }
 .an-t.t-yok { color: var(--faint); text-align: right; padding: 0 9px !important; }
 .an-t.sel { box-shadow: inset 0 0 0 2px var(--accent); }
+.an-t.best .an-b { font-weight: 800; }
+.an-star { font-style: normal; margin-right: 2px; color: var(--late); }
+.an-t.t-g3 .an-star, .an-t.t-g4 .an-star, .an-t.t-r3 .an-star, .an-t.t-r4 .an-star { color: inherit; }
 .an-b:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .an-leg { display: flex; flex-wrap: wrap; gap: 6px 12px; color: var(--muted); font-size: 12.5px; align-items: center; }
 .an-sw { display: inline-block; width: 14px; height: 14px; border-radius: 3px; margin-right: 4px; vertical-align: -3px; border: 1px solid var(--line-2); }
@@ -169,12 +171,13 @@ export const ANALIZ_CSS = `
 const ton3 = (t) => `t-${t}`;
 
 function haritaSatirlari(an, marketOf) {
-  return KAT.map((k) => `<tr class="grp"><th colspan="14" scope="colgroup">${esc(k.ad)}</th></tr>${k.urunler.map((id) => `<tr><th class="nm" scope="row">${esc(ad(id))}</th>${[...Array(13).keys()].map((q) => {
+  return KAT.map((k) => `<tr class="grp"><th colspan="14" scope="colgroup">${esc(k.ad)}</th></tr>${k.urunler.map((id) => { const eniyi = enKarliKalite(marketOf, id)?.q; return `<tr><th class="nm" scope="row">${esc(ad(id))}</th>${[...Array(13).keys()].map((q) => {
     const fiyat = marketOf?.(id, q), d = fark(fiyat, id, q);
     if (d == null) return '<td class="an-t t-yok">—</td>';
     const sel = id === an.urun && q === an.q ? ' sel' : '';
-    return `<td class="an-t ${ton3(ton(d))}${sel}"><button type="button" class="an-b" data-act="an.git" data-u="${id}" data-q="${q}" data-k="harita" title="${esc(`${fiyatFmt(fiyat)} · eşik ${fiyatFmt(esik(id, q))}`)}" aria-label="${esc(`${ad(id)} Q${q}: grafiği aç`)}">${esc(yuzde(d))}</button></td>`;
-  }).join('')}</tr>`).join('')}`).join('');
+    const yildiz = q === eniyi;
+    return `<td class="an-t ${ton3(ton(d))}${sel}${yildiz ? ' best' : ''}"><button type="button" class="an-b" data-act="an.git" data-u="${id}" data-q="${q}" data-k="harita" title="${esc(`${fiyatFmt(fiyat)} · eşik ${fiyatFmt(esik(id, q))}`)}" aria-label="${esc(`${ad(id)} Q${q}: grafiği aç`)}">${yildiz ? '<i class="an-star" aria-hidden="true">★</i>' : ''}${esc(yuzde(d))}</button></td>`;
+  }).join('')}</tr>`; }).join('')}`).join('');
 }
 
 /** Harita sekmesi. */
@@ -182,11 +185,12 @@ export function haritaHtml(an, marketOf) {
   const bas = `<tr><th class="nm" scope="col">Ürün</th>${[...Array(13).keys()].map((q) => `<th scope="col">Q${q}</th>`).join('')}</tr>`;
   const sw = (t, text) => `<span><i class="an-sw ${t}"></i>${text}</span>`;
   const leg = sw('t-g4', '−%50 ve altı') + sw('t-g3', '−%25…50') + sw('t-g2', '−%10…25') + sw('t-g1', '−%5…10') + sw('t-n', '±%5')
-    + sw('t-r1', '+%5…10') + sw('t-r2', '+%10…25') + sw('t-r3', '+%25…50') + sw('t-r4', '+%50 ve üstü') + '<span>— ilan yok</span>';
+    + sw('t-r1', '+%5…10') + sw('t-r2', '+%10…25') + sw('t-r3', '+%25…50') + sw('t-r4', '+%50 ve üstü') + '<span>— ilan yok</span>'
+    + '<span><i class="an-star">★</i> ürünün en kârlı kalitesi</span>';
   return `<section class="ur-card" aria-labelledby="h-an-ref"><div class="ur-head"><h2 id="h-an-ref">Referans maliyet</h2></div>
       <p class="ur-sub">Ürünün sabit taban fiyatı (Q0 civarı). Her kalite için bundan bir eşik hesaplanır; borsa fiyatı eşiğin altındaysa o kaliteye yükselmek kârlıdır.</p></section>
     <section class="ur-card" aria-labelledby="h-an-map"><div class="ur-head"><h2 id="h-an-map">Referans eşiğine göre fiyat haritası</h2></div>
-      <p class="ur-sub">Hücre = borsa fiyatı ÷ eşik − 1. Yeşil eşiğin altı (kalite yükseltmesi kârlı), kırmızı üstü.</p>
+      <p class="ur-sub">Hücre = borsa fiyatı ÷ eşik − 1. Yeşil eşiğin altı (o kalite Q0'dan kârlı), kırmızı üstü. ★ her ürünün en kârlı kalitesi: eşiğin altında en çok pay bırakan kalite.</p>
       <div class="an-leg">${leg}</div>
       <div class="rt-wrap" tabindex="0" role="region" aria-label="Fiyat haritası"><table class="rt-m"><thead>${bas}</thead><tbody>${haritaSatirlari(an, marketOf)}</tbody></table></div>
       <p class="ur-note">Hücreye dokunun → ürünün grafiği açılır.</p></section>`;
@@ -232,6 +236,8 @@ function fiyatGrafigi(an, marketOf) {
   const flush = () => { if (seg2.length > 1) s += `<polyline class="an-line" points="${seg2.join(' ')}"/>`; seg2 = []; };
   for (let q = 0; q <= 12; q++) { if (!fin(fiyat(q))) { flush(); continue; } seg2.push(`${X(q)},${Yv(fiyat(q))}`); }
   flush();
+  const eniyi = enKarliKalite(marketOf, id)?.q;
+  if (eniyi != null) s += `<circle cx="${X(eniyi)}" cy="${Yv(fiyat(eniyi))}" r="10" style="fill:none;stroke:var(--late);stroke-width:2.5"/>`;
   for (let q = 0; q <= 12; q++) if (fin(fiyat(q))) s += `<circle class="an-pt" cx="${X(q)}" cy="${Yv(fiyat(q))}" r="${q === an.q ? 6 : 4}" data-act="an.q" data-q="${q}"><title>Q${q}: ${esc(fiyatFmt(fiyat(q)))}</title></circle>`;
   return `<svg class="pk-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Kalite başına borsa fiyatı ve referans eşiği">${s}</svg>`;
 }
@@ -274,14 +280,10 @@ function gecmisGrafigi(an, marketOf, h) {
 export function grafikHtml(an, marketOf, hist, ui = {}) {
   const id = an.urun, q = an.q, p = marketOf;
   const fiyat = p?.(id, q), d = fark(fiyat, id, q), onceki = q > 0 ? p?.(id, q - 1) : null;
-  const best = enYuksekKalite(p, id);
-  let karar;
-  if (best != null) karar = `<div class="an-verdict up"><b>Eşiğin altındaki en yüksek kalite: Q${best}</b> <span>(${esc(fiyatFmt(p(id, best)))} · eşik ${esc(fiyatFmt(esik(id, best)))}).</span></div>`;
-  else {
-    const y = enYakinKalite(p, id);
-    karar = y ? `<div class="an-verdict down"><b>Hiçbir kalite eşiğin altında değil.</b> <span>En yakını Q${y.q} (eşiğin %${pc(y.d)} ${y.d <= 0 ? 'altında' : 'üstünde'}). Bu ürün için düşük kalite daha kârlı görünüyor.</span></div>`
-      : '<div class="an-verdict">Bu ürün için borsada fiyat yok.</div>';
-  }
+  const best = enKarliKalite(p, id);
+  const karar = best
+    ? `<div class="an-verdict up"><b>En kârlı kalite: Q${best.q}</b> <span>(${esc(fiyatFmt(p(id, best.q)))} · eşik ${esc(fiyatFmt(esik(id, best.q)))}).</span></div>`
+    : '<div class="an-verdict">Bu ürün için borsada fiyat yok.</div>';
   const qler = ui.qAcik ? `<div class="an-qs" id="an-qs">${[...Array(13).keys()].map((k) => { const dk = fark(p?.(id, k), id, k); return `<button type="button" data-act="an.q" data-q="${k}" aria-pressed="${k === q}" class="${dk == null ? 'yok' : ''}">Q${k}${dk == null ? '' : ` · ${esc(yuzde(dk))}`}</button>`; }).join('')}</div>` : '';
   const secenekler = KAT.map((k) => `<optgroup label="${esc(k.ad)}">${k.urunler.map((u) => `<option value="${u}" ${u === id ? 'selected' : ''}>${esc(ad(u))}</option>`).join('')}</optgroup>`).join('');
   let gecmis;
@@ -299,9 +301,9 @@ export function grafikHtml(an, marketOf, hist, ui = {}) {
       <p class="ur-note">Referans ${esc(fiyatFmt(referans(id)))} · borsa Q0 ${esc(fiyatFmt(p?.(id, 0)))}</p>
       <button type="button" class="an-qt" data-act="an.qac" aria-expanded="${!!ui.qAcik}" aria-controls="an-qs"><b>Kalite: Q${q}</b><span>${ui.qAcik ? 'kapat ▴' : 'değiştir ▾'}</span></button>${qler}
       <div class="an-box">${fiyatGrafigi(an, p)}</div>
-      <div class="an-leg"><span><b style="color:var(--accent)">●—</b> borsa fiyatı</span><span><b style="color:var(--late)">- - -</b> eşik</span><span><i class="an-sw t-g2"></i>eşiğin altı</span><span><i class="an-sw t-r2"></i>eşiğin üstü</span></div>
+      <div class="an-leg"><span><b style="color:var(--accent)">●—</b> borsa fiyatı</span><span><b style="color:var(--late)">- - -</b> eşik</span><span><i class="an-sw t-g2"></i>eşiğin altı</span><span><i class="an-sw t-r2"></i>eşiğin üstü</span><span><b style="color:var(--late)">◯</b> en kârlı kalite</span></div>
       ${karar}
-      <div class="an-tiles"><div><small>Q${q} borsa</small><b>${esc(fiyatFmt(fiyat))}</b></div><div><small>Eşik</small><b>${esc(fiyatFmt(esik(id, q)))}</b></div><div><small>Fark</small><b>${d == null ? '—' : esc(yuzde(d))}</b></div>${fin(onceki) && fin(fiyat) ? `<div><small>Bir alt kaliteye göre</small><b>${fiyat - onceki >= 0 ? '+' : '−'}${esc(fiyatFmt(Math.abs(fiyat - onceki)))}</b></div>` : ''}<div class="wide"><small>Yorum</small><b>${esc(yorum(d, q))}</b></div></div></section>
+      <div class="an-tiles"><div><small>Q${q} borsa</small><b>${esc(fiyatFmt(fiyat))}</b></div><div><small>Eşik</small><b>${esc(fiyatFmt(esik(id, q)))}</b></div><div><small>Fark</small><b>${d == null ? '—' : esc(yuzde(d))}</b></div>${fin(onceki) && fin(fiyat) ? `<div><small>Bir alt kaliteye göre</small><b>${fiyat - onceki >= 0 ? '+' : '−'}${esc(fiyatFmt(Math.abs(fiyat - onceki)))}</b></div>` : ''}<div class="wide"><small>Yorum</small><b>${esc(yorum(p, id, q))}</b></div></div></section>
     <section class="ur-card" aria-labelledby="h-an-gc"><div class="ur-head"><h2 id="h-an-gc">${esc(ad(id))} Q${q} · fiyat geçmişi</h2></div>
       ${seg('an.aralik', ARALIKLAR.map((n) => [n, `${n} gün`]), an.aralik, 'Dönem')}${gecmis}</section>`;
 }
