@@ -1,5 +1,5 @@
-// DentSimco — Restoran › Analiz sınamaları (Harita, Grafik, Maliyet). Çalıştırma: node test/restoran_analiz_test.mjs
-// restoran-analiz.js: rating hücresi, renk kademesi, seçim kaydı, olaylar ve çizim. Harita ve Grafik yalnız rating gösterir.
+// DentSimco — Restoran › Analiz sınamaları (Rating, Maliyet). Çalıştırma: node test/restoran_analiz_test.mjs
+// restoran-analiz.js: Rating eğrisi (ürün seçimi yok, yalnız rating) ve Maliyet tablosu.
 
 import * as A from '../public/restoran-analiz.js';
 import * as R from '../public/hesap-restoran.js';
@@ -29,73 +29,24 @@ test('Kalite puanı: Q0 ≈ 0,4, Q5 ≈ 4,9, Q12 ≈ 6,1; artan ve içbükey', (
   near(RR.kalitePuani(0), 0.4, 0.01); near(RR.kalitePuani(5), 4.92, 0.03); near(RR.kalitePuani(12), 6.11, 0.03);
   for (let q = 2; q <= 12; q++) ok(RR.kalitePuani(q) - RR.kalitePuani(q - 1) < RR.kalitePuani(q - 1) - RR.kalitePuani(q - 2), `içbükey Q${q}`);
 });
-test('Hücre ratingi = ürünün kalite puanı; ilan yoksa ya da ürün bilinmiyorsa null', () => {
-  near(A.ratingOf(marketOf, 142, 6), RR.kalitePuani(6), 1e-12);
-  eq(A.ratingOf(() => null, 142, 6), null); eq(A.ratingOf(marketOf, 1, 6), null);
-});
-test('Renk kademesi: <2 h1, <3,5 h2, <4,8 h3, <5,6 h4, üstü h5; veri yoksa yok', () => {
-  eq([0.4, 1.99, 2, 3.49, 3.5, 4.79, 4.8, 5.59, 5.6, 6.1].map(A.ton), ['h1', 'h1', 'h2', 'h2', 'h3', 'h3', 'h4', 'h4', 'h5', 'h5']);
-  eq([null, undefined, NaN].map(A.ton), ['yok', 'yok', 'yok']);
-});
-
-section('Seçim kaydı ve olaylar');
-test('Bozuk kayıt temizlenir; ürün ve kalite sınırları', () => {
-  eq(A.temizleAnaliz(null), A.varsayilanAnaliz());
-  eq(A.temizleAnaliz({ urun: 5, q: 99, aralik: 3 }), { urun: A.varsayilanAnaliz().urun, q: 12 });
-  eq(A.temizleAnaliz({ urun: '131', q: '4' }), { urun: 131, q: 4 });
-});
-test('an.git: ürün ve kaliteyi seçer, kaynağı bilir, Grafik\'e geçer; geçersiz değer reddedilir', () => {
-  const an = A.varsayilanAnaliz(), ui = { kaynak: 'harita' };
-  const b = (dataset) => ({ dataset });
-  eq(A.analizTikla(an, ui, b({ act: 'an.git', u: '131', q: '8', k: 'maliyet' })), 'git');
-  eq([an.urun, an.q, ui.kaynak], [131, 8, 'maliyet']);
-  eq(A.analizTikla(an, ui, b({ act: 'an.git', u: '999', q: '8' })), false);
-  eq(A.analizTikla(an, ui, b({ act: 'an.git', u: '131', q: '13' })), false);
-  eq(A.analizTikla(an, ui, b({ act: 'rt.metrik' })), false);
-  eq(an.urun, 131);
-});
-test('Ürün seçici', () => {
-  const an = A.varsayilanAnaliz();
-  ok(A.analizDegis(an, { dataset: { an: 'urun' }, value: '124' })); eq(an.urun, 124);
-  eq(A.analizDegis(an, { dataset: { an: 'urun' }, value: '1' }), false);
-  eq(A.analizDegis(an, { dataset: {}, value: '124' }), false);
-});
-test('Sekmeler: Harita, Grafik, Maliyet, Menü Seç (Menü Seç Maliyet\'in sağında)', () => {
-  eq(A.SEKMELER.map(([k]) => k), ['harita', 'grafik', 'maliyet', 'menusec']);
+test('Sekmeler: Rating, Maliyet, Menü Seç (Harita yok, Menü Seç Maliyet\'in sağında)', () => {
+  eq(A.SEKMELER, [['rating', 'Rating'], ['maliyet', 'Maliyet'], ['menusec', 'Menü Seç']]);
+  for (const k of ['haritaHtml', 'grafikHtml', 'analizTikla', 'analizDegis', 'temizleAnaliz', 'ratingOf']) eq(typeof A[k], 'undefined', k);
 });
 
 section('Çizim');
-test('Harita: 16 ürün × 13 kalite, hücre = rating, Grafik\'e gider; açıklama, fiyat ve maliyet yok', () => {
-  const h = A.haritaHtml(A.varsayilanAnaliz(), marketOf);
-  eq((h.match(/data-act="an.git"/g) || []).length, 16 * 13);
-  ok(h.includes('Rating haritası') && h.includes('Salata barı') && h.includes('Ana yemek') && h.includes('İçecek'));
-  ok(h.includes('>6,11<') && h.includes('>0,40<'), 'rating değerleri');
-  ok(/class="an-t h[1-5]/.test(h));
-  ok(!/\$|ur-sub|ur-note|an-leg|maliyet|Kâr|yorum/i.test(h.replace(/data-k="harita"/g, '')), 'açıklama ya da maliyet görünüyor');
+test('Rating: Q0–Q12 eğrisi ve değerleri; ürün seçici, düğme, açıklama, fiyat ve maliyet yok', () => {
+  const h = A.ratingHtml();
+  ok(h.includes('<h2 id="h-an-rt">Rating</h2>') && h.includes('aria-label="Kaliteye göre rating"'));
+  eq((h.match(/<circle/g) || []).length, 13); eq((h.match(/<polyline/g) || []).length, 1);
+  ok(h.includes('>0,4<') && h.includes('>6,1<') && h.includes('>Q12<'));
+  ok(!/<select|<button|data-an|data-act|\$|Borsa|geçmiş|Yorum|ur-note|ur-sub|<table|Harita|Grafik/i.test(h), 'ürün seçimi, açıklama ya da fiyat görünüyor');
 });
-test('Harita: ilanı olmayan hücre "—" ve tıklanamaz', () => {
-  const h = A.haritaHtml(A.varsayilanAnaliz(), (id, q) => (id === 117 ? null : marketOf(id, q)));
-  eq((h.match(/data-act="an.git"/g) || []).length, 15 * 13);
-  ok(h.includes('<td class="yok">—</td>'));
-});
-test('Maliyet: tutar hücreleri Grafik\'e gider (kaynak maliyet), mavi en ucuz, çarpan ve oturma düğmeleri', () => {
+test('Maliyet: hücreler düz tutar (düğme yok), mavi en ucuz, çarpan ve oturma düğmeleri', () => {
   const h = A.maliyetHtml({ carpan: 2, tip: 'eko' }, marketOf);
-  eq((h.match(/data-act="an.git"/g) || []).length, 16 * 13);
-  ok(h.includes('data-k="maliyet"') && h.includes('class="an-t low"') && h.includes('data-act="rt.carpan"') && h.includes('data-act="rt.tip"'));
-});
-test('Grafik: yalnız rating eğrisi; fiyat, geçmiş, yorum ve kutucuk yok', () => {
-  const g = A.grafikHtml({ urun: 142, q: 6 }, marketOf, { kaynak: 'harita' });
-  ok(g.includes('Harita\'ya dön') && g.includes('data-an="urun"') && g.includes('Kaliteye göre rating'));
-  eq((g.match(/<circle/g) || []).length, 13);
-  ok(g.includes('>6,1<') && g.includes('class="an-sel"'));
-  ok(!/\$|Borsa|geçmiş|Yorum|an-tiles|an-verdict|ur-note|ur-sub|<table/i.test(g), 'açıklama ya da fiyat görünüyor');
-  ok(A.grafikHtml({ urun: 142, q: 6 }, marketOf, { kaynak: 'maliyet' }).includes('Maliyet\'e dön'));
-});
-test('Grafik: ilanı olmayan kaliteler çizilmez, hiç ilan yokken bozulmaz', () => {
-  const g = A.grafikHtml({ urun: 142, q: 6 }, (id, q) => (q === 5 ? null : marketOf(id, q)), {});
-  eq((g.match(/<circle/g) || []).length, 12); eq((g.match(/<polyline/g) || []).length, 2);
-  const bos = A.grafikHtml({ urun: 117, q: 9 }, () => null, {});
-  eq((bos.match(/<circle/g) || []).length, 0); ok(!bos.includes('<polyline'));
+  ok(h.includes('class="low"') && h.includes('data-act="rt.carpan"') && h.includes('data-act="rt.tip"'));
+  ok(!h.includes('an.git') && !h.includes('grafiği aç') && !h.includes('an-b'));
+  eq((h.match(/<td/g) || []).length, 16 * 13);
 });
 
 const failed = results.filter((r) => !r.ok);
