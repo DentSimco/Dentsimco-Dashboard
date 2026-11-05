@@ -120,19 +120,23 @@ test('Ürün seçici', () => {
 });
 
 section('Çizim');
-test('Harita: 16 ürün × 13 kalite, her hücre düğme ve Grafik\'e gider; kademeli renk sınıfları; kâr ve katsayı yazmaz', () => {
+test('Harita: 16 ürün × 13 kalite, her hücre düğme ve Grafik\'e gider; kademeli renk sınıfları; tek birim (ilk ilanlı kalitede fiyat değil "ilk"); kâr ve katsayı yazmaz', () => {
   const h = A.haritaHtml(A.varsayilanAnaliz(), marketOf);
   eq((h.match(/data-act="an.git"/g) || []).length, 16 * 13);
   ok(/class="an-t t-[gr]\d/.test(h) && h.includes('data-k="harita"'));
-  for (const k of ['Salata barı', 'Ana yemek', 'İçecek', 'Referans maliyet', 'Rating başına maliyet haritası']) ok(h.includes(k), k);
-  ok(h.includes('+0,01 rating') && h.includes('adım ≤ %3') && h.includes('$'));
+  for (const k of ['Salata barı', 'Ana yemek', 'İçecek', 'Rating başına maliyet haritası']) ok(h.includes(k), k);
+  ok(h.includes('+0,01 rating') && h.includes('$'));
+  eq((h.match(/class="an-t t-n ilk[^"]*"><button[^>]*>ilk</g) || []).length, 16, 'her ürünün Q0 hücresi "ilk"');
+  ok(!h.includes('Referans maliyet') && !h.includes('adım ≤ %3') && !h.includes('ucuz"'), 'eski kart ve • işareti kalkmalı');
   ok(!h.includes('★') && !h.includes('an-star'), '★ (kâr kararı) olmamalı');
   ok(!/%\s?3[,.]9|3[,.]9\s?%|15\.000|15000/.test(h), 'katsayı görünüyor');
 });
-test('Harita: fiyatı olmayan hücre "—" ve tıklanamaz', () => {
+test('Harita: fiyatı olmayan hücre "—" ve tıklanamaz; bir alt kalitesi ilansız hücre "?"', () => {
   const h = A.haritaHtml(A.varsayilanAnaliz(), (id, q) => (id === 117 ? null : marketOf(id, q)));
   eq((h.match(/data-act="an.git"/g) || []).length, 15 * 13);
   ok(h.includes('t-yok'));
+  const g = A.haritaHtml(A.varsayilanAnaliz(), (id, q) => (id === 117 && q === 4 ? null : marketOf(id, q)));
+  ok(/data-u="117" data-q="5"[^>]*>\?</.test(g), 'Q4 ilansızken Q5 "?"');
 });
 test('Maliyet: tutar hücreleri Grafik\'e gider (kaynak maliyet), mavi en ucuz, çarpan ve oturma düğmeleri', () => {
   const h = A.maliyetHtml({ carpan: 2, tip: 'eko' }, marketOf);
@@ -140,18 +144,18 @@ test('Maliyet: tutar hücreleri Grafik\'e gider (kaynak maliyet), mavi en ucuz, 
   ok(h.includes('data-k="maliyet"') && h.includes('class="an-t low"') && h.includes('data-act="rt.carpan"') && h.includes('data-act="rt.tip"'));
   ok(!/Doluluk|Kâr/.test(h));
 });
-test('Grafik: kalite listesi kapalıyken düğme yok, açıkken 13 düğme ve oranlar; karar ve yorum', () => {
+test('Grafik: kalite listesi kapalıyken düğme yok, açıkken 13 düğme ve oranlar; tek fiyat grafiği ve tek özet', () => {
   const an = { urun: 142, q: 6, aralik: 30 };
   const kapali = A.grafikHtml(an, marketOf, { state: 'loading' }, { kaynak: 'harita', qAcik: false });
-  eq((kapali.match(/data-act="an.q"/g) || []).length, 13 + 13); // iki grafiğin noktaları (svg: fiyat ve kalite puanı), liste değil
-  ok(!kapali.includes('id="an-qs"') && kapali.includes('Kalite: Q6') && kapali.includes('değiştir'));
+  eq((kapali.match(/data-act="an.q"/g) || []).length, 13); // fiyat grafiğinin noktaları, liste değil
+  ok(!kapali.includes('id="an-qs"') && kapali.includes('Kalite: Q6 · $') && kapali.includes('değiştir'));
   ok(kapali.includes('Harita\'ya dön') && kapali.includes('Geçmiş yükleniyor'));
   const acik = A.grafikHtml(an, marketOf, { state: 'loading' }, { kaynak: 'maliyet', qAcik: true });
   ok(acik.includes('id="an-qs"') && acik.includes('Maliyet\'e dön'));
   eq((acik.match(/<button type="button" data-act="an.q"/g) || []).length, 13);
   ok(/Q\d+ · [+−]%\d+|Q\d+ · %0/.test(acik));
-  ok(acik.includes('ürün kalite puanı +') && acik.includes('Menü rating artışı') && acik.includes('+0,01 rating maliyeti') && acik.includes('Fiyat artışı'));
-  ok(acik.includes('Ürün kalite puanı') && acik.includes('Borsa fiyatı'));
+  ok(acik.includes('Q5 → Q6: +0,01 rating ≈ $') && acik.includes('menü ratingi +') && acik.includes('Kalitelere göre borsa fiyatı'));
+  ok(!acik.includes('Ürün kalite puanı') && !acik.includes('an-tiles') && !acik.includes('Referans'), 'tekrarlayan grafik ve kutucuklar kalkmalı');
   ok(!acik.includes('Yükseltmeye değen') && !acik.includes('Ödenebilir'), 'kâr kararı olmamalı');
   ok(!/%\s?3[,.]9|3[,.]9\s?%/.test(acik), '%3,9 görünüyor');
   ok(!/<table/.test(acik), 'Grafik sekmesinde tablo olmamalı');

@@ -11,6 +11,7 @@ export const UPDATES = [
   {
     date: '5 Kasım 2026',
     items: [
+      'Perakende › Restoran › Analiz sadeleşti. Harita\'da her hücre artık tek birim gösterir (+0,01 rating maliyeti); ilk ilanlı kalitede fiyat yerine "ilk", bir alt kalitesi ilansız hücrede "?" yazar. Renk açıklaması tek bir ucuz–pahalı şeridine indi; Referans maliyet kartı ve • işareti kaldırıldı. Grafik\'te her ürün için aynı olan kalite puanı grafiği ve özeti tekrarlayan kutucuklar kaldırıldı: seçili adım tek cümlede özetlenir, altında kalitelere göre borsa fiyatı ve fiyat geçmişi durur.',
       'Perakende › Restoran › Analiz: Harita artık rating başına maliyeti gösterir, kâr göstermez. Her hücre, bir alt kaliteden bu kaliteye çıkmanın menüde +0,01 rating için maliyetidir; renk bu maliyetin tüm adımlar arasındaki sırasıdır. Kalite puanı yeni ölçümlerle güncellendi: ilk kalite adımları çok, Q9\'dan sonrakiler çok az rating kazandırır. Grafik fiyatı, ürün kalite puanını ve adımın rating artışıyla maliyetini gösterir. Kâr hesabı ayrı gelecek: rating\'in kâra etkisi doluluğa bağlıdır.',
       'Perakende › Restoran › Analiz: eşik yeni ölçümlerle güncellendi. Kalite puanı artık içbükey: ilk kalite adımları çok, Q8\'den sonrakiler az kazandırır; bu yüzden eşik düşük kalitelerde daha yüksek. Harita ve Grafik her ürünün en kârlı kalitesini gösterir (Harita\'da ★, Grafik\'te halka); Grafik\'teki karar ve yorum da en kârlı kaliteye göre.',
     ],

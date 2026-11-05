@@ -2027,6 +2027,23 @@ export default {
   "Perakende › Restoran: Maliyetler sekmesi eklendi. Seviye 1 restoranda her ürünün her kalitedeki döngü maliyeti tablo olarak görünür; kategoride aynı kalitenin en ucuz ürünü mavi işaretlenir.": "Retail › Restaurant: Costs tab added. A table shows the cycle cost of every product at every quality for a level 1 restaurant; the cheapest product of the same quality in each category is marked blue.",
   "Perakende › Restoran: Tavsiye sekmesi eklendi. Hedef ratinge ulaşan en ucuz menüyü, her ürün için ayrı kalite önererek bulur: rating menüdeki kalite ortalamasından hesaplandığı için kalite en ucuza yükseltilebilen ürünlere verilir. Otomatik ürün sayısını da kendisi belirler ya da her kategorideki ürün sayısını kendiniz seçersiniz; önerilen kalite aralığı sınırlanabilir. Bina seviyesi girilebilir; yalnız tahmini rating aralığı ve döngü başına yemek maliyeti verilir (doluluk ve kâr yok). Rating, rehber ve ölçümlerle kurulmuş doğrusal bir modelle tahmin edilir: kalite ve çeşit (toplam ürün sayısı) ratingi artırır, Yönetim ekibinin bonusu eklenir.": "Retail › Restaurant: Recommendation tab added. It finds the cheapest menu that reaches the target rating by recommending a separate quality for each product: since the rating is calculated from the menu's average quality, quality goes to the products that are cheapest to raise. Automatic mode also decides the number of products, or you choose the number in each category; the recommended quality range can be limited. The building level can be entered; only the estimated rating range and the food cost per cycle are given (no occupancy or profit). The rating is estimated with a linear model built from the guide and measurements: quality and variety (total number of products) raise the rating, and the executive team's bonus is added.",
   "Restoran: eski menü önerisi bağlantısı kaldırıldı; yerini Tavsiye sekmesi aldı.": "Restaurant: the old menu suggestion link was removed; the Recommendation tab replaces it.",
+  "Her hücre: bir alt kaliteden bu kaliteye çıkıp menüde +0,01 rating kazanmanın döngü başına maliyeti (seviye 1, 2-2-2 menü). Yeşil ucuz, kırmızı pahalı.": "Each cell: the cost per cycle (level 1, 2-2-2 menu) of going from the quality below to this quality and gaining +0.01 menu rating. Green is cheap, red is expensive.",
+  "Hücreye dokunun → ürünün grafiği açılır. Kâr göstermez: rating'in kâra etkisi doluluğa bağlıdır.": "Tap a cell → the product's chart opens. It does not show profit: the effect of rating on profit depends on occupancy.",
+  "ucuz": "cheap",
+  "pahalı": "expensive",
+  "ilk": "first",
+  "ilan bulunan en düşük kalite": "lowest quality with a listing",
+  "bir alt kalitede ilan yok": "no listing at the quality below",
+  "{0} · ilan bulunan en düşük kalite": "{0} · lowest quality with a listing",
+  "{0} · bir alt kalitede ilan yok": "{0} · no listing at the quality below",
+  "Kalite: Q{0} · {1}": "Quality: Q{0} · {1}",
+  "Q{0} → Q{1}: +0,01 rating ≈ {2} / döngü": "Q{0} → Q{1}: +0.01 rating ≈ {2} / cycle",
+  "Fiyat {0} (+{1}), menü ratingi +{2}. Tüm adımların %{3} kadarı bundan ucuz.": "Price {0} (+{1}), menu rating +{2}. %{3} of all steps are cheaper than this.",
+  "Q{0} → Q{1}: rating bedava": "Q{0} → Q{1}: rating is free",
+  "(Q{0} bir alt kaliteden ucuz ya da aynı fiyat).": "(Q{0} is cheaper than or the same price as the quality below).",
+  "Kalitelere göre borsa fiyatı": "Exchange price by quality",
+  "Noktaya dokunun → o kalite seçilir.": "Tap a point → that quality is selected.",
+  "Perakende › Restoran › Analiz sadeleşti. Harita'da her hücre artık tek birim gösterir (+0,01 rating maliyeti); ilk ilanlı kalitede fiyat yerine \"ilk\", bir alt kalitesi ilansız hücrede \"?\" yazar. Renk açıklaması tek bir ucuz–pahalı şeridine indi; Referans maliyet kartı ve • işareti kaldırıldı. Grafik'te her ürün için aynı olan kalite puanı grafiği ve özeti tekrarlayan kutucuklar kaldırıldı: seçili adım tek cümlede özetlenir, altında kalitelere göre borsa fiyatı ve fiyat geçmişi durur.": "Retail › Restaurant › Analysis was simplified. Each Map cell now shows a single unit (cost of +0.01 rating); the first listed quality shows \"first\" instead of a price, and a cell whose quality below has no listing shows \"?\". The color key is a single cheap–expensive strip; the Reference cost card and the • mark were removed. On the Chart, the quality score chart (identical for every product) and the tiles repeating the summary were removed: the selected step is summarised in one sentence, followed by the exchange price by quality and the price history.",
 };
 
 // ---- Oyundaki ürün adları (ürün no → ad) ----
