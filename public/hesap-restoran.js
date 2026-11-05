@@ -16,8 +16,8 @@
 //   Maaş = binanın saatlik maaşı × 12 [oyun]
 //   Restoran kapanınca rating ×0,875 (kapanış başına bir kez; yükseltme de kapanıştır) [oyun]
 //   Rating bonusu = 0,01 × etkin CMO iletişim puanı + 0,02 × taban satış hızı % [oyun]. Bina kartlarında hedef rating
-//     elle girilir ya da önceki ve mevcut ratingten çıkarılır; menüden rating tahmini yalnız Restoran > Tavsiye sekmesindedir
-//     (restoran-rating.js: ölçümlerle kurulmuş doğrusal model)
+//     elle girilir ya da önceki ve mevcut ratingten çıkarılır; menüden rating tahmini Restoran > Analiz > Menü Seç sekmesindedir
+//     (restoran-rating.js menuRatingi: Kasım ölçümleriyle kurulmuş model; gizli Tavsiye sekmesi eski doğrusal modeli kullanır)
 //   Rating her döngü hedefine doğru yaklaşır: r' = r + k·(T − r), k ≈ 0,177, gürültü ±0,21 [ölçüm]
 //   Doluluk = f(rating, menü fiyatı, ekonomi evresi): oyunun gazetesindeki restoran ısı haritalarından (28 dönem, ~3 milyon döngü)
 //     evre paylarıyla regresyon; tablo public/restoran-doluluk.js (araclar/restoran-isi.mjs üretir). Piyasa ortalamasıdır [oyun verisi]

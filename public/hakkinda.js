@@ -11,6 +11,8 @@ export const UPDATES = [
   {
     date: '5 Kasım 2026',
     items: [
+      'Perakende › Restoran › Analiz: Menü Seç sekmesi eklendi (Maliyet\'in sağında). Her kategoride kaç çeşit olacağını (salata barı, ana yemek, içecek) ve hedef ratingi siz seçersiniz; hedefe ulaşan en ucuz menüyü, hangi ürünlerin ve hangi kalitelerin seçileceğine ayrı ayrı karar vererek önerir. Yönetici bonusu hesaba katılır: 0,01 × etkin iletişim + 0,02 × ekip dışı satış hızı. Rating, Kasım ölçümleriyle kurulan modelle tahmin edilir; aynı hedefe daha ucuz ulaşan çeşit dağılımları da listelenir.',
+      'Perakende › Restoran › Analiz: Harita ve Grafik artık yalnız rating gösterir; yorum, açıklama, fiyat ve maliyet kaldırıldı. Harita\'da her hücre ürünün o kalitedeki rating puanıdır; Grafik ürünün kaliteye göre rating eğrisini çizer.',
       'Perakende › Restoran › Analiz: Harita artık rating başına maliyeti gösterir, kâr göstermez. Her hücre, bir alt kaliteden bu kaliteye çıkmanın menüde +0,01 rating için maliyetidir; renk bu maliyetin tüm adımlar arasındaki sırasıdır. Kalite puanı yeni ölçümlerle güncellendi: ilk kalite adımları çok, Q9\'dan sonrakiler çok az rating kazandırır. Grafik fiyatı, ürün kalite puanını ve adımın rating artışıyla maliyetini gösterir. Kâr hesabı ayrı gelecek: rating\'in kâra etkisi doluluğa bağlıdır.',
       'Perakende › Restoran › Analiz: eşik yeni ölçümlerle güncellendi. Kalite puanı artık içbükey: ilk kalite adımları çok, Q8\'den sonrakiler az kazandırır; bu yüzden eşik düşük kalitelerde daha yüksek. Harita ve Grafik her ürünün en kârlı kalitesini gösterir (Harita\'da ★, Grafik\'te halka); Grafik\'teki karar ve yorum da en kârlı kaliteye göre.',
     ],
