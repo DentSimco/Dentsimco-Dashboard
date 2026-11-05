@@ -84,6 +84,7 @@ async function hamGuncelle(tam) {
   if (!tam && eski) ham = eski;
   const liste = await getJson(`https://www.simcompanies.com/api/v3/en/${REALM}/newspaper/`);
   const enSon = Math.max(...liste.map((x) => Number(x.issueId)).filter(Number.isFinite));
+  const onceki = ham.donemler.length;
   const bas = ham.donemler.length ? Math.max(...ham.donemler.map((x) => x.sayi)) + 1 : ILK_SAYI;
   for (let sayi = bas; sayi <= enSon; sayi++) {
     const d = await getJson(GAZETE(sayi)).catch(() => null);
@@ -95,7 +96,11 @@ async function hamGuncelle(tam) {
   // --tam gazete verisini baştan okur ama fiyatlar yeniden alınamaz (SimcoTools yalnız son 364 günü tutar): eskiler korunur
   if (tam && eski) for (const d of ham.donemler) { const o = eski.donemler.find((x) => x.sayi === d.sayi); if (o?.fiyat) d.fiyat = o.fiyat; }
   ham.evreler = await evreleriIndir();
-  await fiyatlariGuncelle(ham);
+  const fiyatEklendi = await fiyatlariGuncelle(ham);
+  // Ham dosya yalnız yeni sayı ya da fiyat eklendiğinde yazılır: değişmeyen çalışma (faz listesi her hafta değişir) dosyalara dokunmaz,
+  // haftalık iş akışı boş commit ve yayın yapmaz
+  const degisti = tam || ham.donemler.length !== onceki || fiyatEklendi || !ham.guncellendi;
+  if (!degisti) return ham;
   ham.guncellendi = new Date().toISOString().slice(0, 10);
   await mkdir(path.dirname(HAM), { recursive: true });
   await writeFile(HAM, `${JSON.stringify(ham, null, 0).replace(/\],\[/g, '],\n[')}\n`);
@@ -146,7 +151,7 @@ async function mumlariIndir(baslangicMs) {
 // Fiyatı olmayan ve yayımlanmış dönemler için fiyat toplar (bir kez). Pencerenin dışında kalan eski dönemler fiyatsız kalır.
 export async function fiyatlariGuncelle(ham, simdi = Date.now()) {
   const eksik = ham.donemler.filter((d) => !d.fiyat && Date.parse(d.bit) <= simdi && Date.parse(d.bas) >= simdi - (FIYAT_PENCERESI_GUN + KAPSAM_TOLERANS_GUN) * 864e5);
-  if (!eksik.length) return;
+  if (!eksik.length) return false;
   const bas = Math.min(...eksik.map((d) => Date.parse(gunSiniri(d.bas))));
   console.log(`fiyat: ${eksik.map((d) => `#${d.sayi}`).join(', ')} için SimcoTools mumları indiriliyor (${URUN_IDLERI.length * KALITELER.length} istek)`);
   const mumlar = await mumlariIndir(bas);
@@ -156,6 +161,7 @@ export async function fiyatlariGuncelle(ham, simdi = Date.now()) {
     d.fiyat = donemFiyati(mumlar, d.bas, d.bit);
     console.log(`  #${d.sayi}: ${d.fiyat.gun} gün`);
   }
+  return true;
 }
 
 // ---------------------------------------------------------------------------------------------------------------
