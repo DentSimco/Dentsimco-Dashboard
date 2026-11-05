@@ -242,7 +242,7 @@ function sonucHtml(m, hedef) {
   return `<section class="ur-card" aria-label="Önerilen menü">
     <div class="rt-tiles"><div class="rt-tile ms-ok"><small>Tahmini rating</small><b>${num(m.rating, 2)}</b><small>hedef ${num(hedef, 2)}</small></div>
       <div class="rt-tile"><small>Yemek maliyeti / döngü</small><b>${money(m.toplam)}</b><small>günlük ${money(m.gunluk)}</small></div></div>
-    <div class="ms-eq" aria-label="Rating hesabı"><span>Ort. ürün puanı ${num(m.puanOrt, 2)}</span><i>×</i><span>Çeşit ×${num(m.cesitCarpani, 2)} (${m.urunSayisi} ürün)</span><i>+</i><span>Yönetici ${num(m.bonus, 2)}</span>${m.tip === 'luks' ? `<i>×</i><span>Lüks ${num(M.MODEL_KASIM.luks, 1)}</span>` : ''}<i>=</i><b>${num(m.rating, 2)}</b></div>
+    <div class="ms-eq" aria-label="Rating hesabı"><span>Ort. ürün puanı ${num(m.puanOrt, 2)}</span><i>×</i><span>Çeşit ×${num(m.cesitCarpani, 2)} (${m.urunSayisi} ürün)</span><i>+</i><span>Yönetici ${num(m.bonus, 2)}</span>${m.tip === 'luks' ? `<i>×</i><span>Lüks ${num(M.MODEL_KASIM.luks, 2)}</span>` : ''}<i>=</i><b>${num(m.rating, 2)}</b></div>
     ${menuTablo(m)}</section>`;
 }
 

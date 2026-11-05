@@ -32,11 +32,11 @@ export const RATING_MAX = 10;
 // Kalite içbükey: ürün başına kalite puanı f(Q) = taban + genlik × (1 − e^(−Q/ölçek)); menü puanı ürünlerin ortalaması.
 // Q0 ≈ 0,4, Q5 ≈ 4,9, Q12 ≈ 6,1: ilk kalite adımları çok, Q9'dan sonrakiler çok az kazandırır (Q11 → Q12 ≈ +0,06 puan/ürün).
 // Aynı çeşit ve bonusla Q5 menüsü ile Q12 menüsü arası yalnız ≈ +0,5 ± 0,6 çıktı; bu eğri +1,2 veriyor (doğrusal reddedildi, ΔAIC ≈ 17).
-// Eş uyum: çeşit 1 + 0,037 × (N − 6) [N = ürün sayısı, 6'nın altında da hafif düşüş], lüks oturma ≈ ×0,80 (1σ ≈ 0,71–0,82),
+// Eş uyum: çeşit 1 + 0,037 × (N − 6) [N = ürün sayısı, 6'nın altında da hafif düşüş], lüks oturma ×1,25 (lüks ratingi artırır; ilk uyumdaki 0,80 = 1/1,25 ters yorumlanmıştı),
 // profesyonel personel lüksün içinde ≈ +6,7 [ölçüm], bonus 1:1 eklenir (9 restoranlık ANARCHY grubu: ölçülen 6,64 ± 0,18, model 6,55).
 // Ürün maliyeti ve bina seviyesinin etkisi görülmedi. Aşağıdaki doğrusal hedefRating yalnız gizli Tavsiye'de kullanılıyor, güncellenmedi.
 export const KALITE = { taban: 0.4, genlik: 5.89, olcek: 3.43 };
-export const MODEL_KASIM = { cesitEgim: 0.037, luks: 0.8, profesyonel: 6.7 };
+export const MODEL_KASIM = { cesitEgim: 0.037, luks: 1.25, profesyonel: 6.7 };
 /** Bir ürünün kalite puanı (rating puanı cinsinden; menü puanı ürünlerin bu puanlarının ortalamasıdır). */
 export const kalitePuani = (q) => (fin(q) ? KALITE.taban + KALITE.genlik * (1 - Math.exp(-Math.max(0, q) / KALITE.olcek)) : null);
 
@@ -45,7 +45,7 @@ const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 /** Kasım modelinde çeşit çarpanı: 1 + 0,037 × (N − 6), N menüdeki toplam ürün sayısı. */
 export const cesitKasim = (urunSayisi) => 1 + MODEL_KASIM.cesitEgim * (urunSayisi - 6);
 /**
- * Kasım modeliyle menü ratingi (0–10): (ürün kalite puanlarının ortalaması × çeşit + bonus) × oturma (eko 1, lüks 0,8).
+ * Kasım modeliyle menü ratingi (0–10): (ürün kalite puanlarının ortalaması × çeşit + bonus) × oturma (eko 1, lüks 1,25).
  * Bonus 1:1 eklenir (yönetici: 0,01 × etkin iletişim + 0,02 × ekip dışı satış hızı %). Profesyonel personel hesaba katılmaz.
  */
 export function menuRatingi({ puanOrt, urunSayisi, bonus = 0, tip = 'eko' }) {
