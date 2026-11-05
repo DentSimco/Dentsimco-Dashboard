@@ -1,0 +1,79 @@
+# DentSimco — Restoran Isı Haritası verisi (haftalık)
+# Oyunun gazetesi perşembe günleri yayımlanır; restoran ısı haritası 7 haftada bir çıkar. Bu iş akışı her perşembe (ve cuma sabahı yedek olarak)
+# araclar/restoran-isi.mjs'i çalıştırır: yeni sayı varsa gazetenin ısı haritasını (H) ve seviye dağılımını (D), o dönemin SimcoTools
+# günlük fiyatlarını toplar ve public/restoran-isi-donem.js ile public/restoran-doluluk.js'i yeniden üretir.
+# Yeni sayı yoksa hiçbir dosya değişmez ve hiçbir şey yayımlanmaz (betik değişmeyen çalışmada dosyalara dokunmaz).
+# Veri değiştiyse: tüm testler çalışır; geçerlerse değişiklik main'e commit edilir ve "DentSimco Site" yayın iş akışı elle tetiklenir
+# (GITHUB_TOKEN ile atılan commit başka iş akışını kendiliğinden başlatmaz). Test başarısızsa hiçbir şey commit edilmez.
+# SimcoTools yalnız son 364 günlük fiyatı tutar: bu iş akışı yıllarca durursa o dönemlerin fiyatı alınamaz; en az yılda bir çalışmalı.
+# Elle çalıştırmak için: Actions > DentSimco Restoran Isı Haritası > Run workflow
+#
+# Güvenlik: yalnız GITHUB_TOKEN (contents ve actions yazma); sır yok, npm paketi kurulmaz. GitHub eylemleri değişmez commit numarasıyla (SHA) çağrılır.
+name: DentSimco Restoran Isı Haritası
+
+on:
+  schedule:
+    - cron: '30 17 * * 4'   # perşembe 17:30 UTC: gazete 16:00 UTC'de çıkar
+    - cron: '30 6 * * 5'    # cuma 06:30 UTC: yedek (gazete ya da SimcoTools geç kaldıysa)
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: dentsimco-restoran-isi
+  cancel-in-progress: false
+
+jobs:
+  topla:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09 # v5
+        with:
+          ref: main
+          persist-credentials: true
+
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: 22
+
+      - name: Gazete ve fiyatları topla
+        run: node araclar/restoran-isi.mjs
+
+      - name: Değişiklik var mı
+        id: fark
+        run: |
+          if [ -z "$(git status --porcelain araclar/veri public)" ]; then
+            echo "degisti=0" >> "$GITHUB_OUTPUT"
+            echo "Yeni sayı yok: dosyalar değişmedi, yayın yapılmayacak."
+          else
+            echo "degisti=1" >> "$GITHUB_OUTPUT"
+            git status --short
+          fi
+
+      - name: Testler
+        if: steps.fark.outputs.degisti == '1'
+        run: |
+          n=0
+          for f in test/*.mjs; do
+            [ -e "$f" ] || continue
+            case "$f" in *veri-ornek*) continue ;; esac
+            if ! node "$f" > /tmp/test.txt 2>&1; then cat /tmp/test.txt; echo "::error::Test başarısız: $f"; exit 1; fi
+            echo "$f: $(tail -1 /tmp/test.txt)"; n=$((n+1))
+          done
+          [ "$n" -gt 0 ]
+
+      - name: Commit ve yayın
+        if: steps.fark.outputs.degisti == '1'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          sayilar=$(node -e "import('./public/restoran-isi-donem.js').then(m=>console.log(m.ISI_DONEMLER.map(d=>'#'+d.sayi).slice(-3).join(', ')))")
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add araclar/veri public/restoran-isi-donem.js public/restoran-doluluk.js
+          git commit -m "Restoran Isı Haritası: yeni gazete sayısı ve dönem fiyatları (son sayılar: $sayilar)"
+          git push origin HEAD:main
+          gh workflow run site.yml --ref main
