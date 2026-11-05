@@ -28,13 +28,15 @@ export const MODEL = {
 const fin = (x) => typeof x === 'number' && Number.isFinite(x);
 export const RATING_MAX = 10;
 
-// ---- Kasım 2026 ölçümleri (27 ölçüm satırı, 5 oyuncu; eko ve lüks) ----
+// ---- Kasım 2026 ölçümleri (32 satır, 5 oyuncu, eko ve lüks; yaklaşık 130 rating adımı) ----
 // Kalite içbükey: ürün başına kalite puanı f(Q) = taban + genlik × (1 − e^(−Q/ölçek)); menü puanı ürünlerin ortalaması.
-// Q0 ≈ 0,4, Q6 ≈ 4,9, Q12 ≈ 6,5: ilk kalite adımları çok, Q8'den sonrakiler az kazandırır [ölçüm; parabolik de aynı iyilikte uyar,
-// doğrusal reddedildi: ΔAIC ≈ 17]. Çeşit 6 ürüne kadar etkisiz, sonra ürün başına ≈ +%9 [ölçüm, zayıf]. Lüks oturma ≈ ×0,76 (1σ 0,71–0,82),
-// profesyonel personel lüksün içinde ≈ +6,8 (1σ 6,0–7,8) [ölçüm]. Ürün maliyeti ve bina seviyesinin etkisi görülmedi.
-// Aşağıdaki doğrusal hedefRating yalnız gizli Tavsiye sekmesinde kullanılıyor ve bu bulgularla güncellenmedi.
-export const KALITE = { taban: 0.43, genlik: 6.82, olcek: 5.6 };
+// Q0 ≈ 0,4, Q5 ≈ 4,9, Q12 ≈ 6,1: ilk kalite adımları çok, Q9'dan sonrakiler çok az kazandırır (Q11 → Q12 ≈ +0,06 puan/ürün).
+// Aynı çeşit ve bonusla Q5 menüsü ile Q12 menüsü arası yalnız ≈ +0,5 ± 0,6 çıktı; bu eğri +1,2 veriyor (doğrusal reddedildi, ΔAIC ≈ 17).
+// Eş uyum: çeşit 1 + 0,037 × (N − 6) [N = ürün sayısı, 6'nın altında da hafif düşüş], lüks oturma ≈ ×0,80 (1σ ≈ 0,71–0,82),
+// profesyonel personel lüksün içinde ≈ +6,7 [ölçüm], bonus 1:1 eklenir (9 restoranlık ANARCHY grubu: ölçülen 6,64 ± 0,18, model 6,55).
+// Ürün maliyeti ve bina seviyesinin etkisi görülmedi. Aşağıdaki doğrusal hedefRating yalnız gizli Tavsiye'de kullanılıyor, güncellenmedi.
+export const KALITE = { taban: 0.4, genlik: 5.89, olcek: 3.43 };
+export const MODEL_KASIM = { cesitEgim: 0.037, luks: 0.8, profesyonel: 6.7 };
 /** Bir ürünün kalite puanı (rating puanı cinsinden; menü puanı ürünlerin bu puanlarının ortalamasıdır). */
 export const kalitePuani = (q) => (fin(q) ? KALITE.taban + KALITE.genlik * (1 - Math.exp(-Math.max(0, q) / KALITE.olcek)) : null);
 

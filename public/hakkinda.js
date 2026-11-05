@@ -11,6 +11,7 @@ export const UPDATES = [
   {
     date: '5 Kasım 2026',
     items: [
+      'Perakende › Restoran › Analiz: Harita artık kalite adımı bazlı. Her hücre bir alt kaliteden bu kaliteye fiyat artışını gösterir; renk, artışın ödenebilir payla farkıdır; ★ yükseltmeye değen en yüksek kalitedir. Kalite puanı yeni ölçümlerle güncellendi: yüksek kalitede adım başına ödenebilir pay yaklaşık %2–3\'e iner (deneyimli oyuncuların kuralıyla uyumlu). Grafik de fiyat artışını, ödenebilir payı ve farkı gösterir.',
       'Perakende › Restoran › Analiz: eşik yeni ölçümlerle güncellendi. Kalite puanı artık içbükey: ilk kalite adımları çok, Q8\'den sonrakiler az kazandırır; bu yüzden eşik düşük kalitelerde daha yüksek. Harita ve Grafik her ürünün en kârlı kalitesini gösterir (Harita\'da ★, Grafik\'te halka); Grafik\'teki karar ve yorum da en kârlı kaliteye göre.',
     ],
   },
