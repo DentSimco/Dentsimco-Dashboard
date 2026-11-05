@@ -213,16 +213,15 @@ const kartlar = [{ id: 'a', ad: 'Merkez', tip: 'eko', profesyonel: false, seviye
 const ctx = { restoranlar: kartlar, iletisim: 50, hiz: 25, adminNet: 0.3 };
 test('temizle: geçersiz kayıt varsayılana döner; olmayan sayı ve bozuk hücre atılır', () => {
   eq(IS.temizleIsi(null), IS.varsayilanIsi()); eq(IS.temizleIsi('x'), IS.varsayilanIsi());
-  const s = IS.temizleIsi({ mod: 'tek', a: 1, b: 2, tek: [SON.sayi, 1, SON.sayi, 'x'], metrik: 'x', tip: 'luks', restoran: 5, sel: { pi: 99, r: 3 } });
-  eq(s.tek, [SON.sayi]); eq(s.a, null); eq(s.metrik, 'kar'); eq(s.tip, 'luks'); eq(s.restoran, ''); eq(s.sel, null); eq(s.mod, 'tek');
+  const s = IS.temizleIsi({ mod: 'tek', a: 1, b: 2, metrik: 'x', tip: 'luks', restoran: 5, sel: { pi: 99, r: 3 } });
+  eq(s.a, null); eq('mod' in s || 'tek' in s, false); eq(s.metrik, 'kar'); eq(s.tip, 'luks'); eq(s.restoran, ''); eq(s.sel, null);
   eq(IS.temizleIsi({ sel: { pi: 2, r: 7 } }).sel, { pi: 2, r: 7 });
 });
-test('seçili: ilk açılışta son 3 sayı; aralık ve tek tek seçim eskiden yeniye', () => {
+test('seçili: ilk açılışta son 3 sayı; aralık eskiden yeniye (ters sırada da)', () => {
   const st = IS.varsayilanIsi(); eq(IS.secili(st).map((d) => d.sayi), ISI_DONEMLER.slice(-3).map((d) => d.sayi));
   const a = ISI_DONEMLER[1].sayi, b = ISI_DONEMLER[3].sayi;
   eq(IS.secili({ ...st, a: b, b: a }).map((d) => d.sayi), ISI_DONEMLER.slice(1, 4).map((d) => d.sayi));
-  eq(IS.secili({ ...st, mod: 'tek', tek: [b, a] }).map((d) => d.sayi), [a, b]);
-  eq(IS.secili({ ...st, mod: 'tek', tek: [] }).length, 3); eq(IS.secili(st, []), []);
+  eq(IS.secili({ ...st, a: 12345, b }).length, 3); eq(IS.secili(st, []), []);
 });
 test('aralık: iki dokunuşla aralık seçilir (ilk dokunuş tek sayı, ikincisi aralığı kapatır)', () => {
   const st = IS.varsayilanIsi(), a = ISI_DONEMLER[0].sayi, b = ISI_DONEMLER[2].sayi;
@@ -230,11 +229,14 @@ test('aralık: iki dokunuşla aralık seçilir (ilk dokunuş tek sayı, ikincisi
   ok(IS.isiTikla(st, btn('is.sayi', b), ctx)); eq(IS.secili(st).length, 3); eq(st.capa, null);
   ok(!IS.isiTikla(st, btn('is.sayi', 12345), ctx));
 });
-test('tek tek seç: dokunuşla ekle ve çıkar; son sayı çıkarılamaz; mod geçişi seçimi korur', () => {
-  const st = IS.varsayilanIsi(); ok(IS.isiTikla(st, btn('is.mod', 'tek'), ctx)); eq(st.tek, ISI_DONEMLER.slice(-3).map((d) => d.sayi));
-  const n = ISI_DONEMLER[0].sayi; IS.isiTikla(st, btn('is.sayi', n), ctx); ok(st.tek.includes(n)); IS.isiTikla(st, btn('is.sayi', n), ctx); ok(!st.tek.includes(n));
-  st.tek = [SON.sayi]; ok(!IS.isiTikla(st, btn('is.sayi', SON.sayi), ctx)); eq(st.tek, [SON.sayi]);
-  st.tek = [ISI_DONEMLER[1].sayi, SON.sayi]; ok(IS.isiTikla(st, btn('is.mod', 'aralik'), ctx)); eq([st.a, st.b], [ISI_DONEMLER[1].sayi, SON.sayi]);
+test('tek tek seçim yok: durumda mod ve liste alanı bulunmaz; "is.mod" olayı tanınmaz', () => {
+  const st = IS.varsayilanIsi(); eq('mod' in st || 'tek' in st, false); ok(!IS.isiTikla(st, btn('is.mod', 'tek'), ctx));
+  ok(!IS.isiHtml(st, ctx).includes('Tek tek') && !IS.isiHtml(st, ctx).includes('is.mod'));
+});
+test('en son sayı "güncel" yazar: seçicide, şeritte ve ipucunda; evre renkleri kâr/zarar renginden ayrı', () => {
+  const h = IS.isiHtml(IS.varsayilanIsi(), ctx);
+  ok(h.includes(`#${SON.sayi} · güncel`) && h.includes('<small>güncel</small>') && h.includes(', güncel)') && h.includes(`Güncel sayı #${SON.sayi}`));
+  ok(h.includes('--ph-boom') && h.includes('--ph-rec')); ok(!/is-ph[^]*?var\(--(up|down)\)/.test(h.slice(h.indexOf('is-ph'), h.indexOf('is-ph') + 600)), 'evre göstergesinde yeşil/kırmızı yok');
 });
 test('ilk ve son sayı seçicileri: ters sırada seçilse de aralık düzelir', () => {
   const st = IS.varsayilanIsi(), el = (f, v) => ({ dataset: { is: f }, value: String(v) });
@@ -299,7 +301,7 @@ test('menüyle ulaşılamayan hücre × ile gösterilir (bonussuz eko, yüksek r
   const h = IS.isiHtml(IS.varsayilanIsi(), { ...ctx, iletisim: 0, hiz: 0 }); ok(h.includes('is-cell unreach'));
 });
 test('çizim eko ve lüks, tüm sayı seçimlerinde çökmez', () => {
-  for (const tip of ['eko', 'luks']) for (const mod of ['aralik', 'tek']) IS.isiHtml({ ...IS.varsayilanIsi(), tip, mod, tek: ISI_DONEMLER.map((d) => d.sayi), a: ISI_DONEMLER[0].sayi, b: SON.sayi }, ctx);
+  for (const tip of ['eko', 'luks']) for (const a of [ISI_DONEMLER[0].sayi, SON.sayi]) IS.isiHtml({ ...IS.varsayilanIsi(), tip, a, b: SON.sayi }, ctx);
 });
 
 // ---------------------------------------------------------------------------------------------------------------
