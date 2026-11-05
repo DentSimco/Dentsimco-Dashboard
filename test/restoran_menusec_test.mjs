@@ -54,10 +54,10 @@ function kabaKuvvet(m, cesit, { hedef, bonus = 0, tip = 'eko', seviye = 1 }) {
 }
 
 section('Model ve bonus');
-test('Kasım modeli: (ortalama puan × (1 + 0,037 × (N − 6)) + bonus) × oturma; lüks 0,8; 0–10 arası', () => {
+test('Kasım modeli: (ortalama puan × (1 + 0,037 × (N − 6)) + bonus) × oturma; lüks 1,25; 0–10 arası', () => {
   near(RR.menuRatingi({ puanOrt: 5, urunSayisi: 6, bonus: 0 }), 5, 1e-12);
   near(RR.menuRatingi({ puanOrt: 5, urunSayisi: 8, bonus: 0.5 }), 5 * 1.074 + 0.5, 1e-12);
-  near(RR.menuRatingi({ puanOrt: 5, urunSayisi: 6, bonus: 1, tip: 'luks' }), 6 * 0.8, 1e-12);
+  near(RR.menuRatingi({ puanOrt: 5, urunSayisi: 6, bonus: 1, tip: 'luks' }), 6 * 1.25, 1e-12);
   eq(RR.menuRatingi({ puanOrt: 50, urunSayisi: 6 }), 10); eq(RR.menuRatingi({ puanOrt: null, urunSayisi: 6 }), null);
 });
 test('Yönetici bonusu = 0,01 × etkin iletişim + 0,02 × ekip dışı satış hızı %; eksi ve boş değer 0', () => {
@@ -134,7 +134,9 @@ test('Çeşit düğmeleri sınırda durur; oturma; dağılım seçimi; değer gi
 section('Çizim');
 test('Menü Seç: çeşit düğmeleri, hedef, etkin iletişim dökümü, rating hesabı ve menü tablosu', () => {
   const h = MS.menuSecHtml({ cesit: { salata: 2, ana: 1, icecek: 2 }, hedef: 5.5, seviye: 1, tip: 'eko' }, marketOf, { iletisim: 34, hiz: 8 });
-  for (const s of ['Menü Seç', 'data-ms="hedef"', 'data-ms="seviye"', 'data-act="ms.tip"', 'Etkin iletişim 34 × 0,01', '+0,34', 'satış hızı %8 × 0,02', '+0,16', 'Yönetici bonusu', '+0,50', 'Tahmini rating', 'Ort. ürün puanı', 'Yönetici 0,50', 'Önerilen menü']) ok(h.includes(s), s);
+  for (const s of ['Menü Seç', 'data-ms="hedef"', 'data-ms="seviye"', 'data-act="ms.tip"', 'Etkin iletişim 34 × 0,01', '+0,34', 'satış hızı %8 × 0,02', '+0,16', 'Yönetici bonusu', '+0,50', 'Tahmini rating', 'Önerilen menü'
+  ]) ok(h.includes(s), s);
+  ok(!h.includes('Ort. ürün puanı'), 'formül gösterilmez');
   eq((h.match(/data-act="ms.cesit"/g) || []).length, 6);
   ok(!h.includes('CMO'), 'CMO yazmamalı');
 });
