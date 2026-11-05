@@ -9,6 +9,12 @@ const TABS = [['nedir', 'Nedir'], ['guncellemeler', 'Güncellemeler'], ['kaynakc
 // En yeni en üstte. { date: 'gün ay yıl', items: ['...', '...'] }
 export const UPDATES = [
   {
+    date: '5 Kasım 2026',
+    items: [
+      'Perakende › Restoran › Analiz: eşik yeni ölçümlerle güncellendi. Kalite puanı artık içbükey: ilk kalite adımları çok, Q8\'den sonrakiler az kazandırır; bu yüzden eşik düşük kalitelerde daha yüksek. Harita ve Grafik her ürünün en kârlı kalitesini gösterir (Harita\'da ★, Grafik\'te halka); Grafik\'teki karar ve yorum da en kârlı kaliteye göre.',
+    ],
+  },
+  {
     date: '29 Ekim 2026',
     items: [
       'Perakende › Restoran: Analiz sekmesi eklendi. Harita, borsa fiyatını ürünün referans maliyetinden hesaplanan eşikle karşılaştırır (ürün × Q0–Q12, kademeli yeşil ve kırmızı); hücreye dokunmak ürünün Grafik\'ini açar. Grafik, kalitelere göre fiyatı ve eşiği ile botun kayıtlarından 7, 14 ya da 30 günlük fiyat geçmişini gösterir. Maliyetler sekmesi Analiz\'in altına, Maliyet adıyla taşındı.',

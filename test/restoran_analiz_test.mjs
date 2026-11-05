@@ -3,6 +3,7 @@
 
 import * as A from '../public/restoran-analiz.js';
 import * as R from '../public/hesap-restoran.js';
+import * as RR from '../public/restoran-rating.js';
 
 const results = [];
 let group = '';
@@ -28,10 +29,18 @@ test('Referans = 7200 ÷ oran; Köfte ≈ 2054, Salata ≈ 766, Süt = 25', () =
   near(A.referans(131), 2054.2, 0.1); near(A.referans(142), 765.8, 0.1); near(A.referans(117), 25, 1e-9);
   eq(A.referans(1), null);
 });
-test('Eşik kalite adımı başına referansın küçük bir payı kadar artar; Q0 eşiği referansın kendisi', () => {
+test('Eşik = referans + kalitenin değeri; Q0 eşiği referansın kendisi; içbükey (ilk adımlar büyük)', () => {
   near(A.esik(142, 0), A.referans(142), 1e-9);
-  near(A.esik(142, 10), A.referans(142) * (1 + 10 * A.ESIK_PAYI), 1e-9);
-  ok(A.esik(142, 12) > A.esik(142, 11));
+  const K = 15000 / (7200 * 6);
+  near(A.DEGER_KATSAYISI, K, 1e-12);
+  near(A.esik(142, 10), A.referans(142) * (1 + K * (RR.kalitePuani(10) - RR.kalitePuani(0))), 1e-9);
+  for (let q = 1; q <= 12; q++) ok(A.esik(142, q) > A.esik(142, q - 1), `artan Q${q}`);
+  const adim = (q) => A.esik(142, q + 1) - A.esik(142, q);
+  ok(adim(0) > adim(5) && adim(5) > adim(11), 'içbükey değil');
+});
+test('Kalite puanı: Q0 ≈ 0,4, Q6 ≈ 4,9, Q12 ≈ 6,5; artan ve içbükey', () => {
+  near(RR.kalitePuani(0), 0.43, 0.01); near(RR.kalitePuani(6), 4.91, 0.02); near(RR.kalitePuani(12), 6.45, 0.02);
+  eq(RR.kalitePuani(null), null);
 });
 test('Sapma: fiyat ÷ eşik − 1; fiyat yoksa null', () => {
   near(A.fark(A.esik(142, 5) * 0.88, 142, 5), -0.12, 1e-9);
@@ -50,25 +59,23 @@ test('Yüzde metni: işaretli, tam sayı; sıfır "%0"', () => {
 });
 
 section('Yorum ve karar');
-test('Yorum sınıfları: öncelik, marjinal, başabaş, yakın, pahalı, taban, ilan yok', () => {
-  ok(A.yorum(-0.12, 3).includes('öncelik'));
-  ok(A.yorum(-0.05, 3).includes('marjinal'));
-  ok(A.yorum(0.002, 3).includes('başabaş'));
-  ok(A.yorum(0.06, 3).includes('yakın'));
-  ok(A.yorum(0.3, 3).includes('pahalı'));
-  ok(A.yorum(-0.1, 0).startsWith('Taban kalite') && A.yorum(0.1, 0).includes('üstünde'));
-  eq(A.yorum(null, 3), 'Borsada ilan yok');
+test('En kârlı kalite: eşik − fiyat en büyük olan kalite; fiyat yoksa null', () => {
+  const best = A.enKarliKalite(marketOf, 142);
+  ok(best && best.q >= 0 && best.q <= 12);
+  for (let q = 0; q <= 12; q++) ok(A.esik(142, q) - marketOf(142, q) <= best.pay + 1e-9, `Q${q} daha kârlı`);
+  // fiyat kaliteyle çok hızlı artıyorsa en kârlı kalite düşük olur
+  const dik = (id, q) => A.referans(id) * (1 + q);
+  eq(A.enKarliKalite(dik, 142).q, 0);
+  // kalite ucuzsa en kârlısı en yüksek kalite olur
+  eq(A.enKarliKalite((id) => A.referans(id), 142).q, 12);
+  eq(A.enKarliKalite(() => null, 142), null);
 });
-test('Eşiğin altındaki en yüksek kalite (Q0 hariç); hiçbiri altında değilse en yakını', () => {
-  // fiyat referansın %90'ı × (1 + 0,08 q): eşik 1 + 0,039 q → q = 1…: oran 0,9(1+0,08q)/(1+0,039q) ≤ 1 ⇔ q ≤ 2,3 (yaklaşık)
-  const best = A.enYuksekKalite(marketOf, 142);
-  ok(best >= 1 && best <= 3, `en yüksek ${best}`);
-  ok(A.fark(marketOf(142, best), 142, best) <= 0 && A.fark(marketOf(142, best + 1), 142, best + 1) > 0);
-  const pahali = (id, q) => A.referans(id) * 2;
-  eq(A.enYuksekKalite(pahali, 142), null);
-  ok(A.enYakinKalite(pahali, 142).q >= 1);
-  eq(A.enYuksekKalite(() => null, 142), null);
-  eq(A.enYakinKalite(() => null, 142), null);
+test('Yorum en kârlı kaliteye göre: en kârlı, yükseltin, fazla pahalı, ilan yok', () => {
+  const b = A.enKarliKalite(marketOf, 142).q;
+  eq(A.yorum(marketOf, 142, b), 'Bu ürünün en kârlı kalitesi');
+  if (b > 0) ok(A.yorum(marketOf, 142, b - 1).includes('yükseltin'));
+  if (b < 12) ok(A.yorum(marketOf, 142, b + 1).includes('fazla pahalı'));
+  eq(A.yorum(() => null, 142, 3), 'Borsada ilan yok');
 });
 
 section('Geçmiş serisi');
@@ -115,6 +122,7 @@ test('Ürün seçici', () => {
 section('Çizim');
 test('Harita: 16 ürün × 13 kalite, her hücre düğme ve Grafik\'e gider; kademeli renk sınıfları; "%3,9" yazmaz', () => {
   const h = A.haritaHtml(A.varsayilanAnaliz(), marketOf);
+  eq((h.match(/class="an-t [^"]*best/g) || []).length, 16, 'her ürüne bir ★');
   eq((h.match(/data-act="an.git"/g) || []).length, 16 * 13);
   ok(/class="an-t t-[gr]\d/.test(h) && h.includes('data-k="harita"'));
   for (const k of ['Salata barı', 'Ana yemek', 'İçecek', 'Referans maliyet']) ok(h.includes(k), k);
@@ -142,7 +150,7 @@ test('Grafik: kalite listesi kapalıyken düğme yok, açıkken 13 düğme ve or
   ok(acik.includes('id="an-qs"') && acik.includes('Maliyet\'e dön'));
   eq((acik.match(/<button type="button" data-act="an.q"/g) || []).length, 13);
   ok(/Q\d+ · [+−]%\d+/.test(acik));
-  ok(acik.includes('Eşiğin altındaki en yüksek kalite') || acik.includes('Hiçbir kalite eşiğin altında değil'));
+  ok(acik.includes('En kârlı kalite: Q'));
   ok(!/%\s?3[,.]9|3[,.]9\s?%/.test(acik), '%3,9 görünüyor');
   ok(!/<table/.test(acik), 'Grafik sekmesinde tablo olmamalı');
 });

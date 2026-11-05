@@ -25,9 +25,19 @@ export const MODEL = {
   yaklasma: 0.2, // döngü başına hedefe yaklaşma oranı k [ölçüm, 0,17–0,21]
   hata: 0.5, // tahmin aralığının yarı genişliği (rating puanı): modelin ölçümlerle uyum hatası ≈ 1σ [ölçüm]
 };
+const fin = (x) => typeof x === 'number' && Number.isFinite(x);
 export const RATING_MAX = 10;
 
-const fin = (x) => typeof x === 'number' && Number.isFinite(x);
+// ---- Kasım 2026 ölçümleri (27 ölçüm satırı, 5 oyuncu; eko ve lüks) ----
+// Kalite içbükey: ürün başına kalite puanı f(Q) = taban + genlik × (1 − e^(−Q/ölçek)); menü puanı ürünlerin ortalaması.
+// Q0 ≈ 0,4, Q6 ≈ 4,9, Q12 ≈ 6,5: ilk kalite adımları çok, Q8'den sonrakiler az kazandırır [ölçüm; parabolik de aynı iyilikte uyar,
+// doğrusal reddedildi: ΔAIC ≈ 17]. Çeşit 6 ürüne kadar etkisiz, sonra ürün başına ≈ +%9 [ölçüm, zayıf]. Lüks oturma ≈ ×0,76 (1σ 0,71–0,82),
+// profesyonel personel lüksün içinde ≈ +6,8 (1σ 6,0–7,8) [ölçüm]. Ürün maliyeti ve bina seviyesinin etkisi görülmedi.
+// Aşağıdaki doğrusal hedefRating yalnız gizli Tavsiye sekmesinde kullanılıyor ve bu bulgularla güncellenmedi.
+export const KALITE = { taban: 0.43, genlik: 6.82, olcek: 5.6 };
+/** Bir ürünün kalite puanı (rating puanı cinsinden; menü puanı ürünlerin bu puanlarının ortalamasıdır). */
+export const kalitePuani = (q) => (fin(q) ? KALITE.taban + KALITE.genlik * (1 - Math.exp(-Math.max(0, q) / KALITE.olcek)) : null);
+
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 
 export const tipCarpani = (tip) => (tip === 'luks' ? MODEL.luks : 1);
