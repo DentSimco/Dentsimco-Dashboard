@@ -216,10 +216,6 @@ export const MENUSEC_CSS = `
 .ms-yon { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; background: var(--raise); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; font-size: 14px; font-variant-numeric: tabular-nums; }
 .ms-yon > span { color: var(--muted); }
 .ms-yon .t { color: var(--text); font-weight: 700; }
-.ms-eq { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; font-size: 14px; font-variant-numeric: tabular-nums; }
-.ms-eq span { background: var(--raise); border: 1px solid var(--line-2); border-radius: 13px; padding: 3px 10px; }
-.ms-eq i { font-style: normal; color: var(--muted); }
-.ms-eq b { background: var(--tint-bg); color: var(--accent); border: 1px solid var(--tint-line); border-radius: 13px; padding: 3px 10px; }
 .ms-ok b { color: var(--up); }
 .ms-alt { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 0 4px; border: 0; border-bottom: 1px solid var(--line); background: none; color: var(--text); font: 500 14px var(--font); font-variant-numeric: tabular-nums; text-align: left; cursor: pointer; }
 .ms-alt:last-of-type { border-bottom: 0; }
@@ -242,7 +238,6 @@ function sonucHtml(m, hedef) {
   return `<section class="ur-card" aria-label="Önerilen menü">
     <div class="rt-tiles"><div class="rt-tile ms-ok"><small>Tahmini rating</small><b>${num(m.rating, 2)}</b><small>hedef ${num(hedef, 2)}</small></div>
       <div class="rt-tile"><small>Yemek maliyeti / döngü</small><b>${money(m.toplam)}</b><small>günlük ${money(m.gunluk)}</small></div></div>
-    <div class="ms-eq" aria-label="Rating hesabı"><span>Ort. ürün puanı ${num(m.puanOrt, 2)}</span><i>×</i><span>Çeşit ×${num(m.cesitCarpani, 2)} (${m.urunSayisi} ürün)</span><i>+</i><span>Yönetici ${num(m.bonus, 2)}</span>${m.tip === 'luks' ? `<i>×</i><span>Lüks ${num(M.MODEL_KASIM.luks, 2)}</span>` : ''}<i>=</i><b>${num(m.rating, 2)}</b></div>
     ${menuTablo(m)}</section>`;
 }
 

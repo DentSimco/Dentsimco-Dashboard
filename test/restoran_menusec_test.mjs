@@ -134,7 +134,9 @@ test('Çeşit düğmeleri sınırda durur; oturma; dağılım seçimi; değer gi
 section('Çizim');
 test('Menü Seç: çeşit düğmeleri, hedef, etkin iletişim dökümü, rating hesabı ve menü tablosu', () => {
   const h = MS.menuSecHtml({ cesit: { salata: 2, ana: 1, icecek: 2 }, hedef: 5.5, seviye: 1, tip: 'eko' }, marketOf, { iletisim: 34, hiz: 8 });
-  for (const s of ['Menü Seç', 'data-ms="hedef"', 'data-ms="seviye"', 'data-act="ms.tip"', 'Etkin iletişim 34 × 0,01', '+0,34', 'satış hızı %8 × 0,02', '+0,16', 'Yönetici bonusu', '+0,50', 'Tahmini rating', 'Ort. ürün puanı', 'Yönetici 0,50', 'Önerilen menü']) ok(h.includes(s), s);
+  for (const s of ['Menü Seç', 'data-ms="hedef"', 'data-ms="seviye"', 'data-act="ms.tip"', 'Etkin iletişim 34 × 0,01', '+0,34', 'satış hızı %8 × 0,02', '+0,16', 'Yönetici bonusu', '+0,50', 'Tahmini rating', 'Önerilen menü'
+  ]) ok(h.includes(s), s);
+  ok(!h.includes('Ort. ürün puanı'), 'formül gösterilmez');
   eq((h.match(/data-act="ms.cesit"/g) || []).length, 6);
   ok(!h.includes('CMO'), 'CMO yazmamalı');
 });
