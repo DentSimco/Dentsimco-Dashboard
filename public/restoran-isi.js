@@ -2,7 +2,7 @@
 //
 // Hesap restoran-isi-hesap.js'te (saf fonksiyonlar, Node'da sınanır); burada durum, çizim ve olaylar var. Çizim HTML metni döndürür,
 // olaylar perakende.js'te bağlanır (data-act="is.*", data-is="…").
-//   Gazete sayıları: bir aralık ya da tek tek seçilen sayılar (7 haftalık dönemler); harita seçilen sayıların toplamıdır.
+//   Gazete sayıları: bir sayı ya da bir aralık (7 haftalık dönemler); harita seçilen sayıların toplamıdır.
 //   Kâr: oturma (eko / lüks) seçilir, isteğe bağlı bir restoran kartı seçilir. Rating bonusu (Yönetim ve Kurulum), yönetim gideri
 //   (Perakende) ve çalışan kalitesi şirketten gelir; burada ayrıca girilmez. Hücre: seviye başına döngü kârı, bin $.
 //   Doluluk: oturma ayrımı yoktur (gazete eko ve lüksü ayırmaz); hücre ortalama doluluk %.
@@ -18,7 +18,6 @@ import { num, money, seg, chip } from './perakende-restoran.js';
 
 const TIPLER = [['eko', 'Eko'], ['luks', 'Lüks']];
 const METRIKLER = [['kar', 'Kâr'], ['doluluk', 'Doluluk']];
-const MODLAR = [['aralik', 'Aralık'], ['tek', 'Tek tek seç']];
 const TIPAD = { eko: 'Eko', luks: 'Lüks' };
 const VARSAYILAN_SAYI = 3; // ilk açılışta son 3 sayı
 const ad = (id) => urunAdi(id, R.URUNLER[id]?.ad) || R.URUNLER[id]?.ad || `#${id}`;
@@ -33,16 +32,14 @@ const isaretli = (x) => (fin(x) ? `${x < 0 ? '−' : '+'}${money(Math.abs(x))}` 
 // ---------------------------------------------------------------------------------------------------------------
 // Kayıt (tarayıcıda saklanan seçimler)
 // ---------------------------------------------------------------------------------------------------------------
-// mod 'aralik': a..b sayıları (boşsa son 3 sayı) · 'tek': tek listesindeki sayılar. restoran: kart kimliği ya da '' (kartsız, yalnız oturma).
-export const varsayilanIsi = () => ({ mod: 'aralik', a: null, b: null, tek: [], metrik: 'kar', tip: 'eko', restoran: '', sel: null });
+// a..b: seçili gazete sayıları aralığı (boşsa son 3 sayı). restoran: kart kimliği ya da '' (kartsız, yalnız oturma).
+export const varsayilanIsi = () => ({ a: null, b: null, metrik: 'kar', tip: 'eko', restoran: '', sel: null });
 
 export function temizleIsi(raw, donemler = ISI_DONEMLER) {
   const s = varsayilanIsi();
   if (!raw || typeof raw !== 'object') return s;
   const sayilar = new Set(donemler.map((d) => d.sayi));
-  s.mod = raw.mod === 'tek' ? 'tek' : 'aralik';
   if (sayilar.has(raw.a) && sayilar.has(raw.b)) { s.a = raw.a; s.b = raw.b; }
-  s.tek = [...new Set(Array.isArray(raw.tek) ? raw.tek.filter((n) => sayilar.has(n)) : [])].sort((x, y) => x - y);
   s.metrik = raw.metrik === 'doluluk' ? 'doluluk' : 'kar';
   s.tip = raw.tip === 'luks' ? 'luks' : 'eko';
   s.restoran = typeof raw.restoran === 'string' ? raw.restoran.slice(0, 40) : '';
@@ -51,12 +48,11 @@ export function temizleIsi(raw, donemler = ISI_DONEMLER) {
   return s;
 }
 
-/** Seçili dönemler (eskiden yeniye); geçersiz ya da boş seçimde son 3 sayı. */
+/** Seçili dönemler (eskiden yeniye); geçersiz seçimde son 3 sayı. */
 export function secili(st, donemler = ISI_DONEMLER) {
   if (!donemler.length) return [];
   let l = [];
-  if (st.mod === 'tek') l = donemler.filter((d) => st.tek.includes(d.sayi));
-  else if (donemler.some((d) => d.sayi === st.a) && donemler.some((d) => d.sayi === st.b)) {
+  if (donemler.some((d) => d.sayi === st.a) && donemler.some((d) => d.sayi === st.b)) {
     const lo = Math.min(st.a, st.b), hi = Math.max(st.a, st.b);
     l = donemler.filter((d) => d.sayi >= lo && d.sayi <= hi);
   }
@@ -70,21 +66,10 @@ const kartOf = (ctx, id) => (ctx?.restoranlar || []).find((x) => x.id === id) ||
 
 export function isiTikla(st, btn, ctx = {}, donemler = ISI_DONEMLER) {
   const act = btn.dataset.act || '', v = btn.dataset.v;
-  if (act === 'is.mod') {
-    const l = secili(st, donemler);
-    if (v === 'tek' && st.mod !== 'tek') { st.mod = 'tek'; st.tek = l.map((d) => d.sayi); }
-    else if (v === 'aralik' && st.mod !== 'aralik') { st.mod = 'aralik'; st.a = l[0].sayi; st.b = l[l.length - 1].sayi; }
-    else return false;
-    st.capa = null; st.sel = null; st.menuAc = false;
-    return true;
-  }
   if (act === 'is.sayi') {
     const n = Number(v);
     if (!donemler.some((d) => d.sayi === n)) return false;
-    if (st.mod === 'tek') {
-      const i = st.tek.indexOf(n);
-      if (i >= 0) { if (st.tek.length > 1) st.tek.splice(i, 1); else return false; } else st.tek = [...st.tek, n].sort((x, y) => x - y);
-    } else if (st.capa == null) { st.a = st.b = n; st.capa = n; }
+    if (st.capa == null) { st.a = st.b = n; st.capa = n; }
     else { st.a = Math.min(st.capa, n); st.b = Math.max(st.capa, n); st.capa = null; }
     st.sel = null; st.menuAc = false;
     return true;
@@ -118,7 +103,7 @@ export function isiDegis(st, el, ctx = {}, donemler = ISI_DONEMLER) {
     const l = secili(st, donemler), n = Number(el.value);
     if (!donemler.some((d) => d.sayi === n)) return false;
     const a = f === 's0' ? n : l[0].sayi, b = f === 's1' ? n : l[l.length - 1].sayi;
-    st.mod = 'aralik'; st.a = Math.min(a, b); st.b = Math.max(a, b); st.capa = null; st.sel = null; st.menuAc = false;
+    st.a = Math.min(a, b); st.b = Math.max(a, b); st.capa = null; st.sel = null; st.menuAc = false;
     return true;
   }
   if (f === 'restoran') {
@@ -143,6 +128,8 @@ export const ISI_CSS = `
 .is-iss .bar i { display: block; height: 100%; }
 .is-iss[aria-pressed="true"] { background: var(--tint-bg); border-color: var(--accent); color: var(--accent); }
 .is-iss[aria-pressed="true"] small { color: var(--accent); }
+:root { --ph-boom: #9d7bff; --ph-normal: #7f8ea6; --ph-rec: #c08a5a; }
+:root[data-theme="light"] { --ph-boom: #6b4bd1; --ph-normal: #6b7a90; --ph-rec: #8f5a26; }
 .is-ph { display: flex; gap: 12px; flex-wrap: wrap; color: var(--muted); font-size: 12px; }
 .is-ph i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
 .is-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
@@ -174,20 +161,18 @@ export const ISI_CSS = `
 `;
 
 function sayiAlani(st, sec, donemler) {
-  const idx = new Set(sec.map((d) => d.sayi));
-  const secenek = donemler.map((d) => `<option value="${d.sayi}">#${d.sayi} · ${esc(tarih(d.bas))} – ${esc(tarih(d.bit))}</option>`);
-  const secimli = (sayi) => secenek.map((o, i) => (donemler[i].sayi === sayi ? o.replace('<option ', '<option selected ') : o)).join('');
-  const serit = donemler.map((d) => `<button type="button" class="is-iss" data-act="is.sayi" data-v="${d.sayi}" aria-pressed="${idx.has(d.sayi)}" title="${esc(`${tarih(d.bas, true)} – ${tarih(d.bit, true)}`)}">#${d.sayi}<span class="bar" aria-hidden="true"><i style="width:${d.evre[2] * 100}%;background:var(--up)"></i><i style="width:${d.evre[1] * 100}%;background:var(--faint)"></i><i style="width:${d.evre[0] * 100}%;background:var(--down)"></i></span><small>${esc(tarih(d.bit))}</small></button>`).join('');
+  const idx = new Set(sec.map((d) => d.sayi)), enSon = donemler[donemler.length - 1].sayi;
+  const etiket = (d) => (d.sayi === enSon ? `#${d.sayi} · güncel` : `#${d.sayi} · ${tarih(d.bas)} – ${tarih(d.bit)}`);
+  const secenek = (sayi) => donemler.map((d) => `<option value="${d.sayi}"${d.sayi === sayi ? ' selected' : ''}>${esc(etiket(d))}</option>`).join('');
+  const serit = donemler.map((d) => `<button type="button" class="is-iss" data-act="is.sayi" data-v="${d.sayi}" aria-pressed="${idx.has(d.sayi)}" title="${esc(`${tarih(d.bas, true)} – ${tarih(d.bit, true)}`)}">#${d.sayi}<span class="bar" aria-hidden="true"><i style="width:${d.evre[2] * 100}%;background:var(--ph-boom)"></i><i style="width:${d.evre[1] * 100}%;background:var(--ph-normal)"></i><i style="width:${d.evre[0] * 100}%;background:var(--ph-rec)"></i></span><small>${d.sayi === enSon ? 'güncel' : esc(tarih(d.bit))}</small></button>`).join('');
   const bas = sec[0], son = sec[sec.length - 1], nums = sec.map((d) => `#${d.sayi}`);
-  const ipucu = st.mod === 'tek'
-    ? `${sec.length} sayı seçili: ${nums.join(', ')}. Dokunarak ekle ya da çıkar.`
-    : `${sec.length} sayı seçili: ${nums[0]}${sec.length > 1 ? ` – ${nums[nums.length - 1]}` : ''} (${tarih(bas.bas, true)} – ${tarih(son.bit, true)}). ${st.capa != null ? 'Aralığı bitirmek için ikinci sayıya dokunun.' : 'Sayıya dokunun; bitiş için ikinci sayıya dokunun.'}`;
-  return `<section class="ur-card" aria-labelledby="h-is-sayi"><div class="ur-head"><h2 id="h-is-sayi">Gazete sayıları</h2>${chip(`Son sayı #${donemler[donemler.length - 1].sayi} · ${tarih(donemler[donemler.length - 1].bit, true)}`, 'muted')}</div>
-    <p class="ur-sub">Oyunun gazetesi restoranları 7 haftalık dönemler halinde veriyor. Tek bir sayıyı, bir aralığı ya da istediğiniz sayıları seçin; harita seçilen sayıların toplamıdır.</p>
-    ${seg('is.mod', MODLAR, st.mod, 'Seçim biçimi')}
-    ${st.mod === 'tek' ? '' : `<div class="ur-grid2"><label class="ur-field"><span>İlk sayı</span><select data-is="s0">${secimli(bas.sayi)}</select></label><label class="ur-field"><span>Son sayı</span><select data-is="s1">${secimli(son.sayi)}</select></label></div>`}
+  const sonYazi = son.sayi === enSon ? `${tarih(son.bit, true)}, güncel` : tarih(son.bit, true);
+  const ipucu = `${sec.length} sayı seçili: ${nums[0]}${sec.length > 1 ? ` – ${nums[nums.length - 1]}` : ''} (${tarih(bas.bas, true)} – ${sonYazi}). ${st.capa != null ? 'Aralığı bitirmek için ikinci sayıya dokunun.' : 'Sayıya dokunun; bitiş için ikinci sayıya dokunun.'}`;
+  return `<section class="ur-card" aria-labelledby="h-is-sayi"><div class="ur-head"><h2 id="h-is-sayi">Gazete sayıları</h2>${chip(`Güncel sayı #${enSon} · ${tarih(donemler[donemler.length - 1].bit, true)}`, 'muted')}</div>
+    <p class="ur-sub">Oyunun gazetesi restoranları 7 haftalık dönemler halinde veriyor. Bir sayı ya da bir aralık seçin; harita seçilen sayıların toplamıdır.</p>
+    <div class="ur-grid2"><label class="ur-field"><span>İlk sayı</span><select data-is="s0">${secenek(bas.sayi)}</select></label><label class="ur-field"><span>Son sayı</span><select data-is="s1">${secenek(son.sayi)}</select></label></div>
     <div class="is-strip" role="group" aria-label="Gazete sayıları">${serit}</div>
-    <div class="is-ph"><span><i style="background:var(--up)"></i>Büyüme</span><span><i style="background:var(--faint)"></i>Normal</span><span><i style="background:var(--down)"></i>Durgunluk</span></div>
+    <div class="is-ph"><span><i style="background:var(--ph-boom)"></i>Büyüme</span><span><i style="background:var(--ph-normal)"></i>Normal</span><span><i style="background:var(--ph-rec)"></i>Durgunluk</span></div>
     <p class="ur-note">${esc(ipucu)} Fiyat verisi #${donemler[0].sayi} ve sonrası için var; eski sayılarda kâr hesaplanamaz.</p></section>`;
 }
 
