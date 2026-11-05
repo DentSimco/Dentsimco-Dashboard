@@ -42,6 +42,18 @@ export const kalitePuani = (q) => (fin(q) ? KALITE.taban + KALITE.genlik * (1 - 
 
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 
+/** Kasım modelinde çeşit çarpanı: 1 + 0,037 × (N − 6), N menüdeki toplam ürün sayısı. */
+export const cesitKasim = (urunSayisi) => 1 + MODEL_KASIM.cesitEgim * (urunSayisi - 6);
+/**
+ * Kasım modeliyle menü ratingi (0–10): (ürün kalite puanlarının ortalaması × çeşit + bonus) × oturma (eko 1, lüks 0,8).
+ * Bonus 1:1 eklenir (yönetici: 0,01 × etkin iletişim + 0,02 × ekip dışı satış hızı %). Profesyonel personel hesaba katılmaz.
+ */
+export function menuRatingi({ puanOrt, urunSayisi, bonus = 0, tip = 'eko' }) {
+  if (!fin(puanOrt) || !(urunSayisi >= 1)) return null;
+  const b = fin(bonus) ? Math.max(0, bonus) : 0;
+  return clamp((puanOrt * cesitKasim(urunSayisi) + b) * (tip === 'luks' ? MODEL_KASIM.luks : 1), 0, RATING_MAX);
+}
+
 export const tipCarpani = (tip) => (tip === 'luks' ? MODEL.luks : 1);
 
 // Menü kalite puanı M (ürün ratingi, kaliteye göre ölçeklenmiş)

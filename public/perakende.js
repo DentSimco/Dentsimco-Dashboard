@@ -15,6 +15,7 @@ import * as RS from './perakende-restoran.js';
 import * as RB from './perakende-rbina.js';
 import * as RT from './restoran-tavsiye.js';
 import * as AN from './restoran-analiz.js';
+import * as MS from './restoran-menusec.js';
 import { guideCard } from './rehber.js';
 import { binaAdi } from './adlar.js';
 import { urunAdi } from './urun-adlari.js';
@@ -25,12 +26,13 @@ const STORE_KEY = (r) => `dentsimco.perakende.r${r}`;
 const TAB_KEY = 'dentsimco.perakende.tab';
 const TAVSIYE_KEY = 'dentsimco.restoran.tavsiye';
 const ANALIZ_KEY = 'dentsimco.restoran.analiz';
+const MENUSEC_KEY = 'dentsimco.restoran.menusec';
 const PERIOD_KEY = 'dentsimco.perakende.period';
-export const TABS = [['kurulum', 'Kurulum'], ['binalar', 'Binalar'], ['pphpl', 'PPHPL Max'], ['restoran', 'Restoran'], ['tuketim', 'Tüketimler'], ['harita', 'Harita'], ['grafik', 'Grafik'], ['maliyet', 'Maliyet'], ['ozet', 'Özet']]; // Tavsiye sekmesi gizli: geri açmak için TABS, GROUPS ve SUBS'a ['tavsiye', 'Tavsiye'] ekleyin
-// Üst sekmeler; Binalar'ın altında iki, Restoran'ın altında üç alt sekme var (Analiz'in altında bir sıra daha: Harita, Grafik, Maliyet)
-const GROUPS = [['kurulum', 'Kurulum', ['kurulum']], ['binalar', 'Binalar', ['binalar', 'pphpl']], ['restoran', 'Restoran', ['restoran', 'tuketim', 'harita', 'grafik', 'maliyet']], ['ozet', 'Özet', ['ozet']]];
+export const TABS = [['kurulum', 'Kurulum'], ['binalar', 'Binalar'], ['pphpl', 'PPHPL Max'], ['restoran', 'Restoran'], ['tuketim', 'Tüketimler'], ['harita', 'Harita'], ['grafik', 'Grafik'], ['maliyet', 'Maliyet'], ['menusec', 'Menü Seç'], ['ozet', 'Özet']]; // Tavsiye sekmesi gizli: geri açmak için TABS, GROUPS ve SUBS'a ['tavsiye', 'Tavsiye'] ekleyin
+// Üst sekmeler; Binalar'ın altında iki, Restoran'ın altında üç alt sekme var (Analiz'in altında bir sıra daha: Harita, Grafik, Maliyet, Menü Seç)
+const GROUPS = [['kurulum', 'Kurulum', ['kurulum']], ['binalar', 'Binalar', ['binalar', 'pphpl']], ['restoran', 'Restoran', ['restoran', 'tuketim', 'harita', 'grafik', 'maliyet', 'menusec']], ['ozet', 'Özet', ['ozet']]];
 const RESTORAN_BINALAR_ACIK = false; // Restoran > Binalar geliştirme aşamasında: erişime kapalı; Tüketimler açık
-const SUBS = { binalar: [['binalar', 'Binalar'], ['pphpl', 'PPHPL Max']], restoran: [['restoran', 'Binalar'], ['tuketim', 'Tüketimler'], ['harita', 'Analiz']] }; // Analiz'in altında Harita | Grafik | Maliyet (restoran-analiz.js SEKMELER)
+const SUBS = { binalar: [['binalar', 'Binalar'], ['pphpl', 'PPHPL Max']], restoran: [['restoran', 'Binalar'], ['tuketim', 'Tüketimler'], ['harita', 'Analiz']] }; // Analiz'in altında Harita | Grafik | Maliyet | Menü Seç (restoran-analiz.js SEKMELER)
 const PERIODS = [['hour', 'Saatlik', 1 / 24], ['day', 'Günlük', 1], ['week', 'Haftalık', 7], ['month', 'Aylık', 30]];
 const REC = [['park', 'Park'], ['temple', 'Tapınak'], ['lake', 'Göl']];
 const HISTORY_DAYS = 30;
@@ -270,7 +272,10 @@ export function mountPerakende(root, { realm = 0 } = {}) {
   let an = AN.varsayilanAnaliz(); // Restoran > Analiz seçimleri: ürün, kalite, geçmiş dönemi (tarayıcıda saklanır)
   try { an = AN.temizleAnaliz(JSON.parse(localStorage.getItem(ANALIZ_KEY) || 'null')); } catch { /* gizli sekme ya da bozuk kayıt: varsayılan */ }
   const anKaydet = () => { try { localStorage.setItem(ANALIZ_KEY, JSON.stringify(an)); } catch { /* gizli sekme */ } };
-  const anUi = { kaynak: 'harita', qAcik: false }; // Grafik'e hangi sekmeden gelindi, kalite listesi açık mı
+  const anUi = { kaynak: 'harita' }; // Grafik'e hangi sekmeden gelindi
+  let ms = MS.varsayilanMenuSec(); // Restoran > Analiz > Menü Seç: çeşit sayıları, hedef rating, seviye, oturma (tarayıcıda saklanır)
+  try { ms = MS.temizleMenuSec(JSON.parse(localStorage.getItem(MENUSEC_KEY) || 'null')); } catch { /* gizli sekme ya da bozuk kayıt: varsayılan */ }
+  const msKaydet = () => { try { localStorage.setItem(MENUSEC_KEY, JSON.stringify(ms)); } catch { /* gizli sekme */ } };
   let data = null;
   let loadError = null;
   let loadToken = 0;
@@ -299,7 +304,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
 
   const style = document.createElement('style');
   style.dataset.module = 'perakende';
-  style.textContent = CSS + EXTRA_CSS + RS.RESTORAN_CSS + RS.TUKETIM_CSS + RB.RBINA_CSS + RT.TAVSIYE_CSS + AN.ANALIZ_CSS;
+  style.textContent = CSS + EXTRA_CSS + RS.RESTORAN_CSS + RS.TUKETIM_CSS + RB.RBINA_CSS + RT.TAVSIYE_CSS + AN.ANALIZ_CSS + MS.MENUSEC_CSS;
   document.head.append(style);
   root.innerHTML = '<div class="ur"></div><div data-sheet></div><div data-toast></div>';
   const view = root.querySelector('.ur');
@@ -385,7 +390,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     } catch { /* yönetim gideri hesaplanamadı: 0 */ }
     const ctx = { saturation: data.saturation, weather: R.noWeather, bonusPct, adminNet: adm.net || 0, qualityWeight: data.qualityWeight,
       buildings: data.norm.buildings, averageSalary: data.norm.averageSalary,
-      ratingBonus: RS.ratingBonusu(baseSpeed, team.effective?.cmo) };
+      ratingBonus: RS.ratingBonusu(baseSpeed, team.effective?.cmo), iletisim: Number(team.effective?.cmo) || 0, ekipDisiHiz: baseSpeed };
     return { econ, phase, recPct, baseSpeed, teamPct, bonusPct, retailLevels, prodLevels: Y.otherAdminLevels(company, 'perakende').levels, adm, ctx };
   }
   const baseWage = (c, letter, product, quality) => R.storeWage({ modelW: R.getModel(c.econ, product, quality)?.W,
@@ -478,7 +483,6 @@ export function mountPerakende(root, { realm = 0 } = {}) {
         `<a href="#perakende/${k === 'harita' && analizSekmesi ? tab : k}" ${k === tab || (k === 'harita' && analizSekmesi) ? 'aria-current="page"' : ''}>${t}</a>`).join('')}</nav>` : '')
       + (analizSekmesi ? `<nav class="ur-subtabs ur-subtabs2" aria-label="Analiz bölümleri">${AN.SEKMELER.map(([k, t]) =>
         `<a href="#perakende/${k}" ${k === tab ? 'aria-current="page"' : ''}>${t}</a>`).join('')}</nav>` : '');
-    if (tab === 'grafik' && data) ensureHistory(an.urun);
     let body;
     if (group[0] === 'restoran' && !kilitAcik()) {
       body = kilitHtml();
@@ -490,7 +494,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       try {
         const c = context();
         const ev = evaluateAll(c);
-        body = tab === 'kurulum' ? viewKurulum(c) : tab === 'pphpl' ? viewPphpl(c) : tab === 'ozet' ? viewOzet(c, ev) : tab === 'restoran' ? viewRestoran(c, ev) : tab === 'tuketim' ? viewTuketim() : tab === 'harita' ? viewHarita() : tab === 'grafik' ? viewGrafik() : tab === 'maliyet' ? viewMaliyet() : tab === 'tavsiye' ? viewTavsiye(c) : viewBinalar(c, ev);
+        body = tab === 'kurulum' ? viewKurulum(c) : tab === 'pphpl' ? viewPphpl(c) : tab === 'ozet' ? viewOzet(c, ev) : tab === 'restoran' ? viewRestoran(c, ev) : tab === 'tuketim' ? viewTuketim() : tab === 'harita' ? viewHarita() : tab === 'grafik' ? viewGrafik() : tab === 'maliyet' ? viewMaliyet() : tab === 'menusec' ? viewMenuSec(c) : tab === 'tavsiye' ? viewTavsiye(c) : viewBinalar(c, ev);
       } catch (e) {
         console.error(e);
         body = `<div class="ur-msg err" role="alert">Bu ekran gösterilemedi: ${esc(e?.message || e)}. Sayfayı yenileyin; sürerse bize bildirin.</div>`;
@@ -719,8 +723,9 @@ export function mountPerakende(root, { realm = 0 } = {}) {
 
   // ---- ANALİZ (Harita, Grafik, Maliyet) ve TAVSİYE ----
   function viewHarita() { return AN.haritaHtml(an, marketOf); }
-  function viewGrafik() { return AN.grafikHtml(an, marketOf, history.get(an.urun), anUi); }
+  function viewGrafik() { return AN.grafikHtml(an, marketOf, anUi); }
   function viewMaliyet() { return AN.maliyetHtml(rt, marketOf); }
+  function viewMenuSec(c) { return MS.menuSecHtml(ms, marketOf, { iletisim: c.ctx.iletisim, hiz: c.ctx.ekipDisiHiz, kaynak: data.market }); } // yönetici bonusu: etkin iletişim (Yönetim) ve ekip dışı satış hızı (Kurulum)
   function viewTavsiye(c) { return RT.tavsiyeHtml(rt, marketOf, { bonus: c.ctx.ratingBonus }); } // rating bonusu: ekip dışı satış hızı (Kurulum) ve Yönetim ekibi
 
   // ---- PPHPL MAX ----
@@ -1059,6 +1064,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     if (act === 'kilitAc') return kilitGiris();
     if (!data) return;
     if (act.startsWith('rt.') && RT.tavsiyeTikla(rt, btn)) { rtKaydet(); softRender(); return; } // tüketim düğmeleri (rt.metrik/aralik/urun/gun) aşağıda işlenir
+    if (act.startsWith('ms.') && MS.menuSecTikla(ms, btn)) { msKaydet(); softRender(); return; }
     if (act === 'an.geri') { location.hash = `#perakende/${anUi.kaynak === 'maliyet' ? 'maliyet' : 'harita'}`; return; }
     if (act.startsWith('an.')) {
       const sonuc = AN.analizTikla(an, anUi, btn);
@@ -1206,6 +1212,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
       return renderSheet();
     }
     if (t?.dataset?.an) { if (AN.analizDegis(an, t)) { anKaydet(); softRender(); } return; }
+    if (t?.dataset?.ms) { if (MS.menuSecDegis(ms, t)) { msKaydet(); softRender(); } return; }
     if (t?.dataset?.rt) { if (RT.tavsiyeDegis(rt, t)) { rtKaydet(); softRender(); } return; }
     if (sheet?.draft?.letter === 'r' && t?.dataset?.pm?.startsWith(`${RB.TASLAK_ID}|`)) {
       RB.rbDegis(RB.taslakRb(sheet.draft.rb), t);
