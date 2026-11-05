@@ -5,6 +5,7 @@
 import * as MS from '../public/restoran-menusec.js';
 import * as R from '../public/hesap-restoran.js';
 import * as RR from '../public/restoran-rating.js';
+import { vwapOf } from './restoran-vwap-veri-ornek.mjs';
 
 const results = [];
 let group = '';
@@ -21,17 +22,8 @@ function near(actual, expected, tol, label = '') {
 }
 function ok(value, label = 'koşul sağlanmadı') { if (!value) throw new Error(label); }
 
-// Tohumlu örnek borsa: ürün başına farklı taban ve kalite artışı; bazı yüksek kalitelerde ilan yok
-function ornekBorsa(seed = 11) {
-  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-  const f = {};
-  for (const id of Object.keys(R.URUNLER)) {
-    const p0 = (7200 / R.URUNLER[id].oran) * (0.85 + rnd() * 0.3), g = 1.07 + rnd() * 0.14;
-    f[id] = Array.from({ length: 13 }, (_, q) => (q >= 10 && rnd() < 0.35 ? null : p0 * g ** q * (0.95 + rnd() * 0.1)));
-  }
-  return (id, q) => f[id]?.[q] ?? null;
-}
-const marketOf = ornekBorsa();
+// Borsa: 4 Kasım 2026 günlük VWAP'ı (dünkü VWAP, gerçek veri). Bazı kalitelerde o gün işlem yok (null): ilan yok gibi davranır.
+const marketOf = vwapOf;
 
 // Kaba kuvvet: kategoride n farklı ürün ve her biri için her kalite; hedefe ulaşan en ucuz menünün maliyeti
 function kabaKuvvet(m, cesit, { hedef, bonus = 0, tip = 'eko', seviye = 1 }) {
