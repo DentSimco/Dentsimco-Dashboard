@@ -2093,6 +2093,18 @@ export default {
   "Perakende › Restoran: Maliyetler sekmesi eklendi. Seviye 1 restoranda her ürünün her kalitedeki döngü maliyeti tablo olarak görünür; kategoride aynı kalitenin en ucuz ürünü mavi işaretlenir.": "Retail › Restaurant: Costs tab added. A table shows the cycle cost of every product at every quality for a level 1 restaurant; the cheapest product of the same quality in each category is marked blue.",
   "Perakende › Restoran: Tavsiye sekmesi eklendi. Hedef ratinge ulaşan en ucuz menüyü, her ürün için ayrı kalite önererek bulur: rating menüdeki kalite ortalamasından hesaplandığı için kalite en ucuza yükseltilebilen ürünlere verilir. Otomatik ürün sayısını da kendisi belirler ya da her kategorideki ürün sayısını kendiniz seçersiniz; önerilen kalite aralığı sınırlanabilir. Bina seviyesi girilebilir; yalnız tahmini rating aralığı ve döngü başına yemek maliyeti verilir (doluluk ve kâr yok). Rating, rehber ve ölçümlerle kurulmuş doğrusal bir modelle tahmin edilir: kalite ve çeşit (toplam ürün sayısı) ratingi artırır, Yönetim ekibinin bonusu eklenir.": "Retail › Restaurant: Recommendation tab added. It finds the cheapest menu that reaches the target rating by recommending a separate quality for each product: since the rating is calculated from the menu's average quality, quality goes to the products that are cheapest to raise. Automatic mode also decides the number of products, or you choose the number in each category; the recommended quality range can be limited. The building level can be entered; only the estimated rating range and the food cost per cycle are given (no occupancy or profit). The rating is estimated with a linear model built from the guide and measurements: quality and variety (total number of products) raise the rating, and the executive team's bonus is added.",
   "Restoran: eski menü önerisi bağlantısı kaldırıldı; yerini Tavsiye sekmesi aldı.": "Restaurant: the old menu suggestion link was removed; the Recommendation tab replaces it.",
+  // ---- Eksik kalan metinler (bug taraması) ----
+  "Bu bina için henüz yeterli günlük veri yok.": "There is not enough daily data for this building yet.",
+  "Bu ürünün bu kalitesi için sinyal verilmiyor.": "No signal is given for this quality of this product.",
+  "Kâr hesaplanamadı": "Profit could not be calculated",
+  "Yükseltme sonrası rating {0}": "Rating after upgrade {0}",
+  "Menünün çıkış noktası": "Menu starting point",
+  "Restoran: menü maliyetini gir": "Restaurant: enter the menu cost",
+  "{0} döngü: zayıf veri": "{0} cycles: weak data",
+  "Restoran · seviye {0} · {1:ayrıntıyı gizle|ayrıntıyı aç}": "Restaurant · level {0} · {1}",
+  "Restoran · seviye {0} · inşaatta · {1:ayrıntıyı gizle|ayrıntıyı aç}": "Restaurant · level {0} · under construction · {1}",
+  "ayrıntıyı gizle": "hide details",
+  "ayrıntıyı aç": "show details",
 };
 
 // ---- Oyundaki ürün adları (ürün no → ad) ----
