@@ -143,7 +143,7 @@ function sanitize(raw) {
   if (!raw || typeof raw !== 'object') return s;
   s.economyPhase = raw.economyPhase != null && [0, 1, 2].includes(Number(raw.economyPhase)) ? Number(raw.economyPhase) : null;
   for (const [k] of REC) s.recreation[k] = Math.min(3, toInt(raw.recreation?.[k]));
-  s.salesSpeedPct = Math.max(0, Number(raw.salesSpeedPct) || 0);
+  s.salesSpeedPct = Math.max(-100, Number(raw.salesSpeedPct) || 0); // eksi olabilir: oyunda ekip dışı satış hızı −%3 görülebiliyor (restoran bonusu −0,06)
   s.academyLevel = toInt(raw.academyLevel);
   s.restoran = RS.temizleRestoran(raw.restoran);
   s.restoranBinalari = RB.temizleRb(raw.restoranBinalari);
@@ -1234,7 +1234,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     if (f === 'rankFilter') { rankFilter = t.value; return softRender(); }
     const next = clone();
     const n = parseNum(t.value);
-    if (f === 'salesSpeedPct') next.salesSpeedPct = Math.max(0, n ?? 0);
+    if (f === 'salesSpeedPct') next.salesSpeedPct = Math.max(-100, n ?? 0);
     else if (f === 'academyLevel') next.academyLevel = toInt(n);
     else if (f === 'bankLevel') {
       const fresh = Y.loadCompanyRecord(r).company;

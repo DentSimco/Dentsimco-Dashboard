@@ -52,10 +52,15 @@ test('Kasım modeli: (ortalama puan × (1 + 0,037 × (N − 6)) + bonus) × otur
   near(RR.menuRatingi({ puanOrt: 5, urunSayisi: 6, bonus: 1, tip: 'luks' }), 6 * 1.25, 1e-12);
   eq(RR.menuRatingi({ puanOrt: 50, urunSayisi: 6 }), 10); eq(RR.menuRatingi({ puanOrt: null, urunSayisi: 6 }), null);
 });
-test('Yönetici bonusu = 0,01 × etkin iletişim + 0,02 × ekip dışı satış hızı %; eksi ve boş değer 0', () => {
+test('Yönetici bonusu = 0,01 × etkin iletişim + 0,02 × ekip dışı satış hızı %; eksi iletişim ve boş değer 0, eksi satış hızı eksi', () => {
   const y = MS.yoneticiBonusu(34, 8);
   near(y.iletisimPuan, 0.34, 1e-12); near(y.hizPuan, 0.16, 1e-12); near(y.toplam, 0.5, 1e-12);
   eq(MS.yoneticiBonusu(-5, null).toplam, 0);
+  const e = MS.yoneticiBonusu(20, -3); // oyunda: "Restoran derecesi −0,06 +0,200"
+  near(e.hizPuan, -0.06, 1e-12); near(e.toplam, 0.14, 1e-12);
+  const h = MS.menuSecHtml({ cesit: { salata: 2, ana: 2, icecek: 2 }, hedef: 0.5, seviye: 1, tip: 'eko' }, marketOf, { iletisim: 20, hiz: -3 });
+  ok(h.includes('−%3 × 0,02') && h.includes('−0,06') && h.includes('+0,14'), 'eksi satış hızı satırı');
+  ok(MS.gerekliPuan(6, { hedef: 1, bonus: -0.5 }) > MS.gerekliPuan(6, { hedef: 1, bonus: 0 }), 'eksi bonus daha çok puan ister');
 });
 test('Adet = yukarı yuvarla(oran × kategori çarpanı × seviye × lüks)', () => {
   eq(MS.adet(129, 1), Math.ceil(3.608 * 2.1)); eq(MS.adet(117, 2, 3), 864); eq(MS.adet(117, 2, 3, 'luks'), 432); eq(MS.adet(1, 2), 0);

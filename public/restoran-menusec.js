@@ -25,6 +25,7 @@ const TIPLER = [['eko', 'Eko'], ['luks', 'Lüks (yemek ×0,5)']];
 const ad = (id) => urunAdi(id, R.URUNLER[id]?.ad) || R.URUNLER[id]?.ad || `#${id}`;
 const fin = (x) => typeof x === 'number' && Number.isFinite(x);
 const tamSayi = (x, a, b, d) => { const n = Math.floor(Number(x)); return Number.isFinite(n) ? Math.min(b, Math.max(a, n)) : d; };
+const isaretli = (x) => `${x < -1e-9 ? '−' : '+'}${num(Math.abs(x), 2)}`; // bonus satırları: +0,34 / −0,06
 const fiyatOf = (marketOf, id, q) => { const p = Number(marketOf?.(id, q)); return fin(p) && p > 0 ? p : null; };
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -47,7 +48,7 @@ export function temizleMenuSec(raw) {
 // ---------------------------------------------------------------------------------------------------------------
 /** Yönetici bonusu ve dökümü: { iletisim, hiz, iletisimPuan, hizPuan, toplam }. */
 export function yoneticiBonusu(iletisim, hizPct) {
-  const i = Math.max(0, Number(iletisim) || 0), h = Math.max(0, Number(hizPct) || 0);
+  const i = Math.max(0, Number(iletisim) || 0), h = Number(hizPct) || 0; // satış hızı eksi olabilir (oyunda −%3 → −0,06)
   const iletisimPuan = R.ILETISIM_RATING * i, hizPuan = R.SATIS_HIZI_RATING * h;
   return { iletisim: i, hiz: h, iletisimPuan, hizPuan, toplam: iletisimPuan + hizPuan };
 }
@@ -98,7 +99,7 @@ function sonek(m) {
 /** Hedefe ulaşmak için gereken en küçük puan toplamı (birim); hedef bonusla zaten aşılıyorsa 0. */
 export function gerekliPuan(urunSayisi, { hedef, bonus = 0, tip = 'eko' }) {
   const L = tip === 'luks' ? M.MODEL_KASIM.luks : 1;
-  const ort = (hedef / L - Math.max(0, bonus || 0)) / M.cesitKasim(urunSayisi);
+  const ort = (hedef / L - (Number(bonus) || 0)) / M.cesitKasim(urunSayisi);
   return Math.max(0, Math.ceil(ort * urunSayisi * PUAN_OLCEK - 1e-9));
 }
 
@@ -261,8 +262,8 @@ export function menuSecHtml(st, marketOf, ctx = {}) {
         ${field('Bina seviyesi', 'data-ms="seviye"', st.seviye, { mode: 'numeric' })}
       </div>
       <div class="rs-mini"><span>Oturma</span>${seg('ms.tip', TIPLER, st.tip, 'Oturma')}</div>
-      <div class="ms-yon" aria-label="Yönetici bonusu"><span class="t">Yönetici bonusu</span><b>+${num(yb.toplam, 2)}</b>
-        <span>Etkin iletişim ${num(yb.iletisim)} × 0,01</span><span>+${num(yb.iletisimPuan, 2)}</span>
-        <span>Ekip dışı satış hızı %${num(yb.hiz, Number.isInteger(yb.hiz) ? 0 : 1)} × 0,02</span><span>+${num(yb.hizPuan, 2)}</span></div>
+      <div class="ms-yon" aria-label="Yönetici bonusu"><span class="t">Yönetici bonusu</span><b>${isaretli(yb.toplam)}</b>
+        <span>Etkin iletişim ${num(yb.iletisim)} × 0,01</span><span>${isaretli(yb.iletisimPuan)}</span>
+        <span>Ekip dışı satış hızı ${yb.hiz < 0 ? '−' : ''}%${num(Math.abs(yb.hiz), Number.isInteger(yb.hiz) ? 0 : 1)} × 0,02</span><span>${isaretli(yb.hizPuan)}</span></div>
     </section>${sonuc}${altHtml}`;
 }

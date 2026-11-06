@@ -6,7 +6,11 @@
 // Bir hücrenin (rating dilimi × menü fiyatı dilimi) seviye başına döngü kârı:
 //   kâr = fiyat × koltuk × doluluk − malzeme − maaş                                  (12 saatlik döngü, 1 seviye)
 //   doluluk   oyunun gazetesindeki restoran ısı haritası: seçilen sayılarda toplam doluluk ÷ döngü sayısı [oyun verisi]
-//   fiyat     dilimin ortası (alt sınır + $15)                                                          [varsayım]
+//   fiyat     dilimin oyundaki değeri. Gazete menü fiyatını $30'un en yakın katına yuvarlar: $60 = $60–74, $90 = $75–104 …
+//             $330 = $315–344, $360 = $345–350 (en yüksek fiyat $350). Kanıt: $360 dilimi var; $60–65 döngüleri $60, $75–80
+//             döngüleri $90 diliminin doluluğunu veriyor (Ekim–Kasım 2026, 70 döngü; alt sınır varsayımı ortalama 15,5, bu 9,6
+//             puan hata). Gelirde dilim değeri kullanılır; $60 ve $360 dilimleri $60 ve $350'ye sabitlenir (döngülerin çoğu
+//             en düşük ve en yüksek fiyattadır)                                                             [gözlem]
 //   koltuk    eko 1.000, lüks 500 (hesap-restoran.js KOLTUK)                                            [oyun]
 //   malzeme   hücrenin rating dilimine ulaşan EN UCUZ menü: her ürünün kalitesi ayrı seçilir (restoran-menusec.js ile aynı arama),
 //             fiyatlar SimcoTools günlük VWAP'ının o sayının dönemindeki hacim ağırlıklı ortalaması [ölçüm]
@@ -22,9 +26,8 @@ import * as R from './hesap-restoran.js';
 import { kategoriTablosu, gerekliPuan } from './restoran-menusec.js';
 import { menuRatingi, kalitePuani } from './restoran-rating.js';
 
-export const FIYAT_DILIMLERI = [60, 90, 120, 150, 180, 210, 240, 270, 300, 330]; // dilim alt sınırı, genişlik $30
+export const FIYAT_DILIMLERI = [60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360]; // oyunun dilim değeri: fiyat $30'un en yakın katına yuvarlanır
 export const DILIM_GENISLIK = 30;
-export const FIYAT_ORTA = 15; // dilim içinde varsayılan konum: ortası
 export const RATING_DILIMLERI = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 export const EGRI_ADIM = 0.005; // maliyet eğrisinin hedef rating ızgarası
 export const EGRI_SON = 2100; // son ızgara dizini: hedef 10,5
@@ -36,8 +39,16 @@ export const LIKIT_HACIM = 20; // ... ve günlük hacmi 10 seviyelik restoranın
 
 const fin = (x) => typeof x === 'number' && Number.isFinite(x);
 export const ratingMerkez = (r) => (r < 10 ? r + 0.5 : 10.25);
-export const fiyatMerkez = (pi) => FIYAT_DILIMLERI[pi] + FIYAT_ORTA;
-export const dilimAdi = (pi) => `$${FIYAT_DILIMLERI[pi]}–${FIYAT_DILIMLERI[pi] + DILIM_GENISLIK - 1}`;
+const fiyatSiniri = (p) => Math.min(R.FIYAT_MAX, Math.max(R.FIYAT_MIN, p));
+/** Dilimin gelirde kullanılan fiyatı: dilim değeri, $60–350 arasına sınırlı ($360 dilimi → $350). */
+export const fiyatMerkez = (pi) => fiyatSiniri(FIYAT_DILIMLERI[pi]);
+/** Dilimin kapsadığı fiyatlar [alt, üst]: $90 → [75, 104]; $60 → [60, 74]; $360 → [345, 350]. */
+export const dilimAraligi = (pi) => [fiyatSiniri(FIYAT_DILIMLERI[pi] - DILIM_GENISLIK / 2), fiyatSiniri(FIYAT_DILIMLERI[pi] + DILIM_GENISLIK / 2 - 1)];
+/** Dilim etiketi: dilimMetni "75–104", dilimAdi "$75–104". */
+export const dilimMetni = (pi) => dilimAraligi(pi).join('–');
+export const dilimAdi = (pi) => `$${dilimMetni(pi)}`;
+/** Menü fiyatının düştüğü dilimin dizini (oyunun yuvarlaması; tam yarıda yukarı: $75 → $90 dilimi). */
+export const fiyatDilimi = (fiyat) => Math.max(0, Math.min(FIYAT_DILIMLERI.length - 1, Math.round(fiyat / DILIM_GENISLIK) - FIYAT_DILIMLERI[0] / DILIM_GENISLIK));
 
 // ---------------------------------------------------------------------------------------------------------------
 // Dönem fiyatları ve maliyet eğrisi
@@ -272,9 +283,7 @@ export function ratingTablosu(gor, tip, o) {
 /** Restoran kartındaki fiyat ve rating'in düştüğü hücre: { pi, r } ya da null. */
 export function hucreOf(fiyat, rating) {
   if (!(fiyat > 0) || !fin(rating)) return null;
-  let pi = 0;
-  for (let i = 0; i < FIYAT_DILIMLERI.length; i++) if (fiyat >= FIYAT_DILIMLERI[i]) pi = i;
-  return { pi, r: Math.max(0, Math.min(10, Math.floor(rating))) };
+  return { pi: fiyatDilimi(fiyat), r: Math.max(0, Math.min(10, Math.floor(rating))) };
 }
 
 export { kalitePuani };
