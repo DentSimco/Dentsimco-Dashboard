@@ -83,11 +83,14 @@ function birlestir(A, B) {
   const n = A.length - 1 + B.length - 1;
   const best = new Array(n + 1).fill(Infinity);
   const arg = new Int32Array(n + 1).fill(-1);
-  for (let s1 = 0; s1 < A.length; s1++) {
-    const a = A[s1]; if (!a) continue;
-    for (let s2 = 0; s2 < B.length; s2++) {
-      const b = B[s2]; if (!b) continue;
-      const t = a.toplam + b.toplam, s = s1 + s2;
+  // Sıcak döngü (≈60 milyon adım): nesne yerine düz sayı dizileri, yoksa Infinity (telefonda ilk "Menüyü göster" donmasın)
+  const ta = Float64Array.from(A, (o) => (o ? o.toplam : Infinity));
+  const tb = Float64Array.from(B, (o) => (o ? o.toplam : Infinity));
+  const nb = tb.length;
+  for (let s1 = 0; s1 < ta.length; s1++) {
+    const av = ta[s1]; if (av === Infinity) continue;
+    for (let s2 = 0; s2 < nb; s2++) {
+      const t = av + tb[s2], s = s1 + s2;
       if (t < best[s]) { best[s] = t; arg[s] = s1; }
     }
   }
