@@ -198,7 +198,7 @@ function haritaHtml(st, gor, tip, o, en, mine, sel, kar) {
   if (kmode) for (let pi = 0; pi < IH.FIYAT_DILIMLERI.length; pi++) for (const r of IH.RATING_DILIMLERI) { const h = gor.hucre[pi][r][0] >= IH.MIN_KOSU ? IH.hucreKari(gor, tip, pi, r, o) : null; if (h) mx = Math.max(mx, Math.abs(h.kar)); }
   let h = `<div class="is-ax">${kmode ? 'bin $' : '%'}</div>${IH.RATING_DILIMLERI.map((r) => `<div class="is-ax is-axx">${r}</div>`).join('')}`;
   for (let pi = IH.FIYAT_DILIMLERI.length - 1; pi >= 0; pi--) {
-    h += `<div class="is-ax">${IH.FIYAT_DILIMLERI[pi]}–${IH.FIYAT_DILIMLERI[pi] + IH.DILIM_GENISLIK - 1}</div>`;
+    h += `<div class="is-ax">${IH.dilimMetni(pi)}</div>`;
     for (const r of IH.RATING_DILIMLERI) {
       const [n, occ] = gor.hucre[pi][r], at = `data-act="is.hucre" data-pi="${pi}" data-r="${r}"`, ad2 = `${IH.dilimAdi(pi)}, rating ${r}`;
       const etk = `${en && en.pi === pi && en.r === r && kmode ? ' best' : ''}${sel.pi === pi && sel.r === r ? ' sel' : ''}${mine && mine.pi === pi && mine.r === r ? ' mine' : ''}`;
@@ -237,7 +237,7 @@ function detayHtml(st, gor, tumGor, tip, o, en, mine, sel) {
     const m = IH.menuDetayi(gor.son, tip, o.bonus, IH.ratingMerkez(r));
     menu = m ? `<div class="ur-hr"></div><p class="ur-note">En ucuz menü (${esc(m.cesit.replace(/-/g, ' + '))} ürün, #${gor.son.sayi} fiyatlarıyla), seviye başına döngü: ${m.urunler.map((u) => `${esc(ad(u.id))} Q${u.q} ${money(u.tutar)}`).join(' · ')}</p>` : '';
   } else menu = '<button type="button" class="ur-btn" data-act="is.menu">Menüyü göster</button>';
-  return `<div class="ur-box">${baslik}${kv('Doluluk', yuzde(k.doluluk, 1))}${kv('Döngü sayısı', num(k.kosu))}${kv('Fiyat (dilim ortası)', money(k.fiyat))}${kv('Gelir / seviye', money(k.gelir))}${kv('Malzeme / seviye', money(k.malzeme))}${kv('Maaş / seviye', money(k.maas))}`
+  return `<div class="ur-box">${baslik}${kv('Doluluk', yuzde(k.doluluk, 1))}${kv('Döngü sayısı', num(k.kosu))}${kv('Fiyat (dilim değeri)', money(k.fiyat))}${kv('Gelir / seviye', money(k.gelir))}${kv('Malzeme / seviye', money(k.malzeme))}${kv('Maaş / seviye', money(k.maas))}`
     + `${kv('Kâr / seviye / döngü', money(k.kar), true, k.kar >= 0 ? 'c-up' : 'c-down')}${kv('Kâr / seviye / gün', money(2 * k.kar))}${kv('Başabaş doluluğu', yuzde(k.basabas, 1))}${menu}</div>`;
 }
 
@@ -246,7 +246,7 @@ function ratingTablosuHtml(gor, tip, o) {
   const enIyiKar = Math.max(...satirlar.filter((s) => fin(s.kar)).map((s) => s.kar), -Infinity);
   const govde = satirlar.filter((s) => s.r >= 3).map((s) => {
     if (!s.fiyat) return `<tr><th class="nm" scope="row">R${s.r}</th><td colspan="4">veri yok</td></tr>`;
-    return `<tr><th class="nm" scope="row">R${s.r}</th><td>${IH.FIYAT_DILIMLERI[s.pi]}–${IH.FIYAT_DILIMLERI[s.pi] + IH.DILIM_GENISLIK - 1}</td><td>${yuzde(s.doluluk)}</td><td>${s.malzeme == null ? '—' : money(s.malzeme)}</td><td class="${s.kar === enIyiKar ? 'low' : ''}${fin(s.kar) && s.kar !== enIyiKar ? (s.kar >= 0 ? ' c-up' : ' c-down') : ''}">${s.kar == null ? '—' : money(s.kar)}</td></tr>`;
+    return `<tr><th class="nm" scope="row">R${s.r}</th><td>${IH.dilimMetni(s.pi)}</td><td>${yuzde(s.doluluk)}</td><td>${s.malzeme == null ? '—' : money(s.malzeme)}</td><td class="${s.kar === enIyiKar ? 'low' : ''}${fin(s.kar) && s.kar !== enIyiKar ? (s.kar >= 0 ? ' c-up' : ' c-down') : ''}">${s.kar == null ? '—' : money(s.kar)}</td></tr>`;
   }).join('');
   return `<section class="ur-card" aria-labelledby="h-is-tablo"><div class="ur-head"><h2 id="h-is-tablo">Rating dilimi başına en iyi fiyat</h2></div>
     <div class="rt-wrap" tabindex="0" role="region" aria-label="Rating dilimi başına kâr"><table class="rt-m is-tablo"><thead><tr><th class="nm" scope="col">Rating</th><th scope="col">Fiyat ($)</th><th scope="col">Doluluk</th><th scope="col">Malzeme</th><th scope="col">Kâr</th></tr></thead><tbody>${govde}</tbody></table></div>

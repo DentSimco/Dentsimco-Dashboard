@@ -7,6 +7,7 @@ import * as IH from '../public/restoran-isi-hesap.js';
 import * as IS from '../public/restoran-isi.js';
 import { ISI_DONEMLER, ISI_FIYAT_DILIMLERI, ISI_KAYNAK } from '../public/restoran-isi-donem.js';
 import * as R from '../public/hesap-restoran.js';
+import * as D from '../public/restoran-doluluk.js';
 import * as RR from '../public/restoran-rating.js';
 import * as MS from '../public/restoran-menusec.js';
 import { donemFiyati, gunSiniri, donemDosyasi } from '../araclar/restoran-isi.mjs';
@@ -150,8 +151,25 @@ test('hücre kârı = donguKari: aynı menü, 100 seviyelik restoran, donguGider
 test('kâr bileşenleri: gelir = fiyat × koltuk × doluluk; başabaş doluluğunda kâr 0', () => {
   const gor = IH.gorunum([SON]), o = { bonus: 1, maas: MAAS };
   const h = IH.hucreKari(gor, 'eko', 1, 7, o);
-  near(h.gelir, 105 * 1000 * h.doluluk, 1e-6); near(h.kar, h.gelir - h.malzeme - h.maas, 1e-6);
-  near(105 * 1000 * h.basabas, h.malzeme + h.maas, 1e-6);
+  eq(h.fiyat, 90, 'gelirde dilim değeri ($75–104 dilimi → $90)');
+  near(h.gelir, 90 * 1000 * h.doluluk, 1e-6); near(h.kar, h.gelir - h.malzeme - h.maas, 1e-6);
+  near(90 * 1000 * h.basabas, h.malzeme + h.maas, 1e-6);
+});
+test('fiyat dilimleri: oyun fiyatı $30\'un en yakın katına yuvarlar; 11 dilim, $360 = $345–350', () => {
+  eq(IH.FIYAT_DILIMLERI.length, 11);
+  eq([0, 1, 2, 9, 10].map(IH.dilimAdi), ['$60–74', '$75–104', '$105–134', '$315–344', '$345–350']);
+  eq([0, 1, 9, 10].map(IH.fiyatMerkez), [60, 90, 330, 350]);
+  eq([60, 62, 74, 75, 80, 104, 105, 344, 345, 350].map(IH.fiyatDilimi), [0, 0, 0, 1, 1, 1, 2, 9, 10, 10]);
+  for (let p = 60; p <= 350; p++) { const pi = IH.fiyatDilimi(p), [a, b] = IH.dilimAraligi(pi); ok(p >= a && p <= b, `$${p} dilim ${IH.dilimAdi(pi)}`); }
+  // Perakende doluluk tahmini aynı dilimleri kullanır; dilim değerinde tablo değerini verir
+  eq(D.DOLULUK_FIYATLAR, IH.FIYAT_DILIMLERI);
+  eq([62, 75, 80, 350].map(R.dolulukDilimi), [0, 1, 1, 10]);
+  near(R.dolulukTahmini(6.5, 90, 1), D.DOLULUK_TABLO[1][1][6], 1e-9); near(R.dolulukTahmini(6.5, 350, 1), D.DOLULUK_TABLO[1][10][6], 1e-9);
+  // Kasım 2026 gözlemleri: $62 rating ~6 (ANARCHY ~%96), $75–80 rating ~5,7 (Sky %43–68)
+  ok(R.dolulukTahmini(6.0, 62, 1) > 85, '$62 rating 6'); ok(R.dolulukTahmini(5.75, 80, 1) < 70, '$80 rating 5,75');
+});
+test('rating bonusu eksi satış hızıyla eksi olabilir (oyunda −%3 → −0,06)', () => {
+  near(R.ratingBonusu(-3, 20), 0.14, 1e-12); near(R.ratingBonusu(17, 71), 1.05, 1e-12); eq(R.ratingBonusu(5, -10), 0.1);
 });
 test('doluluk ve fiyat belirlenmiş hücrede kâr: rating bonusu arttıkça kâr azalmaz; yönetim gideri arttıkça kâr azalır', () => {
   const gor = IH.gorunum([SON]);
@@ -169,7 +187,7 @@ test('en kârlı hücre güvenilir (≥ 100 döngü) ve diğer güvenilir hücre
   for (const tip of ['eko', 'luks']) {
     const gor = IH.gorunum(ISI_DONEMLER.slice(-3)), o = { bonus: 1, maas: IH.maasSeviye(tip, { adminNet: 0.3 }) }, en = IH.enKarliHucre(gor, tip, o);
     ok(en && en.kosu >= IH.MIN_KOSU);
-    for (let pi = 0; pi < 10; pi++) for (let r = 0; r <= 10; r++) { if (gor.hucre[pi][r][0] < IH.MIN_KOSU) continue; const h = IH.hucreKari(gor, tip, pi, r, o); if (h) ok(h.kar <= en.kar + 1e-6, `${pi},${r}`); }
+    for (let pi = 0; pi < IH.FIYAT_DILIMLERI.length; pi++) for (let r = 0; r <= 10; r++) { if (gor.hucre[pi][r][0] < IH.MIN_KOSU) continue; const h = IH.hucreKari(gor, tip, pi, r, o); if (h) ok(h.kar <= en.kar + 1e-6, `${pi},${r}`); }
   }
 });
 test('rating tablosu: her rating diliminde koltuk başına geliri en yüksek fiyat; kâr o fiyattaki hücrenin kârı', () => {
@@ -177,12 +195,13 @@ test('rating tablosu: her rating diliminde koltuk başına geliri en yüksek fiy
   eq(t.length, 11);
   for (const s of t) {
     if (!s.fiyat) continue;
-    for (let pi = 0; pi < 10; pi++) { const [n, occ] = gor.hucre[pi][s.r]; if (n >= IH.MIN_KOSU) ok(IH.fiyatMerkez(pi) * occ <= s.fiyat.koltukGeliri + 1e-9, `R${s.r}`); }
+    for (let pi = 0; pi < IH.FIYAT_DILIMLERI.length; pi++) { const [n, occ] = gor.hucre[pi][s.r]; if (n >= IH.MIN_KOSU) ok(IH.fiyatMerkez(pi) * occ <= s.fiyat.koltukGeliri + 1e-9, `R${s.r}`); }
     const h = IH.hucreKari(gor, 'eko', s.pi, s.r, o); eq(s.kar, h ? h.kar : null);
   }
 });
 test('hücre eşlemesi: restoran kartının fiyatı ve ratingi hangi hücreye düşer', () => {
-  eq(IH.hucreOf(105, 7.2), { pi: 1, r: 7 }); eq(IH.hucreOf(59, 3), { pi: 0, r: 3 }); eq(IH.hucreOf(149, 9.99), { pi: 2, r: 9 }); eq(IH.hucreOf(500, 10), { pi: 9, r: 10 });
+  eq(IH.hucreOf(105, 7.2), { pi: 2, r: 7 }); eq(IH.hucreOf(59, 3), { pi: 0, r: 3 }); eq(IH.hucreOf(149, 9.99), { pi: 3, r: 9 }); eq(IH.hucreOf(500, 10), { pi: 10, r: 10 });
+  eq(IH.hucreOf(62, 6.1), { pi: 0, r: 6 }); eq(IH.hucreOf(75, 5.85), { pi: 1, r: 5 }); eq(IH.hucreOf(350, 0.18), { pi: 10, r: 0 });
   eq(IH.hucreOf(null, 5), null); eq(IH.hucreOf(100, NaN), null);
 });
 
@@ -265,9 +284,10 @@ test('kâr / doluluk, hücre ve menü olayları; geçersiz hücre reddedilir', (
 
 // ---------------------------------------------------------------------------------------------------------------
 section('Çizim');
-test('Kâr görünümü: 110 hücre, oturma seçimi, restoran seçimi, birim etiketi, rating tablosu', () => {
+test('Kâr görünümü: 121 hücre, dilim etiketleri, oturma seçimi, restoran seçimi, birim etiketi, rating tablosu', () => {
   const h = IS.isiHtml(IS.varsayilanIsi(), ctx);
-  eq((h.match(/class="is-cell/g) || []).length, 110);
+  eq((h.match(/class="is-cell/g) || []).length, 121);
+  ok(h.includes('>60–74</div>') && h.includes('>75–104</div>') && h.includes('>345–350</div>') && !h.includes('60–89'), 'dilim etiketleri');
   ok(h.includes('aria-label="Oturma"') && h.includes('data-act="is.tip"')); ok(h.includes('data-is="restoran"') && h.includes('Merkez · Eko'));
   ok(h.includes('bin $') && h.includes('26 = $26.000'));
   ok(h.includes('Rating dilimi başına en iyi fiyat')); ok(h.includes('Rating bonusu +1,00') && h.includes('Yönetim gideri %30,0'));

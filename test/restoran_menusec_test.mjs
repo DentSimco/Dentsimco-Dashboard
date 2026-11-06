@@ -5,6 +5,7 @@
 import * as MS from '../public/restoran-menusec.js';
 import * as R from '../public/hesap-restoran.js';
 import * as RR from '../public/restoran-rating.js';
+import { vwapOf } from './restoran-vwap-veri-ornek.mjs';
 
 const results = [];
 let group = '';
@@ -21,17 +22,8 @@ function near(actual, expected, tol, label = '') {
 }
 function ok(value, label = 'koşul sağlanmadı') { if (!value) throw new Error(label); }
 
-// Tohumlu örnek borsa: ürün başına farklı taban ve kalite artışı; bazı yüksek kalitelerde ilan yok
-function ornekBorsa(seed = 11) {
-  const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
-  const f = {};
-  for (const id of Object.keys(R.URUNLER)) {
-    const p0 = (7200 / R.URUNLER[id].oran) * (0.85 + rnd() * 0.3), g = 1.07 + rnd() * 0.14;
-    f[id] = Array.from({ length: 13 }, (_, q) => (q >= 10 && rnd() < 0.35 ? null : p0 * g ** q * (0.95 + rnd() * 0.1)));
-  }
-  return (id, q) => f[id]?.[q] ?? null;
-}
-const marketOf = ornekBorsa();
+// Borsa: 4 Kasım 2026 günlük VWAP'ı (dünkü VWAP, gerçek veri). Bazı kalitelerde o gün işlem yok (null): ilan yok gibi davranır.
+const marketOf = vwapOf;
 
 // Kaba kuvvet: kategoride n farklı ürün ve her biri için her kalite; hedefe ulaşan en ucuz menünün maliyeti
 function kabaKuvvet(m, cesit, { hedef, bonus = 0, tip = 'eko', seviye = 1 }) {
@@ -60,10 +52,15 @@ test('Kasım modeli: (ortalama puan × (1 + 0,037 × (N − 6)) + bonus) × otur
   near(RR.menuRatingi({ puanOrt: 5, urunSayisi: 6, bonus: 1, tip: 'luks' }), 6 * 1.25, 1e-12);
   eq(RR.menuRatingi({ puanOrt: 50, urunSayisi: 6 }), 10); eq(RR.menuRatingi({ puanOrt: null, urunSayisi: 6 }), null);
 });
-test('Yönetici bonusu = 0,01 × etkin iletişim + 0,02 × ekip dışı satış hızı %; eksi ve boş değer 0', () => {
+test('Yönetici bonusu = 0,01 × etkin iletişim + 0,02 × ekip dışı satış hızı %; eksi iletişim ve boş değer 0, eksi satış hızı eksi', () => {
   const y = MS.yoneticiBonusu(34, 8);
   near(y.iletisimPuan, 0.34, 1e-12); near(y.hizPuan, 0.16, 1e-12); near(y.toplam, 0.5, 1e-12);
   eq(MS.yoneticiBonusu(-5, null).toplam, 0);
+  const e = MS.yoneticiBonusu(20, -3); // oyunda: "Restoran derecesi −0,06 +0,200"
+  near(e.hizPuan, -0.06, 1e-12); near(e.toplam, 0.14, 1e-12);
+  const h = MS.menuSecHtml({ cesit: { salata: 2, ana: 2, icecek: 2 }, hedef: 0.5, seviye: 1, tip: 'eko' }, marketOf, { iletisim: 20, hiz: -3 });
+  ok(h.includes('−%3 × 0,02') && h.includes('−0,06') && h.includes('+0,14'), 'eksi satış hızı satırı');
+  ok(MS.gerekliPuan(6, { hedef: 1, bonus: -0.5 }) > MS.gerekliPuan(6, { hedef: 1, bonus: 0 }), 'eksi bonus daha çok puan ister');
 });
 test('Adet = yukarı yuvarla(oran × kategori çarpanı × seviye × lüks)', () => {
   eq(MS.adet(129, 1), Math.ceil(3.608 * 2.1)); eq(MS.adet(117, 2, 3), 864); eq(MS.adet(117, 2, 3, 'luks'), 432); eq(MS.adet(1, 2), 0);

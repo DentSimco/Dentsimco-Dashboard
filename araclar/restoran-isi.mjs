@@ -1,8 +1,10 @@
 // DentSimco — restoran doluluk tablosunu üretir: node araclar/restoran-isi.mjs [--tam]
 //
 // Kaynak 1: oyunun gazetesi (Sim Companies Times). 7 haftada bir çıkan restoran makalesinde "Restaurant Occupancy Heatmap"
-//   grafiği var: o dönemdeki bütün restoran döngülerinin rating dilimi (tam sayı, lüks çarpanı dahil) × menü fiyatı dilimi ($30)
+//   grafiği var: o dönemdeki bütün restoran döngülerinin rating dilimi (tam sayı, lüks çarpanı dahil) × menü fiyatı dilimi
 //   başına döngü sayısı ve toplam doluluğu. API: /api/v3/en/{realm}/newspaper/{sayı}/ (makalenin charts[] içinde type "H").
+//   Fiyat dilimi, menü fiyatının $30'un en yakın katına yuvarlanmışıdır: 60 = $60–74, 90 = $75–104 … 330 = $315–344, 360 = $345–350
+//   (en yüksek fiyat $350 olduğu hâlde 360 dilimi var; $60–65 ve $75–80 döngülerinin dolulukları da bunu doğruluyor).
 // Kaynak 2: ekonomi evreleri, api.simcotools.com/v1/realms/{realm}/phases (botun kullandığı kaynak).
 //
 // Kaynak 3: SimcoTools günlük mumları (api.simcotools.com/v1/realms/{realm}/market/resources/{ürün}/{kalite}/candlesticks). Restoranda satılan
@@ -35,7 +37,7 @@ const FIYAT_PENCERESI_GUN = 364; // SimcoTools'un tuttuğu süre
 const KAPSAM_TOLERANS_GUN = 10; // dönemin başı penceredeki ilk günden en çok bu kadar önce olabilir
 
 export const RATINGLER = Array.from({ length: 11 }, (_, i) => i); // rating dilimi 0–10
-export const FIYATLAR = Array.from({ length: 10 }, (_, i) => 60 + 30 * i); // fiyat dilimi alt sınırı: $60–89 … $330–359
+export const FIYATLAR = IH.FIYAT_DILIMLERI; // oyunun fiyat dilimi değerleri 60 … 360 ($60–74 … $345–350)
 export const EVRE_ADLARI = ['recession', 'normal', 'boom']; // dizin: hesap.js ECONOMY_PHASES (0 Durgunluk, 1 Normal, 2 Büyüme)
 const MIN_KOSU = 15; // oyun da 15 ve altı döngülü hücreyi göstermez
 
@@ -169,8 +171,8 @@ export async function fiyatlariGuncelle(ham, simdi = Date.now()) {
 // ---------------------------------------------------------------------------------------------------------------
 
 /**
- * Fiyatı olan dönemlerden istemci verisi: [{ sayi, bas, bit, gun, evre [resesyon, normal, boom], h: [[rating, fiyat dilimi (0–9), döngü, doluluk toplamı]],
- *   fiyat, egri: { eko, luks } }]. $360 ve üstü dilim (döngülerin %0,2'si) dışarıda kalır. egri: restoran-isi-hesap.js maliyetEgrisi.
+ * Fiyatı olan dönemlerden istemci verisi: [{ sayi, bas, bit, gun, evre [resesyon, normal, boom], h: [[rating, fiyat dilimi (FIYAT_DILIMLERI dizini 0–10),
+ *   döngü, doluluk toplamı]], fiyat, egri: { eko, luks } }]. egri: restoran-isi-hesap.js maliyetEgrisi.
  */
 export function donemVerisi(ham) {
   const out = [];
@@ -193,7 +195,7 @@ export function donemDosyasi(donemler, guncellendi) {
 // fiyat[ürün][kalite] = [VWAP $, işlem günü, hacim] | 0, egri = seviye başına döngü malzeme maliyeti, bonussuz, $: [[hedef rating ızgara dizini (× 0,005), maliyet | null], ...]
 // yalnız maliyetin değiştiği noktalar (restoran-isi-hesap.js maliyetEgrisi).
 export const ISI_KAYNAK = { guncellendi: '${guncellendi}', donem: ${donemler.length} };
-export const ISI_FIYAT_DILIMLERI = [${IH.FIYAT_DILIMLERI.join(', ')}]; // dilim alt sınırı, genişlik $30
+export const ISI_FIYAT_DILIMLERI = [${IH.FIYAT_DILIMLERI.join(', ')}]; // oyunun dilim değeri: fiyat $30'un en yakın katına yuvarlanır (60 = $60–74 … 360 = $345–350)
 export const ISI_DONEMLER = [
 ${donemler.map(satir).join('\n')}
 ];
@@ -336,13 +338,14 @@ function duzelt(t, kosu) {
 
 export function tabloDosyasi(u) {
   const satir = (row) => `[${row.join(', ')}]`;
-  const evre = (t, ad) => `  // ${ad}\n  [\n${t.map((row, pi) => `    ${satir(row)}, // $${FIYATLAR[pi]}–${FIYATLAR[pi] + 29}`).join('\n')}\n  ],`;
+  const evre = (t, ad) => `  // ${ad}\n  [\n${t.map((row, pi) => `    ${satir(row)}, // ${IH.dilimAdi(pi)}`).join('\n')}\n  ],`;
   return `// DentSimco — restoran doluluk tablosu. ÜRETİLMİŞ DOSYA: elle değiştirmeyin, node araclar/restoran-isi.mjs yeniden üretir.
 // Kaynak: oyunun gazetesindeki restoran ısı haritaları (Sim Companies Times, ${u.donem} dönem, ${u.ilk} – ${u.son},
 // ${u.toplamKosu.toLocaleString('en-US')} restoran döngüsü) ve SimcoTools ekonomi evreleri. Rating dilimi lüks çarpanı uygulanmış ratingin tam
-// sayı kısmı, fiyat dilimi $30. Değerler hücre başına evre paylarıyla regresyondan, bugünkü düzeye göre; piyasa ortalamasıdır.
+// sayı kısmı; fiyat dilimi menü fiyatının $30'un en yakın katına yuvarlanmışı (60 = $60–74 … 360 = $345–350). Değerler hücre başına
+// evre paylarıyla regresyondan, bugünkü düzeye göre; piyasa ortalamasıdır.
 export const DOLULUK_KAYNAK = { donem: ${u.donem}, ilk: '${u.ilk}', son: '${u.son}', kosu: ${u.toplamKosu} };
-export const DOLULUK_FIYATLAR = [${FIYATLAR.join(', ')}]; // fiyat dilimi alt sınırı
+export const DOLULUK_FIYATLAR = [${FIYATLAR.join(', ')}]; // oyunun fiyat dilimi değeri (dilimin ortası; 60 ve 360 uçta)
 // DOLULUK_TABLO[evre][fiyat dilimi][rating dilimi 0–10] = doluluk %; evre: 0 Durgunluk (resesyon), 1 Normal, 2 Büyüme (boom)
 export const DOLULUK_TABLO = [
 ${evre(u.tablo[0], 'Durgunluk')}

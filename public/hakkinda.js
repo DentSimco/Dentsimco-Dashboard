@@ -9,6 +9,13 @@ const TABS = [['nedir', 'Nedir'], ['guncellemeler', 'Güncellemeler'], ['kaynakc
 // En yeni en üstte. { date: 'gün ay yıl', items: ['...', '...'] }
 export const UPDATES = [
   {
+    date: '6 Kasım 2026',
+    items: [
+      'Perakende › Restoran: doluluk tahmini ve Isı Haritası\'nda fiyat dilimleri düzeltildi. Oyunun gazetesi menü fiyatını $30\'un en yakın katına yuvarlar: $60 dilimi $60–74, $90 dilimi $75–104 … $360 dilimi $345–350. Önceki sürüm dilimi alt sınır sanıyordu ($60–89); bu yüzden $75–100 arası fiyatlarda doluluğu 15–20 puan fazla, Isı Haritası\'nda geliri dilim başına $15 fazla gösteriyordu. En yüksek fiyat dilimi ($345–350) de artık haritada.',
+      'Perakende › Restoran: rating bonusu eksi olabilir. Oyunda ekip dışı satış hızı eksiyse (örneğin −%3) Yönetim ekranı restoran derecesini eksi gösterir (−0,06). Kurulum\'daki satış hızına artık eksi değer girilebilir; Menü Seç ve hedef rating eksi bonusu hesaba katar.',
+    ],
+  },
+  {
     date: '5 Kasım 2026',
     items: [
       'Perakende › Restoran › Analiz: Isı Haritası sekmesi eklendi (Menü Seç\'in sağında). Oyunun gazetesindeki restoran ısı haritasını, seçtiğiniz gazete sayılarının toplamı olarak gösterir; bir sayıyı ya da bir aralığı seçebilirsiniz. Önce Kâr ya da Doluluk seçilir. Doluluk: rating ve menü fiyatına göre ortalama doluluk. Kâr: eko ya da lüks (ve isteğe bağlı bir restoran) seçilir; hücre, seviye başına 12 saatlik döngü kârıdır: fiyat × koltuk × doluluk − malzeme − maaş. Malzeme, o dönemin SimcoTools fiyatlarıyla hedef ratinge ulaşan en ucuz menüdür (Menü Seç ile aynı arama); rating bonusu Yönetim ve Kurulum\'dan, yönetim gideri ve maaş Perakende\'den okunur, ayrıca girilmez. Rating dilimi başına en iyi fiyat tablosu da eklendi. Fiyat verisi 382. sayıdan itibaren var.',

@@ -15,12 +15,15 @@
 //   Yemek, müşteri gelsin gelmesin döngü başında harcanır (gider dolulukla değişmez) [oyun]
 //   Maaş = binanın saatlik maaşı × 12 [oyun]
 //   Restoran kapanınca rating ×0,875 (kapanış başına bir kez; yükseltme de kapanıştır) [oyun]
-//   Rating bonusu = 0,01 × etkin CMO iletişim puanı + 0,02 × taban satış hızı % [oyun]. Bina kartlarında hedef rating
+//   Rating bonusu = 0,01 × etkin CMO iletişim puanı + 0,02 × taban satış hızı % [oyun]. Satış hızı eksi olabilir: oyunun Yönetim
+//     ekranında ekip dışı −%3 satış hızı "Restoran derecesi −0,06" gösteriyor (Kasım 2026); bonus o zaman eksidir. Bina kartlarında hedef rating
 //     elle girilir ya da önceki ve mevcut ratingten çıkarılır; menüden rating tahmini Restoran > Analiz > Menü Seç sekmesindedir
 //     (restoran-rating.js menuRatingi: Kasım ölçümleriyle kurulmuş model; gizli Tavsiye sekmesi eski doğrusal modeli kullanır)
 //   Rating her döngü hedefine doğru yaklaşır: r' = r + k·(T − r), k ≈ 0,177, gürültü ±0,21 [ölçüm]
 //   Doluluk = f(rating, menü fiyatı, ekonomi evresi): oyunun gazetesindeki restoran ısı haritalarından (28 dönem, ~3 milyon döngü)
 //     evre paylarıyla regresyon; tablo public/restoran-doluluk.js (araclar/restoran-isi.mjs üretir). Piyasa ortalamasıdır [oyun verisi]
+//     Gazetenin fiyat dilimi menü fiyatının $30'un en yakın katına yuvarlanmışıdır ($60 = $60–74, $90 = $75–104 … $360 = $345–350);
+//     dilim değeri, ara değerin merkezidir ($360 → $350) [gözlem: $360 dilimi var, 70 döngüyle uyum]
 //   Menü fiyatı en az $60, en çok $350 [oyun rehberi]
 
 import { DOLULUK_TABLO, DOLULUK_FIYATLAR, DOLULUK_KOSU, DOLULUK_KAYNAK } from './restoran-doluluk.js';
@@ -76,9 +79,12 @@ export const evreOf = (e) => (e !== null && e !== '' && [0, 1, 2].includes(Numbe
 export { DOLULUK_KAYNAK };
 export const DOLULUK_AZ_VERI = 1000; // hücrede 28 dönemde bundan az döngü varsa tahmin zayıf sayılır
 
-// Tablodaki dilimin temsil ettiği nokta: rating dilimi r → r + 0,5 (rating 10 dilimi yalnız 10), fiyat dilimi p → p + 15
+// Tablodaki dilimin temsil ettiği nokta: rating dilimi r → r + 0,5 (rating 10 dilimi yalnız 10), fiyat dilimi p → p ($60–350 arasına sınırlı)
 const RATING_MERKEZ = DOLULUK_TABLO[0][0].map((_, i) => (i < 10 ? i + 0.5 : 10));
-const FIYAT_MERKEZ = DOLULUK_FIYATLAR.map((p) => p + 15);
+const FIYAT_MERKEZ = DOLULUK_FIYATLAR.map((p) => Math.min(FIYAT_MAX, Math.max(FIYAT_MIN, p)));
+/** Menü fiyatının düştüğü doluluk tablosu dilimi (oyunun yuvarlaması; tam yarıda yukarı: $75 → $90). */
+export const dolulukDilimi = (fiyat) => Math.max(0, Math.min(DOLULUK_FIYATLAR.length - 1,
+  Math.round(fiyat / 30) - DOLULUK_FIYATLAR[0] / 30));
 // Sıralı merkezler arasında konum: [alt dizin, üst dizin, ağırlık]; uçlarda sabit
 function konum(merkez, x) {
   if (!(x > merkez[0])) return [0, 0, 0];
@@ -104,9 +110,7 @@ export function dolulukTahmini(rating, fiyat, evre = EVRE_NORMAL) {
 export function dolulukVerisi(rating, fiyat) {
   const r = clamp(Math.floor(Number(rating) || 0), 0, 10);
   const p = clamp(Number(fiyat) || FIYAT_MIN, FIYAT_MIN, FIYAT_MAX);
-  let pi = 0;
-  while (pi + 1 < DOLULUK_FIYATLAR.length && DOLULUK_FIYATLAR[pi + 1] <= p) pi++;
-  return DOLULUK_KOSU[pi][r];
+  return DOLULUK_KOSU[dolulukDilimi(p)][r];
 }
 
 const fin = (x) => typeof x === 'number' && Number.isFinite(x);
@@ -148,9 +152,9 @@ export const ILETISIM_RATING = 0.01; // etkili iletişim puanı başına
 
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 
-// Restoranın ratingine eklenen bonus: ekip dışı satış hızı (rekreasyon dahil) ve ekibin etkili iletişim puanı
+// Restoranın ratingine eklenen bonus: ekip dışı satış hızı (rekreasyon dahil; eksi olabilir) ve ekibin etkili iletişim puanı
 export const ratingBonusu = (ekipDisiHizPct, etkiliIletisim) =>
-  SATIS_HIZI_RATING * Math.max(0, Number(ekipDisiHizPct) || 0) + ILETISIM_RATING * Math.max(0, Number(etkiliIletisim) || 0);
+  SATIS_HIZI_RATING * (Number(ekipDisiHizPct) || 0) + ILETISIM_RATING * Math.max(0, Number(etkiliIletisim) || 0);
 
 // Eko restoranın seviye başı saatlik maaşı: bina katsayısı × ortalama maaş × (1 + net yönetim gideri)
 export const saatlikMaasSeviye = ({ salaryModifier, averageSalary, adminNet } = {}) =>

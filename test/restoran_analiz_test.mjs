@@ -4,6 +4,7 @@
 import * as A from '../public/restoran-analiz.js';
 import * as R from '../public/hesap-restoran.js';
 import * as RR from '../public/restoran-rating.js';
+import { vwapOf } from './restoran-vwap-veri-ornek.mjs';
 
 const results = [];
 let group = '';
@@ -21,8 +22,8 @@ function near(actual, expected, tol, label = '') {
 }
 function ok(value, label = 'koşul sağlanmadı') { if (!value) throw new Error(label); }
 
-// Her ürünün Q0 fiyatı 7200 ÷ oran'ın %90'ı; kaliteyle %8 artar
-const marketOf = (id, q) => (7200 / R.URUNLER[id].oran) * 0.9 * (1 + 0.08 * q);
+// Borsa: 4 Kasım 2026 günlük VWAP'ı (dünkü VWAP, gerçek veri; işlem olmayan kaliteler null)
+const marketOf = vwapOf;
 
 section('Rating');
 test('Kalite puanı: Q0 ≈ 0,4, Q5 ≈ 4,9, Q12 ≈ 6,1; artan ve içbükey', () => {

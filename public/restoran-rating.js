@@ -46,11 +46,12 @@ const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 export const cesitKasim = (urunSayisi) => 1 + MODEL_KASIM.cesitEgim * (urunSayisi - 6);
 /**
  * Kasım modeliyle menü ratingi (0–10): (ürün kalite puanlarının ortalaması × çeşit + bonus) × oturma (eko 1, lüks 1,25).
- * Bonus 1:1 eklenir (yönetici: 0,01 × etkin iletişim + 0,02 × ekip dışı satış hızı %). Profesyonel personel hesaba katılmaz.
+ * Bonus 1:1 eklenir (yönetici: 0,01 × etkin iletişim + 0,02 × ekip dışı satış hızı %; satış hızı eksiyse bonus eksi olabilir).
+ * Profesyonel personel hesaba katılmaz.
  */
 export function menuRatingi({ puanOrt, urunSayisi, bonus = 0, tip = 'eko' }) {
   if (!fin(puanOrt) || !(urunSayisi >= 1)) return null;
-  const b = fin(bonus) ? Math.max(0, bonus) : 0;
+  const b = fin(bonus) ? bonus : 0;
   return clamp((puanOrt * cesitKasim(urunSayisi) + b) * (tip === 'luks' ? MODEL_KASIM.luks : 1), 0, RATING_MAX);
 }
 
@@ -69,7 +70,7 @@ export const cesitPuani = (urunSayisi) => 1 + MODEL.cesitEgim * (urunSayisi - MO
  */
 export function hedefRating({ kalite, urunSayisi, bonus = 0, tip = 'eko' }) {
   if (!fin(kalite) || !(urunSayisi >= 1)) return null;
-  const b = fin(bonus) ? Math.max(0, bonus) : 0;
+  const b = fin(bonus) ? bonus : 0;
   return clamp((menuPuani(kalite) * cesitPuani(urunSayisi) + b) * tipCarpani(tip), 0, RATING_MAX);
 }
 
