@@ -62,13 +62,19 @@
     {
       "ad": "Dentium",
       "bonus": { "ekipDisiSatisHizi": -3, "etkinIletisim": 20, "toplam": 0.14, "not": "Yönetim ekranı: Restoran derecesi −0,06 +0,200 (eksi satış hızı eksi bonus verir)." },
-      "ekranlar": ["2026-11-06 03:08 (tarih tahmini)"],
+      "bonusSonra": { "tarih": "2026-11-08 10:25", "ekipDisiSatisHizi": -3, "etkinIletisim": 3, "toplam": -0.03, "not": "Restoran derecesi −0,06 +0,030; ekranda 'bazı yöneticiler eğitim görüyor, yerleşiyor veya grev yapıyor'. Ne zaman değiştiği bilinmiyor; Q1 döngüleri için −0,03 varsayıldı." },
+      "ekranlar": ["2026-11-06 03:08 (tarih tahmini)", "2026-11-08 10:25"],
       "restoranlar": [
         { "ad": "Q0 restoranı", "seviye": 1, "oturma": "eko", "personel": "eko",
           "menu": { "117": 0, "119": 0, "142": 0, "143": 0, "124": 0, "125": 0 },
-          "gider": { "yemek": 28873, "maas": 12970, "not": "döngü başına, menü panelinden" },
-          "adim": [["2026-11-04 12:56", 0.37, 0.51, 13.52, 60], ["2026-11-05 00:56", 0.51, 0.46, 15.2, 60], ["2026-11-05 12:56", 0.46, 0.23, 12.07, 60], ["2026-11-06 00:56", 0.23, 0.18, 8.11, 60]],
-          "deney": "6 Kasım 00:56'da başlayan döngü $350 fiyatla çalışıyor, 12:56'da biter: rating 0 civarında fiyatın doluluğa ve ratinge etkisi (beklenen: doluluk ~%7–8, rating değişimi fiyattan bağımsız)." }
+          "gider": { "yemek": 26900, "maas": 12970, "not": "döngü başına; koşu kayıtlarından (gelir − kâr ≈ $39.6–40.0 bin). 6 Kasım panelindeki $28.873 sonraki (Q1) partilerin maliyetiydi." },
+          "adim": [["2026-11-04 12:56", 0.37, 0.51, 13.52, 60], ["2026-11-05 00:56", 0.51, 0.46, 15.2, 60], ["2026-11-05 12:56", 0.46, 0.23, 12.07, 60], ["2026-11-06 00:56", 0.23, 0.18, 8.11, 60],
+            ["2026-11-06 12:56", 0.18, 0.37, null, 350, { "cikarim": true, "not": "$350 deneyi (Q0). Adım 8 Kasım listesinde görünmüyor; 6 Kasım'daki 0,18 ile 7 Kasım'daki 0,37 arasından çıkarıldı." }]],
+          "deney": "$350 fiyat: rating düşmedi (0,18 → 0,37, sonra Q1 döngüleri 0,37 → 0,62); doluluk Q1 döngülerinde %5,35 / %12,11 / %9,84 ($60'ta %8–15). Zarar döngü başına ~$33 binden ~$10 bine indi, bir döngü +$228." },
+        { "ad": "Q0 restoranı (Q1 dönemi)", "seviye": 1, "oturma": "eko", "personel": "eko",
+          "menu": { "117": 1, "119": 1, "142": 1, "143": 1, "124": 1, "125": 1 },
+          "gider": { "yemek": 28873, "maas": 13300, "not": "döngü başına, menü panelinden; koşu kayıtlarıyla uyumlu (gelir − kâr ≈ $42,2 bin)" },
+          "adim": [["2026-11-07 00:56", 0.37, 0.32, 5.35, 350], ["2026-11-07 12:56", 0.32, 0.42, 12.11, 350], ["2026-11-08 00:56", 0.42, 0.62, 9.84, 350]] }
       ]
     }
   ],
