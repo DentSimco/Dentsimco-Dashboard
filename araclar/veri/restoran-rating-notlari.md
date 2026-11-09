@@ -85,7 +85,16 @@ Dört çözümleme (tüm adımlar; ECO1'in tek seferlik −1,12 adımı hariç; 
 - Ortak döngü etkisi ipucu: ikinci döngüde (ölçüm dosyasında 2026-11-08 11:27 satırı) altı restoranın hepsi beklenenden ortalama
   +0,16 yukarıda (z ≈ 2,5). Tek döngü, ama evre etkisi gibi pazar geneli bir bileşene işaret edebilir; deneylerde değişmeyen bir
   kontrol restoranı bu yüzden yararlı.
-- Karışıklık: lüksler seviye 1 ve 5, eko'lar seviye 10. Seviyenin ratinge etkisi varsa lüks tahminine karışır.
+- Karışıklık: lüksler seviye 1 ve 5, eko'lar seviye 10. Seviyenin ratinge etkisi varsa lüks tahminine karışır (Kasım
+  ölçümlerinde seviye etkisi görülmemişti).
+- **Kasım içbükey eğrisinin sınaması:** biçim destekleniyor, yükseklik desteklenmiyor. Ürün puanı = s × f_Kasım(Q) modeli QUAL'a
+  üç serbest menü puanı kadar iyi uyuyor (χ² en çok 2,2 kötü, 2 parametre az). Q0 ölçümüne (0,25 ± 0,3) bağlı doğrusal eğri
+  reddediliyor (k 0,27: χ² 80–97, içbükey 15,6–29). Düzey: s = 0,86–0,90, yani 2-2-2 menüler aracın 1-1-1'e uyguladığı 0,889
+  düzeyinde; s = 0,889 sabit de aynı iyi uyuyor. Aracın şu anki hâli (s 1, lüks 1,25) χ² 52–76. ×0,889 ile: QUAL Q5 4,37 (ölçülen
+  4,2–4,45), Q11–12 5,42 (5,0–5,5), ANARCHY 19 Ekim 4,94 (4,89 ± 0,12), Sky 1-1-1 Q6 4,68 (değişmez). Lüks bu uyumda ×1,16–1,25.
+  Alt uçta eğri Q1'de 1,68 diyor, ölçülen 0,7 ± 0,4 (~2,5σ). İçbükeylik orada da reddedilmiyor (Q0 0,2 ile Q5 4,35'ten geçen
+  içbükey eğri için Q1 ≥ 1,03 yeter); sorun üstel biçimin büyük ilk adımı (+1,3). Eski iki 2-2-2 satırı (ANARCHY 6,64, Yanko 6,33;
+  tarihleri belirsiz) ölçeksiz eğriye uyuyor; büyüme evresinden iseler evre etkisiyle (+0,4–0,6) tutarlı.
 - Aday denklem (9 Kasım; normal evre): hedef = (Ü + bonus) × oturma, lüks ≈ ×1,2; çeşit ve ürün (tüketim) terimi yok.
   Ü (ürün puanı ortalaması): Q0 0,2 · Q1 0,7 · Q5 ~4,35 · Q6 ~4,6 · Q5–Q10 karışımı ~4,9 · Q11–12 ~5,2. Q2–Q4 ve Q7–Q10 ayrı ölçülmedi.
 - **Sınamalar:** (1) aynı 6 ürünle Q3 2-2-2 (eğrinin ortası; mevcut model ~3,8 + bonus, S eğrisi ~2,5 + bonus); (2) bir Sky 1-1-1 Q6
