@@ -110,3 +110,9 @@ Dört çözümleme (tüm adımlar; ECO1'in tek seferlik −1,12 adımı hariç; 
 - Rating dilimi: gazetenin ortalaması (7,59–7,74) dilim değerini merkez sayınca (7,65) tutuyor, alt sınır sayınca (8,0) tutmuyor; doluluk gözlemleri ise alt sınırı (tam sayı kısmı) destekliyor. Araç tam sayı kısmını kullanıyor.
 - Doluluk, aynı 12 saatlik penceredeki restoranlarda birlikte hareket ediyor (Sky: restoran sabitinden sonra farkın %88'i pencereden). Rakiplerin hangi anki teklifinin kullanıldığı bilinmiyor.
 - Sky IV'ün 1–3 Kasım'daki düşüşü (6,29 → 5,32, menü ve döngü saati aynı) açıklanamadı.
+- Çeşidin biçimi (9 Kasım): araçta çeşit ürün puanı ortalamasını çarpıyor (bonusu çarpmıyor). Rehber "a rating bonus for having a
+  variety of items" diyor; bu ayrı bir puana daha yakın. Normal evrede 3 → 6 ürün farkı Q5'te, Q5–Q10 karışımında ve Q11–12'de ≈ 0;
+  çarpan (+0,55 … +0,68) da aynı büyüklükte ayrı puan (+0,58) da desteklenmiyor. Veriyle uyumlu okuma: bonus 3 üründe (her
+  kategoride bir ürün) zaten dolu. Elimizdeki ölçümlerin hepsinde üç kategori de dolu. Sınama: (1) aynı şirkette 1-1-1 ile 2-2-2
+  (etki var mı); (2) varsa düşük kalitede aynı karşılaştırma (Q1'de çarpan +0,21, ayrı puan +0,58); (3) oyun izin veriyorsa bir
+  kategorisi boş menü.
