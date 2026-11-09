@@ -26,7 +26,7 @@ Durum: **doğrulandı** (araca işlendi), **aday** (kanıt var, doğrulanmadı, 
 - **Ekonomi evresi ratingi etkiler.** 29 gazete döneminde ortalama döngü ratingi: tamamen büyüme olan dönem normale göre +0,42 … +0,62, durgunluk −0,12 … −0,35 (zaman eğilimiyle; evre payları karıştırılınca p = 0,003). Sky'ın restoranları büyümenin bittiği 30 Ekim'den sonra düştü (III, menü sabitken 5,97 → 5,15). Restoranların kapanıp açılmasından (bileşim) da gelebilir. Sınama: evre değişiminden sonra 3–4 gün aynı restoranları izlemek.
 - **Rehberdeki "etkisi çoğunlukla maliyetine bağlı" = ürün ağırlığı.** Menü puanı = Σ (adet × kaynak değeri × kalite puanı) ÷ Σ (adet × kaynak değeri). Sunucu yemeği "kaynak değeriyle" değerliyor (Dumpster Chef sertifikası). Kaliteler yakınken düz ortalamayla aynı sonucu verir (16 satırda χ² 74,1 / 70,0, düz 73,2). Sınama: Süt Q12 + Kokteyl Q0 ile Süt Q0 + Kokteyl Q12 (beklenen fark ~1,5).
 - ~~**Tüketim miktarı (oran) ürünün katkısını artırır.**~~ **9 Kasım'da elendi** (QUAL deneyi: aynı kalitede az tüketilen pahalı ürünler, M3, çok tüketilen ucuz ürünlerden, M2, düşük değil: M3 − M2 = −0,02 … +0,28; tüketim terimi −0,8 bekliyordu). Sky'da düşük çıkan iki menünün (III, V) ikisinde de ekmek vardı; ekmeğe ya da o restoranlara özgü olabilir.
-- **Kasım modeli normal evrede fazla tahmin eder.** ANARCHY: model 6,54, gözlenen 5,88; QUAL deneyi: eko Q5 menü model 5,75, gözlenen ~5,0–5,4; eko Q11–12 model 6,92, gözlenen ~6,5–6,7. Nedeni evre değil: aynı evrede Sky (1-1-1 Q6) modele uyuyor; fazlalık kalite eğrisinin üst bölümünde ve çeşit çarpanında.
+- **Kasım modeli normal evrede fazla tahmin eder.** ANARCHY: model 6,54, gözlenen 5,88; QUAL deneyi: eko Q5 menü model 5,75, gözlenen ~4,9–5,4; eko Q11–12 model 6,92, gözlenen ~6,5–6,7. Nedeni evre değil: aynı evrede Sky (1-1-1 Q6) modele uyuyor; fazlalık kalite eğrisinin üst bölümünde ve çeşit çarpanında.
 
 ## Rating denklemi yeniden (8 Kasım): çeşit, kalite eğrisi, lüks
 
@@ -72,19 +72,29 @@ Dört çözümleme (tüm adımlar; ECO1'in tek seferlik −1,12 adımı hariç; 
 | Lüks | **×1,14–1,25** (ya da +1,0–1,4) | ×1,25 | ölçülmemişti |
 | Kalite Q5 → Q11–12 (ürün puanı) | **+0,70 … +1,15** | +1,17 | +1,07 |
 | Ürün M3 − M2 (aynı kalite) | **−0,02 … +0,28** | 0 | −0,81 (elendi) |
-| Ürün puanı Q5 (M2) | **4,28–4,45** | 4,92 | 4,15 |
-| Ürün puanı Q11–12 (M1) | **5,00–5,48** | 6,09 | 5,22 |
+| Ürün puanı Q5 (M2) | **4,2–4,45** | 4,92 | 4,15 |
+| Ürün puanı Q11–12 (M1) | **5,0–5,5** | 6,09 | 5,22 |
 
 - Lüksün çarpan mı sabit ek mi olduğu ayırt edilemiyor (χ² farkı < 1). Q12 menüsünde lüks kazancı en küçük çıktı; LUX1 hâlâ 9,20'den
   iniyor, birkaç döngü daha gerekli.
 - Çeşit: QUAL'ın 6 ürünlü Q5 menüsü (4,3–4,45) ile Sky'ın 3 ürünlü Q6 menüleri (4,65–4,9) birlikte, 6 ürünün 3 üründen yüksek
   olmadığını gösteriyor; mevcut modelin +0,58'i desteklenmiyor. Doğrudan sınama: aynı şirkette 1-1-1 Q5 eko.
-- Yaklaşma hızı: ECO1'in ilk adımı hariç k ≈ 0,23–0,38.
+- Yaklaşma hızı: ECO1'in ilk adımı hariç k ≈ 0,22–0,38; adım gürültüsü 0,14–0,22. Doluluğun ratinge etkisi yine yok.
+- ECO1'in ilk adımı (7,86 → 6,74) modelin beklediğinden 0,6–0,8 fazla düşük (~4σ). Önceki yapılandırması bilinmiyor; saatlik ücreti de
+  aynı seviye ve işçi sayısındaki öteki eko'lardan yüksek ($10.212, ötekiler $7.560).
+- Ortak döngü etkisi ipucu: ikinci döngüde (ölçüm dosyasında 2026-11-08 11:27 satırı) altı restoranın hepsi beklenenden ortalama
+  +0,16 yukarıda (z ≈ 2,5). Tek döngü, ama evre etkisi gibi pazar geneli bir bileşene işaret edebilir; deneylerde değişmeyen bir
+  kontrol restoranı bu yüzden yararlı.
+- Karışıklık: lüksler seviye 1 ve 5, eko'lar seviye 10. Seviyenin ratinge etkisi varsa lüks tahminine karışır.
 - Aday denklem (9 Kasım; normal evre): hedef = (Ü + bonus) × oturma, lüks ≈ ×1,2; çeşit ve ürün (tüketim) terimi yok.
   Ü (ürün puanı ortalaması): Q0 0,2 · Q1 0,7 · Q5 ~4,35 · Q6 ~4,6 · Q5–Q10 karışımı ~4,9 · Q11–12 ~5,2. Q2–Q4 ve Q7–Q10 ayrı ölçülmedi.
 - **Sınamalar:** (1) aynı 6 ürünle Q3 2-2-2 (eğrinin ortası; mevcut model ~3,8 + bonus, S eğrisi ~2,5 + bonus); (2) bir Sky 1-1-1 Q6
-  restoranını aynı ürün ailelerinden 2-2-2 Q6'ya çevirmek, diğeri kontrol (mevcut model +0,58, yeni ~0); (3) eko–lüks Q11–Q12 2-2-2
-  (eko: mevcut 6,06, yeni ~5,2; lüks ×1,25: 7,58 / 6,5).
+  restoranını aynı ürün ailelerinden 2-2-2 Q6'ya çevirmek, diğeri kontrol (mevcut model +0,58, yeni ~0); (3) ~~eko–lüks Q11–Q12
+  2-2-2~~ QUAL deneyinin M1'i olarak yapıldı (yukarıda).
+- **QUAL sonrası sınamalar (9 Kasım):** (a) altı restoranı 4–6 döngü daha hiç değiştirmeden sürdürmek (LUX1, LUX2 hâlâ iniyor;
+  8–10 döngüde kalan fark %10'un altına iner); (b) aynı şirkette 1-1-1 Q5 eko (Süt, Salata, Portakal), ECO2 ile aynı seviye: çeşidin
+  doğrudan sınaması (mevcut model −0,55, yeni ~0); (c) lüks Q0 ya da Q1 menü: lüks çarpan ise eko'dan yalnız +0,2–0,3, sabit ek ise
+  +1,0–1,4 yukarıda olur; (d) aynı ürünlerle Q8 2-2-2 eko: eğrinin Q5–Q12 arası.
 
 ## Açık sorular
 
