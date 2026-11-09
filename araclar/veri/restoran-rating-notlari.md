@@ -25,8 +25,8 @@ Durum: **doğrulandı** (araca işlendi), **aday** (kanıt var, doğrulanmadı, 
 
 - **Ekonomi evresi ratingi etkiler.** 29 gazete döneminde ortalama döngü ratingi: tamamen büyüme olan dönem normale göre +0,42 … +0,62, durgunluk −0,12 … −0,35 (zaman eğilimiyle; evre payları karıştırılınca p = 0,003). Sky'ın restoranları büyümenin bittiği 30 Ekim'den sonra düştü (III, menü sabitken 5,97 → 5,15). Restoranların kapanıp açılmasından (bileşim) da gelebilir. Sınama: evre değişiminden sonra 3–4 gün aynı restoranları izlemek.
 - **Rehberdeki "etkisi çoğunlukla maliyetine bağlı" = ürün ağırlığı.** Menü puanı = Σ (adet × kaynak değeri × kalite puanı) ÷ Σ (adet × kaynak değeri). Sunucu yemeği "kaynak değeriyle" değerliyor (Dumpster Chef sertifikası). Kaliteler yakınken düz ortalamayla aynı sonucu verir (16 satırda χ² 74,1 / 70,0, düz 73,2). Sınama: Süt Q12 + Kokteyl Q0 ile Süt Q0 + Kokteyl Q12 (beklenen fark ~1,5).
-- **Tüketim miktarı (oran) ürünün katkısını artırır.** Sky'ın 5 menüsünde rating ~ ortalama ln(oran) R² 0,98, 16 satırda χ² 73,2 → 49,9. Ancak aynı menülü restoranların farkı (SS 0,22–0,30) Sky'ın I–IV farklarından büyük; dayanak çoğunlukla V (Ekmek-Köfte-Kokteyl, iki dönemde de en düşük).
-- **Kasım modeli normal evrede ~0,5 fazla tahmin eder.** ANARCHY (Ekim, normal): model 6,54, gözlenen 6,02. Model kısmen büyüme evresindeki ölçümlerle kurulmuş olabilir.
+- ~~**Tüketim miktarı (oran) ürünün katkısını artırır.**~~ **9 Kasım'da elendi** (QUAL deneyi: aynı kalitede az tüketilen pahalı ürünler, M3, çok tüketilen ucuz ürünlerden, M2, düşük değil: M3 − M2 = −0,02 … +0,28; tüketim terimi −0,8 bekliyordu). Sky'da düşük çıkan iki menünün (III, V) ikisinde de ekmek vardı; ekmeğe ya da o restoranlara özgü olabilir.
+- **Kasım modeli normal evrede fazla tahmin eder.** ANARCHY: model 6,54, gözlenen 5,88; QUAL deneyi: eko Q5 menü model 5,75, gözlenen ~5,0–5,4; eko Q11–12 model 6,92, gözlenen ~6,5–6,7. Nedeni evre değil: aynı evrede Sky (1-1-1 Q6) modele uyuyor; fazlalık kalite eğrisinin üst bölümünde ve çeşit çarpanında.
 
 ## Rating denklemi yeniden (8 Kasım): çeşit, kalite eğrisi, lüks
 
@@ -57,6 +57,31 @@ Normal evrede (30 Eki–8 Kas; ANARCHY 17–19 Eki) adımlardan çıkan hedefler
   Bu denklem normal evre gruplarının hepsini ±0,1 içinde veriyor (8 grup; parametre sayısına göre fazla uyum riski var).
 - **Lüks (eski veri):** normal personelli lüks satırları (Tosuncuk, Star Deluxe; tarih belirsiz) ×1,25'in çok altında: ölçülen 3,2–5,6,
   ×1,25 ile beklenen 5,3–5,9. Eko karşılıklarına oranı ~0,7–1,1. Lüksün ratingi yükseltmediği de olası; eko–lüks testi bunu ölçecek.
+  **9 Kasım:** QUAL deneyi lüksün ratingi yükselttiğini gösterdi (×1,14–1,25); eski lüks satırları başka bir nedenle düşük.
+
+## QUAL deneyi (9 Kasım): kalite × ürün × oturma
+
+Tasarım: 3 menü (M1 Süt, Kahve, Salata, Samosa Q12 + Portakal, Elma Q11; M2 aynı ürünler Q5; M3 Peynir, Turta, Hamburger, Köfte,
+Kokteyl, Zencefilli Q5), her biri hem lüks (seviye 1 ya da 5) hem eko (seviye 10). Hepsi 2-2-2, eko personel, bonus 0,83, normal evre,
+4'er döngü. Başlangıç ratingleri dengede değildi (9,20 / 7,86 / 8,77 / 5,12 / 6,99 / 5,49).
+
+Dört çözümleme (tüm adımlar; ECO1'in tek seferlik −1,12 adımı hariç; k 0,27 ve 0,36 sabit) aynı sonucu veriyor:
+
+| Etki | Sonuç | Mevcut model | 8 Kasım adayı |
+|---|---|---|---|
+| Lüks | **×1,14–1,25** (ya da +1,0–1,4) | ×1,25 | ölçülmemişti |
+| Kalite Q5 → Q11–12 (ürün puanı) | **+0,70 … +1,15** | +1,17 | +1,07 |
+| Ürün M3 − M2 (aynı kalite) | **−0,02 … +0,28** | 0 | −0,81 (elendi) |
+| Ürün puanı Q5 (M2) | **4,28–4,45** | 4,92 | 4,15 |
+| Ürün puanı Q11–12 (M1) | **5,00–5,48** | 6,09 | 5,22 |
+
+- Lüksün çarpan mı sabit ek mi olduğu ayırt edilemiyor (χ² farkı < 1). Q12 menüsünde lüks kazancı en küçük çıktı; LUX1 hâlâ 9,20'den
+  iniyor, birkaç döngü daha gerekli.
+- Çeşit: QUAL'ın 6 ürünlü Q5 menüsü (4,3–4,45) ile Sky'ın 3 ürünlü Q6 menüleri (4,65–4,9) birlikte, 6 ürünün 3 üründen yüksek
+  olmadığını gösteriyor; mevcut modelin +0,58'i desteklenmiyor. Doğrudan sınama: aynı şirkette 1-1-1 Q5 eko.
+- Yaklaşma hızı: ECO1'in ilk adımı hariç k ≈ 0,23–0,38.
+- Aday denklem (9 Kasım; normal evre): hedef = (Ü + bonus) × oturma, lüks ≈ ×1,2; çeşit ve ürün (tüketim) terimi yok.
+  Ü (ürün puanı ortalaması): Q0 0,2 · Q1 0,7 · Q5 ~4,35 · Q6 ~4,6 · Q5–Q10 karışımı ~4,9 · Q11–12 ~5,2. Q2–Q4 ve Q7–Q10 ayrı ölçülmedi.
 - **Sınamalar:** (1) aynı 6 ürünle Q3 2-2-2 (eğrinin ortası; mevcut model ~3,8 + bonus, S eğrisi ~2,5 + bonus); (2) bir Sky 1-1-1 Q6
   restoranını aynı ürün ailelerinden 2-2-2 Q6'ya çevirmek, diğeri kontrol (mevcut model +0,58, yeni ~0); (3) eko–lüks Q11–Q12 2-2-2
   (eko: mevcut 6,06, yeni ~5,2; lüks ×1,25: 7,58 / 6,5).
