@@ -174,6 +174,37 @@ adds 0.02 to the resulting restaurant rating." · "Luxury restaurant multiplies 
   0,58'inden küçük ya da şirketler arası karşılaştırma yanıltıyor.
 - Oyuncunun simetrik ±3 ölçeği 2021-12-08 kaydıyla çelişiyor; kayıt "a bit more" diyor ama bugün ölçülen asimetri daha büyük.
 
+## İki model ailesinin karşılaştırması (10 Kasım)
+
+Araç: `node araclar/restoran-rating-modelleri.mjs [--eco1] [--q1haric] [--k=..] [--skyBonus=..] [--skyV222] [--buyumeHaric]`.
+107 adım (Sky 38, ANARCHY 32, Dentium 13, QUAL 24); k 0,27, σ 0,19; 0,00'da biten adım sansürlü. Modeller:
+M1 araç (Kasım: üstel eğri × çeşit çarpanı, lüks 1,25, serbest parametre yok); M1y aynı biçim yeniden uydurulmuş; M3 üstel eğri +
+toplanan çeşit (1-1-1 = 3, 2-2-2 = 6 ürün; v × (N − 6)); M2 kırık doğru + toplanan çeşit (nötr kalite Qn'nin altında a_alt,
+üstünde a_üst eğim): düz okuma a_alt ≥ a_üst, ters okuma a_alt ≤ a_üst; oyuncunun ölçeği (0,5/kalite). Doygun: her restorana
+ayrı serbest hedef (23 parametre).
+
+| Model | χ² (tümü) | χ² (ECO1:0 ve Dentium Q1 hariç) |
+|---|---|---|
+| Doygun (taban, 23 parametre) | 97,0 | 74,1 |
+| M1 araç (0 parametre) | 242,4 | 155,9 |
+| M1y / M3: üstel içbükey, çeşit çarpan / toplanan (5) | 112,7 | 91,6 |
+| M2 düz okuma: kırık içbükey (6) | 112,4 | 91,5 |
+| M2 ters okuma → doğrusala iniyor (4) | 244,5 | 154,0 |
+| Oyuncunun ölçeği (3) | 245,2 | 166,2 |
+
+- **Kaydın düz okuması destekleniyor.** "Low food quality hurts rating a bit more, high quality food has smaller positive effect"
+  = düşük kalitenin zararı arttı, yüksek kalitenin artısı azaldı (içbükey). Ters okuma (düşük kalitenin zararı azaldı, yüksek
+  kalitenin artısı arttı) en iyi hâlinde doğrusal çizgiye iniyor; içbükey modellerden Δχ² 60–200 kötü (bütün varyasyonlarda) ve
+  çeşit etkisini eksi buluyor.
+- İçbükey modeller doygun modele yakın (tümünde 112,7'ye karşı 97,0; 17 parametre az): kalan sapma çoğunlukla restorana özgü.
+- **Çeşit toplanan mı çarpan mı ayırt edilemiyor** (M1y = M3): ürün sayısı yalnız Sky'ın Q6 1-1-1 menüleriyle ötekiler arasında değişiyor.
+- **Çeşit 1-1-1 → 2-2-2:** M3'te +0,18 (1σ 0,0 … +0,37; %95 −0,15 … +0,51), M2'de +0,14 … +0,70. Aracın +0,58'i Δχ² ≈ 6 ile zayıf,
+  sıfır Δχ² ≈ 1 ile dışlanmıyor. Tahmin, Q5 ile Q6 arasındaki eğri biçimine bağlı; kesin ölçüm için aynı şirkette 1-1-1 ile 2-2-2 gerek.
+- **Lüks ×1,17–1,25** (M3 %95: 1,11–1,30).
+- **Kalite (ürün puanı, eko, 2-2-2):** Q5 ~4,4 · Q6 ~4,7 · Q12 5,0–5,5; Q6 → Q12 yalnız +0,4 … +0,6. Alt uç Dentium Q1'e bağlı:
+  dahilse Q1 ≈ 0 ve Q0 eksi (−1 … −3, rating 0'da sınırlanıyor; kayıttaki "hurts" ile uyumlu); hariçse Q0 0,21, Q1 1,1–1,7.
+- Varyasyonlar (k 0,22 / 0,36, Sky bonusu 0,96, Sky V 2-2-2 dönemi, büyüme evresi hariç) sonucu değiştirmiyor.
+
 ## Açık sorular
 
 - Rating dilimi: gazetenin ortalaması (7,59–7,74) dilim değerini merkez sayınca (7,65) tutuyor, alt sınır sayınca (8,0) tutmuyor; doluluk gözlemleri ise alt sınırı (tam sayı kısmı) destekliyor. Araç tam sayı kısmını kullanıyor.
