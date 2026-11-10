@@ -144,6 +144,36 @@ Tecrübeli bir oyuncunun ölçeği: kalite başına 0,5; Q0 −3, Q6 0, Q12 +3 (
 - 8 Aralık 2021 güncelleme notu ("düşük kalite ratingi daha çok düşürür, yüksek kalitenin artı etkisi azaltıldı") simetrik bir
   ölçeğin asimetrik yapıldığını düşündürüyor; oyuncunun ölçeği bu değişiklikten önceki hâl olabilir (varsayım).
 
+## Oyunun kendi açıklamaları ve güncelleme kayıtları (10 Kasım)
+
+Kaynak: oyunun Restoran Rehberi (`/api/v3/pages/en/restaurant-guide/`) ve istemci kodundaki güncelleme kayıtları (10 Kasım 2026
+dosyası; 5 Kasım'dan beri yeni kayıt yok). Entrepreneurs gazetesi #58 (9 Kasım 2023).
+
+Rehber: "At least one item in each food category is required." · "Each food item has a different impact on your new rating,
+depending mostly on their cost. You also receive a rating bonus for having a variety of items." · "Higher quality food impacts
+your new rating as well." · "Effective communication skill points increases your restaurant rating by 0.01." · "Sales speed bonus
+adds 0.02 to the resulting restaurant rating." · "Luxury restaurant multiplies the effect of the rating, rather than add to it."
+
+| Tarih | Kayıt (kısaltılmış) | Modele etkisi |
+|---|---|---|
+| 2021-10-20 | Kapanan restoranın ratingi %12,5 düşer | Kapanış cezası (araçta var) |
+| 2021-10-25 | Sales speed bonus adds 0.02 to the resulting restaurant rating | Bonus formülü doğrulandı |
+| 2021-12-08 | Low food quality hurts rating a bit more, high quality food has smaller positive effect than before | Kalite etkisi asimetrik: yön ölçümle aynı (Q6'ya göre −4,5 / +0,5…+0,8) |
+| 2022-02-21 | Luxury multiplies the effect of the rating rather than add to it; good staff slightly less positive; consumption up; occupancy extremes less likely; luxury capacity 50% | Lüks çarpan (araçtaki biçim) |
+| 2022-06-17 | CMOs impact on the restaurant rating reduced by 33% | Bonus ekrandan okunuyor; etkilemez |
+| 2022-08-16 | Multiple qualities of the same food kind were incorrectly considered as multiple food options; fixed | Çeşit = farklı yemek sayısı; çeşit etkisi var |
+| 2022-08-30 | Max menu price $350 (was $450), minimum occupancy slightly decreased (rating 0 + max price exploit) | Dentium'un $350 testi tam bu durumda |
+| 2023-11-13 | Gazete E#58: wages marginally increased, luxury rating bonus reduced, good service bonus slightly increased | Eski lüks verileri bugünkünden yüksek olabilir |
+| 2025-09-12 | Fix restaurant rating computation (ayrıntı yok) | Öncesine ait oyuncu bilgileri eskimiş olabilir |
+
+- Çeşit etkisi kesin (rehber + 2022-08-16). Biçimi (toplanan / çarpan) belgelerde yok. Q5 üstünde iki biçim neredeyse aynı tahmini
+  verir (3 → 6 ürün: çarpanla Q5'te +0,55, Q12'de +0,68; toplananla her yerde ~+0,58); ayrım yalnız düşük kalitede.
+- "Eğri ×0,889" önerisi (çeşit etkisi yok varsayımı) geri çekildi. Kalan bulgu: 2-2-2 menüler araçta 0,5–0,7 fazla tahmin
+  ediliyor (QUAL, ANARCHY). Düzeltmenin eğriye mi çeşit terimine mi gideceği, aynı şirkette 1-1-1 ile 2-2-2 karşılaştırmasıyla
+  belli olur. Şirketler arası karşılaştırma (Sky 1-1-1 ile QUAL/ANARCHY 2-2-2) 3 → 6 farkını ~0 ± 0,3 gösteriyor; ya etki aracın
+  0,58'inden küçük ya da şirketler arası karşılaştırma yanıltıyor.
+- Oyuncunun simetrik ±3 ölçeği 2021-12-08 kaydıyla çelişiyor; kayıt "a bit more" diyor ama bugün ölçülen asimetri daha büyük.
+
 ## Açık sorular
 
 - Rating dilimi: gazetenin ortalaması (7,59–7,74) dilim değerini merkez sayınca (7,65) tutuyor, alt sınır sayınca (8,0) tutmuyor; doluluk gözlemleri ise alt sınırı (tam sayı kısmı) destekliyor. Araç tam sayı kısmını kullanıyor.
@@ -153,5 +183,5 @@ Tecrübeli bir oyuncunun ölçeği: kalite başına 0,5; Q0 −3, Q6 0, Q12 +3 (
   variety of items" diyor; bu ayrı bir puana daha yakın. Normal evrede 3 → 6 ürün farkı Q5'te, Q5–Q10 karışımında ve Q11–12'de ≈ 0;
   çarpan (+0,55 … +0,68) da aynı büyüklükte ayrı puan (+0,58) da desteklenmiyor. Veriyle uyumlu okuma: bonus 3 üründe (her
   kategoride bir ürün) zaten dolu. Elimizdeki ölçümlerin hepsinde üç kategori de dolu. Sınama: (1) aynı şirkette 1-1-1 ile 2-2-2
-  (etki var mı); (2) varsa düşük kalitede aynı karşılaştırma (Q1'de çarpan +0,21, ayrı puan +0,58); (3) oyun izin veriyorsa bir
-  kategorisi boş menü.
+  (etki var mı); (2) varsa düşük kalitede aynı karşılaştırma (Q1'de çarpan +0,21, ayrı puan +0,58). Boş kategorili menü
+  sınanamaz: rehbere göre her kategoride en az bir ürün zorunlu (en küçük menü 1-1-1).
