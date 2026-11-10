@@ -268,6 +268,36 @@ Sınamalar:
 3. Patrik'e kısa sorular: bir ürünün etkisi yalnız o ürünün türüne ve kalitesine mi bağlı, yoksa menünün geri kalanına da mı;
    aynı kalitede bir ürünü başka bir ürünle değiştirince rating değişebilir mi.
 
+## Tosuncuk: profesyonel ve ekonomi personelli iki lüks restoran (11 Kasım, tarih tahmini)
+
+Aynı şirket, aynı menü (1-2-1: Süt Q12, Lazanya Q12, Köfte Q10, Kokteyl Q8), $100, ikisi de lüks. R1 seviye 2, profesyonel personel
+(son döngü ekonomi; sonra kapatıldı: 8,21 → 7,19, kapanış cezası %12,4). R2 seviye 1, ekonomi ("stajyer"). Bonus ekranda yok
+(CMO eğitimde). Ölçüm dosyasında "Tosuncuk"; bonusu bilinmediği için modellere girmiyor, profesyonel adımlar da girmiyor.
+
+| | k 0,22 | k 0,27 | k 0,36 |
+|---|---|---|---|
+| R1 profesyonel hedef | 9,76 ± 0,50 | 9,57 ± 0,41 | 9,36 ± 0,31 |
+| Ekonomi hedef (R2 + R1'in son döngüsü) | 4,60 ± 0,43 | 4,82 ± 0,35 | 5,06 ± 0,27 |
+| Profesyonel etkisi (lüks sonrası) | +5,16 ± 0,66 | +4,75 ± 0,54 | +4,29 ± 0,41 |
+
+- **Profesyonel personel ≈ +4,75 (lüks sonrası), lüks içinde ≈ +3,9.** Eski satırlar tekrarlandı: 1-2-1 Q10–12 menüsü profesyonelle
+  10,25, ekonomiyle 4,94 (+5,3); eski 2-2-2 7,9 ve 3,2 (+4,7). Sabit bir ek (farklar 4,3–5,3) çarpandan (oranlar 1,9–2,5) daha
+  tutarlı. Araçtaki kullanılmayan "profesyonel +6,7" büyük.
+- Döngü gideri profesyonelle $116.367, ekonomiyle $83.754: fark 4 × ekonomi maaşı, maaş oranı 5,0 (rehberle aynı).
+- **Ekonomi personelli lüks bu menüde ~4,8; modeller tutmuyor.** İçbükey model bonus 0,35 ile 6,40, bonus 0 ile 5,98 diyor; tutması
+  için bonusun −0,8 … −1,1 olması gerekir (araç için −1,5 … −1,9). Eski Tosuncuk ve Star Deluxe lüks satırları da aynı ölçüde
+  düşük (4,94; 4,58; 3,2): eski satırlar hatalı değilmiş. QUAL'ın lüks restoranları (bonus 0,83, eko personel) modele uyuyor:
+  QUAL LUX1'in ürün puanı 5,01, bu menü için model 5,07.
+- Aday nedenler: (1) Tosuncuk'un bonusu çok düşük; (2) ürünler (Lazanya başka hiçbir testte yok, Star Deluxe'te var ve o da düşük;
+  Köfte ve Kokteyl QUAL M3'te Q5'te sorunsuzdu); (3) 1-2-1 yapısı (çeşit tahminimiz yalnız −0,12 veriyor).
+- Eski Süt Q0 satırı (5,60 ± 1,00, bonus 0,37): ekonomi personelliyse bugünkü ekonomi düzeyinden (4,8) yüksek, profesyonelliyse
+  (9,6) çok düşük. Hangisi olduğu bilinmeden yorumlanamaz.
+
+Sınamalar:
+1. Tosuncuk'un Yönetim ekranındaki "Restoran derecesi" satırı (bonus).
+2. Bonus normalse R2'de bir değişiklik: Lazanya → Samosa ya da Salata Q12 (1-2-1 kalır), ya da QUAL M1 menüsü (2-2-2, Q11–12).
+3. Eski Süt Q0 menüsünün hangi restoranda ve hangi personelle çalıştığı.
+
 ## Açık sorular
 
 - Rating dilimi: gazetenin ortalaması (7,59–7,74) dilim değerini merkez sayınca (7,65) tutuyor, alt sınır sayınca (8,0) tutmuyor; doluluk gözlemleri ise alt sınırı (tam sayı kısmı) destekliyor. Araç tam sayı kısmını kullanıyor.

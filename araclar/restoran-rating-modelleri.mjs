@@ -45,11 +45,13 @@ export function adimlar() {
       const menu = typeof r.menu === 'string' ? p.menuler[r.menu] : r.menu || p.ortakMenu;
       const grup = pk === 'Dentium' ? (r.ad.includes('Q1') ? 'Dentium Q1' : 'Dentium Q0') : pk;
       if (grup === 'Dentium Q1' && bayrak('q1haric')) continue;
+      if (p.bonus?.toplam == null) continue; // bonusu bilinmeyen oyuncu (Tosuncuk) modellere girmez
       let bonus = p.bonus?.toplam ?? 0;
       if (pk === 'Sky' && SKY_BONUS != null) bonus = Number(SKY_BONUS);
       r.adim.forEach((a, i) => {
         const [bitis, r0, r1, occ, fiyat, ek] = a;
         if (r0 == null || r1 == null) return;
+        if ((ek?.personel ?? r.personel) === 'pro') return; // modellerde personel terimi yok
         let m = menu, ad = r.ad;
         if (r.ad === 'Sky Eco Resto V' && bitis > '2026-11-01 19:38') {
           if (!bayrak('skyV222') || bitis < '2026-11-02 19:38') return; // geçiş döngüsü belirsiz
