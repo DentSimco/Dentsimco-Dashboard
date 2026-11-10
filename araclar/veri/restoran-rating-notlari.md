@@ -115,7 +115,7 @@ Son 2 döngüde yönetici eğitimde (bonus −0,03); öncekilerde 0,14 ya da −
 - İlk yorum (S biçimli eğri) geri alındı: kullanıcıya göre oyunda eğri doğrusal ya da içbükey olabilir, S olamaz. Q1 dışındaki
   bütün ölçümler Kasım eğrisi ×0,889'a oturuyor: Dentium Q0 0,21 (eğri 0,36), QUAL Q5 4,2–4,45 (4,37), Sky Q6 ~4,7 (4,68), ANARCHY
   ~4,9 (4,94), QUAL Q11–12 5,0–5,5 (5,42). Yalnız Q1 uymuyor (eğri 1,68); Q0 0,21 ve Q5 4,35 ile içbükeylik için Q1 ≥ ~1,0 olmalı.
-  Bu yüzden Q1 ölçümü bozuk sayılıyor.
+  Bu yüzden Q1 ölçümü bozuk sayılıyor. **(10 Kasım akşamı düzeltildi, aşağıda: Patrik'in doğrulaması.)**
 - Q1'i bozabilecek iki etken (ikisi de yalnız Dentium'da var):
   - $350 fiyat. Zayıf aday: $350'deki ilk 4 döngüde rating 0,18 → 0,62 yükseldi.
   - Neredeyse boş restoran. Dentium'da doluluk ile rating değişimi arasında korelasyon 0,85 (8 Q1 adımı); ortalamaya dönüş hesaba
@@ -204,6 +204,36 @@ ayrı serbest hedef (23 parametre).
 - **Kalite (ürün puanı, eko, 2-2-2):** Q5 ~4,4 · Q6 ~4,7 · Q12 5,0–5,5; Q6 → Q12 yalnız +0,4 … +0,6. Alt uç Dentium Q1'e bağlı:
   dahilse Q1 ≈ 0 ve Q0 eksi (−1 … −3, rating 0'da sınırlanıyor; kayıttaki "hurts" ile uyumlu); hariçse Q0 0,21, Q1 1,1–1,7.
 - Varyasyonlar (k 0,22 / 0,36, Sky bonusu 0,96, Sky V 2-2-2 dönemi, büyüme evresi hariç) sonucu değiştirmiyor.
+
+## Oyun ekibinden doğrulama (10 Kasım): Patrik (moderatör)
+
+Kaynak: Sim Companies sohbeti, kullanıcının ekran görüntüsü (10 Kasım 17:46). Patrik 8 Aralık 2021 değişikliğini güncel kodla karşılaştırdı.
+
+- "The intended meaning is that low-quality food became somewhat worse for restaurant rating, while the positive effect of
+  high-quality food was reduced." Düz okuma (içbükey) doğrulandı ve güncel kodda geçerli. Ters okuma ve simetrik doğrusal ölçek
+  oyun ekibince de dışlandı (veride zaten Δχ² 60–200 kötüydü).
+- "Lower-quality food can have a negative impact on the restaurant's rating; it is not merely a smaller positive bonus."
+  Düşük kalitenin katkısı eksi olabiliyor ("düşük ama pozitif" okuması yanlış). Aynı cevap: "food quality is only one of several
+  factors ... I cannot confirm example values or the exact calculation" ve "We do not disclose the exact calculation".
+  Türkçe rehbere önerilen cümle: "Lower-quality food can hurt the rating, while higher-quality food can improve it."
+- Bonus: "each CMO skill point adds 0.01 (English and code)"; Türkçe rehberdeki 0,015 yanlış. Araçtaki 0,01 kodla doğrulandı.
+  Lüks maaşı eko'nun yarısı (araçta var); kapanışta rating bir kez düşer (%12,5, araçta bilinen).
+- **Tecrübeli oyuncunun ölçeği** (Q0 −3 … Q12 +3): işaret mantığı doğru (düşük kalite eksi); büyüklük ve doğrusallık veriyle
+  uyuşmuyor. Ölçülen: Q6'ya göre Q0 ≲ −4,5, Q12 +0,5 … +0,8. Ölçeğin 2021 öncesi simetrik hâl olması olası (varsayım).
+
+Çıkarımlar:
+- **Dentium Q1'i "bozuk" saymak için gerekçem eksikti** (yukarıdaki Q1 bölümünde): Q0'ın 0,21 ölçüldüğünü varsayıp içbükey bir
+  eğri için Q1 ≥ ~1,0 gerektiğini söylemiştim. Rating 0'ın altına inemediği için Q0 da yalnız üst sınır (≲ 0,5). Eksi etkiyle
+  içbükey eğri Q1 ≈ 0'dan geçebilir: "bütün adımlar" uyumunda Q0 −3,2, Q1 0,03, Q5 4,43. Q1 artık şüpheli sayılmıyor; $350 ve boş
+  restoran etkenleri sürüyor ama gerekli değil.
+- **Q0 ve Q1 tabana yapışıyor, ama tam sıfıra değil.** Benzetim (k 0,27, σ 0,19, rating ≥ 0): hedef ≤ 0 ise ortalama rating
+  0,16, döngülerin %32'sinde tam 0,00; hedef +0,2 … +0,3 ise ortalama 0,27–0,34, tam 0,00 %10–16. Gözlenen (Dentium, 13 döngü):
+  ortalama 0,30, tam 0,00 1/13. Etkin hedef Q0 ve Q1'de küçük pozitif (+0,2 … +0,3); toplam hedef eksiyse tabanın tam 0 olmadığı
+  anlamına gelir (taban bilinmiyor).
+- Nötr kalite (etkinin 0 olduğu düzey) verimizden okunamıyor: ürün puanı f, taban puanla birlikte ölçülüyor. Kırık doğruda kırılma
+  noktası Q1,5–Q6 arasında aynı iyi uyuyor (Δχ² ≤ 1,5).
+- Öneri değişmedi: içbükey eğri + toplanan çeşit (ya da kırık doğru), "bütün adımlar" uyumu. Q3 eğrinin biçimini ayırır:
+  içbükey eğri 3,2, Q1–Q5,5 arası doğrusal 2,2 (içbükey bir eğri 2,2'nin altına inemez).
 
 ## Açık sorular
 
