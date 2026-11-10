@@ -60,7 +60,7 @@ export function adimlar() {
         const buyume = (bas < BUYUME[1] && son > BUYUME[0]);
         if (buyume && bayrak('buyumeHaric')) return;
         const qs = Object.values(m);
-        out.push({ grup, ad, i, bitis, r0, r1, occ, fiyat, lux: r.oturma === 'luks', bonus: ek?.bonus ?? bonus, qs, N: qs.length, buyume, sansur: r1 <= 0.005 });
+        out.push({ grup, ad, i, bitis, r0, r1, occ, fiyat, lux: r.oturma === 'luks', bonus: ek?.bonus ?? bonus, qs, ids: Object.keys(m).map(Number), N: qs.length, buyume, sansur: r1 <= 0.005 });
       });
     }
   }

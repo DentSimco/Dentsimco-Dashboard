@@ -235,6 +235,39 @@ Kaynak: Sim Companies sohbeti, kullanıcının ekran görüntüsü (10 Kasım 17
 - Öneri değişmedi: içbükey eğri + toplanan çeşit (ya da kırık doğru), "bütün adımlar" uyumu. Q3 eğrinin biçimini ayırır:
   içbükey eğri 3,2, Q1–Q5,5 arası doğrusal 2,2 (içbükey bir eğri 2,2'nin altına inemez).
 
+## Ürünün etkisi (10 Kasım): Patrik'in ikinci cevabı ve verimiz
+
+Patrik (moderatör), rehberdeki "Each food item has a different impact on your rating, mostly depending on its cost" cümlesi için:
+"that's too cryptic and misleading. Change to: each food item can impact the rating differently. Or remove altogether."
+Kokteyl portakal suyundan pahalı olduğu için mi daha yüksek rating veriyor diye sorulunca: "it's more complicated".
+Yani ürünlerin etkisi farklı olabilir, ama "çoğunlukla maliyete bağlı" yanıltıcı; ayrıntı verilmedi.
+
+Çözümleme: `node araclar/restoran-urun-etkisi.mjs` (107 adım, k 0,27, σ 0,19; k 0,22 ve 0,36 aynı sonucu veriyor).
+
+| Soru | Sonuç |
+|---|---|
+| Sky I–V (aynı kalite Q6, 1-1-1, beş farklı ürün seti): hedefler eşit mi | χ² 4,8 (4 sd), p 0,30 (k 0,22: 0,45; k 0,36: 0,11); hedefler 5,23–5,95 |
+| QUAL M3 − M2 (Q5; altı ürün tamamen farklı; ort. fiyat 5 kat, döngü maliyeti %39 yüksek) | +0,08 (−0,23 … +0,39); k 0,22: +0,18; k 0,36: −0,02 |
+| Fiyatla artan ürün etkisi b (ort. ln Q6 fiyatı başına, tüm veri) | −0,13 (−0,24 … −0,02); +0,1'in üstü %95 dışlanıyor |
+| Kokteyl − Portakal suyu (topluluğun örneği; Sky V − III − II + I) | +0,20 ± 0,54: ayırt edilemiyor |
+| Köfte − Samosa · Zencefilli bira − Portakal suyu | −0,32 ± 0,39 · −0,22 ± 0,37 |
+| Ekmek (Sky III ve V) | −0,47 (−0,70 … −0,24), Δχ² −4,2; ekmekli iki menü aynı zamanda seviye 3–4 (karışık) |
+
+- Aynı kalitede ürün değiştirmek ratingi ±0,3–0,4 oynatıyor; fiyatla artan bir ürün farkı yok.
+- **Ağırlık hipotezi sınanamadı.** Menünün kalite ortalaması ürünlerin maliyetiyle ağırlıklandırılıyorsa (w^γ, γ 0 düz, 1 maliyet
+  ağırlıklı) bu bütün menülerde ürünler aynı kalitede olduğu için görünmez: Δχ² −0,2 … +1,2 (bütün γ, üç ağırlık biçimi).
+  Tek ipucu eski, tarihi belirsiz Tosuncuk çifti: (Süt Q0 + üç pahalı Q12) − (hepsi Q10–12) menüsü, ölçülen +0,66 ± 1,12; düz
+  ortalama −2,5 (2,8σ), maliyet ağırlıklı −0,4 (0,9σ). Ya pahalı ürünün kalitesi daha çok sayılıyor ya da Q0 çok eksi değil.
+- QUAL M2/M3 sorunun yarısını cevaplıyor (ürün farkı ≈ 0); ağırlığı ölçemez.
+
+Sınamalar:
+1. **Takas (Q2):** A = Süt Q12, Samosa Q6, Kokteyl Q2; B = Süt Q2, Samosa Q6, Kokteyl Q12 (1-1-1, aynı seviye ve oturma).
+   B − A: düz ortalama 0; maliyet ağırlıklı +1,0; fiyat ağırlıklı +2,4 (Q3 sürümü: 0 / +0,6 / +1,4). 4–6 döngü; LUX2 ve LUX3
+   (seviye 1, lüks) kullanılabilir.
+2. **Ekmek:** {Süt, Samosa, Portakal suyu} − {Ekmek, Samosa, Portakal suyu}, hepsi Q6 1-1-1: Sky I − III ≈ +0,6 çıkar mı.
+3. Patrik'e kısa sorular: bir ürünün etkisi yalnız o ürünün türüne ve kalitesine mi bağlı, yoksa menünün geri kalanına da mı;
+   aynı kalitede bir ürünü başka bir ürünle değiştirince rating değişebilir mi.
+
 ## Açık sorular
 
 - Rating dilimi: gazetenin ortalaması (7,59–7,74) dilim değerini merkez sayınca (7,65) tutuyor, alt sınır sayınca (8,0) tutmuyor; doluluk gözlemleri ise alt sınırı (tam sayı kısmı) destekliyor. Araç tam sayı kısmını kullanıyor.
