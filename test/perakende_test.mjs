@@ -171,6 +171,22 @@ test('Doygunluk ayrıştırma: dizi ve nesne, kalite 0 tercih edilir, sayı olma
   eq(R.parseSaturation({ a: list[0], b: list[2] }), { 3: 1.5, 4: 0.8 });
   eq(R.parseSaturation(null), {});
 });
+test('Ağaç: her kalitenin kendi doygunluğu kullanılır (Q0 doygunluğu Q1–Q12 için geçerli değil)', () => {
+  const list = [{ dbLetter: 150, quality: 0, saturation: 0.8 }, { dbLetter: 150, quality: 5, saturation: 1.6 }, { dbLetter: 3, quality: null, saturation: 1.2 }];
+  const map = { ...R.parseSaturation(list), ...R.parseQualitySaturation(list) };
+  eq(R.parseQualitySaturation(list), { '150@0': 0.8, '150@5': 1.6 });
+  eq(R.saturationOf(map, 150, 5), 1.6);
+  eq(R.saturationOf(map, 150, 0), 0.8);
+  eq(R.saturationOf(map, 150, 7), 0.8); // o kalitede kayıt yoksa ürünün (Q0) doygunluğu
+  eq(R.saturationOf(map, 3, 4), 1.2);
+  const ctx = { saturation: map, bonusPct: 0, adminNet: 0, qualityWeight: 0.3, buildings: {}, averageSalary: 345 };
+  const setup = { economyPhase: 1, buildings: [{ id: 1, letter: 'u', level: 1, lines: [{ id: 1, product: 150, quality: 5, cost: 4000 }] }] };
+  const line = R.evaluateRetail(setup, ctx).buildings[0].lines[0];
+  const own = R.calcProduct({ economy: 1, productId: 150, quality: 5, saturation: 1.6, cAct: 4000 });
+  near(line.rMax ?? line.price, own.rMax, 6);
+  const top = R.rankBuilding({ letter: 'u', economy: 1, ctx, quality: 5, costFor: () => 4000 }).find((x) => x.productId === 150);
+  near(top.rMax, own.rMax, 6);
+});
 
 // =====================================================================================================
 section('Kurulum');
