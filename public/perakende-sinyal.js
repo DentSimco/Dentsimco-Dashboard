@@ -25,7 +25,7 @@ export function hesaplaPerakende({ economy = 0, saturation = {}, market = {}, bu
         const model = R.getModel(economy, id, q);
         if (!model) continue;
         const wage = R.storeWage({ modelW: model.W, salaryModifier: buildings[letter]?.salaryModifier, averageSalary, adminNet: 0 });
-        const r = R.calcProduct({ economy, productId: id, quality: q, saturation: saturation[id], cAct: cost, bonusPct: 0, weather: 1, qualityWeight, wage });
+        const r = R.calcProduct({ economy, productId: id, quality: q, saturation: R.saturationOf(saturation, id, q), cAct: cost, bonusPct: 0, weather: 1, qualityWeight, wage });
         if (!r.ok) continue;
         const alim = r.sellable ? r.cAct * r.usphplMax : 0; // saatte satılan malın maliyeti (seviye başı)
         const marj = r.sellable && alim > 0 ? (r.pphplMax / alim) * 100 : null;
@@ -67,7 +67,7 @@ export async function loadPerakendeSinyal(r, options) {
     if (s != null && s !== '' && Number.isFinite(Number(s))) saturation[id] = Number(s);
   }
   const ri = get('retail');
-  Object.assign(saturation, R.parseSaturation(Array.isArray(ri) ? ri : ri?.items ?? ri));
+  Object.assign(saturation, R.parseSaturation(Array.isArray(ri) ? ri : ri?.items ?? ri), R.parseQualitySaturation(Array.isArray(ri) ? ri : ri?.items ?? ri));
   const norm = H.normalizeData({ products, buildings: get('buildings') || {}, core, modifiers: {}, realm: r });
   const live = get('live');
   const economy = Number.isInteger(gamePhase?.index) ? gamePhase.index : Number.isInteger(norm.economy?.currentPhase) ? norm.economy.currentPhase : 0;

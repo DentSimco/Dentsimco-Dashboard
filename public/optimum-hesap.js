@@ -354,7 +354,7 @@ function pkDurumu({ data, live, company, sirket, faz, pk, secim }) {
       for (let q = 0; q <= (kaliteli ? R.MAX_QUALITY : 0); q++) {
         const maliyet = piyasa(id, q);
         if (maliyet == null) continue; // borsada ilanı olmayan ürün/kalite hesaplanmaz (model maliyeti uydurulmaz)
-        const r = R.calcProduct({ economy: faz, productId: id, quality: q, saturation: doygun[id], cAct: maliyet, bonusPct, qualityWeight: pk?.qualityWeight, wage: 0 });
+        const r = R.calcProduct({ economy: faz, productId: id, quality: q, saturation: R.saturationOf(doygun, id, q), cAct: maliyet, bonusPct, qualityWeight: pk?.qualityWeight, wage: 0 });
         if (!r.ok) continue;
         const w = R.storeWage({ modelW: r.model.W, salaryModifier: data.buildings?.[harf]?.salaryModifier, averageSalary: data.averageSalary, adminNet: 0 });
         const a = r.sellable ? Math.max(0, r.marginHourPerLevel) : 0;

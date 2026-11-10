@@ -201,7 +201,7 @@ async function loadData(r) {
     if (s != null && s !== '' && Number.isFinite(Number(s))) saturation[id] = Number(s);
   }
   const ri = get('retail');
-  Object.assign(saturation, R.parseSaturation(Array.isArray(ri) ? ri : ri?.items ?? ri));
+  Object.assign(saturation, R.parseSaturation(Array.isArray(ri) ? ri : ri?.items ?? ri), R.parseQualitySaturation(Array.isArray(ri) ? ri : ri?.items ?? ri));
   const qw = core.RETAIL_MODELING_QUALITY_WEIGHT;
   return {
     norm: H.normalizeData({ products, buildings: get('buildings') || {}, core, modifiers: get('modifiers') || {}, realm: r }),
@@ -399,7 +399,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     salaryModifier: c.ctx.buildings?.[letter]?.salaryModifier, averageSalary: c.ctx.averageSalary, adminNet: 0 });
   function calc(c, { letter, product, quality, cost, price: p }) {
     const cAct = cost ?? marketOf(product, quality);
-    return R.calcProduct({ economy: c.econ, productId: product, quality, saturation: c.ctx.saturation[product], cAct, price: p,
+    return R.calcProduct({ economy: c.econ, productId: product, quality, saturation: R.saturationOf(c.ctx.saturation, product, quality), cAct, price: p,
       bonusPct: c.ctx.bonusPct, weather: 1, qualityWeight: c.ctx.qualityWeight, wage: baseWage(c, letter, product, quality) * (1 + c.ctx.adminNet), strictCost: true });
   }
   const engineSetup = (c, list = setup.buildings) => ({ economyPhase: c.econ, buildings: list.map((b) => ({ id: b.id, letter: b.letter, level: b.level, construction: !!b.construction,
@@ -628,7 +628,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     } else chips.push(chip(line?.needsCost ? 'Borsada fiyat yok: maliyeti elle girin' : line?.reason || 'Hesaplanamadı', 'down'));
     return `<article class="ur-card" aria-label="${title}, ${esc(buildingName(b.letter))}, seviye ${b.level}">
       <div class="ur-row" style="gap:12px">
-        <div class="grow"><div class="ur-row" style="flex-wrap:wrap;gap:6px"><span style="font:600 19px var(--font-c)">${title}</span>${chip(`Q${b.quality}`)}${badge(c.ctx.saturation[b.product])}</div>
+        <div class="grow"><div class="ur-row" style="flex-wrap:wrap;gap:6px"><span style="font:600 19px var(--font-c)">${title}</span>${chip(`Q${b.quality}`)}${badge(R.saturationOf(c.ctx.saturation, b.product, b.quality))}</div>
           <span class="ur-note">${esc(buildingName(b.letter))}</span></div>
         <div class="ur-level"><small>Seviye</small><b>${num(b.level)}</b></div></div>
       <div class="ur-hr"></div>
@@ -743,7 +743,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     const opts = [['all', 'Tüm binalar'], ...ls.map((l) => [l, buildingName(l)])].map(([v, t]) =>
       `<option value="${esc(v)}" ${v === rankFilter ? 'selected' : ''}>${esc(t)}</option>`).join('');
     const rows = list.map((x, i) => `<div class="pk-rank"><span class="no">${i === 0 ? star(true) : num(i + 1)}</span>
-      <div class="grow"><div class="ur-row" style="flex-wrap:wrap"><span class="title" style="font-weight:600;font-size:16px">${esc(nameOf(x.product))}</span>${chip(`Q${x.quality}`)}${badge(c.ctx.saturation[x.product])}</div>
+      <div class="grow"><div class="ur-row" style="flex-wrap:wrap"><span class="title" style="font-weight:600;font-size:16px">${esc(nameOf(x.product))}</span>${chip(`Q${x.quality}`)}${badge(R.saturationOf(c.ctx.saturation, x.product, x.quality))}</div>
         <span class="ur-note">${esc(buildingName(x.letter))} · PPHPL <b class="${cls(x.x.pphplMax)}">${money(x.x.pphplMax, 2)}</b> · fiyat ${esc(price(x.x.rMax))} · maliyet ${esc(price(x.x.cAct))}${x.market ? '' : ' (model)'}</span></div>
       <button type="button" class="ur-btn tint" data-act="addFrom" data-v="${esc(`${x.letter}|${x.product}|${x.quality}`)}">${icon('plus')}Ekle</button></div>`).join('');
     return `<section class="ur-card" aria-labelledby="h-max"><h2 id="h-max">PPHPL Max</h2>
@@ -840,7 +840,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
 
     const products = setup.buildings.map((b, i) => {
       const l = ev.buildings[i]?.lines[0];
-      const head = `<div class="ur-row" style="gap:6px;flex-wrap:wrap"><span style="font-size:18px;font-weight:600">${esc(nameOf(b.product))}</span>${chip(`Q${b.quality}`)}${badge(c.ctx.saturation[b.product])}
+      const head = `<div class="ur-row" style="gap:6px;flex-wrap:wrap"><span style="font-size:18px;font-weight:600">${esc(nameOf(b.product))}</span>${chip(`Q${b.quality}`)}${badge(R.saturationOf(c.ctx.saturation, b.product, b.quality))}
         <span class="ur-note" style="margin-left:auto">${l?.ok ? `${num(l.unitsDay * k)} adet` : ''}</span></div>
         <span class="ur-note">${esc(buildingName(b.letter))} · seviye ${num(b.level)}</span>`;
       if (b.construction) return `<div class="ur-card" style="padding:12px">${head}<p class="ur-note">İnşaatta: satış ve maaş yok; seviyesi yönetim giderine girer.</p></div>`;
@@ -983,7 +983,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     } else if (d.letter) {
       const top = ranking(c, [d.letter], 10);
       const picks = top.map((x, i) => `<button type="button" class="pk-pick" data-act="pick" data-v="${x.product}|${x.quality}" aria-pressed="${x.product === d.product && x.quality === d.quality}">
-          ${star(i === 0)}<span class="grow"><span class="name">${esc(nameOf(x.product))} <span class="ur-chip" style="margin-left:4px">Q${x.quality}</span></span><br>${badge(c.ctx.saturation[x.product])}</span>
+          ${star(i === 0)}<span class="grow"><span class="name">${esc(nameOf(x.product))} <span class="ur-chip" style="margin-left:4px">Q${x.quality}</span></span><br>${badge(R.saturationOf(c.ctx.saturation, x.product, x.quality))}</span>
           <span class="vals"><b class="${cls(x.x.pphplMax)}">${money(x.x.pphplMax, 2)}</b><small>fiyat ${esc(price(x.x.rMax))}</small></span></button>`).join('');
       const products = R.buildingProducts(d.letter, c.econ).slice().sort((a, b) => nameOf(a).localeCompare(nameOf(b), 'tr'));
       const popts = `<option value="" ${d.product ? '' : 'selected'} disabled>Ürün seçin</option>${products.map((id) => {
@@ -997,7 +997,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
           <div id="pk-top" ${topOpen ? '' : 'hidden'}><p class="ur-note" style="margin-top:8px">Borsa maliyeti ve en kârlı fiyatla, kalitesiyle birlikte. Dokununca ürün ve kalite seçilir.</p>
             <div style="margin-top:6px">${picks || '<p class="ur-note">Bu bina için kâr getiren ürün yok.</p>'}</div></div></section>`;
       if (d.product) {
-        const sat = c.ctx.saturation[d.product];
+        const sat = R.saturationOf(c.ctx.saturation, d.product, d.quality);
         const qs = qualityOptions(c, d.letter, d.product);
         const best = qs.length ? qs.reduce((a, b) => (b.x.pphplMax > a.x.pphplMax ? b : a)) : null;
         const qList = qs.some((o) => o.quality === d.quality) ? qs : [...qs, { quality: d.quality, market: false, x: calc(c, { ...d, cost: null, price: null }) }].sort((a, b) => a.quality - b.quality);
