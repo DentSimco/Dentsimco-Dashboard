@@ -298,6 +298,32 @@ Sınamalar:
 2. Bonus normalse R2'de bir değişiklik: Lazanya → Samosa ya da Salata Q12 (1-2-1 kalır), ya da QUAL M1 menüsü (2-2-2, Q11–12).
 3. Eski Süt Q0 menüsünün hangi restoranda ve hangi personelle çalıştığı.
 
+## Çeşit değerlendirmesi (11 Kasım)
+
+Her testin ölçülen hedefinden kalite (içbükey eğri, "bütün adımlar" uyumu), bonus ve lüks (×1,207) çıkarıldı; çeşit terimi
+olmadan kalan fark (lüks öncesi, ağırlıklı ortalama):
+
+| Grup | Yapı | Kalan fark |
+|---|---|---|
+| Sky (5 restoran, eko) | 1-1-1, N 3 | −0,18 ± 0,12 |
+| ANARCHY, QUAL eko (bugünkü veriler) | 2-2-2, N 6 | 0,00 ± 0,11 |
+| QUAL lüks | 2-2-2, N 6 | +0,01 ± 0,17 |
+| Tosuncuk lüks eko bugün (bonus 0,35 / 0 varsayımı) | 1-2-1, N 4 | −1,43 / −1,08 ± 0,29 |
+| Tosuncuk lüks eko eski | 1-2-1, N 4 | −1,36 ± 0,41 |
+| Star Deluxe lüks eko eski | 2-2-1, N 5 | −1,12 ± 0,48 |
+| Tosuncuk lüks eko eski | 2-2-2, N 6 | −2,12 ± 0,50 |
+| Eski eko satırlar (Yanko, eski ANARCHY, Sky V 2-2-2; büyüme evresi olabilir) | 2-2-2, N 6 | +0,66 ± 0,21 |
+
+- **1-1-1 → 2-2-2 ≈ +0,18 ± 0,16.** Çeşit etkisi küçük; aracın +0,58'i (Q6) büyük. Toplanan ya da çarpan ayırt edilemiyor
+  (N'si 6'dan farklı düşük kaliteli ölçüm yok); Q5 üstünde ikisi aynı sonucu veriyor.
+- **Tosuncuk ve Star Deluxe'ün açığı çeşitten değil:** 3 ürünlü Sky açıksız, 4–5 ürünlü menüler −1,1 … −1,4, Tosuncuk'un 6 ürünlü
+  dengeli eski menüsü de −2,1. Açık ürün sayısını ya da kategori dengesini değil, restoran grubunu izliyor (lüks, düşük kayıtlı bonus).
+- Pratik: 3-3-3 2-2-2'ye göre ~%35 fazla yemek tüketir, rating'e katkısı ~+0,18; araç (çarpan 0,037) Q6'da +0,58 veriyor ve
+  Menü Seç'i büyük menülere fazla yöneltiyor.
+
+Sınama (Tosuncuk lüks eko restoranı): Köfte'yi çıkarıp 1-1-1 (Süt Q12, Lazanya Q12, Kokteyl Q8). Bugün 4,82. Açık şirkete
+özgüyse ~4,74; 1-2-1 dengesizliğindense ~6,33; Lazanya'dansa (payı 1/4 → 1/3) ~4,22.
+
 ## Açık sorular
 
 - Rating dilimi: gazetenin ortalaması (7,59–7,74) dilim değerini merkez sayınca (7,65) tutuyor, alt sınır sayınca (8,0) tutmuyor; doluluk gözlemleri ise alt sınırı (tam sayı kısmı) destekliyor. Araç tam sayı kısmını kullanıyor.
