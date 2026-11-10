@@ -105,24 +105,44 @@ Dört çözümleme (tüm adımlar; ECO1'in tek seferlik −1,12 adımı hariç; 
   doğrudan sınaması (mevcut model −0,55, yeni ~0); (c) lüks Q0 ya da Q1 menü: lüks çarpan ise eko'dan yalnız +0,2–0,3, sabit ek ise
   +1,0–1,4 yukarıda olur; (d) aynı ürünlerle Q8 2-2-2 eko: eğrinin Q5–Q12 arası.
 
-## Dentium Q1, 8 döngü (10 Kasım): eğrinin alt ucu düz
+## Dentium Q1, 8 döngü (10 Kasım)
 
 Q1 2-2-2, eko, seviye 1, $350; 7–10 Kasım. Ratingler 0,37 → 0,32 → 0,42 → 0,62 → 0,42 → 0,02 → 0,17 → 0,18 → 0,00 (alt sınır).
-Son 2 döngüde yönetici eğitimde (bonus −0,03); öncekilerde 0,14 ya da −0,03 (belli değil).
+Son 2 döngüde yönetici eğitimde (bonus −0,03); öncekilerde 0,14 ya da −0,03 (belli değil). Doluluk %0–15.
 
-- **Q1 ürün puanı ~0,0–0,2** (k 0,22–0,36 ve üç bonus varsayımı; 1σ ±0,2–0,35; 0,00'daki adım sansürlü sayıldı). Aynı restoranın
-  Q0 dönemi ($60): 0,21. Q0 → Q1 artışı yok. Adım gürültüsü 0,19 (başka yerlerle aynı).
-- İçbükey eğri Q1'de 1,68 (×0,889) ya da 1,89 (araç) diyor: 5–10σ fazla; Ü 1,68 olsaydı 8 döngü ortalamasının 0,27'ye inmesi
-  benzetimde hiç görülmedi. **Alt uçta içbükeylik reddedildi; eğri S biçimli:** Q0–Q1 düz (~0–0,2), Q1–Q5 arası hızlı yükseliş
-  (ortalama ~1,1/kalite), Q5 sonrası yavaş (Q5 4,35 · Q6 4,7 · Q11–12 5,4). Q2–Q4 ölçülmedi.
-- Fiyat karışıklığı: Q1'in tamamı $350'de, Q0'ın çoğu $60'ta. QUAL'da +%30 fiyatın etkisi görünmedi, Q0'ın $350'deki tek adımı
-  +0,19; büyük bir fiyat cezası olası değil, ama 6 katlık fiyat farkı ayrıca sınanmadı.
-- **Menü Seç etkisi** (4 Kasım VWAP fixture'ı): düşük hedeflerde (eko 3–5, lüks 5–7) önerilen menülerde 3–6 tane Q2–Q4 ürün var;
-  hedef 6 eko menüsü Q5+ ürünlerden oluşuyor. Q2–Q4, Q1 ile Q5 arasında doğrusal olsa bile Q2–Q4 içeren önerilerin ratingi araçtakinden
-  0,8–2,3 düşük çıkar (ör. eko, bonus 0,83, hedef 4: araç 4,07, doğrusal varsayım 2,23); Q5+ önerilerde fark yalnız ×0,889 düzeyi (0,65–0,8).
-- **Sıradaki sınama:** aynı 6 ürünle Q3 2-2-2, $350 (Q1 ile karşılaştırma fiyatça temiz). Q3 ürün puanı beklentisi: araç 3,83,
-  içbükey ×0,889 3,41, Q1–Q5 arası doğrusal ~2,2, geç eşik ~0,5–1. 4–6 döngüde ayrılır. Yemek maliyeti (4 Kasım VWAP) ~$33 bin/döngü
-  (Q1 ~$29 bin).
+- **Ölçülen Q1 ürün puanı ~0,0–0,2** (k 0,22–0,36 ve üç bonus varsayımı; 1σ ±0,2–0,35; 0,00'daki adım sansürlü sayıldı). Aynı
+  restoranın Q0 dönemi ($60, doluluk %8–15): 0,21. Adım gürültüsü 0,19 (başka yerlerle aynı).
+- İlk yorum (S biçimli eğri) geri alındı: kullanıcıya göre oyunda eğri doğrusal ya da içbükey olabilir, S olamaz. Q1 dışındaki
+  bütün ölçümler Kasım eğrisi ×0,889'a oturuyor: Dentium Q0 0,21 (eğri 0,36), QUAL Q5 4,2–4,45 (4,37), Sky Q6 ~4,7 (4,68), ANARCHY
+  ~4,9 (4,94), QUAL Q11–12 5,0–5,5 (5,42). Yalnız Q1 uymuyor (eğri 1,68); Q0 0,21 ve Q5 4,35 ile içbükeylik için Q1 ≥ ~1,0 olmalı.
+  Bu yüzden Q1 ölçümü bozuk sayılıyor.
+- Q1'i bozabilecek iki etken (ikisi de yalnız Dentium'da var):
+  - $350 fiyat. Zayıf aday: $350'deki ilk 4 döngüde rating 0,18 → 0,62 yükseldi.
+  - Neredeyse boş restoran. Dentium'da doluluk ile rating değişimi arasında korelasyon 0,85 (8 Q1 adımı); ortalamaya dönüş hesaba
+    katılınca doluluk terimi χ²'yi 9,7'den 5,1'e indiriyor (~2σ). %0 doluluklu döngü −0,20, %1,67'lik −0,40, %14,65'lik +0,15.
+    QUAL'da (%35–100) doluluğun etkisi yok; etki varsa yalnız çok düşük dolulukta. Oyun döngü sırasında "müşteri geri bildirimleri
+    ve doluluk istatistikleri" topluyor.
+- **Sıradaki sınama:** Q1 menüsü, fiyat $60 (Q0 dönemiyle aynı), 4–6 döngü. İçbükeyse hedef ~1,8 (bonus 0,14); 4 döngüde ~1,3'e
+  çıkar. ~0,2–0,3'te kalırsa aynı koşulda Q1 = Q0 demektir. Ardından Q3.
+
+## Oyuncunun doğrusal ölçeği ve ölçülen aralık (10 Kasım)
+
+Tecrübeli bir oyuncunun ölçeği: kalite başına 0,5; Q0 −3, Q6 0, Q12 +3 (toplam 6). Ölçülen ürün puanları Q6'ya göre:
+
+| Kalite | Ölçülen | Q6'ya göre | Oyuncu | Kasım ×0,889 |
+|---|---|---|---|---|
+| Q0 | 0,21 (Dentium, $60) | −4,5 | −3 | −4,3 |
+| Q1 | ~0,05 (Dentium, $350, boş) | −4,6 | −2,5 | −3,0 |
+| Q5 | 4,2–4,45 (QUAL) | −0,35 | −0,5 | −0,3 |
+| Q6 | ~4,7 (Sky 1-1-1) | 0 | 0 | 0 |
+| Q7,5 ort. | ~4,9 (ANARCHY) | +0,2 | +0,75 | +0,26 |
+| Q11–12 | 5,2–5,5 (QUAL) | +0,5 … +0,8 | +2,8 | +0,74 |
+
+- Toplam aralık benzer (~5,2'ye karşı 6), ama simetrik değil: etkinin neredeyse tamamı Q6'nın altında.
+- Oyuncunun eğimi Q6 üstünde reddediliyor: QUAL'da (aynı ürün, şirket, zaman) M1 − M2 = 3,33 bekliyor, ölçülen 0,7–1,0; χ² 80–187,
+  serbest model 15–27. Q5–Q12 arasındaki en iyi doğrusal eğim 0,10–0,14/kalite. ANARCHY − Sky I: oyuncu +0,75, ölçülen ~0.
+- 8 Aralık 2021 güncelleme notu ("düşük kalite ratingi daha çok düşürür, yüksek kalitenin artı etkisi azaltıldı") simetrik bir
+  ölçeğin asimetrik yapıldığını düşündürüyor; oyuncunun ölçeği bu değişiklikten önceki hâl olabilir (varsayım).
 
 ## Açık sorular
 
