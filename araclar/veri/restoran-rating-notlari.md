@@ -105,6 +105,25 @@ Dört çözümleme (tüm adımlar; ECO1'in tek seferlik −1,12 adımı hariç; 
   doğrudan sınaması (mevcut model −0,55, yeni ~0); (c) lüks Q0 ya da Q1 menü: lüks çarpan ise eko'dan yalnız +0,2–0,3, sabit ek ise
   +1,0–1,4 yukarıda olur; (d) aynı ürünlerle Q8 2-2-2 eko: eğrinin Q5–Q12 arası.
 
+## Dentium Q1, 8 döngü (10 Kasım): eğrinin alt ucu düz
+
+Q1 2-2-2, eko, seviye 1, $350; 7–10 Kasım. Ratingler 0,37 → 0,32 → 0,42 → 0,62 → 0,42 → 0,02 → 0,17 → 0,18 → 0,00 (alt sınır).
+Son 2 döngüde yönetici eğitimde (bonus −0,03); öncekilerde 0,14 ya da −0,03 (belli değil).
+
+- **Q1 ürün puanı ~0,0–0,2** (k 0,22–0,36 ve üç bonus varsayımı; 1σ ±0,2–0,35; 0,00'daki adım sansürlü sayıldı). Aynı restoranın
+  Q0 dönemi ($60): 0,21. Q0 → Q1 artışı yok. Adım gürültüsü 0,19 (başka yerlerle aynı).
+- İçbükey eğri Q1'de 1,68 (×0,889) ya da 1,89 (araç) diyor: 5–10σ fazla; Ü 1,68 olsaydı 8 döngü ortalamasının 0,27'ye inmesi
+  benzetimde hiç görülmedi. **Alt uçta içbükeylik reddedildi; eğri S biçimli:** Q0–Q1 düz (~0–0,2), Q1–Q5 arası hızlı yükseliş
+  (ortalama ~1,1/kalite), Q5 sonrası yavaş (Q5 4,35 · Q6 4,7 · Q11–12 5,4). Q2–Q4 ölçülmedi.
+- Fiyat karışıklığı: Q1'in tamamı $350'de, Q0'ın çoğu $60'ta. QUAL'da +%30 fiyatın etkisi görünmedi, Q0'ın $350'deki tek adımı
+  +0,19; büyük bir fiyat cezası olası değil, ama 6 katlık fiyat farkı ayrıca sınanmadı.
+- **Menü Seç etkisi** (4 Kasım VWAP fixture'ı): düşük hedeflerde (eko 3–5, lüks 5–7) önerilen menülerde 3–6 tane Q2–Q4 ürün var;
+  hedef 6 eko menüsü Q5+ ürünlerden oluşuyor. Q2–Q4, Q1 ile Q5 arasında doğrusal olsa bile Q2–Q4 içeren önerilerin ratingi araçtakinden
+  0,8–2,3 düşük çıkar (ör. eko, bonus 0,83, hedef 4: araç 4,07, doğrusal varsayım 2,23); Q5+ önerilerde fark yalnız ×0,889 düzeyi (0,65–0,8).
+- **Sıradaki sınama:** aynı 6 ürünle Q3 2-2-2, $350 (Q1 ile karşılaştırma fiyatça temiz). Q3 ürün puanı beklentisi: araç 3,83,
+  içbükey ×0,889 3,41, Q1–Q5 arası doğrusal ~2,2, geç eşik ~0,5–1. 4–6 döngüde ayrılır. Yemek maliyeti (4 Kasım VWAP) ~$33 bin/döngü
+  (Q1 ~$29 bin).
+
 ## Açık sorular
 
 - Rating dilimi: gazetenin ortalaması (7,59–7,74) dilim değerini merkez sayınca (7,65) tutuyor, alt sınır sayınca (8,0) tutmuyor; doluluk gözlemleri ise alt sınırı (tam sayı kısmı) destekliyor. Araç tam sayı kısmını kullanıyor.

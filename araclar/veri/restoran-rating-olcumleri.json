@@ -1,6 +1,6 @@
 {
   "aciklama": "Restoran rating ve doluluk ölçümleri (oyuncuların paylaştığı ekran görüntülerinden elle çıkarıldı). Rating modeli ve doluluk tablosu bunlarla sınanır; notlar: restoran-rating-notlari.md. Saatler Türkiye saati (UTC+3), döngü bitişi. adim = [bitiş, başlangıç ratingi, yeni rating, doluluk %, menü fiyatı $]; null = ekranda görünmüyor. cikarim: true = adım ekranda yok, komşu ekranlardan çıkarıldı.",
-  "guncellendi": "2026-11-06",
+  "guncellendi": "2026-11-10",
   "oyuncular": [
     {
       "ad": "Sky (Sky Aerospace)",
@@ -62,8 +62,8 @@
     {
       "ad": "Dentium",
       "bonus": { "ekipDisiSatisHizi": -3, "etkinIletisim": 20, "toplam": 0.14, "not": "Yönetim ekranı: Restoran derecesi −0,06 +0,200 (eksi satış hızı eksi bonus verir)." },
-      "bonusSonra": { "tarih": "2026-11-08 10:25", "ekipDisiSatisHizi": -3, "etkinIletisim": 3, "toplam": -0.03, "not": "Restoran derecesi −0,06 +0,030; ekranda 'bazı yöneticiler eğitim görüyor, yerleşiyor veya grev yapıyor'. Ne zaman değiştiği bilinmiyor; Q1 döngüleri için −0,03 varsayıldı." },
-      "ekranlar": ["2026-11-06 03:08 (tarih tahmini)", "2026-11-08 10:25"],
+      "bonusSonra": { "tarih": "2026-11-08 10:25", "ekipDisiSatisHizi": -3, "etkinIletisim": 3, "toplam": -0.03, "not": "Restoran derecesi −0,06 +0,030; ekranda 'bazı yöneticiler eğitim görüyor, yerleşiyor veya grev yapıyor'. Ne zaman değiştiği bilinmiyor; Q1 döngüleri için −0,03 varsayıldı. 10 Kasım 12:54'te yine −0,06 +0,030: CMO ve CMO stajyeri eğitimde, 10 Kasım 23:03'te bitiyor. Kullanıcıya göre son 2 Q1 döngüsünde (10 Kas 00:56 ve 12:56 bitişli) yönetici eğitimdeydi; öncekiler için bonus 0,14 mü −0,03 mü belli değil." },
+      "ekranlar": ["2026-11-06 03:08 (tarih tahmini)", "2026-11-08 10:25", "2026-11-10 12:53–13:00"],
       "restoranlar": [
         { "ad": "Q0 restoranı", "seviye": 1, "oturma": "eko", "personel": "eko",
           "menu": { "117": 0, "119": 0, "142": 0, "143": 0, "124": 0, "125": 0 },
@@ -73,8 +73,13 @@
           "deney": "$350 fiyat: rating düşmedi (0,18 → 0,37, sonra Q1 döngüleri 0,37 → 0,62); doluluk Q1 döngülerinde %5,35 / %12,11 / %9,84 ($60'ta %8–15). Zarar döngü başına ~$33 binden ~$10 bine indi, bir döngü +$228." },
         { "ad": "Q0 restoranı (Q1 dönemi)", "seviye": 1, "oturma": "eko", "personel": "eko",
           "menu": { "117": 1, "119": 1, "142": 1, "143": 1, "124": 1, "125": 1 },
-          "gider": { "yemek": 28873, "maas": 13300, "not": "döngü başına, menü panelinden; koşu kayıtlarıyla uyumlu (gelir − kâr ≈ $42,2 bin)" },
-          "adim": [["2026-11-07 00:56", 0.37, 0.32, 5.35, 350], ["2026-11-07 12:56", 0.32, 0.42, 12.11, 350], ["2026-11-08 00:56", 0.42, 0.62, 9.84, 350]] }
+          "gider": { "yemek": 28873, "maas": 13300, "not": "döngü başına, menü panelinden; koşu kayıtlarıyla uyumlu (gelir − kâr ≈ $42,2 bin). 10 Kasım panelinde maaş $13.803." },
+          "adim": [["2026-11-07 00:56", 0.37, 0.32, 5.35, 350], ["2026-11-07 12:56", 0.32, 0.42, 12.11, 350], ["2026-11-08 00:56", 0.42, 0.62, 9.84, 350],
+            ["2026-11-08 12:56", 0.62, 0.42, 0, 350], ["2026-11-09 00:56", 0.42, 0.02, 1.67, 350], ["2026-11-09 12:56", 0.02, 0.17, 14.65, 350],
+            ["2026-11-10 00:56", 0.17, 0.18, 5.73, 350, { "bonus": -0.03, "not": "yönetici eğitimde (kullanıcı)" }],
+            ["2026-11-10 12:56", 0.18, 0.00, 4.67, 350, { "bonus": -0.03, "not": "yönetici eğitimde (kullanıcı); rating 0,00 alt sınırında" }]],
+          "kar": { "not": "döngü kârı, 8 Kas 12:56 – 10 Kas 12:56 bitişli adımlar", "deger": [-42161, -36834, 8599, -22600, -26322] },
+          "stok": "10 Kasım 12:53: Salata 10 (döngü başına 10 gerekli), Kahve 283 (97), Samosa 64 (11), Süt 7.408 (288), Portakal 702.987 (144), Elma 2.636 (129)." }
       ]
     },
     {
