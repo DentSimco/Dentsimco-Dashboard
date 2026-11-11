@@ -136,7 +136,7 @@ const isRetail = (letter) => !!R.buildingProducts(letter, 1).length && !EXCLUDED
 function cleanBuilding(b) {
   const product = Number(b?.product);
   if (!b || !isRetail(b.letter) || !R.buildingProducts(b.letter, 1).includes(product)) return null;
-  return { id: b.id || uid(), letter: b.letter, product, quality: R.clampQuality(b.quality), level: toInt(b.level), cost: posNum(b.cost), price: R.autoPriceOnly(product) ? null : posNum(b.price), construction: !!b.construction };
+  return { id: b.id || uid(), letter: b.letter, product, quality: R.clampQuality(b.quality), level: toInt(b.level), cost: posNum(b.cost), price: posNum(b.price), construction: !!b.construction };
 }
 function sanitize(raw) {
   const s = defaultSetup();
@@ -1017,9 +1017,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
           <label class="ur-field"><span>Kalite</span><select data-d="quality" aria-label="Kalite">${qopts}</select>
             ${bestOk ? `<p class="ur-note">Önerilen: <b>Q${best.quality}</b>, en yüksek PPHPL ${money(best.x.pphplMax, 2)}.${best.quality !== d.quality ? ' <button type="button" class="ur-btn tint" data-act="useBest" style="min-height:36px;margin-left:6px">Önerileni seç</button>' : ''}</p>` : best ? '<p class="ur-note c-down">Şu borsa fiyatlarıyla hiçbir kalite kâr getirmiyor.</p>' : ''}</label>
           ${field('Birim maliyet', 'cost', inputVal(d.cost), { unit: '$', attr: 'data-d', placeholder: x.ok ? NF[x.cAct < 10 ? 3 : 2].format(x.cAct) : '', hint: mk != null ? 'Boşsa bu kalitenin borsa fiyatı.' : 'Borsada bu kalite için ilan yok; kâr için maliyeti elle girin.' })}
-          ${R.autoPriceOnly(d.product)
-            ? `<label class="ur-field"><span>Satış fiyatı</span><div class="ur-input"><i>$</i><input type="text" readonly tabindex="-1" aria-readonly="true" value="${x.ok && x.sellable ? NF[x.rMax < 10 ? 3 : 2].format(x.rMax) : ''}" placeholder="—"></div><p class="ur-note">Ağaçta fiyat kendiliğinden en kârlı fiyat olarak hesaplanır; elle yazılmaz.</p></label>`
-            : field('Satış fiyatı', 'price', inputVal(d.price), { unit: '$', attr: 'data-d', placeholder: x.ok && x.sellable ? NF[x.rMax < 10 ? 3 : 2].format(x.rMax) : '', hint: 'Boşsa en kârlı fiyat.' })}
+          ${field('Satış fiyatı', 'price', inputVal(d.price), { unit: '$', attr: 'data-d', placeholder: x.ok && x.sellable ? NF[x.rMax < 10 ? 3 : 2].format(x.rMax) : '', hint: 'Boşsa saatlik kârı en yüksek fiyat: birim maliyet düşülerek hesaplanır. Ürünü kendiniz üretiyorsanız birim maliyete kendi üretim maliyetinizi yazın.' })}
           <div class="ur-box" aria-live="polite" data-result>${resultBox(x, lv)}</div>
           <section aria-labelledby="h-gr"><h2 id="h-gr" style="font-size:17px">Fiyat geçmişi, 30 gün</h2>${chart}</section>`;
       }
@@ -1055,7 +1053,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
     }
     if (!d?.letter || !d.product || !(d.level > 0)) return;
     const next = clone();
-    const b = { id: d.id || uid(), letter: d.letter, product: d.product, quality: d.quality, level: d.level, cost: d.cost, price: R.autoPriceOnly(d.product) ? null : d.price, construction: !!d.construction };
+    const b = { id: d.id || uid(), letter: d.letter, product: d.product, quality: d.quality, level: d.level, cost: d.cost, price: d.price, construction: !!d.construction };
     if (d.index != null && next.buildings[d.index]) next.buildings[d.index] = b; else next.buildings.push(b);
     const added = d.index == null;
     closeSheet();
