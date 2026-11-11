@@ -84,8 +84,10 @@ test('r_max fiyatındaki kâr, kapalı formdaki pphpl_max ile aynı; r_max gerç
   for (const [id, q, s, cAct] of [[3, 0, 1.2, 1.5], [3, 7, 0.4, 2], [11, 3, 1.9, 25], [150, 5, 1.0, 400], [102, 4, 0.9, 2]]) {
     const o = { economy: 1, productId: id, quality: q, saturation: s, cAct, bonusPct: 12, wage: 100 };
     const at = R.calcProduct({ ...o, price: R.calcProduct({ ...o, price: 1 }).rMax });
-    near(at.pphpl, at.pphplMax, 9, `pphpl ${id}`);
-    near(at.usphpl, at.usphplMax, 9, `usphpl ${id}`);
+    const dec = R.autoPriceOnly(id) ? 6 : 9; // Ağaçta fiyat kuruşa yuvarlanır
+    near(at.pphpl, at.pphplMax, dec, `pphpl ${id}`);
+    near(at.usphpl, at.usphplMax, dec, `usphpl ${id}`);
+    if (R.autoPriceOnly(id)) continue; // Ağaçta fiyat hep r_max (elle verilemez); komşu fiyat yoklaması diğer ürünlerle yapılır, formül aynı
     for (const f of [0.9, 0.99, 1.01, 1.1]) {
       ok(R.calcProduct({ ...o, price: at.rMax * f }).pphpl <= at.pphpl + 1e-9, `fiyat ×${f} optimumu geçti (${id})`);
     }
@@ -140,6 +142,15 @@ test('Ağaç: sabitler kaliteye göre değişir, y hep q = 0 ile hesaplanır', (
   const b = R.calcProduct({ economy: 1, productId: 150, quality: 8, saturation: 1, cAct: 50, price: 100 });
   ok(a.model.u !== b.model.u);
   near(b.y, 0.5 * 370 * b.d * (b.model.B * b.model.u + 1), 9);
+});
+test('Ağaç: satış fiyatı elle verilse de en kârlı fiyat kullanılır; diğer ürünlerde fiyat serbest', () => {
+  const t = R.calcProduct({ economy: 1, productId: 150, quality: 5, saturation: 1.2, cAct: 4000, price: 99 });
+  eq(t.priceAuto, true); near(t.price, t.rMax, 2);
+  const s = { economyPhase: 1, buildings: [{ id: 1, letter: 'u', level: 1, lines: [{ id: 1, product: 150, quality: 5, cost: 4000, price: 99 }] }] };
+  near(R.evaluateRetail(s, { saturation: { 150: 1.2 }, bonusPct: 0, adminNet: 0, qualityWeight: 0.3, buildings: {}, averageSalary: 345 }).buildings[0].lines[0].price, t.price, 2);
+  ok(R.autoPriceOnly(150)); ok(!R.autoPriceOnly(3));
+  const d = R.calcProduct({ economy: 1, productId: 3, quality: 0, saturation: 1.2, cAct: 1.5, price: 9 });
+  eq(d.priceAuto, false); eq(d.price, 9);
 });
 test('Diğer ürünlerde kalite yalnız y çarpanını değiştirir: ×(1 + q·w/12)', () => {
   const q0 = R.calcProduct(base({ quality: 0 })), q12 = R.calcProduct(base({ quality: 12 }));
