@@ -1017,7 +1017,7 @@ export function mountPerakende(root, { realm = 0 } = {}) {
           <label class="ur-field"><span>Kalite</span><select data-d="quality" aria-label="Kalite">${qopts}</select>
             ${bestOk ? `<p class="ur-note">Önerilen: <b>Q${best.quality}</b>, en yüksek PPHPL ${money(best.x.pphplMax, 2)}.${best.quality !== d.quality ? ' <button type="button" class="ur-btn tint" data-act="useBest" style="min-height:36px;margin-left:6px">Önerileni seç</button>' : ''}</p>` : best ? '<p class="ur-note c-down">Şu borsa fiyatlarıyla hiçbir kalite kâr getirmiyor.</p>' : ''}</label>
           ${field('Birim maliyet', 'cost', inputVal(d.cost), { unit: '$', attr: 'data-d', placeholder: x.ok ? NF[x.cAct < 10 ? 3 : 2].format(x.cAct) : '', hint: mk != null ? 'Boşsa bu kalitenin borsa fiyatı.' : 'Borsada bu kalite için ilan yok; kâr için maliyeti elle girin.' })}
-          ${field('Satış fiyatı', 'price', inputVal(d.price), { unit: '$', attr: 'data-d', placeholder: x.ok && x.sellable ? NF[x.rMax < 10 ? 3 : 2].format(x.rMax) : '', hint: 'Boşsa en kârlı fiyat.' })}
+          ${field('Satış fiyatı', 'price', inputVal(d.price), { unit: '$', attr: 'data-d', placeholder: x.ok && x.sellable ? NF[x.rMax < 10 ? 3 : 2].format(x.rMax) : '', hint: 'Boşsa saatlik kârı en yüksek fiyat: birim maliyet düşülerek hesaplanır. Ürünü kendiniz üretiyorsanız birim maliyete kendi üretim maliyetinizi yazın.' })}
           <div class="ur-box" aria-live="polite" data-result>${resultBox(x, lv)}</div>
           <section aria-labelledby="h-gr"><h2 id="h-gr" style="font-size:17px">Fiyat geçmişi, 30 gün</h2>${chart}</section>`;
       }
