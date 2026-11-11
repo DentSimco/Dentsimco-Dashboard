@@ -17,7 +17,8 @@ import { num, money, seg, field, inputVal } from './perakende-restoran.js';
 import { parseNum } from './uretim.js';
 
 const KAT = R.KATEGORILER;
-export const KALITELER = Array.from({ length: 13 }, (_, q) => q);
+// Q0–Q1'in kalite puanı negatif (menü ratingini düşürür); puan toplamı dinamik programı için aranmaz.
+export const KALITELER = Array.from({ length: 13 }, (_, q) => q).filter((q) => q >= 2);
 export const MAKS_CESIT = Object.fromEntries(KAT.map((k) => [k.key, k.urunler.length]));
 export const PUAN_OLCEK = 50; // puan 0,02 adımlarla
 export const ALT_MAKS = 3; // diğer çeşit dağılımları kategori başına en çok 3 çeşide kadar denenir

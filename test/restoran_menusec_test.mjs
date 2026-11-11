@@ -46,11 +46,11 @@ function kabaKuvvet(m, cesit, { hedef, bonus = 0, tip = 'eko', seviye = 1 }) {
 }
 
 section('Model ve bonus');
-test('M4 modeli: (ortalama puan + 0,09375 × (N − 6) + bonus [+ 3,94 profesyonel]) × oturma; lüks 1,207; 0–10 arası', () => {
-  near(RR.menuRatingi({ puanOrt: 5, urunSayisi: 6, bonus: 0 }), 5, 1e-12);
-  near(RR.menuRatingi({ puanOrt: 5, urunSayisi: 8, bonus: 0.5 }), 5 + 2 * 1.5 / 16 + 0.5, 1e-12);
-  near(RR.menuRatingi({ puanOrt: 5, urunSayisi: 6, bonus: 1, tip: 'luks' }), 6 * 1.207, 1e-12);
-  near(RR.menuRatingi({ puanOrt: 3, urunSayisi: 6, bonus: 0.5, tip: 'luks', profesyonel: true }), (3 + 0.5 + 3.94) * 1.207, 1e-12);
+test('M4 modeli: (ortalama puan + 0,09375 × N + bonus [+ 3,94 profesyonel]) × oturma; lüks 1,207; 0–10 arası', () => {
+  near(RR.menuRatingi({ puanOrt: 5, urunSayisi: 6, bonus: 0 }), 5 + 6 * 1.5 / 16, 1e-12);
+  near(RR.menuRatingi({ puanOrt: 5, urunSayisi: 8, bonus: 0.5 }), 5 + 8 * 1.5 / 16 + 0.5, 1e-12);
+  near(RR.menuRatingi({ puanOrt: 5, urunSayisi: 6, bonus: 1, tip: 'luks' }), (6 + 6 * 1.5 / 16) * 1.207, 1e-12);
+  near(RR.menuRatingi({ puanOrt: 3, urunSayisi: 6, bonus: 0.5, tip: 'luks', profesyonel: true }), (3 + 6 * 1.5 / 16 + 0.5 + 3.94) * 1.207, 1e-12);
   eq(RR.menuRatingi({ puanOrt: 50, urunSayisi: 6 }), 10); eq(RR.menuRatingi({ puanOrt: null, urunSayisi: 6 }), null);
 });
 test('Yönetici bonusu = 0,01 × etkin iletişim + 0,02 × ekip dışı satış hızı %; eksi iletişim ve boş değer 0, eksi satış hızı eksi', () => {

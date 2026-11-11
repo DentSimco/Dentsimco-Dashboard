@@ -52,10 +52,10 @@ function ratingGrafigi() {
   let s = '';
   for (let v = 0; v <= hi; v++) s += `<line x1="${L}" x2="${W - Rr}" y1="${Yv(v)}" y2="${Yv(v)}" stroke="var(--line)"/><text x="${L - 6}" y="${Yv(v) + 4}" text-anchor="end">${v}</text>`;
   for (let q = 0; q <= 12; q++) s += `<text x="${X(q)}" y="${H - 8}" text-anchor="middle">Q${q}</text>`;
-  s += `<polyline class="an-line" points="${[...Array(13).keys()].map((q) => `${X(q)},${Yv(kalitePuani(q))}`).join(' ')}"/>`;
+  s += `<polyline class="an-line" points="${[...Array(13).keys()].map((q) => `${X(q)},${Yv(Math.max(0, kalitePuani(q)))}`).join(' ')}"/>`;
   for (let q = 0; q <= 12; q++) {
-    const v = kalitePuani(q);
-    s += `<circle class="an-pt" cx="${X(q)}" cy="${Yv(v)}" r="4"><title>Q${q}: ${esc(num(v, 2))}</title></circle><text class="an-lbl" x="${X(q)}" y="${Yv(v) - 10}" text-anchor="middle">${esc(num(v, 1))}</text>`;
+    const v = kalitePuani(q), y = Yv(Math.max(0, v)); // eksi değerler eksende 0'a çizilir, etiket gerçek değeri yazar
+    s += `<circle class="an-pt" cx="${X(q)}" cy="${y}" r="4"><title>Q${q}: ${esc(num(v, 2))}</title></circle><text class="an-lbl" x="${X(q)}" y="${y - 10}" text-anchor="middle">${esc(num(v, 1))}</text>`;
   }
   return `<svg class="pk-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Kaliteye göre rating">${s}</svg>`;
 }

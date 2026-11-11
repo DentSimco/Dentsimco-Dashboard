@@ -37,16 +37,17 @@ export const RATING_MAX = 10;
 // Ürün maliyeti ve bina seviyesinin etkisi görülmedi. Aşağıdaki doğrusal hedefRating yalnız gizli Tavsiye'de kullanılıyor, güncellenmedi.
 // 11 Kasım 2026 (M4, 117 adım + Q4 sabit): kalite puanı f(Q) = taban + genlik (1 − e^(−Q/ölçek)); Q4 lüks restoranında rating neredeyse hiç değişmedi, Q4 doğru kabul edildi
 // (hedef ≈ 6,2). Q2 ölçüldü (≈ 0,7), Q3 ölçülmedi, Q0–Q1 yalnız "hedef ≈ 0 ya da altı": negatif uzantı 0'da kesilir (ürün puanı ≥ 0).
+// Kalite puanı çeşitten ve yöneticiden bağımsızdır: çeşit puanı 1,5 × N/16 ayrı eklenir (eski f'nin N = 6'daki 0,5625'i çeşide taşındı), bonus ayrı. Negatif değerler (Q0 −20,3; Q1 −5,8) tutulur.
 // Çeşit toplanan: 1,5 × N/16 = 0,09375 / ürün (Çin oyuncu formülü; verimizle tutarlı, doğrulanmadı). Lüks ×1,207, profesyonel +3,94 (lüks içinde; ölçüm).
-export const KALITE = { taban: -19.74, genlik: 24.64, olcek: 1.12 };
+export const KALITE = { taban: -20.30, genlik: 24.64, olcek: 1.12 };
 export const MODEL_KASIM = { cesitEk: 1.5 / 16, luks: 1.207, profesyonel: 3.94 };
-/** Bir ürünün kalite puanı (rating puanı cinsinden; menü puanı ürünlerin bu puanlarının ortalamasıdır). Negatif uzantı 0'da kesilir. */
-export const kalitePuani = (q) => (fin(q) ? Math.max(0, KALITE.taban + KALITE.genlik * (1 - Math.exp(-Math.max(0, q) / KALITE.olcek))) : null);
+/** Bir ürünün kalite puanı (rating puanı cinsinden; menü puanı ürünlerin bu puanlarının ortalamasıdır). Q0–Q1 negatiftir (rating 0'da sınırlı olduğu için ölçülemez, eğri uzantısı). */
+export const kalitePuani = (q) => (fin(q) ? KALITE.taban + KALITE.genlik * (1 - Math.exp(-Math.max(0, q) / KALITE.olcek)) : null);
 
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 
-/** Çeşit puanı (toplanan): 0,09375 × (N − 6); N menüdeki toplam ürün sayısı. */
-export const cesitKasim = (urunSayisi) => MODEL_KASIM.cesitEk * (urunSayisi - 6);
+/** Çeşit puanı (toplanan): 1,5 × N/16 = 0,09375 × N; N menüdeki toplam ürün sayısı. */
+export const cesitKasim = (urunSayisi) => MODEL_KASIM.cesitEk * urunSayisi;
 /**
  * Menü ratingi (0–10): (ürün kalite puanlarının ortalaması + çeşit + bonus [+ profesyonel]) × oturma (eko 1, lüks 1,207).
  * Bonus 1:1 eklenir (yönetici: 0,01 × etkin iletişim + 0,02 × ekip dışı satış hızı %; satış hızı eksiyse bonus eksi olabilir).

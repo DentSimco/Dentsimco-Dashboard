@@ -469,3 +469,8 @@ Q4 sabitlenerek uydurma (LUX2 Q4 adımı yerine ceza terimi; v 0,09375, L 1,207 
 Q2 0,74 · Q3 3,19 · Q4 4,19 · Q5 4,60 · Q6 4,77 · Q8 4,87 · Q12 4,89 (serbest uydurmada Q4 3,80, χ² 127,9; sabitlemede χ² 131,9). Q12 artık Q5'ten yalnız +0,3.
 Araç bu modele geçirildi (public/restoran-rating.js: M4; ürün puanı negatifte 0'da kesilir; menusec ve ısı haritası eğrileri uyarlandı; testlerde hedefler
 düşürüldü, çünkü eko menü bonussuz en çok ≈ 5,1 + çeşit veriyor).
+
+Düzeltme (kullanıcı): kalite puanı çeşitten ve yöneticiden bağımsız yazılmalı, eksi değerler gösterilmeli. Araçta Q0–Q1 0'a kesilmişti ve eğri N = 6'daki
+çeşit payını (0,5625) içeriyordu. Şimdi: q(Q) = −20,30 + 24,64 (1 − e^(−Q/1,12)) (Q0 −20,3 · Q1 −5,75 · Q2 0,21 · Q3 2,65 · Q4 3,65 · Q5 4,06 · Q6 4,22 ·
+Q8 4,32 · Q12 4,34), çeşit 1,5 × N/16 (mutlak) ve bonus ayrı; hedef = (ort q + 0,09375 × N + bonus [+ 3,94]) × L. Hesap aynı (f = q + 0,5625).
+Menü Seç Q0–Q1'i aramaz (eksi puan); eğri grafiği eksi değeri eksende 0'a çizer, etiket gerçek değeri yazar.
