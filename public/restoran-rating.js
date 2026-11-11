@@ -35,24 +35,26 @@ export const RATING_MAX = 10;
 // Eş uyum: çeşit 1 + 0,037 × (N − 6) [N = ürün sayısı, 6'nın altında da hafif düşüş], lüks oturma ×1,25 (lüks ratingi artırır; ilk uyumdaki 0,80 = 1/1,25 ters yorumlanmıştı),
 // profesyonel personel lüksün içinde ≈ +6,7 [ölçüm], bonus 1:1 eklenir (9 restoranlık ANARCHY grubu: ölçülen 6,64 ± 0,18, model 6,55).
 // Ürün maliyeti ve bina seviyesinin etkisi görülmedi. Aşağıdaki doğrusal hedefRating yalnız gizli Tavsiye'de kullanılıyor, güncellenmedi.
-export const KALITE = { taban: 0.4, genlik: 5.89, olcek: 3.43 };
-export const MODEL_KASIM = { cesitEgim: 0.037, luks: 1.25, profesyonel: 6.7 };
-/** Bir ürünün kalite puanı (rating puanı cinsinden; menü puanı ürünlerin bu puanlarının ortalamasıdır). */
-export const kalitePuani = (q) => (fin(q) ? KALITE.taban + KALITE.genlik * (1 - Math.exp(-Math.max(0, q) / KALITE.olcek)) : null);
+// 11 Kasım 2026 (M4, 117 adım + Q4 sabit): kalite puanı f(Q) = taban + genlik (1 − e^(−Q/ölçek)); Q4 lüks restoranında rating neredeyse hiç değişmedi, Q4 doğru kabul edildi
+// (hedef ≈ 6,2). Q2 ölçüldü (≈ 0,7), Q3 ölçülmedi, Q0–Q1 yalnız "hedef ≈ 0 ya da altı": negatif uzantı 0'da kesilir (ürün puanı ≥ 0).
+// Çeşit toplanan: 1,5 × N/16 = 0,09375 / ürün (Çin oyuncu formülü; verimizle tutarlı, doğrulanmadı). Lüks ×1,207, profesyonel +3,94 (lüks içinde; ölçüm).
+export const KALITE = { taban: -19.74, genlik: 24.64, olcek: 1.12 };
+export const MODEL_KASIM = { cesitEk: 1.5 / 16, luks: 1.207, profesyonel: 3.94 };
+/** Bir ürünün kalite puanı (rating puanı cinsinden; menü puanı ürünlerin bu puanlarının ortalamasıdır). Negatif uzantı 0'da kesilir. */
+export const kalitePuani = (q) => (fin(q) ? Math.max(0, KALITE.taban + KALITE.genlik * (1 - Math.exp(-Math.max(0, q) / KALITE.olcek))) : null);
 
 const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 
-/** Kasım modelinde çeşit çarpanı: 1 + 0,037 × (N − 6), N menüdeki toplam ürün sayısı. */
-export const cesitKasim = (urunSayisi) => 1 + MODEL_KASIM.cesitEgim * (urunSayisi - 6);
+/** Çeşit puanı (toplanan): 0,09375 × (N − 6); N menüdeki toplam ürün sayısı. */
+export const cesitKasim = (urunSayisi) => MODEL_KASIM.cesitEk * (urunSayisi - 6);
 /**
- * Kasım modeliyle menü ratingi (0–10): (ürün kalite puanlarının ortalaması × çeşit + bonus) × oturma (eko 1, lüks 1,25).
+ * Menü ratingi (0–10): (ürün kalite puanlarının ortalaması + çeşit + bonus [+ profesyonel]) × oturma (eko 1, lüks 1,207).
  * Bonus 1:1 eklenir (yönetici: 0,01 × etkin iletişim + 0,02 × ekip dışı satış hızı %; satış hızı eksiyse bonus eksi olabilir).
- * Profesyonel personel hesaba katılmaz.
  */
-export function menuRatingi({ puanOrt, urunSayisi, bonus = 0, tip = 'eko' }) {
+export function menuRatingi({ puanOrt, urunSayisi, bonus = 0, tip = 'eko', profesyonel = false }) {
   if (!fin(puanOrt) || !(urunSayisi >= 1)) return null;
   const b = fin(bonus) ? bonus : 0;
-  return clamp((puanOrt * cesitKasim(urunSayisi) + b) * (tip === 'luks' ? MODEL_KASIM.luks : 1), 0, RATING_MAX);
+  return clamp((puanOrt + cesitKasim(urunSayisi) + b + (profesyonel ? MODEL_KASIM.profesyonel : 0)) * (tip === 'luks' ? MODEL_KASIM.luks : 1), 0, RATING_MAX);
 }
 
 export const tipCarpani = (tip) => (tip === 'luks' ? MODEL.luks : 1);

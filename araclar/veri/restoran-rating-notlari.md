@@ -458,3 +458,14 @@ Araç henüz değişmedi.
 - LUX2 Q4 (6 ürün, lüks, $75) ve ECO3 karışık menüsü (Q8, Q10, Q7 × 4): menü değişmeden 3 döngü daha; beklenen yollar yukarıdaki "İleri tahmin" bölümünde.
 - Çeşit 0,09375 / ürün doğrulanmadı (Δχ² ≤ 1 içinde 0 … 0,12); doğrudan sınama 1-1-1 ile 4-4-4.
 - LUX2'nin 9–11 Kasım döngülerinde yemek maliyeti Q5 menüsünün beklentisinden %10–12 düşük: menü gerçekten M2 (Q5) miydi?
+
+## Q4 sabit ve araç güncellemesi (11 Kasım gece)
+
+Yeni veri: QUAL1LUX3 (lüks, seviye 1) 9–11 Kasım: 3 döngü eski menü (M3, Q5; 6,58 → 6,77 → 6,93 → 6,67), son döngü ECO3'ün yeni menüsüyle
+(Süt Q8, Kahve Q10, Salata/Samosa/Portakal/Elma Q7; $80): 6,67 → 6,56 (hedef ≈ 6,26). Yönetici aynı. İki bağımsız restoran (ECO3 eko 5,13, LUX3 lüks 6,26)
+karışık menüyü modelin öngördüğünden ≈ 0,6 düşük buldu (ürün puanı ortalaması ≈ 4,3; model 4,95); her biri tek adım, birlikte ≈ −1,5σ.
+Karar (kullanıcı): LUX2 Q4'te rating neredeyse hiç değişmedi (6,19 → 6,22): Q4 doğru kabul edildi (lüks hedef ≈ 6,2 ± 0,15).
+Q4 sabitlenerek uydurma (LUX2 Q4 adımı yerine ceza terimi; v 0,09375, L 1,207 sabit): f(Q) = −19,74 + 24,64 (1 − e^(−Q/1,12)):
+Q2 0,74 · Q3 3,19 · Q4 4,19 · Q5 4,60 · Q6 4,77 · Q8 4,87 · Q12 4,89 (serbest uydurmada Q4 3,80, χ² 127,9; sabitlemede χ² 131,9). Q12 artık Q5'ten yalnız +0,3.
+Araç bu modele geçirildi (public/restoran-rating.js: M4; ürün puanı negatifte 0'da kesilir; menusec ve ısı haritası eğrileri uyarlandı; testlerde hedefler
+düşürüldü, çünkü eko menü bonussuz en çok ≈ 5,1 + çeşit veriyor).

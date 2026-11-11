@@ -26,9 +26,9 @@ function ok(value, label = 'koşul sağlanmadı') { if (!value) throw new Error(
 const marketOf = vwapOf;
 
 section('Rating');
-test('Kalite puanı: Q0 ≈ 0,4, Q5 ≈ 4,9, Q12 ≈ 6,1; artan ve içbükey', () => {
-  near(RR.kalitePuani(0), 0.4, 0.01); near(RR.kalitePuani(5), 4.92, 0.03); near(RR.kalitePuani(12), 6.11, 0.03);
-  for (let q = 2; q <= 12; q++) ok(RR.kalitePuani(q) - RR.kalitePuani(q - 1) < RR.kalitePuani(q - 1) - RR.kalitePuani(q - 2), `içbükey Q${q}`);
+test('Kalite puanı: Q0–Q1 0 (kesik), Q2 ≈ 0,7, Q5 ≈ 4,6, Q12 ≈ 4,9; artan ve içbükey', () => {
+  near(RR.kalitePuani(0), 0, 1e-9); near(RR.kalitePuani(2), 0.77, 0.02); near(RR.kalitePuani(4), 4.19, 0.02); near(RR.kalitePuani(5), 4.60, 0.03); near(RR.kalitePuani(12), 4.89, 0.03);
+  for (let q = 4; q <= 12; q++) ok(RR.kalitePuani(q) - RR.kalitePuani(q - 1) < RR.kalitePuani(q - 1) - RR.kalitePuani(q - 2), `içbükey Q${q}`);
 });
 test('Sekmeler: Rating, Maliyet, Menü Seç (Harita yok, Menü Seç Maliyet\'in sağında)', () => {
   eq(A.SEKMELER, [['rating', 'Rating'], ['maliyet', 'Maliyet'], ['menusec', 'Menü Seç'], ['isi', 'Isı Haritası']]);
@@ -40,7 +40,7 @@ test('Rating: Q0–Q12 eğrisi ve değerleri; ürün seçici, düğme, açıklam
   const h = A.ratingHtml();
   ok(h.includes('<h2 id="h-an-rt">Rating</h2>') && h.includes('aria-label="Kaliteye göre rating"'));
   eq((h.match(/<circle/g) || []).length, 13); eq((h.match(/<polyline/g) || []).length, 1);
-  ok(h.includes('>0,4<') && h.includes('>6,1<') && h.includes('>Q12<'));
+  ok(h.includes('>0,0<') && h.includes('>4,9<') && h.includes('>Q12<'));
   ok(!/<select|<button|data-an|data-act|\$|Borsa|geçmiş|Yorum|ur-note|ur-sub|<table|Harita|Grafik/i.test(h), 'ürün seçimi, açıklama ya da fiyat görünüyor');
 });
 test('Maliyet: hücreler düz tutar (düğme yok), mavi en ucuz, çarpan ve oturma düğmeleri', () => {

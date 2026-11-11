@@ -3,7 +3,7 @@
 // Hesap saf fonksiyonlardadır (Node'da sınanır); çizim HTML metni döndürür, olaylar perakende.js'te bağlanır.
 //   Oyuncu her kategoride kaç çeşit olacağını (salata barı, ana yemek, içecek) ve hedef ratingi seçer; Menü Seç o ratinge ulaşan
 //   EN UCUZ menüyü önerir: hangi ürünlerin seçileceğine ve her ürünün kalitesine ayrı ayrı karar verir.
-//   Rating = (ürün kalite puanlarının ortalaması × çeşit + yönetici bonusu) × oturma (restoran-rating.js menuRatingi, Kasım modeli).
+//   Rating = (ürün kalite puanlarının ortalaması + çeşit + yönetici bonusu) × oturma (restoran-rating.js menuRatingi, M4 modeli).
 //   Yönetici bonusu = 0,01 × etkin iletişim + 0,02 × ekip dışı satış hızı % (Yönetim ekibi ve Kurulum'dan gelir).
 //   Yemek adedi = yukarı yuvarla(oran × kategori çarpanı × seviye × lüks çarpanı); maliyet = adet × borsa fiyatı (döngü başına).
 //   Arama: kategori başına dinamik programlama, durum = (seçilen ürün sayısı, puan toplamı). Puan PUAN_OLCEK ile tam sayıya
@@ -99,7 +99,7 @@ function sonek(m) {
 /** Hedefe ulaşmak için gereken en küçük puan toplamı (birim); hedef bonusla zaten aşılıyorsa 0. */
 export function gerekliPuan(urunSayisi, { hedef, bonus = 0, tip = 'eko' }) {
   const L = tip === 'luks' ? M.MODEL_KASIM.luks : 1;
-  const ort = (hedef / L - (Number(bonus) || 0)) / M.cesitKasim(urunSayisi);
+  const ort = hedef / L - (Number(bonus) || 0) - M.cesitKasim(urunSayisi);
   return Math.max(0, Math.ceil(ort * urunSayisi * PUAN_OLCEK - 1e-9));
 }
 
@@ -134,7 +134,7 @@ function sonucOlustur(parcalar, ns, { bonus, tip }) {
   const toplam = kategoriler.reduce((t, k) => t + k.toplam, 0);
   const puanOrt = kategoriler.reduce((t, k) => t + k.urunler.reduce((s, u) => s + u.puan, 0), 0) / urunSayisi;
   return { kategoriler, urunSayisi, cesit: ns.join('-'), toplam, gunluk: toplam * R.GUN_DONGU, puanOrt,
-    cesitCarpani: M.cesitKasim(urunSayisi), bonus, tip, rating: M.menuRatingi({ puanOrt, urunSayisi, bonus, tip }) };
+    cesitEk: M.cesitKasim(urunSayisi), bonus, tip, rating: M.menuRatingi({ puanOrt, urunSayisi, bonus, tip }) };
 }
 
 // kaynak (borsa verisinin nesnesi; yoksa marketOf) → Map(anahtar → kategori tablosu): yeniden çizimde DP tekrarlanmasın.
@@ -153,7 +153,7 @@ function tablo(marketOf, kaynak, katKey, n, seviye, tip) {
 
 /**
  * Seçilen çeşit sayılarıyla hedef ratinge ulaşan en ucuz menü. kaynak: borsa verisi nesnesi (önbellek anahtarı; isteğe bağlı).
- * Dönen: menü { kategoriler, urunSayisi, cesit, toplam, gunluk, puanOrt, cesitCarpani, bonus, tip, rating }
+ * Dönen: menü { kategoriler, urunSayisi, cesit, toplam, gunluk, puanOrt, cesitEk, bonus, tip, rating }
  *   | { eksik: [kategori adları] } (borsada yeterli ilan yok) | { yok: true, enYuksek }.
  */
 export function menuSec(marketOf, { cesit, hedef = 6, seviye = 1, tip = 'eko', bonus = 0, kaynak = null }) {
