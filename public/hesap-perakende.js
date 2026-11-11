@@ -60,8 +60,6 @@ export function getModel(economy, productId, quality = 0) {
   return u > 0 ? { B, c, W, u } : null;
 }
 
-/** Ağaçta satış fiyatı elle girilmez: hep en kârlı fiyat (r_max) kullanılır. Diğer ürünlerde fiyat serbest. */
-export const autoPriceOnly = (productId) => Number(productId) === TREE_ID;
 export const isRetailProduct = (economy, productId) => getModel(economy, productId, 0) !== null;
 export const retailLetters = () => Object.keys(SALES);
 export const buildingProducts = (letter, economy = 0) => (SALES[letter] || []).filter((id) => isRetailProduct(economy, id));
@@ -146,7 +144,7 @@ export const yValue = ({ d, B, u, q, w }) => 0.5 * RETAIL_P * d * (B * u + 1) * 
 // ---------------------------------------------------------------------------------------------------------------
 /**
  * @param {object} i  economy, productId, quality, saturation, cAct, price?, bonusPct?, weather?, qualityWeight?, wage? (S)
- * price verilmezse (null) en kârlı fiyat (r_max) kullanılır ve priceAuto = true döner. Ağaçta (autoPriceOnly) verilen price yok sayılır.
+ * price verilmezse (null) en kârlı fiyat (r_max) kullanılır ve priceAuto = true döner.
  */
 export function calcProduct(i) {
   const { economy = 0, productId, saturation, bonusPct = 0, weather = 1, qualityWeight = DEFAULT_QUALITY_WEIGHT } = i;
@@ -170,7 +168,7 @@ export function calcProduct(i) {
   const K = (num(weather, 1) * u * dm) / (1 - bonusPct / 100);
 
   const rMax = z + (c + cAct) / 2;
-  const priceAuto = autoPriceOnly(productId) || !has(i.price);
+  const priceAuto = !has(i.price);
   const price = priceAuto ? Math.round(rMax * 100) / 100 : Number(i.price);
   const usphpl = Math.max(0, K * (2 - (price - c) / z));
   const pphpl = (price - cAct) * usphpl - S;
