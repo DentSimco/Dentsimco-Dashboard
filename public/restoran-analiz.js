@@ -1,7 +1,7 @@
 // DentSimco — Restoran › Analiz: Rating, Maliyet, Menü Seç
 //
 // Hesap saf fonksiyonlardadır (Node'da sınanır); çizim HTML metni döndürür, olaylar perakende.js'te bağlanır.
-//   Rating: kaliteye göre rating eğrisi (restoran-rating.js kalitePuani; model her üründe aynıdır, bu yüzden ürün seçimi yoktur).
+//   Rating: kaliteye göre rating eğrisi (restoran-rating.js kalitePuani; eksi puanlar sayısız çizilir; model her üründe aynıdır, bu yüzden ürün seçimi yoktur).
 //     Yalnız rating gösterir; yorum, açıklama, fiyat ve maliyet yoktur.
 //   Maliyet: seviye 1 restoranda döngü maliyeti. Menü Seç: restoran-menusec.js.
 
@@ -21,6 +21,10 @@ export const ANALIZ_CSS = `
 .an-line { stroke: var(--accent); fill: none; stroke-width: 2.5; stroke-linejoin: round; stroke-linecap: round; }
 .an-pt { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
 .pk-svg text.an-lbl { fill: var(--text); font-weight: 700; }
+.an-dash { stroke-dasharray: 5 5; }
+.an-neg { fill: var(--surface); stroke: var(--accent); }
+.an-band { fill: var(--tint-bg); }
+.pk-svg text.an-bandlbl { fill: var(--muted); font-size: 11px; }
 .ur-subtabs2 { margin-top: 6px; }
 .ur-subtabs2 a { background: var(--surface); min-height: 38px; }
 .ur-subtabs2 a[aria-current="page"] { background: var(--tint-bg); color: var(--accent); border-color: var(--accent); }
@@ -47,15 +51,22 @@ export function maliyetHtml(ayar, marketOf) {
 
 // ---- Rating sekmesi: kaliteye göre rating eğrisi ----
 function ratingGrafigi() {
-  const W = 400, H = 230, L = 36, Rr = 14, Tp = 22, B = 28, hi = 7;
-  const X = (q) => L + ((W - L - Rr) * q) / 12, Yv = (v) => Tp + (H - Tp - B) * (1 - v / hi);
-  let s = '';
+  // Eksi kalite puanları (Q0, Q1) sayı olmadan, 0'ın altındaki "eksi" bandında gösterilir: rating 0'da sınırlı olduğu için değerleri ölçülemez.
+  const W = 400, H = 250, L = 36, Rr = 14, Tp = 22, B = 28, hi = 5, lo = -1.4;
+  const X = (q) => L + ((W - L - Rr) * q) / 12, Yv = (v) => Tp + (H - Tp - B) * (1 - (v - lo) / (hi - lo));
+  const qs = [...Array(13).keys()], eksi = (q) => kalitePuani(q) < 0, yEksi = Yv(-0.7);
+  let s = `<rect class="an-band" x="${L}" y="${Yv(0)}" width="${W - L - Rr}" height="${Yv(lo) - Yv(0)}"/><text class="an-bandlbl" x="${W - Rr - 4}" y="${Yv(lo) - 5}" text-anchor="end">eksi</text>`;
   for (let v = 0; v <= hi; v++) s += `<line x1="${L}" x2="${W - Rr}" y1="${Yv(v)}" y2="${Yv(v)}" stroke="var(--line)"/><text x="${L - 6}" y="${Yv(v) + 4}" text-anchor="end">${v}</text>`;
-  for (let q = 0; q <= 12; q++) s += `<text x="${X(q)}" y="${H - 8}" text-anchor="middle">Q${q}</text>`;
-  s += `<polyline class="an-line" points="${[...Array(13).keys()].map((q) => `${X(q)},${Yv(Math.max(0, kalitePuani(q)))}`).join(' ')}"/>`;
-  for (let q = 0; q <= 12; q++) {
-    const v = kalitePuani(q), y = Yv(Math.max(0, v)); // eksi değerler eksende 0'a çizilir, etiket gerçek değeri yazar
-    s += `<circle class="an-pt" cx="${X(q)}" cy="${y}" r="4"><title>Q${q}: ${esc(num(v, 2))}</title></circle><text class="an-lbl" x="${X(q)}" y="${y - 10}" text-anchor="middle">${esc(num(v, 1))}</text>`;
+  for (const q of qs) s += `<text x="${X(q)}" y="${H - 8}" text-anchor="middle">Q${q}</text>`;
+  const yOf = (q) => (eksi(q) ? yEksi : Yv(kalitePuani(q)));
+  const ilkPozitif = qs.find((q) => !eksi(q));
+  s += `<polyline class="an-line an-dash" points="${qs.filter((q) => q <= ilkPozitif).map((q) => `${X(q)},${yOf(q)}`).join(' ')}"/>`;
+  s += `<polyline class="an-line" points="${qs.filter((q) => q >= ilkPozitif).map((q) => `${X(q)},${yOf(q)}`).join(' ')}"/>`;
+  for (const q of qs) {
+    const v = kalitePuani(q), y = yOf(q);
+    s += eksi(q)
+      ? `<circle class="an-pt an-neg" cx="${X(q)}" cy="${y}" r="4"><title>Q${q}: eksi</title></circle><text class="an-lbl" x="${X(q)}" y="${y - 10}" text-anchor="middle">↓</text>`
+      : `<circle class="an-pt" cx="${X(q)}" cy="${y}" r="4"><title>Q${q}: ${esc(num(v, 2))}</title></circle><text class="an-lbl" x="${X(q)}" y="${y - 10}" text-anchor="middle">${esc(num(v, 1))}</text>`;
   }
   return `<svg class="pk-svg" viewBox="0 0 ${W} ${H}" role="img" aria-label="Kaliteye göre rating">${s}</svg>`;
 }

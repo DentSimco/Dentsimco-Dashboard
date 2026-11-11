@@ -24,7 +24,7 @@
 
 import * as R from './hesap-restoran.js';
 import { kategoriTablosu, gerekliPuan } from './restoran-menusec.js';
-import { menuRatingi, kalitePuani, MODEL_KASIM } from './restoran-rating.js';
+import { menuRatingi, kalitePuani, MODEL } from './restoran-rating.js';
 
 export const FIYAT_DILIMLERI = [60, 90, 120, 150, 180, 210, 240, 270, 300, 330, 360]; // oyunun dilim değeri: fiyat $30'un en yakın katına yuvarlanır
 export const DILIM_GENISLIK = 30;
@@ -179,7 +179,7 @@ export function egriDegeri(egri, i) {
 // Eğri dizini: rating bonusu eko'da hedefi b, lüks'te 1,207·b kadar düşürür (menu rating = (puan + çeşit + b) × oturma). Yukarı yuvarlanır:
 // maliyet hedefe ulaşan menüden ucuz çıkmaz (en çok bir ızgara adımı = 0,005 rating kadar, birkaç yüz $ üstten sapar).
 export function egriDizini(tip, bonus, hedef) {
-  const kayma = (Number(bonus) || 0) * (tip === 'luks' ? MODEL_KASIM.luks : 1);
+  const kayma = (Number(bonus) || 0) * (tip === 'luks' ? MODEL.luks : 1);
   return Math.max(0, Math.ceil((hedef - kayma) / EGRI_ADIM - 1e-9));
 }
 

@@ -18,8 +18,8 @@
 //   Rating bonusu = 0,01 × etkin CMO iletişim puanı + 0,02 × taban satış hızı % [oyun]. Satış hızı eksi olabilir: oyunun Yönetim
 //     ekranında ekip dışı −%3 satış hızı "Restoran derecesi −0,06" gösteriyor (Kasım 2026); bonus o zaman eksidir. Bina kartlarında hedef rating
 //     elle girilir ya da önceki ve mevcut ratingten çıkarılır; menüden rating tahmini Restoran > Analiz > Menü Seç sekmesindedir
-//     (restoran-rating.js menuRatingi: Kasım ölçümleriyle kurulmuş model; gizli Tavsiye sekmesi eski doğrusal modeli kullanır)
-//   Rating her döngü hedefine doğru yaklaşır: r' = r + k·(T − r), k ≈ 0,177, gürültü ±0,21 [ölçüm]
+//     (restoran-rating.js menuRatingi: M4 modeli, 11 Kasım 2026; gizli Tavsiye sekmesi de aynı modeli kullanır)
+//   Rating her döngü hedefine doğru yaklaşır: r' = r + k·(T − r), k ≈ 0,27, gürültü ±0,19 [ölçüm]
 //   Doluluk = f(rating, menü fiyatı, ekonomi evresi): oyunun gazetesindeki restoran ısı haritalarından (28 dönem, ~3 milyon döngü)
 //     evre paylarıyla regresyon; tablo public/restoran-doluluk.js (araclar/restoran-isi.mjs üretir). Piyasa ortalamasıdır [oyun verisi]
 //     Gazetenin fiyat dilimi menü fiyatının $30'un en yakın katına yuvarlanmışıdır ($60 = $60–74, $90 = $75–104 … $360 = $345–350);
@@ -71,7 +71,7 @@ export const URUNLER = {
 };
 
 // Rating ve doluluk modeli [ölçüm]: veri büyüdükçe bu sabitler güncellenir
-export const RATING = { k: 0.177, gurultu: 0.21, esik: 4.5 };
+export const RATING = { k: 0.27, gurultu: 0.19, esik: 4.5 };
 
 // Ekonomi evresi: hesap.js ECONOMY_PHASES ile aynı dizin (0 Durgunluk, 1 Normal, 2 Büyüme); bilinmiyorsa Normal
 export const EVRE_NORMAL = 1;

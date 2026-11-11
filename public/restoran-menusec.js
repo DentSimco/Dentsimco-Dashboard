@@ -99,8 +99,8 @@ function sonek(m) {
 
 /** Hedefe ulaşmak için gereken en küçük puan toplamı (birim); hedef bonusla zaten aşılıyorsa 0. */
 export function gerekliPuan(urunSayisi, { hedef, bonus = 0, tip = 'eko' }) {
-  const L = tip === 'luks' ? M.MODEL_KASIM.luks : 1;
-  const ort = hedef / L - (Number(bonus) || 0) - M.cesitKasim(urunSayisi);
+  const L = tip === 'luks' ? M.MODEL.luks : 1;
+  const ort = hedef / L - (Number(bonus) || 0) - M.cesitPuani(urunSayisi);
   return Math.max(0, Math.ceil(ort * urunSayisi * PUAN_OLCEK - 1e-9));
 }
 
@@ -135,7 +135,7 @@ function sonucOlustur(parcalar, ns, { bonus, tip }) {
   const toplam = kategoriler.reduce((t, k) => t + k.toplam, 0);
   const puanOrt = kategoriler.reduce((t, k) => t + k.urunler.reduce((s, u) => s + u.puan, 0), 0) / urunSayisi;
   return { kategoriler, urunSayisi, cesit: ns.join('-'), toplam, gunluk: toplam * R.GUN_DONGU, puanOrt,
-    cesitEk: M.cesitKasim(urunSayisi), bonus, tip, rating: M.menuRatingi({ puanOrt, urunSayisi, bonus, tip }) };
+    cesitEk: M.cesitPuani(urunSayisi), bonus, tip, rating: M.menuRatingi({ puanOrt, urunSayisi, bonus, tip }) };
 }
 
 // kaynak (borsa verisinin nesnesi; yoksa marketOf) → Map(anahtar → kategori tablosu): yeniden çizimde DP tekrarlanmasın.

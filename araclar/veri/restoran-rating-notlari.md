@@ -474,3 +474,8 @@ Düzeltme (kullanıcı): kalite puanı çeşitten ve yöneticiden bağımsız ya
 çeşit payını (0,5625) içeriyordu. Şimdi: q(Q) = −20,30 + 24,64 (1 − e^(−Q/1,12)) (Q0 −20,3 · Q1 −5,75 · Q2 0,21 · Q3 2,65 · Q4 3,65 · Q5 4,06 · Q6 4,22 ·
 Q8 4,32 · Q12 4,34), çeşit 1,5 × N/16 (mutlak) ve bonus ayrı; hedef = (ort q + 0,09375 × N + bonus [+ 3,94]) × L. Hesap aynı (f = q + 0,5625).
 Menü Seç Q0–Q1'i aramaz (eksi puan); eğri grafiği eksi değeri eksende 0'a çizer, etiket gerçek değeri yazar.
+
+Araçta tam geçiş (11 Kasım gece): restoran-rating.js yeniden yazıldı (M4; eski doğrusal MODEL, menuPuani, hedefRating, Kasım çeşit çarpanı kaldırıldı;
+MODEL_KASIM → MODEL; k 0,27). Gizli Tavsiye de puan toplamıyla arıyor (gerekliPuanToplami, PUAN_OLCEK 50; Q0–Q1 aranmaz). Bina kartlarındaki hedef çıkarımı k 0,27 ve
+gürültü 0,19 kullanıyor (hesap-restoran.js RATING). Rating grafiği: Q0–Q1 sayısız, "eksi" bandında (↓). Eski ölçüm testlerindeki 17 D ve 17 G satırları (Q3, 9 ve 16 ürün,
+hedef 7,3 ve 9,6) çıkarıldı: yeni modelle (5,3 civarı) uyuşmuyorlar, kaynakları belirsiz tek adımlardı.
