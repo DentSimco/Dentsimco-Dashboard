@@ -86,20 +86,20 @@ section('Menü motoru');
 const cephe = IH.menuCephesi(SON, 'eko'), cepheL = IH.menuCephesi(SON, 'luks');
 const marketSon = IH.marketOfDonem(SON);
 test('hedef ratinge ulaşır: menünün modeldeki ratingi hedefin altında kalmaz (bonuslu ve bonussuz, eko ve lüks)', () => {
-  for (const [c, tip] of [[cephe, 'eko'], [cepheL, 'luks']]) for (const bonus of [0, 0.5, 1]) for (const h of [4.5, 6.5, 7.5, 8.5]) {
+  for (const [c, tip] of [[cephe, 'eko'], [cepheL, 'luks']]) for (const bonus of [0, 0.5, 1]) for (const h of [2.5, 4, 4.5, 5]) {
     const m = IH.enUcuzMenu(c, h, bonus);
     if (!m) continue;
     ok(RR.menuRatingi({ puanOrt: m.puanOrt, urunSayisi: m.urunSayisi, bonus, tip }) >= h - 0.02 - 1e-9, `${tip} hedef ${h} bonus ${bonus}: rating ${m.rating}`);
   }
 });
 test('maliyet = ürün tutarları toplamı; her kategoriden en az bir ürün; ürünler benzersiz', () => {
-  const m = IH.enUcuzMenu(cephe, 6.5, 0);
+  const m = IH.enUcuzMenu(cephe, 4.5, 0);
   near(m.maliyet, m.urunler.reduce((t, u) => t + u.tutar, 0), 1e-6);
   const say = R.kategoriSayilari(m.urunler.map((u) => u.id)); ok(say.salata >= 1 && say.ana >= 1 && say.icecek >= 1, 'kategoriler');
   eq(new Set(m.urunler.map((u) => u.id)).size, m.urunler.length);
 });
 test('bonus eğriyi kaydırır: eko\'da hedef − b, lüks\'te hedef − 1,25·b bonussuz menüyle aynı maliyet (kesin eşdeğerlik)', () => {
-  for (const b of [0.25, 0.5, 1, 1.5]) for (const h of [6.5, 7.5, 8.5, 9.5]) {
+  for (const b of [0.25, 0.5, 1, 1.5]) for (const h of [3, 4, 4.5, 5]) {
     const e = IH.enUcuzMenu(cephe, h, b), e0 = IH.enUcuzMenu(cephe, h - b, 0);
     eq(e == null, e0 == null, `eko ${h} ${b}`); if (e) near(e.maliyet, e0.maliyet, 1e-6, `eko ${h} ${b}`);
     const l = IH.enUcuzMenu(cepheL, h, b), l0 = IH.enUcuzMenu(cepheL, h - 1.25 * b, 0);
@@ -107,10 +107,10 @@ test('bonus eğriyi kaydırır: eko\'da hedef − b, lüks\'te hedef − 1,25·b
   }
 });
 test('egriDizini: bonus ve oturmaya göre; negatif dizin 0\'a sıkışır', () => {
-  eq(IH.egriDizini('eko', 0, 7.5), 1500); eq(IH.egriDizini('eko', 1, 7.5), 1300); eq(IH.egriDizini('luks', 1, 7.5), 1250); eq(IH.egriDizini('eko', 9, 3), 0); eq(IH.egriDizini('eko', 0.83, 7.5), 1334);
+  eq(IH.egriDizini('eko', 0, 7.5), 1500); eq(IH.egriDizini('eko', 1, 7.5), 1300); eq(IH.egriDizini('luks', 1, 7.5), Math.ceil((7.5 - 1.25) / 0.005 - 1e-9)); eq(IH.egriDizini('eko', 9, 3), 0); eq(IH.egriDizini('eko', 0.83, 7.5), 1334);
 });
 test('Menü Seç ile aynı sonuç: seçilen çeşit dağılımında sekmenin menuSec\'i aynı maliyeti verir', () => {
-  for (const [h, b, tip, c] of [[6.5, 0, 'eko', cephe], [7.5, 1, 'eko', cephe], [8.5, 0.5, 'luks', cepheL]]) {
+  for (const [h, b, tip, c] of [[4.5, 0, 'eko', cephe], [4.5, 1, 'eko', cephe], [5.5, 0.5, 'luks', cepheL]]) {
     const m = IH.enUcuzMenu(c, h, b); if (!m) continue;
     const [s, a, i] = m.cesit.split('-').map(Number);
     const ms = MS.menuSec(marketSon, { cesit: { salata: s, ana: a, icecek: i }, hedef: h, seviye: IH.SEVIYE, tip, bonus: b });
@@ -122,7 +122,7 @@ test('likidite süzgeci: işlem görmeyen ya da hacmi düşük kalite kullanılm
   let farkli = 0;
   for (const id of Object.keys(R.URUNLER)) for (let q = 0; q <= 12; q++) { if (m1(id, q) == null && m0(id, q) != null) farkli++; if (m1(id, q) != null) near(m1(id, q), m0(id, q), 1e-9); }
   ok(farkli > 0, 'süzgeç bir şeyi elemeli');
-  ok(IH.enUcuzMenu(IH.menuCephesi(SON, 'eko', { likidite: false }), 7.5, 0).maliyet <= IH.enUcuzMenu(cephe, 7.5, 0).maliyet + 1e-6);
+  ok(IH.enUcuzMenu(IH.menuCephesi(SON, 'eko', { likidite: false }), 4.5, 0).maliyet <= IH.enUcuzMenu(cephe, 4.5, 0).maliyet + 1e-6);
 });
 
 // ---------------------------------------------------------------------------------------------------------------
@@ -150,7 +150,7 @@ test('hücre kârı = donguKari: aynı menü, 100 seviyelik restoran, donguGider
 });
 test('kâr bileşenleri: gelir = fiyat × koltuk × doluluk; başabaş doluluğunda kâr 0', () => {
   const gor = IH.gorunum([SON]), o = { bonus: 1, maas: MAAS };
-  const h = IH.hucreKari(gor, 'eko', 1, 7, o);
+  const h = IH.hucreKari(gor, 'eko', 1, 5, o);
   eq(h.fiyat, 90, 'gelirde dilim değeri ($75–104 dilimi → $90)');
   near(h.gelir, 90 * 1000 * h.doluluk, 1e-6); near(h.kar, h.gelir - h.malzeme - h.maas, 1e-6);
   near(90 * 1000 * h.basabas, h.malzeme + h.maas, 1e-6);
@@ -174,9 +174,9 @@ test('rating bonusu eksi satış hızıyla eksi olabilir (oyunda −%3 → −0,
 test('doluluk ve fiyat belirlenmiş hücrede kâr: rating bonusu arttıkça kâr azalmaz; yönetim gideri arttıkça kâr azalır', () => {
   const gor = IH.gorunum([SON]);
   let onceki = -Infinity;
-  for (const b of [0, 0.5, 1, 1.5, 2]) { const h = IH.hucreKari(gor, 'eko', 1, 6, { bonus: b, maas: MAAS }); ok(h.kar >= onceki - 1e-6, `bonus ${b}`); onceki = h.kar; }
+  for (const b of [0, 0.5, 1, 1.5, 2]) { const h = IH.hucreKari(gor, 'eko', 1, 4, { bonus: b, maas: MAAS }); ok(h.kar >= onceki - 1e-6, `bonus ${b}`); onceki = h.kar; }
   onceki = Infinity;
-  for (const yg of [0, 0.3, 0.6]) { const h = IH.hucreKari(gor, 'eko', 1, 7, { bonus: 1, maas: IH.maasSeviye('eko', { adminNet: yg }) }); ok(h.kar <= onceki + 1e-6, `yönetim ${yg}`); onceki = h.kar; }
+  for (const yg of [0, 0.3, 0.6]) { const h = IH.hucreKari(gor, 'eko', 1, 5, { bonus: 1, maas: IH.maasSeviye('eko', { adminNet: yg }) }); ok(h.kar <= onceki + 1e-6, `yönetim ${yg}`); onceki = h.kar; }
 });
 test('veri yok ya da ulaşılamayan hücre null: 15 döngüden az, boş hücre, bonussuz eko rating 10', () => {
   const gor = IH.gorunum([SON]), o = { bonus: 0, maas: MAAS };
@@ -302,7 +302,7 @@ test('Doluluk görünümü: oturma, restoran, kâr ve tablo yok; hücreler yüzd
 });
 test('Kâr görünümünde de yorum kartı yok (kaldırıldı)', () => { ok(!IS.isiHtml(IS.varsayilanIsi(), ctx).includes('yorumu')); });
 test('seçili hücre ve menü: menü düğmesi, tıklayınca en ucuz menü ürünleriyle', () => {
-  const st = { ...IS.varsayilanIsi(), sel: { pi: 1, r: 7 } };
+  const st = { ...IS.varsayilanIsi(), sel: { pi: 1, r: 5 } };
   const h = IS.isiHtml(st, ctx); ok(h.includes('data-act="is.menu"') && !h.includes('En ucuz menü'));
   const h2 = IS.isiHtml({ ...st, menuAc: true }, ctx); ok(h2.includes('En ucuz menü') && h2.includes('Q') && !h2.includes('data-act="is.menu"'));
 });
@@ -310,7 +310,7 @@ test('restoran kartı seçiliyse oturma ve çalışan kartından gelir (lüks pr
   const h = IS.isiHtml({ ...IS.varsayilanIsi(), restoran: 'b' }, ctx);
   ok(h.includes('Lüks oturma') && h.includes('Profesyonel çalışan (maaş ×5)') && h.includes('rating 9,4'));
   const maas = IH.maasSeviye('luks', { adminNet: 0.3, profesyonel: true });
-  const st = { ...IS.varsayilanIsi(), restoran: 'b', sel: { pi: 2, r: 9 } };
+  const st = { ...IS.varsayilanIsi(), restoran: 'b', sel: { pi: 2, r: 6 } };
   ok(IS.isiHtml(st, ctx).includes(`$${new Intl.NumberFormat('tr-TR').format(Math.round(maas))}`), 'detayda maaş');
 });
 test('kullanıcı metni kaçırılır: restoran adındaki etiketler çalışmaz', () => {

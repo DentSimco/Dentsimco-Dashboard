@@ -9,6 +9,12 @@ const TABS = [['nedir', 'Nedir'], ['guncellemeler', 'Güncellemeler'], ['kaynakc
 // En yeni en üstte. { date: 'gün ay yıl', items: ['...', '...'] }
 export const UPDATES = [
   {
+    date: '11 Kasım 2026',
+    items: [
+      'Perakende › Restoran: rating modeli güncellendi (11 Kasım ölçümleri). Kalite puanı artık içbükey ve eksiye inebilir: Q2 yaklaşık 0,2, Q5 4,1, Q12 4,3; Q0 ve Q1 eksi (Rating sekmesinde sayısız, \'eksi\' bandında). Çeşit ayrı ve toplanan: ürün başına +0,09375. Lüks çarpanı 1,25, profesyonel personel +3,94. Yönetici bonusu kalite puanından bağımsız eklenir. Menü Seç, Isı Haritası ve gizli Tavsiye bu modele geçti; hedefler eskisinden düşüktür (eko menü bonussuz en çok yaklaşık 5,1 + çeşit).',
+    ],
+  },
+  {
     date: '6 Kasım 2026',
     items: [
       'Perakende › Restoran: doluluk tahmini ve Isı Haritası\'nda fiyat dilimleri düzeltildi. Oyunun gazetesi menü fiyatını $30\'un en yakın katına yuvarlar: $60 dilimi $60–74, $90 dilimi $75–104 … $360 dilimi $345–350. Önceki sürüm dilimi alt sınır sanıyordu ($60–89); bu yüzden $75–100 arası fiyatlarda doluluğu 15–20 puan fazla, Isı Haritası\'nda geliri dilim başına $15 fazla gösteriyordu. En yüksek fiyat dilimi ($345–350) de artık haritada.',

@@ -26,8 +26,8 @@ function ok(value, label = 'koşul sağlanmadı') { if (!value) throw new Error(
 const marketOf = vwapOf;
 
 section('Rating');
-test('Kalite puanı: Q0 ≈ 0,4, Q5 ≈ 4,9, Q12 ≈ 6,1; artan ve içbükey', () => {
-  near(RR.kalitePuani(0), 0.4, 0.01); near(RR.kalitePuani(5), 4.92, 0.03); near(RR.kalitePuani(12), 6.11, 0.03);
+test('Kalite puanı: Q0 ≈ −20,3 ve Q1 ≈ −5,8 (eksi), Q2 ≈ 0,2, Q5 ≈ 4,1, Q12 ≈ 4,3; artan ve içbükey', () => {
+  near(RR.kalitePuani(0), -20.3, 0.05); near(RR.kalitePuani(1), -5.75, 0.05); near(RR.kalitePuani(2), 0.21, 0.02); near(RR.kalitePuani(4), 3.65, 0.02); near(RR.kalitePuani(5), 4.06, 0.03); near(RR.kalitePuani(12), 4.34, 0.03);
   for (let q = 2; q <= 12; q++) ok(RR.kalitePuani(q) - RR.kalitePuani(q - 1) < RR.kalitePuani(q - 1) - RR.kalitePuani(q - 2), `içbükey Q${q}`);
 });
 test('Sekmeler: Rating, Maliyet, Menü Seç (Harita yok, Menü Seç Maliyet\'in sağında)', () => {
@@ -36,12 +36,14 @@ test('Sekmeler: Rating, Maliyet, Menü Seç (Harita yok, Menü Seç Maliyet\'in 
 });
 
 section('Çizim');
-test('Rating: Q0–Q12 eğrisi ve değerleri; ürün seçici, düğme, açıklama, fiyat ve maliyet yok', () => {
+test('Rating: Q0–Q12 tablosu (grafik yok); eksi puanlar sayısız; ürün seçici, düğme, açıklama, fiyat ve maliyet yok', () => {
   const h = A.ratingHtml();
   ok(h.includes('<h2 id="h-an-rt">Rating</h2>') && h.includes('aria-label="Kaliteye göre rating"'));
-  eq((h.match(/<circle/g) || []).length, 13); eq((h.match(/<polyline/g) || []).length, 1);
-  ok(h.includes('>0,4<') && h.includes('>6,1<') && h.includes('>Q12<'));
-  ok(!/<select|<button|data-an|data-act|\$|Borsa|geçmiş|Yorum|ur-note|ur-sub|<table|Harita|Grafik/i.test(h), 'ürün seçimi, açıklama ya da fiyat görünüyor');
+  ok(h.includes('<table') && !h.includes('<svg') && !h.includes('<polyline'), 'tablo olmalı, grafik olmamalı');
+  eq((h.match(/<tr>/g) || []).length, 14);
+  eq((h.match(/>eksi</g) || []).length, 2); ok(!h.includes('-20,3') && !h.includes('-5,7'), 'eksi sayı gösterilmez');
+  ok(h.includes('>4,34<') && h.includes('>Q12<') && h.includes('>0,21<'));
+  ok(!/<select|<button|data-an|data-act|\$|Borsa|geçmiş|Yorum|ur-note|ur-sub|Harita|Grafik/i.test(h), 'ürün seçimi, açıklama ya da fiyat görünüyor');
 });
 test('Maliyet: hücreler düz tutar (düğme yok), mavi en ucuz, çarpan ve oturma düğmeleri', () => {
   const h = A.maliyetHtml({ carpan: 2, tip: 'eko' }, marketOf);

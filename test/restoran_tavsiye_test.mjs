@@ -82,7 +82,7 @@ function kabaKuvvet(katKey, n, kMin, kMax, seviye = 1, tip = 'eko') {
       return;
     }
     rec(i + 1, secilen, s, toplam);
-    if (secilen < n) for (let q = kMin; q <= kMax; q++) rec(i + 1, secilen + 1, s + q, toplam + T.adet(ids[i], n, seviye, tip) * fiyat(ids[i], q));
+    if (secilen < n) for (let q = kMin; q <= kMax; q++) rec(i + 1, secilen + 1, s + T.puanBirim(q), toplam + T.adet(ids[i], n, seviye, tip) * fiyat(ids[i], q));
   };
   rec(0, 0, 0, 0);
   return en;
@@ -94,55 +94,55 @@ test('Her kalite toplamı için en ucuz çözüm kaba kuvvetle aynı (salata, an
     eq([...dp.keys()].sort((x, y) => x - y), [...kk.keys()].sort((x, y) => x - y), `${kat} ${n} toplamlar`);
     for (const [s, v] of dp) {
       near(v.toplam, kk.get(s), 1e-6, `${kat} ${n} toplam ${s}`);
-      eq(v.urunler.length, n); eq(v.urunler.reduce((t, u) => t + u.q, 0), s);
+      eq(v.urunler.length, n); eq(v.urunler.reduce((t, u) => t + T.puanBirim(u.q), 0), s);
       eq(new Set(v.urunler.map((u) => u.id)).size, n, 'ürün tekrarı');
       ok(v.urunler.every((u) => u.q >= 3 && u.q <= 5), 'aralık dışı');
     }
   }
 });
 test('Seviye ve lüks adedi yansır; aralık dışı ve fiyatsız kalite seçilmez', () => {
-  const bir = T.kategoriSecenekleri(marketOf, 'ana', 2, { kMin: 5, kMax: 5, seviye: 1 }).get(10).toplam;
-  const yirmi = T.kategoriSecenekleri(marketOf, 'ana', 2, { kMin: 5, kMax: 5, seviye: 20 }).get(10).toplam;
+  const bir = T.kategoriSecenekleri(marketOf, 'ana', 2, { kMin: 5, kMax: 5, seviye: 1 }).get(2 * T.puanBirim(5)).toplam;
+  const yirmi = T.kategoriSecenekleri(marketOf, 'ana', 2, { kMin: 5, kMax: 5, seviye: 20 }).get(2 * T.puanBirim(5)).toplam;
   ok(yirmi > 19 * bir * 0.9 && yirmi <= 20 * bir + 1e-6);
-  const luks = T.kategoriSecenekleri(marketOf, 'ana', 2, { kMin: 5, kMax: 5, tip: 'luks' }).get(10).toplam;
+  const luks = T.kategoriSecenekleri(marketOf, 'ana', 2, { kMin: 5, kMax: 5, tip: 'luks' }).get(2 * T.puanBirim(5)).toplam;
   ok(luks < bir * 0.7);
   const sadeceYedi = (id, q) => (q === 7 ? marketOf(id, q) : null);
   const m = T.kategoriSecenekleri(sadeceYedi, 'salata', 2, { kMin: 0, kMax: 12 });
-  eq([...m.keys()], [14]);
+  eq([...m.keys()], [2 * T.puanBirim(7)]);
   eq(T.kategoriSecenekleri(() => null, 'salata', 2, {}).size, 0);
 });
 
-section('Gereken kalite toplamı');
-test('Hedefe ulaşan en küçük toplam: bir eksiği hedefin altında kalır', () => {
-  const o = { hedef: 5.5, bonus: 1.1, tip: 'eko' };
+section('Gereken puan toplamı');
+test('Hedefe ulaşan en küçük puan toplamı: bir birim eksiği hedefin altında kalır', () => {
+  const o = { hedef: 5.2, bonus: 1.1, tip: 'eko' };
   for (const n of [3, 6, 8]) {
-    const s = T.gerekliKaliteToplami(n, o);
+    const s = T.gerekliPuanToplami(n, o);
     ok(s != null);
-    ok(M.hedefRating({ kalite: s / n, urunSayisi: n, bonus: 1.1 }) >= 5.5 - 1e-9);
-    if (s > 0) ok(M.hedefRating({ kalite: (s - 1) / n, urunSayisi: n, bonus: 1.1 }) < 5.5);
+    ok(M.menuRatingi({ puanOrt: s / T.PUAN_OLCEK / n, urunSayisi: n, bonus: 1.1 }) >= 5.2 - 1e-9);
+    if (s > 0) ok(M.menuRatingi({ puanOrt: (s - 1) / T.PUAN_OLCEK / n, urunSayisi: n, bonus: 1.1 }) < 5.2);
   }
-  eq(T.gerekliKaliteToplami(2, { hedef: 10, bonus: 0 }), null);
+  eq(T.gerekliPuanToplami(2, { hedef: 10, bonus: 0 }), null);
 });
 
 section('Elle menü');
 test('Çeşit sayıları: toplam, günlük, seviye başı; her ürünün kalitesi; rating modelden', () => {
-  const m = T.menuOner(marketOf, { seviye: 5, tip: 'eko', cesit: { salata: 2, ana: 3, icecek: 1 }, bonus: 1.1, hedef: 6.5 });
+  const m = T.menuOner(marketOf, { seviye: 5, tip: 'eko', cesit: { salata: 2, ana: 3, icecek: 1 }, bonus: 1.1, hedef: 5 });
   eq([m.cesit, m.urunSayisi], ['2-3-1', 6]);
   near(m.toplam, m.kategoriler.reduce((t, k) => t + k.toplam, 0), 1e-6);
   near(m.gunluk, m.toplam * 2, 1e-9); near(m.seviyeBasi, m.toplam / 5, 1e-9);
   eq(m.kategoriler.map((k) => k.urunler.length), [2, 3, 1]);
-  ok(m.rating.orta >= 6.5 - 1e-9, 'hedefin altında');
+  ok(m.rating.orta >= 5 - 1e-9, 'hedefin altında');
   const ort = m.kategoriler.flatMap((k) => k.urunler).reduce((t, u) => t + u.q, 0) / 6;
   near(m.ortKalite, ort, 1e-9);
-  near(m.rating.orta, M.hedefRating({ kalite: ort, urunSayisi: 6, bonus: 1.1 }), 1e-9);
+  near(m.rating.orta, M.menuRatingi({ puanOrt: m.puanOrt, urunSayisi: 6, bonus: 1.1 }), 1e-9);
 });
-test('Elle menü, tüm ürün-kalite atamalarının en ucuzuyla aynı (1-1-1, Q0–Q2)', () => {
+test('Elle menü, tüm ürün-kalite atamalarının en ucuzuyla aynı (1-1-1, Q2–Q4)', () => {
   const cesit = { salata: 1, ana: 1, icecek: 1 };
-  const g = { seviye: 1, tip: 'eko', bonus: 0, hedef: 3.2, kMin: 0, kMax: 2 };
+  const g = { seviye: 1, tip: 'eko', bonus: 0, hedef: 3.5, kMin: 2, kMax: 4 };
   const m = T.menuOner(marketOf, { ...g, cesit });
   let min = Infinity;
-  for (const a of idler('salata')) for (const b of idler('ana')) for (const c of idler('icecek')) for (let qa = 0; qa <= 2; qa++) for (let qb = 0; qb <= 2; qb++) for (let qc = 0; qc <= 2; qc++) {
-    if (M.hedefRating({ kalite: (qa + qb + qc) / 3, urunSayisi: 3, bonus: 0 }) < 3.2 - 1e-9) continue;
+  for (const a of idler('salata')) for (const b of idler('ana')) for (const c of idler('icecek')) for (let qa = 2; qa <= 4; qa++) for (let qb = 2; qb <= 4; qb++) for (let qc = 2; qc <= 4; qc++) {
+    if (M.menuRatingi({ puanOrt: (M.kalitePuani(qa) + M.kalitePuani(qb) + M.kalitePuani(qc)) / 3, urunSayisi: 3, bonus: 0 }) < 3.5 - 1e-9) continue;
     min = Math.min(min, T.adet(a, 1) * fiyat(a, qa) + T.adet(b, 1) * fiyat(b, qb) + T.adet(c, 1) * fiyat(c, qc));
   }
   ok(Number.isFinite(min)); near(m.toplam, min, 1e-6);
@@ -150,7 +150,7 @@ test('Elle menü, tüm ürün-kalite atamalarının en ucuzuyla aynı (1-1-1, Q0
 test('Her ürüne ayrı kalite: kalite ucuza yükselen ürüne verilir', () => {
   // maliyet = 10 + eğim × q: 117'de eğim çok küçük, diğerlerinde büyük
   const fp = (id, q) => (10 + (id === 117 ? 0.01 : 5) * q) / T.adet(id, 2, 1);
-  const m = T.menuOner(fp, { cesit: { salata: 2, ana: 1, icecek: 1 }, bonus: 0, hedef: 4.2, kMin: 0, kMax: 12 });
+  const m = T.menuOner(fp, { cesit: { salata: 2, ana: 1, icecek: 1 }, bonus: 0, hedef: 3.6, kMin: 0, kMax: 12 });
   ok(!m.yok && !m.eksik);
   const [x, y] = m.kategoriler[0].urunler;
   const k117 = [x, y].find((u) => u.id === 117);
@@ -159,11 +159,11 @@ test('Her ürüne ayrı kalite: kalite ucuza yükselen ürüne verilir', () => {
   ok(k117.q >= diger.q && k117.q > 0, 'ucuza yükselen ürüne kalite verilmedi');
 });
 test('Lüks: adet yarıya iner, rating × 1,25; aynı hedef daha ucuz', () => {
-  const g = { seviye: 1, cesit: { salata: 2, ana: 2, icecek: 2 }, bonus: 1, hedef: 6 };
+  const g = { seviye: 1, cesit: { salata: 2, ana: 2, icecek: 2 }, bonus: 1, hedef: 5 };
   const e = T.menuOner(marketOf, { ...g, tip: 'eko' });
   const l = T.menuOner(marketOf, { ...g, tip: 'luks' });
   ok(l.toplam < e.toplam, 'lüks daha pahalı');
-  ok(l.rating.orta >= 6 - 1e-9);
+  ok(l.rating.orta >= 5 - 1e-9);
 });
 test('Yeterli fiyatlı ürün olmayan kategori eksik; ulaşılamayan hedef yok + en yüksek tahmin', () => {
   const az = (id, q) => (idler('icecek').includes(id) ? null : marketOf(id, q));
@@ -174,37 +174,37 @@ test('Yeterli fiyatlı ürün olmayan kategori eksik; ulaşılamayan hedef yok +
 
 section('Otomatik');
 test('Hedefe ulaşan en ucuz menü: tüm çeşit sayıları taranarak doğrulanır', () => {
-  const g = { seviye: 3, tip: 'eko', hedef: 7, bonus: 1.1, kMin: 0, kMax: 12 };
+  const g = { seviye: 3, tip: 'eko', hedef: 5.2, bonus: 1.1, kMin: 0, kMax: 12 };
   const o = T.otomatikOner(marketOf, g);
-  ok(o.en); ok(o.en.rating.orta >= 7 - 1e-9, 'hedefin altında');
+  ok(o.en); ok(o.en.rating.orta >= 5.2 - 1e-9, 'hedefin altında');
   let min = Infinity;
   for (let a = 1; a <= 6; a++) for (let b = 1; b <= 6; b++) for (let c = 1; c <= 4; c++) {
     const m = T.menuOner(marketOf, { ...g, cesit: { salata: a, ana: b, icecek: c } });
     if (m.toplam != null) min = Math.min(min, m.toplam);
   }
   near(o.en.toplam, min, 1e-6);
-  ok(o.secenekler.length === 4 && o.secenekler.every((m) => m.toplam >= o.en.toplam - 1e-9 && m.rating.orta >= 7 - 1e-9));
+  ok(o.secenekler.length === 4 && o.secenekler.every((m) => m.toplam >= o.en.toplam - 1e-9 && m.rating.orta >= 5.2 - 1e-9));
 });
 test('Menüdeki her ürünün kalitesi aralıkta; kategoride ürün tekrarı yok', () => {
-  const o = T.otomatikOner(marketOf, { hedef: 6.5, bonus: 1, kMin: 4, kMax: 9 });
+  const o = T.otomatikOner(marketOf, { hedef: 5, bonus: 1, kMin: 4, kMax: 9 });
   for (const k of o.en.kategoriler) {
     eq(new Set(k.urunler.map((u) => u.id)).size, k.urunler.length);
     ok(k.urunler.every((u) => u.q >= 4 && u.q <= 9));
   }
 });
 test('Hedef çok yüksekse yok ve en yüksek tahmin; fiyat yoksa fiyatYok', () => {
-  const y = T.otomatikOner(marketOf, { seviye: 1, hedef: 10, bonus: 0, kMin: 0, kMax: 0 });
+  const y = T.otomatikOner(marketOf, { seviye: 1, hedef: 10, bonus: 0, kMin: 2, kMax: 2 });
   ok(y.yok && y.enYuksek > 0 && y.enYuksek < 10);
   eq(T.otomatikOner(() => null, { hedef: 5 }), { fiyatYok: true });
 });
 test('Daha yüksek hedef daha pahalı (ya da eşit) menü demektir', () => {
-  const a = T.otomatikOner(marketOf, { seviye: 1, hedef: 6, bonus: 1.1 }).en.toplam;
-  const b = T.otomatikOner(marketOf, { seviye: 1, hedef: 7.5, bonus: 1.1 }).en.toplam;
+  const a = T.otomatikOner(marketOf, { seviye: 1, hedef: 4.5, bonus: 1.1 }).en.toplam;
+  const b = T.otomatikOner(marketOf, { seviye: 1, hedef: 5.5, bonus: 1.1 }).en.toplam;
   ok(b >= a);
 });
 test('Kalite aralığı daraldıkça maliyet düşmez (aralık serbestken en ucuzdur)', () => {
-  const genis = T.otomatikOner(marketOf, { hedef: 6.5, bonus: 1.1, kMin: 0, kMax: 12 }).en.toplam;
-  const dar = T.otomatikOner(marketOf, { hedef: 6.5, bonus: 1.1, kMin: 6, kMax: 9 }).en.toplam;
+  const genis = T.otomatikOner(marketOf, { hedef: 5, bonus: 1.1, kMin: 0, kMax: 12 }).en.toplam;
+  const dar = T.otomatikOner(marketOf, { hedef: 5, bonus: 1.1, kMin: 6, kMax: 9 }).en.toplam;
   ok(dar >= genis - 1e-9);
 });
 

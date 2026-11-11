@@ -46,10 +46,11 @@ function kabaKuvvet(m, cesit, { hedef, bonus = 0, tip = 'eko', seviye = 1 }) {
 }
 
 section('Model ve bonus');
-test('Kasım modeli: (ortalama puan × (1 + 0,037 × (N − 6)) + bonus) × oturma; lüks 1,25; 0–10 arası', () => {
-  near(RR.menuRatingi({ puanOrt: 5, urunSayisi: 6, bonus: 0 }), 5, 1e-12);
-  near(RR.menuRatingi({ puanOrt: 5, urunSayisi: 8, bonus: 0.5 }), 5 * 1.074 + 0.5, 1e-12);
-  near(RR.menuRatingi({ puanOrt: 5, urunSayisi: 6, bonus: 1, tip: 'luks' }), 6 * 1.25, 1e-12);
+test('M4 modeli: (ortalama puan + 0,09375 × N + bonus [+ 3,94 profesyonel]) × oturma; lüks 1,25; 0–10 arası', () => {
+  near(RR.menuRatingi({ puanOrt: 5, urunSayisi: 6, bonus: 0 }), 5 + 6 * 1.5 / 16, 1e-12);
+  near(RR.menuRatingi({ puanOrt: 5, urunSayisi: 8, bonus: 0.5 }), 5 + 8 * 1.5 / 16 + 0.5, 1e-12);
+  near(RR.menuRatingi({ puanOrt: 5, urunSayisi: 6, bonus: 1, tip: 'luks' }), (6 + 6 * 1.5 / 16) * 1.25, 1e-12);
+  near(RR.menuRatingi({ puanOrt: 2, urunSayisi: 6, bonus: 0.5, tip: 'luks', profesyonel: true }), (2 + 6 * 1.5 / 16 + 0.5 + 3.94) * 1.25, 1e-12);
   eq(RR.menuRatingi({ puanOrt: 50, urunSayisi: 6 }), 10); eq(RR.menuRatingi({ puanOrt: null, urunSayisi: 6 }), null);
 });
 test('Yönetici bonusu = 0,01 × etkin iletişim + 0,02 × ekip dışı satış hızı %; eksi iletişim ve boş değer 0, eksi satış hızı eksi', () => {
@@ -67,7 +68,7 @@ test('Adet = yukarı yuvarla(oran × kategori çarpanı × seviye × lüks)', ()
 });
 
 section('En ucuz menü');
-for (const [cesit, hedef, bonus, tip] of [[{ salata: 2, ana: 1, icecek: 2 }, 5.5, 0.5, 'eko'], [{ salata: 1, ana: 2, icecek: 1 }, 5, 0, 'eko'], [{ salata: 2, ana: 2, icecek: 1 }, 4.5, 0.3, 'luks']]) {
+for (const [cesit, hedef, bonus, tip] of [[{ salata: 2, ana: 1, icecek: 2 }, 5, 0.5, 'eko'], [{ salata: 1, ana: 2, icecek: 1 }, 4.5, 0, 'eko'], [{ salata: 2, ana: 2, icecek: 1 }, 4.5, 0.3, 'luks']]) {
   const k = Object.values(cesit).join('-');
   test(`${k}, hedef ${hedef}, ${tip}: kaba kuvvetle aynı maliyet; rating ≥ hedef; çeşit ve ürünler doğru`, () => {
     const m = MS.menuSec(marketOf, { cesit, hedef, bonus, tip });
@@ -84,12 +85,12 @@ for (const [cesit, hedef, bonus, tip] of [[{ salata: 2, ana: 1, icecek: 2 }, 5.5
   });
 }
 test('Yönetici bonusu arttıkça menü ucuzlar (ya da aynı kalır)', () => {
-  const o = { cesit: { salata: 2, ana: 2, icecek: 2 }, hedef: 6 };
+  const o = { cesit: { salata: 2, ana: 2, icecek: 2 }, hedef: 4.5 };
   const a = MS.menuSec(marketOf, { ...o, bonus: 0 }), b = MS.menuSec(marketOf, { ...o, bonus: 0.8 });
   ok(a.kategoriler && b.kategoriler && b.toplam <= a.toplam + 1e-9);
 });
 test('Seviye maliyeti ölçekler', () => {
-  const o = { cesit: { salata: 2, ana: 1, icecek: 2 }, hedef: 5 };
+  const o = { cesit: { salata: 2, ana: 1, icecek: 2 }, hedef: 4.5 };
   const a = MS.menuSec(marketOf, o), b = MS.menuSec(marketOf, { ...o, seviye: 10 });
   ok(b.toplam > a.toplam * 9);
 });
@@ -102,10 +103,10 @@ test('Borsada yeterli ilan yok: eksik kategori adları', () => {
   eq(m.eksik, ['İçecek']);
 });
 test('Diğer dağılımlar: seçilenden daha ucuz, ucuzdan pahalıya, en çok 3, seçilen yok', () => {
-  const o = { cesit: { salata: 3, ana: 3, icecek: 3 }, hedef: 6 };
+  const o = { cesit: { salata: 3, ana: 3, icecek: 3 }, hedef: 4.8 };
   const ana = MS.menuSec(marketOf, o), alt = MS.digerDagilimlar(marketOf, o);
   ok(alt.length >= 1 && alt.length <= 3);
-  for (let i = 0; i < alt.length; i++) { ok(alt[i].toplam < ana.toplam); ok(alt[i].cesit !== '3-3-3'); ok(alt[i].rating >= 6 - 1e-9); if (i) ok(alt[i].toplam >= alt[i - 1].toplam); }
+  for (let i = 0; i < alt.length; i++) { ok(alt[i].toplam < ana.toplam); ok(alt[i].cesit !== '3-3-3'); ok(alt[i].rating >= 4.8 - 1e-9); if (i) ok(alt[i].toplam >= alt[i - 1].toplam); }
 });
 
 section('Kayıt ve olaylar');
@@ -130,7 +131,7 @@ test('Çeşit düğmeleri sınırda durur; oturma; dağılım seçimi; değer gi
 
 section('Çizim');
 test('Menü Seç: çeşit düğmeleri, hedef, etkin iletişim dökümü, rating hesabı ve menü tablosu', () => {
-  const h = MS.menuSecHtml({ cesit: { salata: 2, ana: 1, icecek: 2 }, hedef: 5.5, seviye: 1, tip: 'eko' }, marketOf, { iletisim: 34, hiz: 8 });
+  const h = MS.menuSecHtml({ cesit: { salata: 2, ana: 1, icecek: 2 }, hedef: 5, seviye: 1, tip: 'eko' }, marketOf, { iletisim: 34, hiz: 8 });
   for (const s of ['Menü Seç', 'data-ms="hedef"', 'data-ms="seviye"', 'data-act="ms.tip"', 'Etkin iletişim 34 × 0,01', '+0,34', 'satış hızı %8 × 0,02', '+0,16', 'Yönetici bonusu', '+0,50', 'Tahmini rating', 'Önerilen menü'
   ]) ok(h.includes(s), s);
   ok(!h.includes('Ort. ürün puanı'), 'formül gösterilmez');

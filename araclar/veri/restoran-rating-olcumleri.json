@@ -1,6 +1,6 @@
 {
   "aciklama": "Restoran rating ve doluluk ölçümleri (oyuncuların paylaştığı ekran görüntülerinden elle çıkarıldı). Rating modeli ve doluluk tablosu bunlarla sınanır; notlar: restoran-rating-notlari.md. Saatler Türkiye saati (UTC+3), döngü bitişi. adim = [bitiş, başlangıç ratingi, yeni rating, doluluk %, menü fiyatı $]; null = ekranda görünmüyor. cikarim: true = adım ekranda yok, komşu ekranlardan çıkarıldı.",
-  "guncellendi": "2026-11-06",
+  "guncellendi": "2026-11-11",
   "oyuncular": [
     {
       "ad": "Sky (Sky Aerospace)",
@@ -62,13 +62,83 @@
     {
       "ad": "Dentium",
       "bonus": { "ekipDisiSatisHizi": -3, "etkinIletisim": 20, "toplam": 0.14, "not": "Yönetim ekranı: Restoran derecesi −0,06 +0,200 (eksi satış hızı eksi bonus verir)." },
-      "ekranlar": ["2026-11-06 03:08 (tarih tahmini)"],
+      "bonusSonra": { "tarih": "2026-11-08 10:25", "ekipDisiSatisHizi": -3, "etkinIletisim": 3, "toplam": -0.03, "not": "Restoran derecesi −0,06 +0,030; ekranda 'bazı yöneticiler eğitim görüyor, yerleşiyor veya grev yapıyor'. Ne zaman değiştiği bilinmiyor; Q1 döngüleri için −0,03 varsayıldı. 10 Kasım 12:54'te yine −0,06 +0,030: CMO ve CMO stajyeri eğitimde, 10 Kasım 23:03'te bitiyor. Kullanıcıya göre son 2 Q1 döngüsünde (10 Kas 00:56 ve 12:56 bitişli) yönetici eğitimdeydi; öncekiler için bonus 0,14 mü −0,03 mü belli değil." },
+      "ekranlar": ["2026-11-06 03:08 (tarih tahmini)", "2026-11-08 10:25", "2026-11-10 12:53–13:00", "2026-11-11 20:22 (Q2 menüsü, rating geçmişi, Yönetim: Restoran derecesi −0,06 +0,200)"],
       "restoranlar": [
         { "ad": "Q0 restoranı", "seviye": 1, "oturma": "eko", "personel": "eko",
           "menu": { "117": 0, "119": 0, "142": 0, "143": 0, "124": 0, "125": 0 },
-          "gider": { "yemek": 28873, "maas": 12970, "not": "döngü başına, menü panelinden" },
-          "adim": [["2026-11-04 12:56", 0.37, 0.51, 13.52, 60], ["2026-11-05 00:56", 0.51, 0.46, 15.2, 60], ["2026-11-05 12:56", 0.46, 0.23, 12.07, 60], ["2026-11-06 00:56", 0.23, 0.18, 8.11, 60]],
-          "deney": "6 Kasım 00:56'da başlayan döngü $350 fiyatla çalışıyor, 12:56'da biter: rating 0 civarında fiyatın doluluğa ve ratinge etkisi (beklenen: doluluk ~%7–8, rating değişimi fiyattan bağımsız)." }
+          "gider": { "yemek": 26900, "maas": 12970, "not": "döngü başına; koşu kayıtlarından (gelir − kâr ≈ $39.6–40.0 bin). 6 Kasım panelindeki $28.873 sonraki (Q1) partilerin maliyetiydi." },
+          "adim": [["2026-11-04 12:56", 0.37, 0.51, 13.52, 60], ["2026-11-05 00:56", 0.51, 0.46, 15.2, 60], ["2026-11-05 12:56", 0.46, 0.23, 12.07, 60], ["2026-11-06 00:56", 0.23, 0.18, 8.11, 60],
+            ["2026-11-06 12:56", 0.18, 0.37, null, 350, { "cikarim": true, "not": "$350 deneyi (Q0). Adım 8 Kasım listesinde görünmüyor; 6 Kasım'daki 0,18 ile 7 Kasım'daki 0,37 arasından çıkarıldı." }]],
+          "deney": "$350 fiyat: rating düşmedi (0,18 → 0,37, sonra Q1 döngüleri 0,37 → 0,62); doluluk Q1 döngülerinde %5,35 / %12,11 / %9,84 ($60'ta %8–15). Zarar döngü başına ~$33 binden ~$10 bine indi, bir döngü +$228." },
+        { "ad": "Q0 restoranı (Q1 dönemi)", "seviye": 1, "oturma": "eko", "personel": "eko",
+          "menu": { "117": 1, "119": 1, "142": 1, "143": 1, "124": 1, "125": 1 },
+          "gider": { "yemek": 28873, "maas": 13300, "not": "döngü başına, menü panelinden; koşu kayıtlarıyla uyumlu (gelir − kâr ≈ $42,2 bin). 10 Kasım panelinde maaş $13.803." },
+          "adim": [["2026-11-07 00:56", 0.37, 0.32, 5.35, 350], ["2026-11-07 12:56", 0.32, 0.42, 12.11, 350], ["2026-11-08 00:56", 0.42, 0.62, 9.84, 350],
+            ["2026-11-08 12:56", 0.62, 0.42, 0, 350], ["2026-11-09 00:56", 0.42, 0.02, 1.67, 350], ["2026-11-09 12:56", 0.02, 0.17, 14.65, 350],
+            ["2026-11-10 00:56", 0.17, 0.18, 5.73, 350, { "bonus": -0.03, "not": "yönetici eğitimde (kullanıcı)" }],
+            ["2026-11-10 12:56", 0.18, 0.00, 4.67, 350, { "bonus": -0.03, "not": "yönetici eğitimde (kullanıcı); rating 0,00 alt sınırında" }]],
+          "kar": { "not": "döngü kârı, 8 Kas 12:56 – 10 Kas 12:56 bitişli adımlar", "deger": [-42161, -36834, 8599, -22600, -26322] },
+          "stok": "10 Kasım 12:53: Salata 10 (döngü başına 10 gerekli), Kahve 283 (97), Samosa 64 (11), Süt 7.408 (288), Portakal 702.987 (144), Elma 2.636 (129)." },
+        { "ad": "Q0 restoranı (Q2 dönemi)", "seviye": 1, "oturma": "eko", "personel": "eko",
+          "menu": { "117": 2, "119": 2, "142": 2, "143": 2, "124": 2, "125": 2 },
+          "gider": { "yemek": 29300, "maas": 13620, "not": "döngü başına; gelir − kâr = $42.664 (11 Kas 00:56) ve $43.593 (12:56); maaş $1.135/sa × 12; yönetim gideri 253 (Q1'de maaş $13.803)." },
+          "adim": [["2026-11-11 00:56", 0.00, 0.06, 11.61, 350, { "yeni": true, "not": "Q2 menüsünün ilk döngüsü; başlangıç 0,00 alt sınırında. Yorum: 'This place is an insult to food'." }],
+            ["2026-11-11 12:56", 0.06, 0.40, 14.6, 350, { "yeni": true, "not": "Yorum: 'My child makes a better meal than this place!'" }]],
+          "kar": { "not": "döngü kârı, 11 Kas 00:56 ve 12:56 bitişli adımlar", "deger": [-2045, 7498] },
+          "stok": "11 Kasım 20:22: Süt 6.824 (288), Kahve 1.915 (97), Salata 80 (10), Samosa 88 (11), Portakal 563.824 (144), Elma 353.113 (129). Hepsi 'low quality'.",
+          "not": "Kullanıcı: son 2 döngü Q2 menüsüyle, Yönetim 'Restoran derecesi −0,06 +0,200' (bonus 0,14, eğitim bitti). Başlangıç 0,00'dan 0,06 ve 0,40." }
+      ]
+    },
+    {
+      "ad": "QUAL deneyi (oyuncu adı ekranda yok)",
+      "bonus": { "tarih": "2026-11-09", "ekipDisiSatisHizi": 7, "etkinIletisim": 69, "toplam": 0.83, "not": "Team impact: Restaurant rating +0.14 +0.690" },
+      "ekranlar": ["2026-11-09 (sonraki döngü 23:26–23:27, yerel saat)", "2026-11-11 19:05 (ECO3 ve LUX2 listeleri, Yönetim ekranı)"],
+      "bonusKontrol": "2026-11-11 19:05: Yönetim ekranı Team impact yine Restaurant rating +0.14 +0.690 (satış hızı %7 × 0,02 + iletişim 69 × 0,01 = 0,83); bonus 9 Kasım'dan beri değişmedi.",
+      "tasarim": "3 menü × (lüks, eko), hepsi 2-2-2, eko personel, aynı bonus, normal evre; 4 döngünün hepsi bu menülerle. M1 − M2 kalite, M3 − M2 ürün, lüks − eko oturma etkisi.",
+      "menuler": {
+        "M1": { "117": 12, "119": 12, "142": 12, "143": 12, "124": 11, "125": 11 },
+        "M2": { "117": 5, "119": 5, "142": 5, "143": 5, "124": 5, "125": 5 },
+        "M3": { "122": 5, "123": 5, "129": 5, "131": 5, "132": 5, "126": 5 }
+      },
+      "adimNot": "Adım bitişleri yaklaşık: 2 gün önce, 1 gün önce, 17 saat önce, 5 saat önce (döngüler 11:27 / 23:27 yerel).",
+      "restoranlar": [
+        { "ad": "QUAL5LUX1", "seviye": 5, "oturma": "luks", "personel": "eko", "menu": "M1",
+          "adim": [["2026-11-07 23:27", 9.20, 8.41, 97.11, 85], ["2026-11-08 11:27", 8.41, 8.21, 58.4, 95], ["2026-11-08 23:27", 8.21, 7.90, 70.57, 95], ["2026-11-09 11:27", 7.90, 7.71, 70.85, 95]] },
+        { "ad": "QUAL10ECO1", "seviye": 10, "oturma": "eko", "personel": "eko", "menu": "M1", "not": "Maaş $10.212/sa (ECO2/ECO3 $7.560/sa); ilk adımda tek seferde −1,12 (önceki kurulum bilinmiyor).",
+          "adim": [["2026-11-07 23:27", 7.86, 6.74, 100, 65], ["2026-11-08 11:27", 6.74, 6.78, 54.75, 85], ["2026-11-08 23:27", 6.78, 6.75, 71.3, 85], ["2026-11-09 11:27", 6.75, 6.69, 47.04, 85]] },
+        { "ad": "QUAL1LUX2", "seviye": 1, "oturma": "luks", "personel": "eko", "menu": "M2",
+          "adim": [["2026-11-07 23:27", 8.77, 8.16, 91.16, 85], ["2026-11-08 11:27", 8.16, 7.78, 100, 85], ["2026-11-08 23:27", 7.78, 7.34, 67.88, 85], ["2026-11-09 11:27", 7.34, 7.08, 68.54, 85],
+            ["2026-11-09 23:27", 7.08, 6.59, 48.58, 85, { "yeni": true }], ["2026-11-10 11:27", 6.59, 6.26, 50.75, 85, { "yeni": true }], ["2026-11-10 23:27", 6.26, 6.19, 53.05, 85, { "yeni": true }],
+            ["2026-11-11 11:27", 6.19, 6.22, 63.64, 75, { "yeni": true, "menu": { "117": 4, "119": 4, "142": 4, "143": 4, "124": 4, "125": 4 }, "not": "yeni menü: hepsi Q4 (kullanıcı: yalnız son döngü); fiyat $75; yemek maliyeti 18.194 (gelir − kâr 22.653 − maaş 4.370 = 18.283)" }]] },
+        { "ad": "QUAL10ECO2", "seviye": 10, "oturma": "eko", "personel": "eko", "menu": "M2",
+          "adim": [["2026-11-07 23:27", 5.12, 5.14, 48.95, 65], ["2026-11-08 11:27", 5.14, 5.26, 59.96, 65], ["2026-11-08 23:27", 5.26, 5.11, 53.79, 65], ["2026-11-09 11:27", 5.11, 4.85, 39.01, 65]] },
+        { "ad": "QUAL1LUX3", "seviye": 1, "oturma": "luks", "personel": "eko", "menu": "M3",
+          "adim": [["2026-11-07 23:27", 6.99, 6.70, 57.01, 85], ["2026-11-08 11:27", 6.70, 6.80, 62.04, 85], ["2026-11-08 23:27", 6.80, 6.58, 34.75, 85], ["2026-11-09 11:27", 6.58, 6.58, 61.92, 85],
+            ["2026-11-09 23:27", 6.58, 6.77, 56.2, 85, { "yeni": true }], ["2026-11-10 11:27", 6.77, 6.93, 66.57, 85, { "yeni": true }], ["2026-11-10 23:27", 6.93, 6.67, 62.9, 85, { "yeni": true }],
+            ["2026-11-11 11:27", 6.67, 6.56, 60.83, 80, { "yeni": true, "menu": { "117": 8, "119": 10, "142": 7, "143": 7, "124": 7, "125": 7 }, "not": "yeni menü (ECO3 ile aynı, lüks); fiyat $80; maliyet 21.951 + 4.370 = 26.321" }]] },
+        { "ad": "QUAL10ECO3", "seviye": 10, "oturma": "eko", "personel": "eko", "menu": "M3",
+          "adim": [["2026-11-07 23:27", 5.49, 5.33, 79.65, 65], ["2026-11-08 11:27", 5.33, 5.63, 60.42, 65], ["2026-11-08 23:27", 5.63, 5.43, 87.49, 65], ["2026-11-09 11:27", 5.43, 5.33, 78.03, 65],
+            ["2026-11-09 23:27", 5.33, 5.39, 57.3, 65, { "yeni": true }], ["2026-11-10 11:27", 5.39, 5.27, 58.64, 65, { "yeni": true }], ["2026-11-10 23:27", 5.27, 4.98, 57.13, 65, { "yeni": true }],
+            ["2026-11-11 11:27", 4.98, 5.02, 59.7, 65, { "yeni": true, "menu": { "117": 8, "119": 10, "142": 7, "143": 7, "124": 7, "125": 7 }, "not": "yeni menü: Süt Q8, Kahve Q10, Salata Q7, Samosa Q7, Portakal Q7, Elma Q7 (kullanıcı: yalnız son döngü); eski M3 menüsünden ucuz: yemek 415.184 + maaş 87.383 = 502.567" }]] }
+      ]
+    },
+    {
+      "ad": "Tosuncuk",
+      "bonus": { "toplam": null, "not": "Restoran derecesi satırı ekranda yok. 8:28'de CMO (iletişim 10) 14:46'ya kadar eğitimde, CTO emekliliğe 2,5 saat, CFO boş. Eski satırlarda 0,35–0,37." },
+      "ekranlar": ["2026-11-11 08:27–08:28 (tarih tahmini)", "2026-11-11 12:03–12:04 (tarih tahmini)"],
+      "menuNot": "İki restoranda aynı menü (1-2-1): Süt Q12, Lazanya Q12, Köfte Q10, Kokteyl Q8 ('en yüksek kalite'), $100. Tüketim lüks ×0,5 ile tutuyor (seviye 2: Süt 605, Lazanya 5, Köfte 4, Kokteyl 9; seviye 1: 303, 3, 2, 5).",
+      "restoranlar": [
+        { "ad": "Tosuncuk pro çalışanlı", "seviye": 2, "oturma": "luks", "personel": "pro",
+          "menu": { "117": 12, "130": 12, "131": 10, "132": 8 },
+          "gider": { "yemek": 75601, "maasPro": 40766, "maasEko": 8153, "not": "Döngü gideri profesyonelle $116.367 (iki döngü aynı), son döngüde $83.754. Fark 4 × eko maaş → maaş oranı 5,0 (rehber: profesyonel maaş 5 kat)." },
+          "kapanis": "Son döngüden sonra kapatıldı: 8,21 → 7,19 (−%12,4; kapanış cezası %12,5).",
+          "adim": [["2026-11-09 23:54", 8.37, 8.74, 52.29, 100], ["2026-11-10 11:54", 8.74, 9.04, 64.85, 100], ["2026-11-10 23:54", 9.04, 9.06, 60.01, 100],
+            ["2026-11-11 11:54", 9.06, 8.21, 79.01, 100, { "personel": "eko", "not": "gider $83.754: ekonomi personele geçilmiş" }]] },
+        { "ad": "Tosuncuk lüx ekonomik çalışanlı", "seviye": 1, "oturma": "luks", "personel": "eko",
+          "menu": { "117": 12, "130": 12, "131": 10, "132": 8 },
+          "gider": { "not": "döngü gideri $43.491 ve $44.195" },
+          "adim": [["2026-11-10 03:55", 4.91, 4.84, null, 100], ["2026-11-10 15:55", 4.84, 4.40, 61.1, 100], ["2026-11-11 03:55", 4.40, 4.70, 27.26, 100]] }
       ]
     }
   ],
