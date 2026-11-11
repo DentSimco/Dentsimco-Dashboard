@@ -1,6 +1,6 @@
 // DentSimco — Çinli oyuncunun (tgw / TGW-groupp, gitee.com/lclbb/sc) restoran rating formülünü ölçümlerimizle sınar.
 //
-// Kullanım: node araclar/restoran-cin-formulu.mjs [--k=0.27] [--sigma=0.19]
+// Kullanım: node araclar/restoran-cin-formulu.mjs [--k=0.27] [--sigma=0.19] [--eski]
 //
 // Yazıdaki formül (betikte yok, yalnız şirket profili yazısında):
 //   hedef = 3·ortQ/12 + 1,5·N/16 + (lüks 0,5 | eko 0) + (profesyonel 2,5 | geçici 1,25) + fiyatPuanı + bonus
@@ -9,7 +9,7 @@
 // Karşılaştırma: doygun model, M3 (önerimiz), M3 + fiyat puanı, Çin formülü (olduğu gibi / ölçekli / katsayıları serbest).
 // Tosuncuk (bonusu bilinmiyor, 0,35 varsayımı) ve yazarın kendi ekranı (0,00 → 0,10) ayrıca.
 import * as M from './restoran-rating-modelleri.mjs';
-const S0 = M.adimlar();
+const S0 = M.adimlar().filter((s) => !process.argv.includes('--eski') || !s.yeni); // --eski: 11 Kasım akşamından önceki 107 adım
 const ort = (a) => a.reduce((x, y) => x + y, 0) / a.length;
 const sinirla = (x) => Math.min(10, Math.max(0, x));
 const f2 = (x, d = 2) => (x < 0 && Math.abs(x) >= 0.5 * 10 ** -d ? '−' : '') + Math.abs(x).toFixed(d).replace('.', ',');

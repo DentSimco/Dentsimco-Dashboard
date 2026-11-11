@@ -5,6 +5,7 @@
 //   --sigma=0.19      adım gürültüsü
 //   --eco1            QUAL10ECO1'in ilk adımını (7,86 → 6,74) dışarıda bırak
 //   --q1haric         Dentium Q1 dönemini ($350, neredeyse boş restoran) dışarıda bırak
+//   --q2haric         Dentium Q2 dönemini (11 Kasım, 2 döngü) dışarıda bırak
 //   --skyBonus=0.96   Sky bonusu (varsayılan ekrandaki 1,05)
 //   --skyV222         Sky V'nin 2-2-2'ye geçtiği varsayılan son 2 adımını ekle
 //   --buyumeHaric     büyüme evresinde başlayan ya da biten adımları çıkar
@@ -43,8 +44,9 @@ export function adimlar() {
     const pk = p.ad.split(' ')[0];
     for (const r of p.restoranlar) {
       const menu = typeof r.menu === 'string' ? p.menuler[r.menu] : r.menu || p.ortakMenu;
-      const grup = pk === 'Dentium' ? (r.ad.includes('Q1') ? 'Dentium Q1' : 'Dentium Q0') : pk;
+      const grup = pk === 'Dentium' ? (r.ad.includes('Q2') ? 'Dentium Q2' : r.ad.includes('Q1') ? 'Dentium Q1' : 'Dentium Q0') : pk;
       if (grup === 'Dentium Q1' && bayrak('q1haric')) continue;
+      if (grup === 'Dentium Q2' && bayrak('q2haric')) continue;
       if (p.bonus?.toplam == null) continue; // bonusu bilinmeyen oyuncu (Tosuncuk) modellere girmez
       let bonus = p.bonus?.toplam ?? 0;
       if (pk === 'Sky' && SKY_BONUS != null) bonus = Number(SKY_BONUS);
@@ -52,7 +54,7 @@ export function adimlar() {
         const [bitis, r0, r1, occ, fiyat, ek] = a;
         if (r0 == null || r1 == null) return;
         if ((ek?.personel ?? r.personel) === 'pro') return; // modellerde personel terimi yok
-        let m = menu, ad = r.ad;
+        let m = ek?.menu ?? menu, ad = ek?.menu ? `${r.ad} (yeni menü)` : r.ad; // ek.menu: o adımda farklı menü (ayrı hedef olarak gruplanır)
         if (r.ad === 'Sky Eco Resto V' && bitis > '2026-11-01 19:38') {
           if (!bayrak('skyV222') || bitis < '2026-11-02 19:38') return; // geçiş döngüsü belirsiz
           m = r.menuSonra; ad = 'Sky Eco Resto V (2-2-2)';
@@ -62,7 +64,7 @@ export function adimlar() {
         const buyume = (bas < BUYUME[1] && son > BUYUME[0]);
         if (buyume && bayrak('buyumeHaric')) return;
         const qs = Object.values(m);
-        out.push({ grup, ad, i, bitis, r0, r1, occ, fiyat, lux: r.oturma === 'luks', bonus: ek?.bonus ?? bonus, qs, ids: Object.keys(m).map(Number), N: qs.length, buyume, sansur: r1 <= 0.005 });
+        out.push({ grup, ad, i, bitis, r0, r1, occ, fiyat, lux: r.oturma === 'luks', bonus: ek?.bonus ?? bonus, qs, ids: Object.keys(m).map(Number), N: qs.length, buyume, sansur: r1 <= 0.005, yeni: !!ek?.yeni });
       });
     }
   }
@@ -241,5 +243,7 @@ export function rapor() {
     writeFileSync(jsonYol, JSON.stringify(sonuc, null, 1));
   }
 }
+
+export { nm, uydur, fExp, qKirik, sinirla, ort, M1h, M3h, M2h, expOk };
 
 if (import.meta.url === `file://${process.argv[1]}`) rapor();

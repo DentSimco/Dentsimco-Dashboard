@@ -329,7 +329,8 @@ Sınama (Tosuncuk lüks eko restoranı): Köfte'yi çıkarıp 1-1-1 (Süt Q12, L
 Kaynak: kullanıcının gönderdiği Çince şirket profili yazısı (6 ekran görüntüsü) ve yazının bağladığı Tampermonkey betiği
 (gitee.com/lclbb/sc, "SimCompanies餐馆菜单模拟" v5.3, 26 Ekim 2026). Betik bir maliyet / başabaş hesaplayıcısı (simcotools VWAP,
 kategori tüketim çarpanları 2,1 / 1 / 0,9 / 0,8, lüks yemek ve maaş ×0,5, profesyonel maaş ×5). Rating formülü betiğin hiçbir
-sürümünde yok (v20.0 Haziran, v20.2 Ağustos, v5.3 Ekim), yalnız yazıda. Sınama: `node araclar/restoran-cin-formulu.mjs`.
+sürümünde yok (v20.0 Haziran, v20.2 Ağustos, v5.3 Ekim), yalnız yazıda. Sınama: `node araclar/restoran-cin-formulu.mjs --eski` (107 adım; yeni
+117 adımla: Çin formülü olduğu gibi 402,3, ölçek + kayma 261,0, katsayılar serbest 182,8; M3 sabit değerlerle 130,2, yeniden uydurulmuş 122,7).
 
 Yazıdaki formül: hedef = 3·ortQ/12 + 1,5·N/16 + (lüks 0,5) + (profesyonel 2,5 | geçici 1,25) + fiyat puanı + bonus; fiyat puanı
 $96'ya kadar 0,5, sonra $350'de 0'a doğrusal iner; bonus = 0,01 × CMO puanı + 0,02 × satış hızı (rehberle aynı).
@@ -365,6 +366,83 @@ ekonomi 4,82 ± 0,35 → 5,60 / 6,40.
 - Varsayım (sınanmadı): profesyonel etki lüks içinde toplanan +3,9 ise lüks + profesyonelde hedef 10 için ortalama ürün puanı
   ≥ 4,35 − bonus yeter (M3, N 6): bonus 0 ile ~Q5, 0,5 ile ~Q4, 1 ile ~Q3–Q4. Q2–Q4 eğrisi ve profesyonel etkinin biçimi ölçülmedi.
 
+## Yeni döngüler, Dentium Q2 ve Çin çeşit terimi (11 Kasım akşamı)
+
+Kaynak: kullanıcının ekran görüntüleri (QUAL10ECO3 ve QUAL1LUX2 rating geçmişi ile Yönetim ekranı 19:05; Dentium Q2 menüsü ve rating
+geçmişi 20:22) ve "Restaurant rating −0.06 +0.200". Betik: `node araclar/restoran-model-kontrol.mjs`. Ölçüm dosyasına 10 adım eklendi
+(`yeni` işaretli; adım başına menü için `ek.menu` desteği eklendi).
+
+**Eklenen veri**
+- QUAL10ECO3 ve QUAL1LUX2: 9 Kasım 11:27'den sonra 4'er döngü (23:27, 11:27, 23:27, 11:27). Kullanıcı: yalnız son döngü yeni menüyle,
+  öncekiler eski menü (ECO3: M3, LUX2: M2; Q5). Maliyetler ECO3'te bunu doğruluyor: ilk üç döngüde zarar ≈ $221–238 bin (gelir $371–381 bin;
+  M3 Q5 menüsünün 4 Kasım VWAP'ıyla maliyeti ≈ $598 bin), sonuncuda ≈ $114 bin (yeni menünün maliyeti $502.567 = yemek 415.184 + maaş 87.383).
+  LUX2'de son döngünün maliyeti $22.653 (panel $22.564, Q4 menüsü); önceki üç döngüde $20,6–21,1 bin (ikisi kesin): Q5 menüsünden (≈ $23,5 bin) %10–12 ucuz,
+  nedeni bilinmiyor (fiyat düşüşü ya da menü farkı); doğrulanmadı.
+- Yeni menüler: ECO3 (eko, seviye 10, $65): Süt Q8, Kahve tozu Q10, Salata, Samosa, Portakal suyu, Elma suyu Q7. LUX2 (lüks, seviye 1, $75;
+  önceki üç döngüde $85): aynı altı ürün Q4. Her ikisi 6 ürün, bonus 0,83 (Yönetim ekranı yine +0,14 +0,690).
+- Dentium Q2 (eko, seviye 1, $350; Süt, Kahve tozu, Salata, Samosa, Portakal suyu, Elma suyu hepsi Q2): 11 Kas 00:56 0,00 → 0,06 (doluluk %11,61,
+  zarar $2.045); 12:56 0,06 → 0,40 (%14,6, kâr $7.498). Bonus −0,06 + 0,200 = 0,14 (eğitim bitti). Maliyet $42,7–43,6 bin (Q1'e yakın).
+
+**Örnek dışı sınama** (modeller eski 107 adımla uydurulmuş; yeni 10 adım; mükemmel uyumda χ² ≈ 10)
+
+| Model | Toplam | Dentium Q2 (2) | LUX2 eski (3) | LUX2 Q4 (1) | ECO3 eski (3) | ECO3 yeni (1) |
+|---|---|---|---|---|---|---|
+| Araç (Kasım) | 50,9 | 23,9 | 17,0 | 0,2 | 6,3 | 3,6 |
+| M3 (v 0,06, L 1,207) | 17,5 | 9,0 | 4,6 | 0,5 | 2,7 | 0,8 |
+| M2 düz (kırık doğru) | 13,5 | 2,2 | 4,7 | 3,2 | 2,5 | 0,9 |
+| M3-Çin (v 0,09375, L 1,207) | 19,1 | 9,7 | 5,2 | 0,4 | 2,9 | 0,9 |
+| M2-Çin | 12,4 | 2,1 | 3,4 | 3,8 | 2,3 | 0,8 |
+
+- **Dentium Q2 ölçülen hedef 0,77 (0,27 … 1,27)**: Q0 (0,35) ve Q1 (0,10) gibi tabana yakın. Eski M3 Q2 için 2,16 öngörmüştü (z −2,8 ve −1,2),
+  araç 3,14 (−4,1 ve −2,6), M2 düz 1,26 (−1,5 ve +0,1). Q2'de ürün puanı ≈ 0,6–0,7; eski M3'ün (2,0) ve aracın (3,0) çok altında.
+- **Yeni menüler yeni bir çelişki çıkarmadı:** LUX2 Q4 tek adım, ölçülen hedef 6,30 (5,59 … 7,01) (M3-Çin yeniden uydurma 5,56, araç 6,61, M2-Çin 4,89);
+  ECO3 yeni menü 5,13 (4,42 … 5,84) (M3-Çin 5,78, araç 6,46). Tek adımda σ/k ≈ 0,7 olduğu için ayırt etmez; ilerideki döngüler ayırır (aşağıda).
+- Eski menülü ek 3'er döngü: LUX2 Q5 hedefi 7 adımda 6,06 (5,79 … 6,33) (önceki 4 adımda 6,45 ± 0,36; M3-Çin 6,30), ECO3 (M3 menüsü Q5)
+  5,14 (4,87 … 5,41) (önceki 5,32 ± 0,36; M3-Çin 5,22).
+
+**Yeniden uydurma (117 adım, L 1,207 sabit)**
+
+| Model | χ² | f(Q0) | f(Q1) | f(Q2) | f(Q3) | f(Q4) | f(Q5) | f(Q6) | f(Q8) | f(Q12) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| M3 serbest (v 0,052, L 1,202) | 122,7 | −9,14 | −2,84 | 0,67 | 2,63 | 3,73 | 4,34 | 4,68 | 4,98 | 5,10 |
+| **M3-Çin: −9,82 + 14,95 (1 − e^(−Q/1,66)), v 0,09375** | 123,5 | −9,82 | −3,07 | 0,63 | 2,66 | 3,78 | 4,39 | 4,72 | 5,01 | 5,12 |
+| M2 düz serbest (Qn 2,5, v 0,021, L 1,165) | 123,1 | −13,44 | −6,40 | 0,63 | 4,21 | 4,34 | 4,46 | 4,59 | 4,84 | 5,34 |
+| M2-Çin (Qn 5,5, eğim 1,06 / 0,04) | 125,6 | −1,03 | 0,03 | 1,09 | 2,16 | 3,22 | 4,29 | 4,84 | 4,93 | 5,11 |
+| Araç | 293,4 | 0,40 | 1,89 | 3,00 | 3,83 | 4,45 | 4,92 | 5,27 | 5,72 | 6,11 |
+| Doygun (26 hedef) | 104,1 | | | | | | | | | |
+
+- 117 adımda diğer modeller: doğrusal kalite 263,6 · oyuncunun ölçeği (Q başına 0,5) 267,9 · araç 293,4 (içbükey modeller 122,7–123,5, doygun 104,1);
+  Dentium Q2 doğrusal reddi güçlendirdi (Δχ² 107 adımda 130, şimdi 141).
+- Gruba göre χ² (M3-Çin / araç / doygun): Sky 40,6 / 42,0 / 35,1 · ANARCHY 35,1 / 63,2 / 26,4 · Dentium Q0 3,7 / 2,8 / 2,5 · Dentium Q1 9,6 / 65,8 / 9,4 ·
+  Dentium Q2 1,2 / 23,9 / 1,2 · QUAL 33,4 / 95,7 / 29,5. Araç Q1 ve Q2'de tabandaki restoranı ≈ 2 puan fazla tahmin ediyor (hedef 2,03 ve 3,14; ölçülen 0,10 ve 0,77).
+- Yeniden uydurmada içbükey üstel eğri Q2'yi karşılıyor (0,63–0,67); eğim Q1 → Q2 3,7, Q2 → Q3 2,0, Q3 → Q4 1,1, Q4 → Q5 0,6: S yok. Q0 ve Q1'in
+  −9,8 ve −3,1 değerleri uzantıdır (rating 0'da sınırlı; veri yalnız hedefin ≈ 0 ya da altında olduğunu söylüyor).
+- **Q3 hâlâ ölçülmedi ve modeller orada ayrışıyor:** üstel eğri 2,66, eşik benzeri kırık doğru 4,21, eski doğrusal 2,16, araç 3,83. Dentium'da Q3 menüsü
+  (bonus 0,14, başlangıç 0,40) 2 döngüde: üstel 1,05 → 1,53; eşik 1,47 → 2,25; araç 1,36 → 2,07 (2. döngüde fark 0,7; iki döngü birlikte ≈ 3σ). Q4 ayırt etmez (3,78 / 4,34).
+
+**Çeşit terimi (yazıdaki 1,5 × N/16 = 0,09375 / ürün, toplanan)**
+- **Tutarlı:** eski 107 adımda v serbestken 112,7, v = 0,09375 ve L = 1,207 sabitken 113,1 (Δχ² +0,4; 2 parametre az). Bütün adımlarda v profili
+  (Δχ², üstel eğri): −0,05: 4,1 · 0: 1,0 · 0,03: 0,1 · 0,06: 0,0 · **0,094: 0,8** · 0,12: 2,1 · 0,15: 4,3 · 0,20: 9,8. Kırık doğru ailesinde profil düz
+  (0: 0,0 · 0,094: 1,3 · 0,20: 3,2).
+- **Doğrulanmadı:** v = 0 da Δχ² ≤ 1,0 içinde. Çeşit bilgisi yalnız Sky'ın N = 3 (1-1-1) menüsünden geliyor (N = 3 → 6: ölçülen +0,18 ± 0,16, yazı
+  +0,28). Destekleyen: rehberdeki "rating bonus for having a variety of items", 16 yemek (6 + 6 + 4) üzerinden temiz bir 1,5 üst sınır, 2022-08-16 kaydı.
+  Karar (kullanıcı): tutarlı olduğu için modele alındı; v = 0,09375 sabit, lüks ×1,207 ve profesyonel +3,94 (lüks içinde; lüks sonrası +4,75) değişmedi.
+  Doğrudan sınama: aynı şirkette 1-1-1 ile 4-4-4 (N 3 → 12: +0,84 eko, +1,02 lüks).
+
+**Model (önerilen, "M4" = M3-Çin):** hedef = (ort f(Q) + 0,09375 × (N − 6) + bonus [+ 3,94 profesyonel]) × (lüks 1,207 | eko 1), 0–10 ile sınırlı;
+f(Q) = −9,82 + 14,95 (1 − e^(−Q/1,66)); r' = r + 0,27 (hedef − r). Aracın Kasım modeline göre fark (eko, N 6, bonus 1,0): Q3 −1,16 · Q4 −0,67 · Q5 −0,52 ·
+Q6 −0,54 · Q8 −0,71 · Q10 −0,88 · Q12 −0,99; lüks bonus 1,0: Q5 7,40 → 6,51, Q12 8,89 → 7,39. Güvenilir aralıklar: Q2 (2 döngü), Q5–Q12; Q3–Q4 eğri
+biçimine bağlı; Q0–Q1 uzantı; karışık menülerde "ürün puanlarının ortalaması" düşük kalitede sınanmadı (Q0–Q3 ürünle Q12 ürün karışımı yok).
+Araç henüz değişmedi.
+
+**İleri tahmin** (menü sürerse; şimdiki rating → sonraki 3 döngü; araç / M3-Çin / M2-Çin):
+- ECO3 yeni menü (5,02): araç 5,41 → 5,69 → 5,90 · M3-Çin 5,23 → 5,38 → 5,49 · M2-Çin 5,22 → 5,36 → 5,47.
+- LUX2 Q4 (6,22): araç 6,32 → 6,40 → 6,46 · M3-Çin 6,04 → 5,91 → 5,82 · M2-Çin 5,86 → 5,60 → 5,41. Üç döngüde araç ile M3-Çin 0,64 ayrılır (adım adım ≈ 2,5σ):
+  temiz bir Q4 sınaması (aynı menü, 2-2-2 ucuz altı ürün).
+- Dentium Q2 (0,40): araç 1,14 → 1,68 → 2,08 · M3-Çin 0,50 → 0,57 → 0,63.
+- $350 stratejisi (Çin yazısı): Dentium'da 10 döngüde ortalama doluluk %8,0 (gelir ≈ $28 bin), döngü maliyeti $42,7–43,6 bin → beklenen ≈ −$15 bin/döngü;
+  başabaş %12,2–12,5; başabaşın (%12,2) üstünde yalnız 2 döngü (%14,65 ve %14,6; %12,11 hemen altında).
+
 ## Açık sorular
 
 - Rating dilimi: gazetenin ortalaması (7,59–7,74) dilim değerini merkez sayınca (7,65) tutuyor, alt sınır sayınca (8,0) tutmuyor; doluluk gözlemleri ise alt sınırı (tam sayı kısmı) destekliyor. Araç tam sayı kısmını kullanıyor.
@@ -376,3 +454,7 @@ ekonomi 4,82 ± 0,35 → 5,60 / 6,40.
   kategoride bir ürün) zaten dolu. Elimizdeki ölçümlerin hepsinde üç kategori de dolu. Sınama: (1) aynı şirkette 1-1-1 ile 2-2-2
   (etki var mı); (2) varsa düşük kalitede aynı karşılaştırma (Q1'de çarpan +0,21, ayrı puan +0,58). Boş kategorili menü
   sınanamaz: rehbere göre her kategoride en az bir ürün zorunlu (en küçük menü 1-1-1).
+- Q3 eğri biçimi (11 Kasım akşamı): üstel 2,66 · eşik benzeri kırık doğru 4,21 · doğrusal 2,16 · araç 3,83. Dentium'da Q3 menüsü (2-2-2, $350, bonus 0,14) 2 döngüde ayırır.
+- LUX2 Q4 (6 ürün, lüks, $75) ve ECO3 karışık menüsü (Q8, Q10, Q7 × 4): menü değişmeden 3 döngü daha; beklenen yollar yukarıdaki "İleri tahmin" bölümünde.
+- Çeşit 0,09375 / ürün doğrulanmadı (Δχ² ≤ 1 içinde 0 … 0,12); doğrudan sınama 1-1-1 ile 4-4-4.
+- LUX2'nin 9–11 Kasım döngülerinde yemek maliyeti Q5 menüsünün beklentisinden %10–12 düşük: menü gerçekten M2 (Q5) miydi?
