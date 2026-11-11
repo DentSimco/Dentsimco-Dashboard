@@ -324,6 +324,47 @@ olmadan kalan fark (lüks öncesi, ağırlıklı ortalama):
 Sınama (Tosuncuk lüks eko restoranı): Köfte'yi çıkarıp 1-1-1 (Süt Q12, Lazanya Q12, Kokteyl Q8). Bugün 4,82. Açık şirkete
 özgüyse ~4,74; 1-2-1 dengesizliğindense ~6,33; Lazanya'dansa (payı 1/4 → 1/3) ~4,22.
 
+## Çinli oyuncunun formülü (11 Kasım): tgw / TGW-groupp
+
+Kaynak: kullanıcının gönderdiği Çince şirket profili yazısı (6 ekran görüntüsü) ve yazının bağladığı Tampermonkey betiği
+(gitee.com/lclbb/sc, "SimCompanies餐馆菜单模拟" v5.3, 26 Ekim 2026). Betik bir maliyet / başabaş hesaplayıcısı (simcotools VWAP,
+kategori tüketim çarpanları 2,1 / 1 / 0,9 / 0,8, lüks yemek ve maaş ×0,5, profesyonel maaş ×5). Rating formülü betiğin hiçbir
+sürümünde yok (v20.0 Haziran, v20.2 Ağustos, v5.3 Ekim), yalnız yazıda. Sınama: `node araclar/restoran-cin-formulu.mjs`.
+
+Yazıdaki formül: hedef = 3·ortQ/12 + 1,5·N/16 + (lüks 0,5) + (profesyonel 2,5 | geçici 1,25) + fiyat puanı + bonus; fiyat puanı
+$96'ya kadar 0,5, sonra $350'de 0'a doğrusal iner; bonus = 0,01 × CMO puanı + 0,02 × satış hızı (rehberle aynı).
+
+| Model (107 adım, k 0,27, σ 0,19) | Serbest parametre | χ² |
+|---|---|---|
+| Doygun | 23 | 97,0 |
+| M3 (önerimiz) | 5 | 112,7 |
+| M3 + fiyat puanı (γ serbest) | 6 | 110,9 (γ −3 … +3 arası Δχ² 0,8–3,5: ölçülemiyor) |
+| Çin formülü olduğu gibi | 0 | 377,5 |
+| Çin formülü × α + β | 2 | 248,5 (α 1,74, β −2,25) |
+| Çin biçimi, bütün katsayılar serbest | 5 | 176,1 (Q başına 0,36, ürün başına −0,14, lüks +1,25) |
+
+Restoran başına (ölçülen → Çin / M3): Sky 1-1-1 Q6 5,2–6,0 → 4,5–4,6 / 5,58 · ANARCHY 5,88 → 5,18 / 5,85 · Dentium Q0 0,35 →
+2,45 / 0,00 · Dentium Q1 0,10 → 2,20 / 0,17 · QUAL eko Q11–12 5,95 → 6,06 / 5,94 · QUAL lüks Q11–12 7,05 → 6,56 / 7,17 · QUAL eko Q5
+4,9–5,3 → 4,39 / 5,26 · QUAL lüks Q5 6,4–6,5 → 4,89 / 6,35 · Tosuncuk (bonus 0,35 varsayımı) profesyonel 9,57 ± 0,41 → 6,85 / 10,
+ekonomi 4,82 ± 0,35 → 5,60 / 6,40.
+
+- **Elendi:** doğrusal kalite (Q başına 0,25) ve eksi bölge yok: Q0–Q1'i ~2 puan fazla, Q5–Q7'yi 0,5–1,5 eksik tahmin ediyor.
+  Lüks +0,5 (ölçülen ×1,21 ≈ +1,0 … +1,3), profesyonel +1,25 (ölçülen +4,75 ± 0,54; 6σ). Yazarın kendi ekranı da formülle
+  çelişiyor: eko 2-2-2 Q0–Q2, $350, 0,00 → 0,10; formül ilk döngüde 0,52–0,83 bekler (2,2–3,8σ), M3 0,00–0,16.
+- **Uyuşan:** bonus biçimi (rehber, Patrik); ürün başına çeşit 0,094 (bizim 0,06, 1σ 0 … 0,12); seviyeden bağımsızlık; tüketim
+  çarpanları; "çift lüks (lüks + profesyonel) 6×Q6 → 10" gözlemi (kendi formülü 5,6–6,6 verir, M3 + profesyonel ≥ 10).
+- Fiyat puanı (en çok 0,5): verimizde yalnız Dentium $350 ve Sky V $150 adımları var; ne doğrulanıyor ne dışlanıyor.
+- Ekonomi görselleri: lüks için yemek ve maaş yarıya indirilmemiş (P豪华 = (F + 12C)/(500D), kâr formülünde 2F ve 14.076);
+  "lüks her ölçekte zarar eder" sonucu bu hatadan. Betik Ağustos 2026'dan (v20.2) beri ikisini de yarıya indiriyor. Doğru hâliyle
+  aynı fiyatta başabaş doluluğu lüks ve ekoda aynı, lüksün kâr tavanı yarı.
+- **$350 + en ucuz yemek:** yazarın döngüsü %14,06 doluluk, maliyet $31.830 (yemek 24.585, maaş 7.245; başabaş %9,1), kâr +$13.027.
+  Dentium'un aynı ürünlerle (Q1) denemesi: 8 döngüde doluluk %0–14,65, ortalama %6,75 ± 1,8; döngü maliyeti ~$42.700 (başabaş
+  %12,2; maaş 13.803, tabanın (7.038) ~2 katı, büyük olasılıkla yönetim gideri), 5 döngüde toplam −$119.318. Ortalama %6,75 ile yazarın maliyetiyle de döngü başına
+  ~−$8.000: strateji ancak döngü maliyeti (seviye 1 eko) ~$23.600'ün altındaysa beklenen değerde kârlı. Gazete ısı haritası
+  ($330–350, rating 0–1) %10–11 diyor; tek döngü kanıt değil.
+- Varsayım (sınanmadı): profesyonel etki lüks içinde toplanan +3,9 ise lüks + profesyonelde hedef 10 için ortalama ürün puanı
+  ≥ 4,35 − bonus yeter (M3, N 6): bonus 0 ile ~Q5, 0,5 ile ~Q4, 1 ile ~Q3–Q4. Q2–Q4 eğrisi ve profesyonel etkinin biçimi ölçülmedi.
+
 ## Açık sorular
 
 - Rating dilimi: gazetenin ortalaması (7,59–7,74) dilim değerini merkez sayınca (7,65) tutuyor, alt sınır sayınca (8,0) tutmuyor; doluluk gözlemleri ise alt sınırı (tam sayı kısmı) destekliyor. Araç tam sayı kısmını kullanıyor.
