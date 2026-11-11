@@ -36,12 +36,14 @@ test('Sekmeler: Rating, Maliyet, Menü Seç (Harita yok, Menü Seç Maliyet\'in 
 });
 
 section('Çizim');
-test('Rating: Q0–Q12 eğrisi ve değerleri; ürün seçici, düğme, açıklama, fiyat ve maliyet yok', () => {
+test('Rating: Q0–Q12 tablosu (grafik yok); eksi puanlar sayısız; ürün seçici, düğme, açıklama, fiyat ve maliyet yok', () => {
   const h = A.ratingHtml();
   ok(h.includes('<h2 id="h-an-rt">Rating</h2>') && h.includes('aria-label="Kaliteye göre rating"'));
-  eq((h.match(/<circle/g) || []).length, 13); eq((h.match(/<polyline/g) || []).length, 2); ok(h.includes('>eksi<') && (h.match(/>↓</g) || []).length === 2, 'eksi noktalar sayısız'); ok(!h.includes('-20,3') && !h.includes('-5,7'), 'eksi sayı gösterilmez');
-  ok(h.includes('>4,3<') && h.includes('>Q12<'));
-  ok(!/<select|<button|data-an|data-act|\$|Borsa|geçmiş|Yorum|ur-note|ur-sub|<table|Harita|Grafik/i.test(h), 'ürün seçimi, açıklama ya da fiyat görünüyor');
+  ok(h.includes('<table') && !h.includes('<svg') && !h.includes('<polyline'), 'tablo olmalı, grafik olmamalı');
+  eq((h.match(/<tr>/g) || []).length, 14);
+  eq((h.match(/>eksi</g) || []).length, 2); ok(!h.includes('-20,3') && !h.includes('-5,7'), 'eksi sayı gösterilmez');
+  ok(h.includes('>4,34<') && h.includes('>Q12<') && h.includes('>0,21<'));
+  ok(!/<select|<button|data-an|data-act|\$|Borsa|geçmiş|Yorum|ur-note|ur-sub|Harita|Grafik/i.test(h), 'ürün seçimi, açıklama ya da fiyat görünüyor');
 });
 test('Maliyet: hücreler düz tutar (düğme yok), mavi en ucuz, çarpan ve oturma düğmeleri', () => {
   const h = A.maliyetHtml({ carpan: 2, tip: 'eko' }, marketOf);
