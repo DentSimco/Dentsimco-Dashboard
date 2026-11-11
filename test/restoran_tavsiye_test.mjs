@@ -158,7 +158,7 @@ test('Her ürüne ayrı kalite: kalite ucuza yükselen ürüne verilir', () => {
   const diger = [x, y].find((u) => u.id !== 117);
   ok(k117.q >= diger.q && k117.q > 0, 'ucuza yükselen ürüne kalite verilmedi');
 });
-test('Lüks: adet yarıya iner, rating × 1,207; aynı hedef daha ucuz', () => {
+test('Lüks: adet yarıya iner, rating × 1,25; aynı hedef daha ucuz', () => {
   const g = { seviye: 1, cesit: { salata: 2, ana: 2, icecek: 2 }, bonus: 1, hedef: 5 };
   const e = T.menuOner(marketOf, { ...g, tip: 'eko' });
   const l = T.menuOner(marketOf, { ...g, tip: 'luks' });

@@ -11,7 +11,7 @@ export const UPDATES = [
   {
     date: '11 Kasım 2026',
     items: [
-      'Perakende › Restoran: rating modeli güncellendi (11 Kasım ölçümleri). Kalite puanı artık içbükey ve eksiye inebilir: Q2 yaklaşık 0,2, Q5 4,1, Q12 4,3; Q0 ve Q1 eksi (Rating sekmesinde sayısız, \'eksi\' bandında). Çeşit ayrı ve toplanan: ürün başına +0,09375. Lüks çarpanı 1,207, profesyonel personel +3,94. Yönetici bonusu kalite puanından bağımsız eklenir. Menü Seç, Isı Haritası ve gizli Tavsiye bu modele geçti; hedefler eskisinden düşüktür (eko menü bonussuz en çok yaklaşık 5,1 + çeşit).',
+      'Perakende › Restoran: rating modeli güncellendi (11 Kasım ölçümleri). Kalite puanı artık içbükey ve eksiye inebilir: Q2 yaklaşık 0,2, Q5 4,1, Q12 4,3; Q0 ve Q1 eksi (Rating sekmesinde sayısız, \'eksi\' bandında). Çeşit ayrı ve toplanan: ürün başına +0,09375. Lüks çarpanı 1,25, profesyonel personel +3,94. Yönetici bonusu kalite puanından bağımsız eklenir. Menü Seç, Isı Haritası ve gizli Tavsiye bu modele geçti; hedefler eskisinden düşüktür (eko menü bonussuz en çok yaklaşık 5,1 + çeşit).',
     ],
   },
   {

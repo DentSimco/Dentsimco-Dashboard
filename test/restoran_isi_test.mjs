@@ -98,16 +98,16 @@ test('maliyet = ürün tutarları toplamı; her kategoriden en az bir ürün; ü
   const say = R.kategoriSayilari(m.urunler.map((u) => u.id)); ok(say.salata >= 1 && say.ana >= 1 && say.icecek >= 1, 'kategoriler');
   eq(new Set(m.urunler.map((u) => u.id)).size, m.urunler.length);
 });
-test('bonus eğriyi kaydırır: eko\'da hedef − b, lüks\'te hedef − 1,207·b bonussuz menüyle aynı maliyet (kesin eşdeğerlik)', () => {
+test('bonus eğriyi kaydırır: eko\'da hedef − b, lüks\'te hedef − 1,25·b bonussuz menüyle aynı maliyet (kesin eşdeğerlik)', () => {
   for (const b of [0.25, 0.5, 1, 1.5]) for (const h of [3, 4, 4.5, 5]) {
     const e = IH.enUcuzMenu(cephe, h, b), e0 = IH.enUcuzMenu(cephe, h - b, 0);
     eq(e == null, e0 == null, `eko ${h} ${b}`); if (e) near(e.maliyet, e0.maliyet, 1e-6, `eko ${h} ${b}`);
-    const l = IH.enUcuzMenu(cepheL, h, b), l0 = IH.enUcuzMenu(cepheL, h - 1.207 * b, 0);
+    const l = IH.enUcuzMenu(cepheL, h, b), l0 = IH.enUcuzMenu(cepheL, h - 1.25 * b, 0);
     eq(l == null, l0 == null, `lüks ${h} ${b}`); if (l) near(l.maliyet, l0.maliyet, 1e-6, `lüks ${h} ${b}`);
   }
 });
 test('egriDizini: bonus ve oturmaya göre; negatif dizin 0\'a sıkışır', () => {
-  eq(IH.egriDizini('eko', 0, 7.5), 1500); eq(IH.egriDizini('eko', 1, 7.5), 1300); eq(IH.egriDizini('luks', 1, 7.5), Math.ceil((7.5 - 1.207) / 0.005 - 1e-9)); eq(IH.egriDizini('eko', 9, 3), 0); eq(IH.egriDizini('eko', 0.83, 7.5), 1334);
+  eq(IH.egriDizini('eko', 0, 7.5), 1500); eq(IH.egriDizini('eko', 1, 7.5), 1300); eq(IH.egriDizini('luks', 1, 7.5), Math.ceil((7.5 - 1.25) / 0.005 - 1e-9)); eq(IH.egriDizini('eko', 9, 3), 0); eq(IH.egriDizini('eko', 0.83, 7.5), 1334);
 });
 test('Menü Seç ile aynı sonuç: seçilen çeşit dağılımında sekmenin menuSec\'i aynı maliyeti verir', () => {
   for (const [h, b, tip, c] of [[4.5, 0, 'eko', cephe], [4.5, 1, 'eko', cephe], [5.5, 0.5, 'luks', cepheL]]) {

@@ -17,7 +17,7 @@
 //   maaş      hesap-restoran.js donguMaasi: saatlikMaasSeviye (bina katsayısı × ortalama maaş × (1 + yönetim gideri)) × 12 saat,
 //             lüks ×0,5, profesyonel çalışan ×5. Yönetim gideri ve rating bonusu şirketten (Yönetim, Kurulum, Perakende) gelir.
 //
-// Rating bonusu menünün puanına doğrudan eklendiği için maliyet eğrisi bonusa göre kayar: eko'da hedef − b, lüks'te hedef − 1,207·b
+// Rating bonusu menünün puanına doğrudan eklendiği için maliyet eğrisi bonusa göre kayar: eko'da hedef − b, lüks'te hedef − 1,25·b
 // ile aynı menü seçilir (rating = (puan ortalaması × çeşit + b) × oturma). Bu yüzden eğri bonussuz bir kez hesaplanır.
 //
 // Rating 10 dilimi: rating hedefe asimptotik yaklaştığından bu dilime ancak hedef 10'un üstündeyken girilir; dilim merkezi 10,25 alınır.
@@ -176,7 +176,7 @@ export function egriDegeri(egri, i) {
   return fin(c) ? c : null;
 }
 
-// Eğri dizini: rating bonusu eko'da hedefi b, lüks'te 1,207·b kadar düşürür (menu rating = (puan + çeşit + b) × oturma). Yukarı yuvarlanır:
+// Eğri dizini: rating bonusu eko'da hedefi b, lüks'te 1,25·b kadar düşürür (menu rating = (puan + çeşit + b) × oturma). Yukarı yuvarlanır:
 // maliyet hedefe ulaşan menüden ucuz çıkmaz (en çok bir ızgara adımı = 0,005 rating kadar, birkaç yüz $ üstten sapar).
 export function egriDizini(tip, bonus, hedef) {
   const kayma = (Number(bonus) || 0) * (tip === 'luks' ? MODEL.luks : 1);

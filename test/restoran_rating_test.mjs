@@ -28,7 +28,7 @@ test('Kalite puanı q(Q): içbükey, Q0–Q1 eksi, Q2 ≈ 0,2, Q5 ≈ 4,1, Q12 �
 test('Çeşit puanı 1,5 × N/16: ürün başına +0,09375, toplanan', () => {
   near(M.cesitPuani(16), 1.5, 1e-12); near(M.cesitPuani(9) - M.cesitPuani(8), 0.09375, 1e-12); near(M.cesitPuani(6), 0.5625, 1e-12);
 });
-test('Lüks çarpanı 1,207, eko 1', () => { eq([M.tipCarpani('eko'), M.tipCarpani('luks'), M.tipCarpani(undefined)], [1, 1.207, 1]); });
+test('Lüks çarpanı 1,25, eko 1', () => { eq([M.tipCarpani('eko'), M.tipCarpani('luks'), M.tipCarpani(undefined)], [1, 1.25, 1]); });
 test('Geçersiz girdi null döner; hedef 0–10 arasında kalır', () => {
   eq(M.menuRatingi({ puanOrt: NaN, urunSayisi: 6 }), null);
   eq(M.menuRatingi({ puanOrt: 4, urunSayisi: 0 }), null);
@@ -37,14 +37,14 @@ test('Geçersiz girdi null döner; hedef 0–10 arasında kalır', () => {
 });
 test('Hedef = (puan + çeşit + bonus [+ profesyonel]) × oturma', () => {
   near(M.menuRatingi({ puanOrt: 4, urunSayisi: 6, bonus: 1 }), 4 + 0.5625 + 1, 1e-12);
-  near(M.menuRatingi({ puanOrt: 4, urunSayisi: 6, bonus: 1, tip: 'luks' }), (4 + 0.5625 + 1) * 1.207, 1e-12);
-  near(M.menuRatingi({ puanOrt: 2, urunSayisi: 6, bonus: 1, tip: 'luks', profesyonel: true }), (2 + 0.5625 + 1 + 3.94) * 1.207, 1e-12);
+  near(M.menuRatingi({ puanOrt: 4, urunSayisi: 6, bonus: 1, tip: 'luks' }), (4 + 0.5625 + 1) * 1.25, 1e-12);
+  near(M.menuRatingi({ puanOrt: 2, urunSayisi: 6, bonus: 1, tip: 'luks', profesyonel: true }), (2 + 0.5625 + 1 + 3.94) * 1.25, 1e-12);
 });
 test('Aralık: orta ± hata; lüksde hata çarpanla büyür; 0–10 dışına taşmaz', () => {
   const a = M.ratingAraligi({ puanOrt: 4, urunSayisi: 6, bonus: 0.5 });
   near(a.ust - a.alt, 2 * M.MODEL.hata, 1e-9); near((a.alt + a.ust) / 2, a.orta, 1e-9);
   const l = M.ratingAraligi({ puanOrt: 4, urunSayisi: 6, bonus: 0.5, tip: 'luks' });
-  near(l.ust - l.alt, 2 * M.MODEL.hata * 1.207, 1e-9);
+  near(l.ust - l.alt, 2 * M.MODEL.hata * 1.25, 1e-9);
   eq(M.ratingAraligi({ puanOrt: 4.3, urunSayisi: 16, bonus: 5 }).ust, 10);
 });
 test('Hedefe yaklaşma: %90 için döngü sayısı (k 0,27)', () => {

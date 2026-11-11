@@ -13,14 +13,14 @@
 //         Q0–Q1 yalnız "hedef sıfır ya da altı" bilgisi veriyor (rating 0'da sınırlı), değerleri eğrinin uzantısı [ölçüm]
 //   N     menüdeki toplam ürün sayısı; çeşit puanı 1,5 × N/16 = ürün başına 0,09375, toplanan [Çin oyuncu formülü; verimizle tutarlı, doğrulanmadı]
 //   B     yönetici bonusu: 0,01 × etkin CMO iletişimi + 0,02 × ekip dışı satış hızı % [oyun]; eksi olabilir
-//   L     oturma çarpanı: eko 1, lüks 1,207 [ölçüm; oyun: lüks ratingi çarpar]
+//   L     oturma çarpanı: eko 1, lüks 1,25 [karar; ölçüm 1,17–1,25 (en iyi 1,207); oyun: lüks ratingi çarpar]
 //   Profesyonel personel lüks çarpanının içinde +3,94 (lüks sonrası +4,75) [ölçüm]; maaş ×5
 //   Rating her döngü hedefin %27'si kadar yaklaşır: r' = r + 0,27 × (hedef − r), gürültü ≈ ±0,19 [ölçüm]
 // Ürün maliyetinin, bina seviyesinin ve doluluğun ratinge etkisi görülmedi. Araştırma: araclar/veri/restoran-rating-notlari.md
 
 export const MODEL = {
   cesitEk: 1.5 / 16, // çeşit: ürün başına
-  luks: 1.207, // lüks oturma çarpanı
+  luks: 1.25, // lüks oturma çarpanı
   profesyonel: 3.94, // profesyonel personel (lüks içinde, toplanan)
   yaklasma: 0.27, // döngü başına hedefe yaklaşma oranı k
   hata: 0.5, // tahmin aralığının yarı genişliği (rating puanı; eko) ≈ modelin ölçümlerle uyum hatası
