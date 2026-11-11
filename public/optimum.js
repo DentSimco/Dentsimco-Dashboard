@@ -103,7 +103,7 @@ async function veriYukle(r, options) {
     if (v != null && v !== '' && Number.isFinite(Number(v))) doygunluk[id] = Number(v);
   }
   const ri = get('retail');
-  Object.assign(doygunluk, R.parseSaturation(Array.isArray(ri) ? ri : ri?.items ?? ri));
+  Object.assign(doygunluk, R.parseSaturation(Array.isArray(ri) ? ri : ri?.items ?? ri), R.parseQualitySaturation(Array.isArray(ri) ? ri : ri?.items ?? ri));
   const qw = Number(core.RETAIL_MODELING_QUALITY_WEIGHT);
   return { data, mevsimlik: O.mevsimlikUrunler(raw, core), ozet: get('ozet'), live: get('live'), pk: { saturation: doygunluk, qualityWeight: Number.isFinite(qw) && core.RETAIL_MODELING_QUALITY_WEIGHT != null ? qw : undefined } };
 }

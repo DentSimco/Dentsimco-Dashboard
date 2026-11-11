@@ -27,7 +27,7 @@
 //
 // Çağıranın verdiği bağlam (ctx):
 // {
-//   saturation: { [ürün]: s },            // parseSaturation(retailInfo) çıktısı
+//   saturation: { [ürün]: s, 'ürün@q': s },  // parseSaturation + parseQualitySaturation(retailInfo); saturationOf ile okunur
 //   weather: (ürün) => 1,                 // yalnız dondurmada 1'den farklı (w_c)
 //   bonusPct: 0,                          // b: harita + yönetici satış bonusu, yüzde (retailBonusPct ile)
 //   adminNet: 0,                          // net yönetim gideri (kesir); hesap.js adminInfo().net
@@ -89,6 +89,29 @@ export function parseSaturation(info) {
     }
   }
   return out;
+}
+
+/**
+ * resources-retail-info içindeki kaliteye özel kayıtlardan {"ürün@kalite": doygunluk}. Bugün yalnız Ağaç (150) kalite başına
+ * ayrı kayıt taşır (Q0–Q12, her birinin doygunluğu ve ortalama fiyatı ayrı). parseSaturation çıktısıyla aynı haritaya eklenir;
+ * okurken saturationOf kullanılır.
+ */
+export function parseQualitySaturation(info) {
+  const list = Array.isArray(info) ? info : Object.values(info || {});
+  const out = {};
+  for (const e of list) {
+    if (!e || typeof e !== 'object' || e.quality == null || !has(e.quality)) continue;
+    const id = Number(e.dbLetter ?? e.id ?? e.kind);
+    if (!Number.isFinite(id) || !has(e.saturation)) continue;
+    out[`${id}@${clampQuality(e.quality)}`] = Number(e.saturation);
+  }
+  return out;
+}
+
+/** Ürünün o kalitedeki doygunluğu: kaliteye özel kayıt varsa o, yoksa ürünün (Q0) doygunluğu. */
+export function saturationOf(map, productId, quality = 0) {
+  const own = map?.[`${Number(productId)}@${clampQuality(quality)}`];
+  return has(own) ? Number(own) : map?.[productId];
 }
 
 /** Hava API'sinden (api/v2/weather/{realm}/) ürün çarpanı gerekirse çağıran verir; yoksa 1. */
@@ -185,7 +208,7 @@ export function rankBuilding({ letter, economy = 0, ctx, quality = 0, costFor = 
   for (const productId of buildingProducts(letter, economy)) {
     const model = getModel(economy, productId, quality);
     const r = calcProduct({
-      economy, productId, quality, saturation: ctx.saturation?.[productId], cAct: costFor(productId, quality),
+      economy, productId, quality, saturation: saturationOf(ctx.saturation, productId, quality), cAct: costFor(productId, quality),
       bonusPct: ctx.bonusPct, weather: ctx.weather ? ctx.weather(productId) : 1, qualityWeight: ctx.qualityWeight, wage: S(model),
     });
     if (!r.ok) continue;
@@ -232,7 +255,7 @@ export function evaluateRetail(setup, ctx) {
       });
       if (wageLevelHour == null) wageLevelHour = wage;
       const r = calcProduct({
-        economy, productId, quality, saturation: ctx.saturation?.[productId], cAct: ln.cost, price: ln.price, strictCost: true,
+        economy, productId, quality, saturation: saturationOf(ctx.saturation, productId, quality), cAct: ln.cost, price: ln.price, strictCost: true,
         bonusPct: ctx.bonusPct, weather: ctx.weather ? ctx.weather(productId) : 1, qualityWeight: ctx.qualityWeight, wage,
       });
       if (!r.ok) { lines.push({ ...ln, product: productId, quality, levels, ok: false, reason: r.reason, needsCost: !!r.needsCost }); continue; }
