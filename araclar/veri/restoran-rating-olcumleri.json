@@ -84,8 +84,10 @@
           "menu": { "117": 2, "119": 2, "142": 2, "143": 2, "124": 2, "125": 2 },
           "gider": { "yemek": 29300, "maas": 13620, "not": "döngü başına; gelir − kâr = $42.664 (11 Kas 00:56) ve $43.593 (12:56); maaş $1.135/sa × 12; yönetim gideri 253 (Q1'de maaş $13.803)." },
           "adim": [["2026-11-11 00:56", 0.00, 0.06, 11.61, 350, { "yeni": true, "not": "Q2 menüsünün ilk döngüsü; başlangıç 0,00 alt sınırında. Yorum: 'This place is an insult to food'." }],
-            ["2026-11-11 12:56", 0.06, 0.40, 14.6, 350, { "yeni": true, "not": "Yorum: 'My child makes a better meal than this place!'" }]],
-          "kar": { "not": "döngü kârı, 11 Kas 00:56 ve 12:56 bitişli adımlar", "deger": [-2045, 7498] },
+            ["2026-11-11 12:56", 0.06, 0.40, 14.6, 350, { "yeni": true, "not": "Yorum: 'My child makes a better meal than this place!'" }],
+            ["2026-11-12 00:56", 0.40, 0.64, 8.79, 350, { "yeni": true, "not": "Yorum: 'I didn't like the waitress flirting with my husband'; gelir $30.753, zarar $12.840" }],
+            ["2026-11-12 12:56", 0.64, 0.51, 2.31, 350, { "yeni": true, "not": "Yorum: 'Awful, just awful'; gelir $8.095, zarar $35.545 (13:24 ekranı, 27 dk önce)" }]],
+          "kar": { "not": "döngü kârı, 11 Kas 00:56 – 12 Kas 12:56 bitişli adımlar", "deger": [-2045, 7498, -12840, -35545] },
           "stok": "11 Kasım 20:22: Süt 6.824 (288), Kahve 1.915 (97), Salata 80 (10), Samosa 88 (11), Portakal 563.824 (144), Elma 353.113 (129). Hepsi 'low quality'.",
           "not": "Kullanıcı: son 2 döngü Q2 menüsüyle, Yönetim 'Restoran derecesi −0,06 +0,200' (bonus 0,14, eğitim bitti). Başlangıç 0,00'dan 0,06 ve 0,40." }
       ]

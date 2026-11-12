@@ -479,3 +479,6 @@ Araçta tam geçiş (11 Kasım gece): restoran-rating.js yeniden yazıldı (M4; 
 MODEL_KASIM → MODEL; k 0,27). Gizli Tavsiye de puan toplamıyla arıyor (gerekliPuanToplami, PUAN_OLCEK 50; Q0–Q1 aranmaz). Bina kartlarındaki hedef çıkarımı k 0,27 ve
 gürültü 0,19 kullanıyor (hesap-restoran.js RATING). Rating grafiği: Q0–Q1 sayısız, "eksi" bandında (↓). Eski ölçüm testlerindeki 17 D ve 17 G satırları (Q3, 9 ve 16 ürün,
 hedef 7,3 ve 9,6) çıkarıldı: yeni modelle (5,3 civarı) uyuşmuyorlar, kaynakları belirsiz tek adımlardı.
+
+Dentium Q2, 4 döngü (12 Kasım 13:24): 0,00 → 0,06 → 0,40 → 0,64 → 0,51 (doluluk %11,61 / 14,6 / 8,79 / 2,31; kâr −2.045 / +7.498 / −12.840 / −35.545). Bonus 0,14 varsayıldı.
+Ölçülen hedef 0,75 (0,39 … 1,10); mevcut model (Q2 kalite puanı 0,21 + çeşit 0,5625 + bonus 0,14) 0,91 öngörüyor: 4 adımda χ² 2,7, her adım ≤ 1,1σ. Q2 değeri doğrulandı; model değişmedi.
