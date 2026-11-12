@@ -1,5 +1,5 @@
 // DentSimco — sinyal kartı gösterim sınamaları. Çalıştırma: node test/sinyal_test.mjs
-import { signalCard, hedefFiyat, tazelik, sinyalsizMi, SINYALSIZ } from '../public/sinyal.js';
+import { signalCard, hedefFiyat, tazelik, sinyalsizMi, SINYALSIZ, marjTemizle, MARJ_TAVAN } from '../public/sinyal.js';
 
 const results = [];
 function test(name, fn) { try { fn(); results.push({ name, ok: true }); } catch (e) { results.push({ name, ok: false, error: e.message }); } }
@@ -100,6 +100,14 @@ test('Enerji, Su ve Tohum Q12 için sinyal yok: eski belgede kayıt kalsa da kar
 });
 test('Sinyalsiz liste: Enerji, Su, Tohum Q12 (sinyal/motor_test.mjs aynı listeyi sınar; iki klasör ayrı çalıştığı için birbirini içe aktaramaz)', () => {
   ok([...SINYALSIZ].sort().join() === '1:12,2:12,66:12', 'liste değişmemeli');
+});
+
+test('Gerçekçi olmayan marj (≥ %1.000, örn. Ağaç Q12 +%4.830.255) listelere girmez; makul marj kalır', () => {
+  const d = marjTemizle({ urun: { 150: { 12: { m: 4830255 }, 0: { m: 1697 } }, 134: { 12: { m: 80 }, 3: { m: -38 } } }, kalite: { 150: [12, 4830255, 1697], 134: [12, 80, 20] } });
+  ok(d.urun[150][12].m === undefined && d.urun[150][0].m === undefined, 'aşırı marj silinmeli');
+  ok(d.urun[134][12].m === 80 && d.urun[134][3].m === -38, 'makul marj kalmalı');
+  ok(!d.kalite[150] && d.kalite[134], 'aşırı marjlı kalite önerisi silinmeli');
+  ok(MARJ_TAVAN === 1000 && marjTemizle(null) === null);
 });
 
 const failed = results.filter((r) => !r.ok);
