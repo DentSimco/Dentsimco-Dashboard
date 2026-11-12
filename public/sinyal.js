@@ -28,9 +28,8 @@ const pctInt = (x) => (x == null || !Number.isFinite(x) ? '—' : `${x > 0 ? '+'
 
 // ---- Veri ----
 
-// Gerçekçi olmayan net marj (≥ %1.000): borsa fiyatı maliyetle ilgisiz (örn. Ağaç Q12 ≈ $1,2 milyon, maliyeti birkaç dolar).
-// Gerçek bir piyasada böyle marj kalmaz; fiyat ya seyrek işlemden ya da maliyet modelinin kapsamadığı bir kısıttandır.
-// Bu değerler "Kâr" listesini doldurup gerçek fırsatları gömdüğü için gösterilmez. Motor da aynı eşikle eler (sinyal/motor.mjs).
+// Emniyet: gerçekçi olmayan net marj (≥ %1.000) gösterilmez. Gerçek piyasada böyle marj kalmaz; olsa olsa maliyet modelinde eksik
+// vardır (Ağaç'ta böyleydi: Q kalitesi 10 × 2^Q birim birikim ister, motor birikimCarpani ile bunu hesaplar). Motor da aynı eşikle eler.
 export const MARJ_TAVAN = 1000;
 export function marjTemizle(doc) {
   if (!doc || typeof doc !== 'object') return doc;

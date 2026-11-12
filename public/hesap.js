@@ -67,6 +67,16 @@ const groupBy = (list, pick) => {
   return map;
 };
 export const qualityKey = (product, quality) => `${product}:${quality}`;
+
+// Birikimli üretim (Ağaç): oyunun kendi kodunda (productionMechanic.type === 'accumulator') Q kalitesinde ürün,
+// baseValue × 2^Q birim birikim ister (oyun: Dmr(baseValue, kalite) = baseValue × 2**kalite). Bina saatte perHour birim biriktirir,
+// yani Q0 Ağaç ≈ 1 saat, Q12 ≈ 4.096 saat (seviye 1'de). Girdi (su) ve maaş her birikim birimine düşer; kalite arttıkça ürün başına
+// hem süre hem maliyet 2 katına çıkar. Diğer ürünlerde çarpan 1'dir.
+export function accumBase(mechanic) {
+  const b = Number(mechanic?.accumulatorParameters?.baseValue);
+  return mechanic?.type === 'accumulator' && b > 0 ? b : null;
+}
+export const accumFactor = (p, quality) => (p?.accum > 0 ? p.accum * 2 ** clampQuality(quality) : 1);
 export const clampQuality = (quality) => clamp(Math.floor(num(quality, 0)), 0, MAX_QUALITY);
 const toLevel = (level) => Math.max(0, Math.floor(num(level, 0)));
 
@@ -130,6 +140,7 @@ export function normalizeData({ products = {}, buildings = {}, core = {}, modifi
       baseSalary: p.baseSalary != null ? num(p.baseSalary, 0) : modifier != null ? modifier * averageSalary : 0,
       transport: num(p.transportNeeded ?? p.transport, 0),
       research: !!p.research,
+      accum: accumBase(p.mechanic),
       noQuality: !!p.noQuality,
       tradable: p.exchangeTradable !== false,
     };
@@ -289,13 +300,14 @@ export function buildingRate(building, setup, data, admin, now = Date.now(), eff
   // (totalAdminLevels binanın seviyesini her durumda sayar), yani diğer binaların maaşını ve kârını etkiler.
   const construction = !!b.construction;
   if (construction) notes.push('İnşaatta: üretmez ve maaş ödemez; seviyesi yönetim giderine girer');
-  const perLevelHour = ok && !construction ? (p.perHour * phaseFactor * (1 + eventPct / 100) * efficiency * teamFactor) / (1 - bonus) : 0;
+  const inputMult = accumFactor(p, quality); // Ağaç: kalite başına birikim birimi (diğerlerinde 1)
+  const perLevelHour = ok && !construction ? (p.perHour * phaseFactor * (1 + eventPct / 100) * efficiency * teamFactor) / (1 - bonus) / inputMult : 0;
   const hourly = perLevelHour * level;
   const wageHour = construction ? 0 : p.baseSalary * level * (robots ? ROBOT_WAGE_FACTOR : 1); // olay, bonus ve verimlilik maaşı değiştirmez
   const unitWorker = hourly > 0 ? wageHour / hourly : null;
   return {
     id: b.id, ok, type, category, product: p.id, quality, level, count: 1, levels: level, robots, eventPct, efficiency, bonus, phaseFactor, teamFactor, construction,
-    perLevelHour, hourly, daily: hourly * HOURS_PER_DAY,
+    perLevelHour, hourly, daily: hourly * HOURS_PER_DAY, inputMult,
     wageHour,
     wageDayGross: wageHour * HOURS_PER_DAY * (1 + admin.gross),
     wageDayNet: wageHour * HOURS_PER_DAY * (1 + admin.net),
@@ -533,7 +545,7 @@ export function evaluatePlan(setup = {}, data, market = null, { now = Date.now()
       return;
     }
     for (const [input, amount] of data.products[r.product].inputs) {
-      demands.push({ row: index, product: input, minQuality: minInputQuality(r.quality), qty: amount * r.daily, own: [], buyQty: 0 });
+      demands.push({ row: index, product: input, minQuality: minInputQuality(r.quality), qty: amount * (r.inputMult || 1) * r.daily, own: [], buyQty: 0 });
     }
   });
 

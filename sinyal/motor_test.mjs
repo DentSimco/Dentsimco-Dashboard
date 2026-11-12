@@ -1,7 +1,7 @@
 // DentSimco — Sinyal motoru sınamaları (yapay veri; Firestore'a bağlanmaz)
 // Çalıştırma: node sinyal/motor_test.mjs   (sinyal.yml her çalışmada önce bunu koşar; hata varsa sinyal yazılmaz)
 
-import { SINYALSIZ, hesapla, seriKur, sezonFazi, addDays, diffDays, sonDeger, likitMi, canliHaritasi, titresimOnle, titresimUygula, gunIciOlay, main } from './motor.mjs';
+import { SINYALSIZ, birikimCarpani, hesapla, seriKur, sezonFazi, addDays, diffDays, sonDeger, likitMi, canliHaritasi, titresimOnle, titresimUygula, gunIciOlay, main } from './motor.mjs';
 
 let pass = 0;
 let fail = 0;
@@ -336,6 +336,13 @@ ok(res7.sinyal.karne.canli7?.b1?.[0] === 1, 'karne: canli7 özeti yayında');
     ok(r.gecmis.items[id]?.[12] === undefined, `ürün ${id} Q12 karneye girmez`);
   }
   ok(SINYALSIZ.size === 3 && SINYALSIZ.has('1:12') && SINYALSIZ.has('2:12') && SINYALSIZ.has('66:12'), 'sinyalsiz liste');
+}
+
+{
+  // Ağaç: oyun kodundaki birikim mekaniği (Dmr = baseValue × 2^kalite); diğer ürünlerde çarpan 1
+  const agac = { mechanic: { type: 'accumulator', accumulatorParameters: { baseValue: 10, max: 81910, amountPerLevel: 1, bonusPerQuality: 4 } } };
+  ok(birikimCarpani(agac, 0) === 10 && birikimCarpani(agac, 1) === 20 && birikimCarpani(agac, 12) === 40960, 'Ağaç Q0=10, Q1=20, Q12=40.960 birim');
+  ok(birikimCarpani({}, 12) === 1 && birikimCarpani(null, 3) === 1 && birikimCarpani({ mechanic: { type: 'standard' } }, 5) === 1, 'diğer ürünlerde çarpan 1');
 }
 
 console.log(`${pass}/${pass + fail} test geçti`);

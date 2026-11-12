@@ -429,10 +429,20 @@ function girdiFiyati(S, j, q, t) {
   return NaN;
 }
 
+// Birikimli üretim (Ağaç, productionMechanic.type === 'accumulator'): oyun kodunda Q kalitesi baseValue × 2^Q birim birikim ister
+// (Dmr(baseValue, kalite) = baseValue × 2**kalite). Girdi ve maaş her birikim birimine düşer; bu yüzden Q kalitesinde ürün başına
+// maliyet baseValue × 2^Q katıdır (Q0 ≈ 10 birim, Q12 ≈ 40.960 birim). Diğer ürünlerde çarpan 1.
+// public/hesap.js accumFactor ile aynı kural (iki klasör ayrı çalıştığı için içe aktarılamaz; sınamalar ikisini de denetler).
+export function birikimCarpani(info, q) {
+  const base = Number(info?.mechanic?.accumulatorParameters?.baseValue);
+  return info?.mechanic?.type === 'accumulator' && base > 0 ? base * 2 ** Math.max(0, Math.min(12, Math.floor(Number(q) || 0))) : 1;
+}
+
 function maliyetSerisi(S, info, q, from, to) {
   const out = new Float64Array(to + 1).fill(NaN);
   const ciplak = new Float64Array(to + 1).fill(NaN);
   const w0 = info.baseSalary / info.perHour;
+  const k = birikimCarpani(info, q);
   for (let t = Math.max(0, from); t <= to; t++) {
     let m = 0, ok = true;
     for (const [j, a] of info.inputs) {
@@ -440,7 +450,7 @@ function maliyetSerisi(S, info, q, from, to) {
       if (!(pj > 0)) { ok = false; break; }
       m += a * pj;
     }
-    if (ok) { out[t] = m + M.lambda * w0; ciplak[t] = m + w0; }
+    if (ok) { out[t] = k * (m + M.lambda * w0); ciplak[t] = k * (m + w0); }
   }
   return { C: out, Cc: ciplak };
 }
@@ -611,7 +621,7 @@ export function urunSinyali(ctx, id, q) {
 
   // Piyasa üretim marjı (tipik üretici maliyetiyle, komisyon ve taşıma sonrası)
   const tasima = (Number(info.transportNeeded ?? info.transport) || 0) * (tasimaFiyati || 0);
-  // Gerçekçi olmayan marj (≥ %1.000, örn. Ağaç Q12) yazılmaz: fiyat maliyetle ilgisiz, listeleri bozar (public/sinyal.js MARJ_TAVAN)
+  // Emniyet: gerçekçi olmayan marj (≥ %1.000) yazılmaz (kök neden Ağaç'ın birikim maliyetiydi, birikimCarpani; bu yalnız yeni bir model hatasına karşı) — public/sinyal.js MARJ_TAVAN
   if (C2 > 0) { const m = Math.round(((p * (1 - M.komisyon) - tasima) / C2 - 1) * 100); if (Math.abs(m) < 1000) entry.m = m; }
 
   // Tüccar: yalnız pahalı ürünlerde ve yüksek beklentide (komisyon + taşıma burada önemli)
