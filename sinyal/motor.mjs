@@ -611,7 +611,8 @@ export function urunSinyali(ctx, id, q) {
 
   // Piyasa üretim marjı (tipik üretici maliyetiyle, komisyon ve taşıma sonrası)
   const tasima = (Number(info.transportNeeded ?? info.transport) || 0) * (tasimaFiyati || 0);
-  if (C2 > 0) entry.m = Math.round(((p * (1 - M.komisyon) - tasima) / C2 - 1) * 100);
+  // Gerçekçi olmayan marj (≥ %1.000, örn. Ağaç Q12) yazılmaz: fiyat maliyetle ilgisiz, listeleri bozar (public/sinyal.js MARJ_TAVAN)
+  if (C2 > 0) { const m = Math.round(((p * (1 - M.komisyon) - tasima) / C2 - 1) * 100); if (Math.abs(m) < 1000) entry.m = m; }
 
   // Tüccar: yalnız pahalı ürünlerde ve yüksek beklentide (komisyon + taşıma burada önemli)
   entry.t = p >= M.tuccarFiyat && e14 >= M.tuccarEsik + tasima / p ? 1 : 0;
@@ -667,6 +668,7 @@ function kaliteOnerisi(S, info, Ti, tasima) {
   }
   if (sonuc.length < 2) return null;
   const best = sonuc.reduce((x, y) => (y[1] > x[1] ? y : x));
+  if (best[1] * 100 >= 1000) return null; // gerçekçi olmayan marj (≥ %1.000): öneri verilmez
   const q0 = sonuc.find((x) => x[0] === 0);
   return [best[0], Math.round(best[1] * 100), q0 ? Math.round(q0[1] * 100) : null];
 }
