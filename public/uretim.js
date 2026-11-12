@@ -1004,7 +1004,7 @@ export function mountUretim(root, { realm = 0 } = {}) {
       ${kv('Saatlik üretim', perHour(row.hourly), 'c-price', true)}${kv('Günlük üretim', smart(row.daily))}
       ${kv('Maaş/saat (yönetim dahil)', money(row.wageHour * (1 + admin.net)))}
       ${kv('İşçi birim maliyeti', money(row.unitWorker, 2))}${kv('Yönetici birim maliyeti', money(row.unitAdmin, 2))}
-      ${p.inputs.length ? `<div class="ur-hr"></div>${p.inputs.map(([id, amount]) => kv(`Günlük girdi: ${esc(nameOf(id))} Q${minQ}+`, smart(amount * row.daily))).join('')}` : ''}
+      ${p.inputs.length ? `<div class="ur-hr"></div>${p.inputs.map(([id, amount]) => kv(`Günlük girdi: ${esc(nameOf(id))} Q${minQ}+`, smart(amount * (row.inputMult || 1) * row.daily))).join('')}` : ''}
       ${row.notes.map((n) => `<p class="ur-note">${esc(n)}</p>`).join('')}</div>`;
   }
   function sheetBuilding() {

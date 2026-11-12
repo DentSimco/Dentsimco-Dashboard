@@ -437,6 +437,25 @@ test('Kalitesiz üründe kayıtlı kalite yok sayılır (hep Q0); kaliteli ürü
   eq(r.rows.map((x) => x.quality), [0, 0, 5]);
 });
 
+// ---- Birikimli üretim (Ağaç): Q kalitesi 10 × 2^Q birim birikim ister (oyun kodu: Dmr = baseValue × 2**kalite) ----
+test('accumBase: yalnız accumulator mekaniği; kalite başına 2 katı', () => {
+  const mech = { type: 'accumulator', accumulatorParameters: { baseValue: 10, max: 81910, amountPerLevel: 1, bonusPerQuality: 4 } };
+  eq([H.accumBase(mech), H.accumBase({ type: 'standard' }), H.accumBase(undefined)], [10, null, null]);
+  const agac = { accum: 10 };
+  eq([H.accumFactor(agac, 0), H.accumFactor(agac, 1), H.accumFactor(agac, 12), H.accumFactor({ accum: null }, 12), H.accumFactor(undefined, 3)], [10, 20, 40960, 1, 1]);
+});
+test('Ağaç benzeri ürün: Q kalitesinde saatlik adet 2^Q kat azalır, günlük girdi (su) ve maaş aynı kalır', () => {
+  const base = DATA.products[124];
+  const D = { ...DATA, products: { ...DATA.products, 124: { ...base, accum: 10 } } };
+  const r0 = plan({ buildings: [{ product: 124, level: 1, quality: 0 }] }, {}, D).rows[0];
+  const r3 = plan({ buildings: [{ product: 124, level: 1, quality: 3 }] }, {}, D).rows[0];
+  const norm = plan({ buildings: [{ product: 124, level: 1, quality: 3 }] }).rows[0];
+  near(r0.hourly * 10, norm.hourly, 6, 'Q0 = normal üretimin onda biri');
+  near(r3.hourly * 8, r0.hourly, 9, 'Q3 = Q0 / 8');
+  eq([r0.inputMult, r3.inputMult, norm.inputMult], [10, 80, 1]);
+  near(r3.wageHour, r0.wageHour, 6, 'maaş saatlik, kaliteyle değişmez');
+});
+
 // ---- Üretim hızı: elle girilen bonus + rekreasyon (kullanıcı örnekleri) ----
 test('Üretim hızı: elle %9, rekreasyon 0 → toplam %9', () => {
   near(H.speedBonus({ extraBonusPct: 9, recreation: { park: 0, temple: 0, lake: 0 } }, 'production'), 0.09, 6);
