@@ -44,7 +44,7 @@ export function adimlar() {
     const pk = p.ad.split(' ')[0];
     for (const r of p.restoranlar) {
       const menu = typeof r.menu === 'string' ? p.menuler[r.menu] : r.menu || p.ortakMenu;
-      const grup = pk === 'Dentium' ? (r.ad.includes('Q2') ? 'Dentium Q2' : r.ad.includes('Q1') ? 'Dentium Q1' : 'Dentium Q0') : pk;
+      const grup = pk === 'Dentium' ? (r.ad.includes('Q3') ? 'Dentium Q3' : r.ad.includes('Q2') ? 'Dentium Q2' : r.ad.includes('Q1') ? 'Dentium Q1' : 'Dentium Q0') : pk;
       if (grup === 'Dentium Q1' && bayrak('q1haric')) continue;
       if (grup === 'Dentium Q2' && bayrak('q2haric')) continue;
       if (p.bonus?.toplam == null) continue; // bonusu bilinmeyen oyuncu (Tosuncuk) modellere girmez

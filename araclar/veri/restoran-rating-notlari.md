@@ -482,3 +482,18 @@ hedef 7,3 ve 9,6) çıkarıldı: yeni modelle (5,3 civarı) uyuşmuyorlar, kayna
 
 Dentium Q2, 4 döngü (12 Kasım 13:24): 0,00 → 0,06 → 0,40 → 0,64 → 0,51 (doluluk %11,61 / 14,6 / 8,79 / 2,31; kâr −2.045 / +7.498 / −12.840 / −35.545). Bonus 0,14 varsayıldı.
 Ölçülen hedef 0,75 (0,39 … 1,10); mevcut model (Q2 kalite puanı 0,21 + çeşit 0,5625 + bonus 0,14) 0,91 öngörüyor: 4 adımda χ² 2,7, her adım ≤ 1,1σ. Q2 değeri doğrulandı; model değişmedi.
+
+## Dentium Q3, 6 döngü (16 Kasım 02:36) ve Q2'nin son döngüsü
+
+Kullanıcı: Q3, 2-2-2 (Süt, Kahve tozu, Salata, Samosa, Portakal suyu, Elma suyu), eko, seviye 1; Yönetim 14 Kasım "Restoran derecesi −0,06 +0,210" (bonus 0,15).
+Menü zamanı maliyetten çıkarıldı: gelir − kâr 13 Kasım 12:56, 14 Kasım 00:56 ve 12:56, 16 Kasım 00:56 döngülerinde hep $47.452 (Q2'de $42,7–43,6 bin); Q3 13 Kasım 12:56 döngüsünde
+başladı. 13 Kasım 00:56 döngüsü (0,51 → 0,64, %9,58, maliyet $43.595) hâlâ Q2.
+Adımlar (bitiş, rating, doluluk, fiyat): 13 Kas 12:56 0,64 → 0,78 (%4,93, $350) · 14 Kas 00:56 → 0,83 (%7,29, $350) · 14 Kas 12:56 → 0,90 (%0, $350) ·
+15 Kas 00:56 → 1,38 (%14,96, $350) · 15 Kas 12:56 → 0,86 (%8,84, $60) · 16 Kas 00:56 → 0,98 (%32,28, $60).
+- **Q3 ölçülen hedef 1,11 (0,82 … 1,40)** (6 adım; ilk üç adımda 1,07; $350 dört adımda 1,47). Ürün puanı q(3) ≈ 0,4 ± 0,3 (bonus 0,15 ve çeşit 0,5625 çıkarıldı).
+  Araçtaki model Q3 için 3,36 öngörüyor: 6 adımda χ² 72 (her adım −1 … −5,5σ). Q3, Q0–Q2 ile aynı tabanda; Q2 hedefi 5 adımda 0,79 (0,48 … 1,11), model Q2'yi tutturuyor.
+- **Eğri Q3'te tutmuyor:** Q3 dahil, L 1,25 ile yeniden uydurmada üstel eğri 147,5 (Q4 serbest) ve 157,7 (Q4 sabit): q(Q3) 0,4, q(Q4) 2,7–3,5, q(Q5) 3,7–4,05. Q0–Q3 sabit düzey + Q4 üstü üstel 145,7 (en iyi; düzey ≈ −0,1, q(4) 1,0).
+  Q0–Q3 hep tabana yakın, Q3'ten Q5'e dik çıkış: S'ye yakın. Q4 tek lüks döngüye (6,19 → 6,22) dayanıyor; Q4 eko testi eğrinin biçimini belirler (Q3 q 0,4 ve Q5 3,7'ye göre doğrusal Q4 ≈ 2,0; sabit Q4 3,8 için hedef ≈ 4,5).
+- Açıklanamayan: 15 Kas 00:56 +0,48 ve 15 Kas 12:56 −0,51 (fiyat $350 → $60; adım gürültüsü 0,19'un 3σ üstü). 14 Kasım 12:56'da %0 doluluk, gelir $0: rating +0,07 (doluluk ratinge etki etmiyor, yine).
+Bonus: 14 Kasım yönetici ekranı CMO eğitimde değil (CFO eğitimde); bonus 0,15 (+0,210 − 0,06).
+Araç ve model değişmedi.
