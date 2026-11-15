@@ -132,6 +132,8 @@ export function satirlar({ data, oz, fiyat, mevsimlik, faz = 0, kurulum, satisFi
       const f = tumKaliteler ? sat(p.id, q) : k && sat(p.id, q);
       if (!f) continue;
       if (q > 0 && q0 != null && f.p > UC_FIYAT_KAT * q0) continue;
+      const F = H.accumFactor(p, q); // Ağaç: Q kalitesi baseValue × 2^Q birim birikim ister (süre ve girdi ona göre artar)
+      const phq = ph / F;
       let girdi = 0;
       let girdiOrt = false;
       let eksik = false;
@@ -144,16 +146,16 @@ export function satirlar({ data, oz, fiyat, mevsimlik, faz = 0, kurulum, satisFi
           if (x && (!en || x.p < en.p)) en = x;
         }
         if (!en) { eksik = true; break; }
-        girdi += miktar * en.p;
+        girdi += miktar * en.p * F;
         if (en.kaynak !== 'canli') girdiOrt = true;
       }
       if (eksik) continue;
       const net = H.saleUnitNet(f.p, p.transport, tp, 'exchange');
-      const pazar = k ? k[1] / 24 / ph : 0;
+      const pazar = k ? k[1] / 24 / phq : 0;
       if (pazar < 1 && !tumKaliteler) continue; // bütün pazar bir seviyeyi bile beslemiyor
       out.push({
-        id: p.id, q, harf: p.building, fiyat: f.p, kaynak: f.kaynak, lt: f.lt, gun: oz.islemGunu(p.id, q), girdi, girdiOrt, net, ph,
-        a: ph * net, b: ph * girdi, g: ph * (net - girdi), w: p.baseSalary, adet: k ? k[1] : 0, gun: k ? k[2] : 0, pazar,
+        id: p.id, q, harf: p.building, fiyat: f.p, kaynak: f.kaynak, lt: f.lt, gun: oz.islemGunu(p.id, q), girdi, girdiOrt, net, ph: phq,
+        a: phq * net, b: phq * girdi, g: phq * (net - girdi), w: p.baseSalary, adet: k ? k[1] : 0, gun: k ? k[2] : 0, pazar,
       });
     }
   }

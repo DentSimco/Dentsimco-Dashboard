@@ -28,10 +28,25 @@ const pctInt = (x) => (x == null || !Number.isFinite(x) ? '—' : `${x > 0 ? '+'
 
 // ---- Veri ----
 
+// Emniyet: gerçekçi olmayan net marj (≥ %1.000) gösterilmez. Gerçek piyasada böyle marj kalmaz; olsa olsa maliyet modelinde eksik
+// vardır (Ağaç'ta böyleydi: Q kalitesi 10 × 2^Q birim birikim ister, motor birikimCarpani ile bunu hesaplar). Motor da aynı eşikle eler.
+export const MARJ_TAVAN = 1000;
+export function marjTemizle(doc) {
+  if (!doc || typeof doc !== 'object') return doc;
+  const kotu = (x) => typeof x === 'number' && Math.abs(x) >= MARJ_TAVAN;
+  for (const qs of Object.values(doc.urun || {})) {
+    for (const e of Object.values(qs || {})) if (e && kotu(e.m)) delete e.m;
+  }
+  for (const [id, k] of Object.entries(doc.kalite || {})) {
+    if (Array.isArray(k) && (kotu(k[1]) || kotu(k[2]))) delete doc.kalite[id];
+  }
+  return doc;
+}
+
 export async function loadSignals(r, options) {
   const path = PATHS.meta(`sinyal_r${r}`);
   const docs = await readDocs([path], options);
-  return dataField(docs.get(path)) || null;
+  return marjTemizle(dataField(docs.get(path)) || null);
 }
 
 function readPrefs() {
