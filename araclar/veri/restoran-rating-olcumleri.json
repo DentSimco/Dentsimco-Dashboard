@@ -63,7 +63,7 @@
       "ad": "Dentium",
       "bonus": { "ekipDisiSatisHizi": -3, "etkinIletisim": 20, "toplam": 0.14, "not": "Yönetim ekranı: Restoran derecesi −0,06 +0,200 (eksi satış hızı eksi bonus verir)." },
       "bonusSonra": { "tarih": "2026-11-08 10:25", "ekipDisiSatisHizi": -3, "etkinIletisim": 3, "toplam": -0.03, "not": "Restoran derecesi −0,06 +0,030; ekranda 'bazı yöneticiler eğitim görüyor, yerleşiyor veya grev yapıyor'. Ne zaman değiştiği bilinmiyor; Q1 döngüleri için −0,03 varsayıldı. 10 Kasım 12:54'te yine −0,06 +0,030: CMO ve CMO stajyeri eğitimde, 10 Kasım 23:03'te bitiyor. Kullanıcıya göre son 2 Q1 döngüsünde (10 Kas 00:56 ve 12:56 bitişli) yönetici eğitimdeydi; öncekiler için bonus 0,14 mü −0,03 mü belli değil." },
-      "ekranlar": ["2026-11-06 03:08 (tarih tahmini)", "2026-11-08 10:25", "2026-11-10 12:53–13:00", "2026-11-11 20:22 (Q2 menüsü, rating geçmişi, Yönetim: Restoran derecesi −0,06 +0,200)", "2026-11-14 12:58 (rating geçmişi, Yönetim −0,06 +0,210)", "2026-11-16 02:36 (Q3 menüsü, rating geçmişi)"],
+      "ekranlar": ["2026-11-06 03:08 (tarih tahmini)", "2026-11-08 10:25", "2026-11-10 12:53–13:00", "2026-11-11 20:22 (Q2 menüsü, rating geçmişi, Yönetim: Restoran derecesi −0,06 +0,200)", "2026-11-14 12:58 (rating geçmişi, Yönetim −0,06 +0,210)", "2026-11-16 02:36 (Q3 menüsü, rating geçmişi)", "2026-11-19 02:27 (Q3 + Süt Q4 menüsü, rating geçmişi, Yönetim −0,06 +0,310)"],
       "restoranlar": [
         { "ad": "Q0 restoranı", "seviye": 1, "oturma": "eko", "personel": "eko",
           "menu": { "117": 0, "119": 0, "142": 0, "143": 0, "124": 0, "125": 0 },
@@ -101,6 +101,14 @@
             ["2026-11-15 12:56", 1.38, 0.86, 8.84, 60, { "yeni": true, "bonus": 0.15, "not": "fiyat $60'a indi; −0,51 düşüş; gelir $5.301, zarar $42.329" }],
             ["2026-11-16 00:56", 0.86, 0.98, 32.28, 60, { "yeni": true, "bonus": 0.15, "not": "$60; gelir $19.370, zarar $28.082" }]],
           "not": "Kullanıcı: Q3, 2-2-2 (Süt, Kahve tozu, Salata, Samosa, Portakal suyu, Elma suyu). Yönetim 14 Kasım: Restoran derecesi −0,06 +0,210 (bonus 0,15). Maaş 14 Kasım $1.150/sa, 16 Kasım $1.121/sa." }
+        ,{ "ad": "Q0 restoranı (Q3 dönemi, Süt Q4)", "seviye": 1, "oturma": "eko", "personel": "eko",
+          "menu": { "117": 4, "119": 3, "142": 3, "143": 3, "124": 3, "125": 3 },
+          "gider": { "yemek": 33900, "maas": 13644, "not": "döngü başına gelir − kâr = $47.890 (17 Kas 12:56), $47.917 (18 Kas 00:56), $47.735 (12:56), $47.764 (19 Kas 00:56); maaş $1.137/sa × 12." },
+          "adim": [["2026-11-17 12:56", 1.30, 1.41, 15.22, 300, { "yeni": true, "bonus": 0.25 }],
+            ["2026-11-18 00:56", 1.41, 1.86, 6.42, 300, { "yeni": true, "bonus": 0.25 }],
+            ["2026-11-18 12:56", 1.86, 2.07, 0, 300, { "yeni": true, "bonus": 0.25, "not": "doluluk %0, gelir $0, zarar $47.735" }],
+            ["2026-11-19 00:56", 2.07, 2.05, 2.03, 300, { "yeni": true, "bonus": 0.25 }]],
+          "not": "Kullanıcı (19 Kas 02:27): Süt Q4 (ekranda Q3 görünüyor, sonradan değiştirilmiş), geri kalan beş ürün Q3; son 4 döngü. Yönetim: Restoran derecesi −0,06 +0,310 (bonus 0,25; 14 Kasım'da 0,15: CMO değişti ve eğitimde; hangi döngüden itibaren olduğu bilinmiyor). 16 Kas 12:56 ve 17 Kas 00:56 döngüleri görülmedi (rating 0,98 → 1,30). Fiyat $300." }
       ]
     },
     {

@@ -497,3 +497,15 @@ Adımlar (bitiş, rating, doluluk, fiyat): 13 Kas 12:56 0,64 → 0,78 (%4,93, $3
 - Açıklanamayan: 15 Kas 00:56 +0,48 ve 15 Kas 12:56 −0,51 (fiyat $350 → $60; adım gürültüsü 0,19'un 3σ üstü). 14 Kasım 12:56'da %0 doluluk, gelir $0: rating +0,07 (doluluk ratinge etki etmiyor, yine).
 Bonus: 14 Kasım yönetici ekranı CMO eğitimde değil (CFO eğitimde); bonus 0,15 (+0,210 − 0,06).
 Araç ve model değişmedi.
+
+## Dentium: Süt Q4 + beş ürün Q3, 4 döngü (19 Kasım 02:27)
+
+Kullanıcı: Süt Q4 (ekranda Q3 görünüyor; sonradan değişmiş), kalan beş ürün Q3; $300. Maliyet (gelir − kâr) $47,7–47,9 bin: Q3 menüsüyle uyumlu (Süt Q4 +$160).
+Adımlar: 17 Kas 12:56 1,30 → 1,41 (%15,22) · 18 Kas 00:56 → 1,86 (%6,42) · 18 Kas 12:56 → 2,07 (%0) · 19 Kas 00:56 → 2,05 (%2,03). 16 Kas 12:56 ve 17 Kas 00:56 döngüleri görülmedi (0,98 → 1,30).
+Yönetim: Restoran derecesi −0,06 +0,310 → bonus 0,25 (14 Kasım'da 0,15; CMO değişmiş/eğitimde; hangi döngüden beri olduğu bilinmiyor, 0,15 ile sonuç değişmiyor).
+- **Ölçülen hedef 2,35 (2,00 … 2,71)**; hepsi Q3 menüsünde 1,11 (0,82 … 1,40). Bir ürünü Q3 → Q4 yapmak (ve bonus +0,10) hedefi +1,24 ± 0,4 artırdı.
+- **Model (araçtaki) bu menü için 3,63 öngörüyor:** 4 adımda χ² 15,4; Q3 grubunun 10 adımında 87,5. Q3 ve Q4 ürün puanı serbest bırakılınca 10 adımda χ² 13: q(3) ≈ 0,4 (0,0 … 0,8), q(4) ≥ 3,8 (serbestte 7,3; yani Q3 → Q4 sıçraması en az 3,4).
+  Q3 profili (Δχ²): q3 0,0: 2,3 · 0,4: 0 · 0,8: 2,0 · 1,2: 7,8 · 2,0: 31 · 2,65 (model): 64.
+- Bağımsız üç ölçüm aynı şeyi söylüyor: Q0–Q3 tabana yakın (q ≈ 0 … 0,4), Q4'ten itibaren yüksek (LUX2 Q4 3,8 ± 0,6; Dentium karışık menü). Eğri Q3 ile Q4 arasında basamağa yakın; üstel içbükey eğri bunu veremiyor.
+- Alternatif/ek açıklama: Süt en çok tüketilen ürün (288 / 679 adet, %42); ürün puanları tüketim payıyla ağırlıklanıyorsa tek ürünün Q3 → Q4'ü +1,14'ü verir (q4 − q3 ≈ 2,7). Düz ortalamada 6,9 ± 2,8 gerekir. Sınama: Süt Q3, diğerleri Q4 ya da hepsi Q4.
+Araç ve model değişmedi.
